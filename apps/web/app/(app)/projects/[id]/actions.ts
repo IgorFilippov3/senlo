@@ -96,7 +96,7 @@ export async function deleteTemplate(
     const numericProjectId = parseInt(projectId, 10);
     await getAuthorizedProject(numericProjectId);
 
-    logger.debug("Deleting template", { projectId, templateId });
+    logger.debug("Deleting template", { projectId: numericProjectId, templateId });
     
     await templateRepo.delete(templateId);
     revalidatePath(`/projects/${projectId}`);
@@ -143,10 +143,14 @@ export async function updateProject(
 
 export async function listProviders(): Promise<ActionResult<EmailProvider[]>> {
   const session = await auth();
-  if (!session?.user?.id) return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
+  if (!session?.user?.id) {
+    return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
+  }
+
+  const userId = session.user.id;
 
   return withErrorHandling(async () => {
-    logger.debug("Listing all email providers for project", { userId: session.user?.id });
-    return await providerRepo.findByUser(session.user?.id!);
+    logger.debug("Listing all email providers for project", { userId });
+    return await providerRepo.findByUser(userId);
   });
 }

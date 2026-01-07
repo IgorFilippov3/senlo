@@ -119,3 +119,8 @@
   height: 6px;
   border-radius: 3px;
 }
+
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

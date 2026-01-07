@@ -9,6 +9,16 @@ export type RenderContext = {
   responsiveStyles: string[];
 };
 
+export interface RenderOptions {
+  data?: {
+    contact?: Record<string, any>;
+    project?: { name: string };
+    campaign?: { name: string; id?: number };
+    unsubscribeUrl?: string;
+    custom?: Record<string, any>;
+  };
+}
+
 
 
 

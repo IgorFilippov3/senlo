@@ -21,7 +21,7 @@ interface DropdownMenuProps {
 }
 
 const DropdownMenu = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Root>,
+  React.ElementRef<typeof DropdownMenuPrimitive.Content>,
   DropdownMenuProps
 >(({ trigger, items, className, align = "end", side = "bottom" }, ref) => {
   return (

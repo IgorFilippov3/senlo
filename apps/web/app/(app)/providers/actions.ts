@@ -13,12 +13,14 @@ const providerRepo = new EmailProviderRepository();
 export async function listProviders(): Promise<ActionResult<EmailProvider[]>> {
   const session = await auth();
   if (!session?.user?.id) {
-    return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
+    return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
   }
 
+  const userId = session.user.id;
+
   return withErrorHandling(async () => {
-    logger.debug("Listing all email providers", { userId: session.user?.id });
-    return await providerRepo.findByUser(session.user?.id!);
+    logger.debug("Listing all email providers", { userId });
+    return await providerRepo.findByUser(userId);
   });
 }
 

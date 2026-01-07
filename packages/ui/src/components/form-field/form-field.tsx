@@ -10,6 +10,8 @@ export interface FormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
   error?: string;
   /** Hint text to display when there's no error */
   hint?: string;
+  /** Description text (alias for hint) */
+  description?: string;
   /** Whether the field is required (shows asterisk) */
   required?: boolean;
   /** The form control (Input, Select, etc.) */
@@ -38,9 +40,10 @@ export interface FormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
  */
 export const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
   (
-    { label, error, hint, required, className, children, headerAction, ...props },
+    { label, error, hint, description, required, className, children, headerAction, ...props },
     ref
   ) => {
+    const hintText = hint || description;
     return (
       <div ref={ref} className={cn(styles.formField, className)} {...props}>
         {(label || headerAction) && (
@@ -67,7 +70,7 @@ export const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
             {error}
           </span>
         )}
-        {!error && hint && <span className={styles.hint}>{hint}</span>}
+        {!error && hintText && <span className={styles.hint}>{hintText}</span>}
       </div>
     );
   }

@@ -7,7 +7,7 @@ const campaignRepo = new CampaignRepository();
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { campaignId: string; email: string } }
+  { params }: { params: Promise<{ campaignId: string; email: string }> }
 ) {
   const { campaignId, email } = await params;
   const decodedEmail = decodeURIComponent(email);

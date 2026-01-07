@@ -87,12 +87,14 @@ export async function getCampaignDetails(id: number): Promise<{
 
 export async function listAllCampaigns(): Promise<ActionResult<Campaign[]>> {
   const session = await auth();
-  if (!session?.user?.id) return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
+  if (!session?.user?.id) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
+
+  const userId = session.user.id;
 
   return withErrorHandling(async () => {
-    logger.debug("Listing all campaigns for user", { userId: session.user?.id });
+    logger.debug("Listing all campaigns for user", { userId });
     // This is a bit tricky, we need to filter by projects owned by the user
-    const projects = await projectRepo.findByUser(session.user?.id!);
+    const projects = await projectRepo.findByUser(userId);
     const projectIds = projects.map(p => p.id);
     
     if (projectIds.length === 0) return [];
@@ -110,11 +112,13 @@ export async function listProjectCampaigns(
   projectId: number
 ): Promise<ActionResult<Campaign[]>> {
   const session = await auth();
-  if (!session?.user?.id) return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
+  if (!session?.user?.id) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
+
+  const userId = session.user.id;
 
   return withErrorHandling(async () => {
     const project = await projectRepo.findById(projectId);
-    if (!project || project.userId !== session.user.id) {
+    if (!project || project.userId !== userId) {
       throw new Error("Unauthorized");
     }
 
@@ -127,11 +131,13 @@ export async function getWizardData(): Promise<
   ActionResult<{ projects: Project[] }>
 > {
   const session = await auth();
-  if (!session?.user?.id) return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
+  if (!session?.user?.id) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
+
+  const userId = session.user.id;
 
   return withErrorHandling(async () => {
-    logger.debug("Getting wizard data for user", { userId: session.user.id });
-    const projects = await projectRepo.findByUser(session.user.id!);
+    logger.debug("Getting wizard data for user", { userId });
+    const projects = await projectRepo.findByUser(userId);
     return { projects };
   });
 }

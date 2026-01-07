@@ -5,12 +5,12 @@ import { z } from "zod";
 import { useEditorStore } from "../state/editor.store";
 import { ContentBlock } from "@senlo/core";
 
-interface UseBlockFormProps<T extends z.ZodSchema> {
+interface UseBlockFormProps<T extends z.ZodTypeAny> {
   block: ContentBlock;
   schema: T;
 }
 
-export const useBlockForm = <T extends z.ZodSchema>({
+export const useBlockForm = <T extends z.ZodTypeAny>({
   block,
   schema,
 }: UseBlockFormProps<T>) => {
@@ -25,8 +25,8 @@ export const useBlockForm = <T extends z.ZodSchema>({
     setValue,
     getValues,
   } = useForm<z.infer<T>>({
-    resolver: zodResolver(schema),
-    defaultValues: block.data,
+    resolver: zodResolver(schema as any),
+    defaultValues: block.data as any,
     mode: "onChange",
   });
 

@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Dialog, ToggleGroup } from "@senlo/ui";
 import { Monitor, Smartphone } from "lucide-react";
-import { renderEmailDesign } from "@senlo/core";
+import { renderEmailDesign, RenderOptions } from "@senlo/core";
 import { useEditorStore } from "../../state/editor.store";
 import styles from "./preview-modal.module.css";
 import { cn } from "@senlo/ui";
@@ -22,14 +22,17 @@ export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
 
   const html = useMemo(() => {
     if (!isOpen) return "";
-    return renderEmailDesign(design, {
+    
+    const options: RenderOptions = {
       data: {
         contact: previewContact || {},
         project: { name: "Sample Project" },
         campaign: { name: "Sample Campaign" },
         unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
       },
-    });
+    };
+
+    return renderEmailDesign(design, options);
   }, [design, isOpen, previewContact]);
 
   const viewOptions = [

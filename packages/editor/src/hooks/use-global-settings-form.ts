@@ -16,8 +16,8 @@ export const useGlobalSettingsForm = () => {
     reset,
     formState: { errors },
   } = useForm<z.infer<typeof globalSettingsSchema>>({
-    resolver: zodResolver(globalSettingsSchema),
-    defaultValues: settings,
+    resolver: zodResolver(globalSettingsSchema as any),
+    defaultValues: settings as any,
     mode: "onChange",
   });
 

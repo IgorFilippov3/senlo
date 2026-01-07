@@ -1,9 +1,9 @@
 interface LogContext {
-  userId?: number;
+  userId?: string | number;
   sessionId?: string;
   requestId?: string;
-  projectId?: number;
-  campaignId?: number;
+  projectId?: string | number;
+  campaignId?: string | number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }

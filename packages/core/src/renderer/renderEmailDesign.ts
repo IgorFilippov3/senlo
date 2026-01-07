@@ -1,18 +1,12 @@
 import { EmailDesignDocument } from "../emailDesign";
-import { RenderContext } from "./types";
+import { RenderContext, RenderOptions } from "./types";
 import { renderHead } from "./renderHead";
 import { renderBody } from "./renderBody";
 import { replaceMergeTags } from "../merge-tags";
 
 export function renderEmailDesign(
   design: EmailDesignDocument,
-  options?: {
-    data?: {
-      contact?: Record<string, any>;
-      project?: { name: string };
-      campaign?: { name: string };
-    };
-  }
+  options?: RenderOptions
 ): string {
   const context: RenderContext = {
     responsiveStyles: [],

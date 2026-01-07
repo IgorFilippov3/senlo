@@ -13,12 +13,14 @@ const projectRepository = new ProjectRepository();
 export async function listProjects(): Promise<ActionResult<Project[]>> {
   const session = await auth();
   if (!session?.user?.id) {
-    return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
+    return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
   }
 
+  const userId = session.user.id;
+
   return withErrorHandling(async () => {
-    logger.debug("Listing all projects", { userId: session.user?.id });
-    return await projectRepository.findByUser(session.user?.id!);
+    logger.debug("Listing all projects", { userId });
+    return await projectRepository.findByUser(userId);
   });
 }
 

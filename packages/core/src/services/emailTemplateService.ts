@@ -1,4 +1,4 @@
-import type { EmailTemplate } from "../domain";
+import type { EmailTemplate } from "../emailTemplate";
 import type { IEmailTemplateRepository } from "../ports";
 
 export class TemplateService {

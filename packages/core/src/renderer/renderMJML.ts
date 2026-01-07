@@ -2,16 +2,11 @@ import { EmailDesignDocument, RowBlock, ColumnBlock } from "../emailDesign";
 import { renderMJMLBlock } from "./mjmlBlocks";
 import { renderPadding } from "./utils";
 import { replaceMergeTags } from "../merge-tags";
+import { RenderOptions } from "./types";
 
 export function renderEmailDesignMJML(
   design: EmailDesignDocument,
-  options?: {
-    data?: {
-      contact?: Record<string, any>;
-      project?: { name: string };
-      campaign?: { name: string };
-    };
-  }
+  options?: RenderOptions
 ): string {
   const sections = design.rows.map((row) => renderMJMLSection(row)).join("\n");
 

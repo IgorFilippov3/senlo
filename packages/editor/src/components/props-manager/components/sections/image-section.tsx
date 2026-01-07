@@ -33,7 +33,6 @@ import {
   DEFAULT_IMAGE_BORDER_RADIUS,
   DEFAULT_IMAGE_PADDING,
   DEFAULT_IMAGE_BORDER,
-  DEFAULT_IMAGE_URL,
 } from "./defaults/image";
 import { DEFAULT_PADDING } from "./defaults/common";
 

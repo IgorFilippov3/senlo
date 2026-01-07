@@ -87,6 +87,7 @@ export type EmailProviderType = "RESEND" | "MAILGUN";
 
 export interface EmailProvider {
   id: number;
+  userId?: string | null;
   name: string;
   type: EmailProviderType;
   config: Record<string, any>;

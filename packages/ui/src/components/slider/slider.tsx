@@ -19,6 +19,8 @@ export interface SliderProps {
   unit?: string;
   /** Callback when value changes */
   onChange?: (value: number) => void;
+  /** Whether the slider is disabled */
+  disabled?: boolean;
   /** Additional CSS class */
   className?: string;
 }
@@ -40,7 +42,17 @@ export interface SliderProps {
  */
 export const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
   (
-    { label, value, min = 0, max = 100, step = 1, unit, onChange, className },
+    {
+      label,
+      value,
+      min = 0,
+      max = 100,
+      step = 1,
+      unit,
+      onChange,
+      disabled,
+      className,
+    },
     ref
   ) => {
     // Internal state for smooth dragging
@@ -68,7 +80,13 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
     };
 
     return (
-      <div className={cn(styles.container, className)}>
+      <div
+        className={cn(
+          styles.container,
+          disabled && styles.disabled,
+          className
+        )}
+      >
         <div className={styles.header}>
           {label && <span className={styles.label}>{label}</span>}
           <div className={styles.inputWrapper}>
@@ -80,6 +98,7 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
               max={max}
               step={step}
               onChange={handleInputChange}
+              disabled={disabled}
             />
             {unit && <span className={styles.unit}>{unit}</span>}
           </div>
@@ -93,6 +112,7 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
           step={step}
           value={localValue}
           onChange={handleRangeChange}
+          disabled={disabled}
         />
       </div>
     );

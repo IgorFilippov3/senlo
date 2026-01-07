@@ -1,27 +1,27 @@
 "use server";
 
 import { decodeUnsubscribeToken } from "@senlo/core";
-import { ContactRepository } from "@senlo/db";
-import { CampaignRepository } from "@senlo/db";
+import { ContactRepository, CampaignRepository } from "@senlo/db";
 import { logger } from "apps/web/lib/logger";
+import { withErrorHandling, ActionResult, AppError } from "apps/web/lib/errors";
 
-export async function unsubscribeAction(token: string) {
-  const data = decodeUnsubscribeToken(token);
-  if (!data) {
-    return { success: false, error: "Invalid token" };
-  }
+export async function unsubscribeAction(token: string): Promise<ActionResult<{ alreadyUnsubscribed?: boolean }>> {
+  return withErrorHandling(async () => {
+    const data = decodeUnsubscribeToken(token);
+    if (!data) {
+      throw new AppError("VALIDATION_ERROR", "Invalid token");
+    }
 
-  const contactRepo = new ContactRepository();
-  const campaignRepo = new CampaignRepository();
+    const contactRepo = new ContactRepository();
+    const campaignRepo = new CampaignRepository();
 
-  try {
     const contact = await contactRepo.findById(data.contactId);
     if (!contact) {
-      return { success: false, error: "Contact not found" };
+      throw new AppError("NOT_FOUND", "Contact not found");
     }
 
     if (contact.unsubscribed) {
-      return { success: true, alreadyUnsubscribed: true };
+      return { alreadyUnsubscribed: true };
     }
 
     await contactRepo.unsubscribe(data.contactId);
@@ -33,13 +33,6 @@ export async function unsubscribeAction(token: string) {
       type: "UNSUBSCRIBE",
     });
 
-    return { success: true };
-  } catch (error) {
-    logger.error("Unsubscribe action failed", {
-      token: token.substring(0, 10) + "...", // Don't log full token
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    return { success: false, error: "An error occurred" };
-  }
+    return {};
+  });
 }

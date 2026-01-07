@@ -9,7 +9,7 @@ import {
   validateId,
 } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
-import { ApiKey } from "apps/web/packages/core/src";
+import { ApiKey } from "@senlo/core";
 import { auth } from "apps/web/auth";
 
 const apiKeyRepository = new ApiKeyRepository();

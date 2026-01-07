@@ -21,11 +21,12 @@ export interface TextareaProps
  * ```
  */
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, style, ...props }, ref) => {
     return (
       <TextareaAutosize
         ref={ref as any}
         className={cn(styles.textarea, className)}
+        style={style as any}
         {...props}
       />
     );

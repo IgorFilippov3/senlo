@@ -14,7 +14,7 @@ export default function UnsubscribePage() {
     mutationFn: async (token: string) => {
       const result = await unsubscribeAction(token);
       if (!result.success) {
-        throw new Error(result.error || "Something went wrong");
+        throw new Error(result.error.message || "Something went wrong");
       }
       return result.data;
     },

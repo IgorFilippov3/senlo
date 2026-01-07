@@ -32,11 +32,13 @@ export async function getAudienceData(): Promise<
   ActionResult<{ projects: Project[] }>
 > {
   const session = await auth();
-  if (!session?.user?.id) return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
+  if (!session?.user?.id) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
+
+  const userId = session.user.id;
 
   return withErrorHandling(async () => {
-    logger.debug("Getting audience data for user", { userId: session.user.id });
-    const projects = await projectRepo.findByUser(session.user.id!);
+    logger.debug("Getting audience data for user", { userId });
+    const projects = await projectRepo.findByUser(userId);
     return { projects };
   });
 }

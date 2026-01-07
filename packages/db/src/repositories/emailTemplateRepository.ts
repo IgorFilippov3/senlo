@@ -6,7 +6,7 @@ import {
   CreateEmailTemplateInput,
   UpdateEmailTemplateInput,
   EmailTemplateStatus,
-} from "@senlo/core/emailTemplate";
+} from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
 
 /**

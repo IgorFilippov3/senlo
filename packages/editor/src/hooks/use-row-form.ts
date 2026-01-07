@@ -25,7 +25,7 @@ export const useRowForm = ({ row }: UseRowFormProps) => {
     setValue,
     getValues,
   } = useForm<RowSettings>({
-    resolver: zodResolver(rowSettingsSchema),
+    resolver: zodResolver(rowSettingsSchema as any),
     defaultValues: row.settings,
     mode: "onChange",
   });

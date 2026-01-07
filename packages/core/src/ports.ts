@@ -1,6 +1,5 @@
 import type {
   Project,
-  EmailTemplate,
   Contact,
   RecipientList,
   Campaign,
@@ -8,6 +7,7 @@ import type {
   CampaignEvent,
   CampaignEventType,
 } from "./domain";
+import type { EmailTemplate } from "./emailTemplate";
 
 // ============================================================
 // Mailer Interface
