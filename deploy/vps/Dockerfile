@@ -36,22 +36,22 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Create a non-privileged user
-RUN groupadd --system --gid 1001 nodejs
-RUN useradd --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 --create-home --home-dir /home/nextjs -g nodejs nextjs
+
+# Set environment variables for corepack and pnpm
+ENV COREPACK_HOME=/home/nextjs/.corepack
+ENV PNPM_HOME=/home/nextjs/.pnpm
+ENV PATH=$PNPM_HOME:$PATH
 
 # Copy necessary files from builder
-COPY --from=builder /app/apps/web/public ./apps/web/public
-COPY --from=builder /app/apps/web/.next ./apps/web/.next
-COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/deploy/vps/start.sh ./start.sh
+COPY --from=builder --chown=nextjs:nodejs /app /app
 
-# Set permissions for uploads and start script
-RUN mkdir -p apps/web/public/uploads && \
-    chown -R nextjs:nodejs apps/web/public/uploads && \
-    chmod +x ./start.sh
+# Ensure start.sh is in the root and executable
+RUN cp deploy/vps/start.sh ./start.sh && \
+    chmod +x ./start.sh && \
+    mkdir -p apps/web/public/uploads && \
+    chown -R nextjs:nodejs /app
 
 USER nextjs
 
