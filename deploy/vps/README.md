@@ -45,7 +45,22 @@ Edit the `.env` file and set the following required values:
 - `NEXT_PUBLIC_APP_URL`: Set to `http://your-server-ip:3000`.
 - `DATABASE_URL`: Keep the default if using the included Postgres container.
 
-### 4. Start the application
+### 4. Advanced Configuration (Optional)
+Senlo provides several environment variables to control how the instance behaves:
+
+#### Registration Control
+By default, anyone who finds your instance can register.
+- `ALLOW_REGISTRATION`: Set to `false` to disable the registration page.
+
+#### Initial User Provisioning
+If you disable registration or want to create an admin account automatically during the first deployment:
+- `INITIAL_USERS`: A JSON array of users to be created.
+  - **Important**: Use double quotes for JSON keys/values and wrap the whole thing in single quotes for the shell.
+  - Example: `INITIAL_USERS='[{"name": "Admin", "email": "admin@example.com", "password": "secure_password", "role": "ADMIN"}]'`
+
+When `INITIAL_USERS` are created, they automatically receive a set of example projects and templates.
+
+### 5. Start the application
 ```bash
 docker compose up -d --build
 ```
