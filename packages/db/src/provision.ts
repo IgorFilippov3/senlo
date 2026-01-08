@@ -1,4 +1,4 @@
-import { db, users } from "./index";
+import { db, users, seedUserData } from "./index";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -47,14 +47,18 @@ async function main() {
 
     const hashedPassword = await bcrypt.hash(user.password, 10);
 
-    await db.insert(users).values({
+    const [newUser] = await db.insert(users).values({
       name: user.name,
       email: user.email,
       password: hashedPassword,
       role: user.role || "USER",
-    });
+    }).returning();
 
-    console.log(`User ${user.email} created successfully.`);
+    if (newUser) {
+      console.log(`User ${user.email} created successfully. Seeding data...`);
+      await seedUserData(newUser.id);
+      console.log(`Data seeded for ${user.email}.`);
+    }
   }
 
   console.log("Provisioning completed.");

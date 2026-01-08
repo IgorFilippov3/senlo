@@ -11,8 +11,7 @@
     "build": "pnpm -r run build",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx --env-file=.env packages/db/src/seed.ts",
-    "db:provision": "tsx --env-file=.env packages/db/src/provision.ts"
+    "db:provision": "tsx packages/db/src/provision.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
