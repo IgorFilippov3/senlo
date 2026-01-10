@@ -3,9 +3,8 @@ import type {
   Contact,
   RecipientList,
   Campaign,
-  CampaignStatus,
   CampaignEvent,
-  CampaignEventType,
+  EmailProvider,
 } from "./domain";
 import type { EmailTemplate } from "./emailTemplate";
 
@@ -29,6 +28,11 @@ export interface SendMailResult {
 
 export interface IMailer {
   send(options: SendMailOptions): Promise<SendMailResult>;
+}
+
+export interface IEmailProviderRepository {
+  findById(id: number): Promise<EmailProvider | null>;
+  findAll(): Promise<EmailProvider[]>;
 }
 
 export interface IProjectRepository {
@@ -81,16 +85,21 @@ export interface RecipientListRepository {
 }
 
 export interface ICampaignRepository {
-  create(data: Omit<Campaign, "id" | "createdAt" | "updatedAt">): Promise<Campaign>;
+  create(
+    data: Omit<Campaign, "id" | "createdAt" | "updatedAt">
+  ): Promise<Campaign>;
   findById(id: number): Promise<Campaign | null>;
   findByProject(projectId: number): Promise<Campaign[]>;
   update(
     id: number,
-    data: Partial<Omit<Campaign, "id" | "projectId" | "createdAt" | "updatedAt">>
+    data: Partial<
+      Omit<Campaign, "id" | "projectId" | "createdAt" | "updatedAt">
+    >
   ): Promise<Campaign | null>;
   delete(id: number): Promise<void>;
 
-  // Event logging
-  logEvent(data: Omit<CampaignEvent, "id" | "occurredAt">): Promise<CampaignEvent>;
+  logEvent(
+    data: Omit<CampaignEvent, "id" | "occurredAt">
+  ): Promise<CampaignEvent>;
   getEventsByCampaign(campaignId: number): Promise<CampaignEvent[]>;
 }

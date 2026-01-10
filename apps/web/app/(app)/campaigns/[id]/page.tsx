@@ -17,6 +17,7 @@ import { CampaignTimeline } from "./campaign-timeline";
 import { SendCampaignButton } from "./send-button";
 import { WebhookInfo } from "./webhook-info";
 import { CampaignInfoCard } from "./campaign-info-card";
+import { CampaignPolling } from "./campaign-polling";
 
 interface CampaignDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -70,6 +71,7 @@ export default async function CampaignDetailsPage({
 
   return (
     <main className="max-w-6xl mx-auto py-10 px-8">
+      <CampaignPolling campaignId={campaign.id} status={campaign.status} />
       <div className="mb-6 flex items-center justify-between">
         <Link
           href="/campaigns"

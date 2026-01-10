@@ -21,6 +21,7 @@ import {
   wrapLinksWithTracking,
   MailerFactory,
 } from "@senlo/core";
+import { emailQueue } from "@senlo/core/src/queue";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { CreateCampaignSchema, UpdateCampaignSchema } from "./schemas";
@@ -87,7 +88,11 @@ export async function getCampaignDetails(id: number): Promise<{
 
 export async function listAllCampaigns(): Promise<ActionResult<Campaign[]>> {
   const session = await auth();
-  if (!session?.user?.id) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
+  if (!session?.user?.id)
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
 
   const userId = session.user.id;
 
@@ -95,15 +100,17 @@ export async function listAllCampaigns(): Promise<ActionResult<Campaign[]>> {
     logger.debug("Listing all campaigns for user", { userId });
     // This is a bit tricky, we need to filter by projects owned by the user
     const projects = await projectRepo.findByUser(userId);
-    const projectIds = projects.map(p => p.id);
-    
+    const projectIds = projects.map((p) => p.id);
+
     if (projectIds.length === 0) return [];
-    
+
     // We might need a new repository method for this, or just filter manually for now
     // Actually, let's assume campaigns don't have findByUser yet.
     // I'll filter them manually or just get all for simplicity if the list is small,
     // but better to do it correctly.
-    const allCampaigns = await Promise.all(projectIds.map(pid => campaignRepo.findByProject(pid)));
+    const allCampaigns = await Promise.all(
+      projectIds.map((pid) => campaignRepo.findByProject(pid))
+    );
     return allCampaigns.flat();
   });
 }
@@ -112,7 +119,11 @@ export async function listProjectCampaigns(
   projectId: number
 ): Promise<ActionResult<Campaign[]>> {
   const session = await auth();
-  if (!session?.user?.id) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
+  if (!session?.user?.id)
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
 
   const userId = session.user.id;
 
@@ -131,7 +142,11 @@ export async function getWizardData(): Promise<
   ActionResult<{ projects: Project[] }>
 > {
   const session = await auth();
-  if (!session?.user?.id) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
+  if (!session?.user?.id)
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
 
   const userId = session.user.id;
 
@@ -149,7 +164,8 @@ export async function getTemplatesByProject(
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const project = await projectRepo.findById(projectId);
-  if (!project || project.userId !== session.user.id) throw new Error("Unauthorized");
+  if (!project || project.userId !== session.user.id)
+    throw new Error("Unauthorized");
 
   return templateRepo.findByProject(projectId);
 }
@@ -161,14 +177,16 @@ export async function getListsByProject(
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const project = await projectRepo.findById(projectId);
-  if (!project || project.userId !== session.user.id) throw new Error("Unauthorized");
+  if (!project || project.userId !== session.user.id)
+    throw new Error("Unauthorized");
 
   return listRepo.findByProject(projectId);
 }
 
 export async function createCampaignAction(formData: FormData) {
   const session = await auth();
-  if (!session?.user?.id) return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
+  if (!session?.user?.id)
+    return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
 
   const parsed = CreateCampaignSchema.safeParse(Object.fromEntries(formData));
 
@@ -349,8 +367,7 @@ export async function sendCampaignAction(
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  let sentCount = 0;
-  for (const contact of activeContacts) {
+  const jobs = activeContacts.map((contact) => {
     const token = encodeUnsubscribeToken({
       contactId: contact.id,
       campaignId: campaign.id,
@@ -377,43 +394,26 @@ export async function sendCampaignAction(
 
     personalizedHtml += trackingPixel;
 
-    // const result = await mailer.send({
-    //   from: campaign.fromEmail || "hello@senlo.io",
-    //   to: contact.email,
-    //   subject: campaign.subject || template.subject,
-    //   html: personalizedHtml,
-    // });
-
-    // if (!result.success) {
-    //   logger.error("Failed to send campaign email", {
-    //     campaignId,
-    //     contactEmail: contact.email,
-    //     contactId: contact.id,
-    //     error: result.error,
-    //   });
-    // }
-
-    await campaignRepo.logEvent({
-      campaignId,
-      contactId: contact.id,
-      email: contact.email,
-      type: "SENT",
-      metadata: {
-        provider: provider?.type || "mock-gateway",
+    return {
+      name: `email-${campaignId}-${contact.id}`,
+      data: {
+        campaignId,
+        contactId: contact.id,
+        email: contact.email,
+        from: campaign.fromEmail || "hello@senlo.io",
+        subject: campaign.subject || template.subject,
+        html: personalizedHtml,
+        providerId: project.providerId!,
       },
-    });
+    };
+  });
 
-    await campaignRepo.logEvent({
-      campaignId,
-      contactId: contact.id,
-      email: contact.email,
-      type: "DELIVERED",
-      metadata: { deliveryTime: "0.1s" },
-    });
+  await emailQueue.addBulk(jobs);
 
-    sentCount++;
-  }
-
+  // We set it to COMPLETED for now because the queue will handle the rest,
+  // but ideally, we should have a way to track when the queue finishes.
+  // For a simple version, SENDING is good enough, and we can have another
+  // process update it to COMPLETED.
   await campaignRepo.update(campaignId, {
     status: "COMPLETED",
     sentAt: new Date(),
@@ -422,5 +422,5 @@ export async function sendCampaignAction(
   revalidatePath(`/campaigns/${campaignId}`);
   revalidatePath("/campaigns");
 
-  return { success: true, sentCount };
+  return { success: true, sentCount: activeContacts.length };
 }

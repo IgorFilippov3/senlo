@@ -6,11 +6,8 @@ import {
   EmailProviderRepository,
   ProjectRepository,
 } from "@senlo/db";
-import {
-  EmailDesignDocument,
-  replaceMergeTags,
-  MailerFactory,
-} from "@senlo/core";
+import { EmailDesignDocument, replaceMergeTags } from "@senlo/core";
+import { emailQueue } from "@senlo/core/src/queue";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 
@@ -84,8 +81,6 @@ export async function sendTestEmailAction(
       throw new Error("Email provider not found. It may have been deleted.");
     }
 
-    const mailer = MailerFactory.create(provider);
-
     const personalizedHtml = replaceMergeTags(html, {
       contact: {
         email: targetEmail,
@@ -97,16 +92,15 @@ export async function sendTestEmailAction(
       unsubscribeUrl: "#test-unsubscribe",
     });
 
-    const result = await mailer.send({
+    await emailQueue.add(`test-email-${templateId}-${Date.now()}`, {
+      campaignId: 0, // 0 for test emails
+      contactId: 0, // 0 for test emails
+      email: targetEmail,
       from: "onboarding@resend.dev",
-      to: targetEmail,
       subject: `[TEST] ${subject || template.subject || "No Subject"}`,
       html: personalizedHtml,
+      providerId: project.providerId,
     });
-
-    if (!result.success) {
-      throw new Error(result.error || "Failed to send email");
-    }
 
     return { success: true };
   } catch (error) {

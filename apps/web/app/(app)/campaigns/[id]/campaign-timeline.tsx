@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { CampaignEvent } from "@senlo/core";
-import { Card, Badge } from "@senlo/ui";
+import React, { useState, useEffect } from "react";
+import { CampaignEvent, CampaignEventType } from "@senlo/core";
+import { Badge } from "@senlo/ui";
 import {
   Send,
   Eye,
@@ -31,10 +31,23 @@ const eventIcons: Record<string, React.ReactNode> = {
 };
 
 export function CampaignTimeline({ events }: CampaignTimelineProps) {
-  const eventTypes = Array.from(new Set(events.map(e => e.type))).sort();
-  const [selectedType, setSelectedType] = useState<string>(eventTypes[0] || "");
+  const eventTypes: CampaignEventType[] = Array.from(
+    new Set(events.map((e) => e.type))
+  ).sort();
+  const [selectedType, setSelectedType] = useState<CampaignEventType>(
+    eventTypes[0] as CampaignEventType
+  );
   const [currentPage, setCurrentPage] = useState<number>(1);
-  
+
+  useEffect(() => {
+    if (
+      (!selectedType || !eventTypes.includes(selectedType)) &&
+      eventTypes.length > 0
+    ) {
+      setSelectedType(eventTypes[0]);
+    }
+  }, [eventTypes, selectedType]);
+
   const ITEMS_PER_PAGE = 30;
 
   if (events.length === 0) {
@@ -48,13 +61,13 @@ export function CampaignTimeline({ events }: CampaignTimelineProps) {
     );
   }
 
-  const filteredEvents = events.filter(e => e.type === selectedType);
-  
+  const filteredEvents = events.filter((e) => e.type === selectedType);
+
   const totalPages = Math.ceil(filteredEvents.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
-  
+
   const groupedEvents = paginatedEvents.reduce((acc, event) => {
     if (!acc[event.type]) {
       acc[event.type] = [];
@@ -66,7 +79,7 @@ export function CampaignTimeline({ events }: CampaignTimelineProps) {
   const sortedTypes = Object.keys(groupedEvents).sort();
 
   const handleTypeChange = (type: string) => {
-    setSelectedType(type);
+    setSelectedType(type as CampaignEventType);
     setCurrentPage(1);
   };
 
@@ -84,25 +97,27 @@ export function CampaignTimeline({ events }: CampaignTimelineProps) {
             onChange={(e) => handleTypeChange(e.target.value)}
             className="px-3 py-2 border border-zinc-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            {eventTypes.map(type => (
+            {eventTypes.map((type) => (
               <option key={type} value={type}>
                 {type.replace("_", " ")}
               </option>
             ))}
           </select>
         </div>
-        
+
         {filteredEvents.length > ITEMS_PER_PAGE && (
           <div className="flex items-center gap-2 text-sm text-zinc-600">
             <span>
-              Showing {startIndex + 1}-{Math.min(endIndex, filteredEvents.length)} of {filteredEvents.length}
+              Showing {startIndex + 1}-
+              {Math.min(endIndex, filteredEvents.length)} of{" "}
+              {filteredEvents.length}
             </span>
           </div>
         )}
       </div>
 
       <div className="space-y-6">
-        {sortedTypes.map(eventType => {
+        {sortedTypes.map((eventType) => {
           const typeEvents = groupedEvents[eventType];
           return (
             <div key={eventType} className="space-y-3">
@@ -114,23 +129,36 @@ export function CampaignTimeline({ events }: CampaignTimelineProps) {
                   </span>
                 </div>
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-100">
-                      <th className="text-left py-2 px-3 font-medium text-zinc-600">Email</th>
-                      <th className="text-left py-2 px-3 font-medium text-zinc-600">Time</th>
+                      <th className="text-left py-2 px-3 font-medium text-zinc-600">
+                        Email
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-zinc-600">
+                        Time
+                      </th>
                       {eventType === "CLICK" && (
-                        <th className="text-left py-2 px-3 font-medium text-zinc-600">Link</th>
+                        <th className="text-left py-2 px-3 font-medium text-zinc-600">
+                          Link
+                        </th>
                       )}
-                      <th className="text-left py-2 px-3 font-medium text-zinc-600">Details</th>
+                      <th className="text-left py-2 px-3 font-medium text-zinc-600">
+                        Details
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {typeEvents.map(event => (
-                      <tr key={event.id} className="border-b border-zinc-50 hover:bg-zinc-25">
-                        <td className="py-2 px-3 font-medium text-zinc-900">{event.email}</td>
+                    {typeEvents.map((event) => (
+                      <tr
+                        key={event.id}
+                        className="border-b border-zinc-50 hover:bg-zinc-25"
+                      >
+                        <td className="py-2 px-3 font-medium text-zinc-900">
+                          {event.email}
+                        </td>
                         <td className="py-2 px-3 text-zinc-500">
                           {event.occurredAt instanceof Date
                             ? event.occurredAt.toLocaleString("en-GB")
@@ -146,19 +174,22 @@ export function CampaignTimeline({ events }: CampaignTimelineProps) {
                           </td>
                         )}
                         <td className="py-2 px-3">
-                          {event.metadata && Object.keys(event.metadata).length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {Object.entries(event.metadata).map(([key, value]) => (
-                                <Badge
-                                  key={key}
-                                  variant="secondary"
-                                  className="text-[10px] py-0 px-1 font-normal"
-                                >
-                                  {key}: {String(value)}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
+                          {event.metadata &&
+                            Object.keys(event.metadata).length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(event.metadata).map(
+                                  ([key, value]) => (
+                                    <Badge
+                                      key={key}
+                                      variant="secondary"
+                                      className="text-[10px] py-0 px-1 font-normal"
+                                    >
+                                      {key}: {String(value)}
+                                    </Badge>
+                                  )
+                                )}
+                              </div>
+                            )}
                         </td>
                       </tr>
                     ))}
@@ -169,7 +200,7 @@ export function CampaignTimeline({ events }: CampaignTimelineProps) {
           );
         })}
       </div>
-      
+
       {filteredEvents.length > ITEMS_PER_PAGE && (
         <div className="flex items-center justify-center gap-2 pt-4 border-t border-zinc-100">
           <button
@@ -180,9 +211,9 @@ export function CampaignTimeline({ events }: CampaignTimelineProps) {
             <ChevronLeft size={16} />
             Previous
           </button>
-          
+
           <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
               if (totalPages <= 7) {
                 return (
                   <button
@@ -190,39 +221,47 @@ export function CampaignTimeline({ events }: CampaignTimelineProps) {
                     onClick={() => handlePageChange(page)}
                     className={`px-3 py-2 text-sm border rounded-md ${
                       page === currentPage
-                        ? 'bg-blue-500 text-white border-blue-500'
-                        : 'border-zinc-200 hover:bg-zinc-50'
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "border-zinc-200 hover:bg-zinc-50"
                     }`}
                   >
                     {page}
                   </button>
                 );
               }
-              
-              if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+
+              if (
+                page === 1 ||
+                page === totalPages ||
+                (page >= currentPage - 1 && page <= currentPage + 1)
+              ) {
                 return (
                   <button
                     key={page}
                     onClick={() => handlePageChange(page)}
                     className={`px-3 py-2 text-sm border rounded-md ${
                       page === currentPage
-                        ? 'bg-blue-500 text-white border-blue-500'
-                        : 'border-zinc-200 hover:bg-zinc-50'
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "border-zinc-200 hover:bg-zinc-50"
                     }`}
                   >
                     {page}
                   </button>
                 );
               }
-              
+
               if (page === currentPage - 2 || page === currentPage + 2) {
-                return <span key={page} className="px-2 text-zinc-400">...</span>;
+                return (
+                  <span key={page} className="px-2 text-zinc-400">
+                    ...
+                  </span>
+                );
               }
-              
+
               return null;
             })}
           </div>
-          
+
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}

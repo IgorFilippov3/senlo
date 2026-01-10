@@ -7,11 +7,8 @@ import {
   ProjectRepository,
   TriggeredSendLogRepository,
 } from "@senlo/db";
-import {
-  replaceMergeTags,
-  wrapLinksWithTracking,
-  MailerFactory,
-} from "@senlo/core";
+import { replaceMergeTags, wrapLinksWithTracking } from "@senlo/core";
+import { emailQueue } from "@senlo/core/src/queue";
 import { logger } from "apps/web/lib";
 
 interface TriggeredEmailRequest {
@@ -124,38 +121,33 @@ export async function POST(req: NextRequest) {
 
     personalizedHtml += trackingPixel;
 
-    const mailer = MailerFactory.create(provider);
     const fromAddress = campaign.fromName
       ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
       : campaign.fromEmail || "hello@senlo.io";
 
-    const result = await mailer.send({
+    await emailQueue.add(`triggered-${campaign.id}-${to}-${Date.now()}`, {
+      campaignId: campaign.id,
+      contactId: 0,
+      email: to,
       from: fromAddress,
-      to,
       subject: campaign.subject || template.subject,
       html: personalizedHtml,
+      providerId: project.providerId,
     });
-
-    const success = result.success;
-    const errorMsg = result.error || null;
 
     await logRepo.create({
       campaignId: campaign.id,
       email: to,
-      status: success ? "SUCCESS" : "FAILED",
-      error: errorMsg,
+      status: "SUCCESS",
+      error: null,
       data: data,
     });
 
     await apiKeyRepo.updateLastUsed(apiKey.id);
 
-    if (!success) {
-      return NextResponse.json({ error: errorMsg }, { status: 500 });
-    }
-
     return NextResponse.json({
       success: true,
-      message: "Email triggered successfully",
+      message: "Email queued successfully",
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

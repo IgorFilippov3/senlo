@@ -93,6 +93,7 @@ export const campaignEventTypeEnum = pgEnum("campaign_event_type", [
   "BOUNCE",
   "SPAM_REPORT",
   "UNSUBSCRIBE",
+  "FAILED",
 ]);
 
 export const emailProviderTypeEnum = pgEnum("email_provider_type", [

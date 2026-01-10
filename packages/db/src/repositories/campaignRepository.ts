@@ -1,7 +1,7 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "../client";
 import { campaigns, campaignEvents } from "../schema";
-import { Campaign, CampaignEvent } from "@senlo/core";
+import { Campaign, CampaignEvent, ICampaignRepository } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
 
 // Drizzle inferred types for insert operations
@@ -12,11 +12,10 @@ type CampaignEventInsert = typeof campaignEvents.$inferInsert;
  * Repository for managing email campaigns and their events.
  * Extends BaseRepository for common operations (findById, delete).
  */
-export class CampaignRepository extends BaseRepository<
-  typeof campaigns,
-  typeof campaigns.$inferSelect,
-  Campaign
-> {
+export class CampaignRepository
+  extends BaseRepository<typeof campaigns, typeof campaigns.$inferSelect, Campaign>
+  implements ICampaignRepository
+{
   protected table = campaigns;
 
   /**

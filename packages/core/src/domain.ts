@@ -70,7 +70,8 @@ export type CampaignEventType =
   | "CLICK"
   | "BOUNCE"
   | "SPAM_REPORT"
-  | "UNSUBSCRIBE";
+  | "UNSUBSCRIBE"
+  | "FAILED";
 
 export interface CampaignEvent {
   id: number;
