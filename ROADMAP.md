@@ -5,7 +5,7 @@ This document outlines the planned features and improvements for the Senlo Email
 ## Planned Features
 
 ### Core Infrastructure & Reliability
-- [ ] **Background Processing with BullMQ**: Migrate email sending to a robust queue system to handle large campaigns, retries, and rate limiting efficiently.
+- [x] **Background Processing with BullMQ**: Migrate email sending to a robust queue system to handle large campaigns, retries, and rate limiting efficiently.
 - [ ] **Deliverability Suite**: Implement automatic bounce and complaint handling via provider webhooks (Resend, Mailgun, etc.) to protect sender reputation.
 - [ ] **Advanced Analytics**: Detailed tracking of unique vs. total opens, link click-maps, and delivery performance over time.
 
