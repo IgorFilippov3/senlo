@@ -1,6 +1,5 @@
-// Error handling
-export * from './errors';
-export * from './logger';
+export * from "./errors";
+export * from "./logger";
+export * from "./api-auth";
 
-// Re-export commonly used utilities
-export type { Logger } from './logger';
+export type { Logger } from "./logger";

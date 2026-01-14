@@ -25,7 +25,7 @@ export class RecipientListRepository extends BaseRepository<
       id: row.id,
       projectId: row.projectId,
       name: row.name,
-      description: row.description,
+      description: row.description ?? null,
       createdAt: row.createdAt,
     };
   }
@@ -60,6 +60,7 @@ export class RecipientListRepository extends BaseRepository<
         projectId: data.projectId,
         name: data.name,
         description: data.description,
+        createdAt: new Date(),
       })
       .returning();
 
@@ -92,7 +93,12 @@ export class RecipientListRepository extends BaseRepository<
 
     await db
       .delete(recipientListContacts)
-      .where(inArray(recipientListContacts.contactId, contactIds));
+      .where(
+        and(
+          eq(recipientListContacts.listId, listId),
+          inArray(recipientListContacts.contactId, contactIds)
+        )
+      );
   }
 
   /**

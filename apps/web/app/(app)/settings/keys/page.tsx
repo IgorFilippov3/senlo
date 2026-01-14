@@ -4,10 +4,10 @@ import { PageHeader, Button, Card } from "@senlo/ui";
 import { Plus, Trash2, Key, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { useProjects } from "apps/web/queries/projects";
-import { 
-  useApiKeys, 
-  useCreateApiKey, 
-  useDeleteApiKey 
+import {
+  useApiKeys,
+  useCreateApiKey,
+  useDeleteApiKey,
 } from "apps/web/queries/api-keys";
 
 export default function ApiKeysPage() {
@@ -27,30 +27,30 @@ export default function ApiKeysPage() {
     error: keysError,
   } = useApiKeys(effectiveProjectId!, !!effectiveProjectId);
 
-  console.log('📋 Current API Keys data:', keys);
-  console.log('🔄 Keys loading:', keysLoading);
-  console.log('⚠️ Keys error:', keysError);
-  console.log('🎯 Effective project ID:', effectiveProjectId);
-
   const createApiKeyMutation = useCreateApiKey();
   const deleteApiKeyMutation = useDeleteApiKey();
 
   const handleCreate = async () => {
     if (!effectiveProjectId || !newKeyName) return;
-    
-    console.log('🚀 Creating API key for project:', effectiveProjectId, 'name:', newKeyName);
-    
+
+    console.log(
+      "🚀 Creating API key for project:",
+      effectiveProjectId,
+      "name:",
+      newKeyName
+    );
+
     createApiKeyMutation.mutate(
       { projectId: effectiveProjectId, name: newKeyName },
       {
         onSuccess: () => {
-          console.log('✅ Create API key success callback');
+          console.log("✅ Create API key success callback");
           setNewKeyName("");
         },
         onError: (error) => {
-          console.error('❌ Create API key error:', error);
+          console.error("❌ Create API key error:", error);
           alert(`Failed to create API key: ${error.message}`);
-        }
+        },
       }
     );
   };
@@ -62,15 +62,15 @@ export default function ApiKeysPage() {
       )
     )
       return;
-    
+
     if (!effectiveProjectId) return;
-    
+
     deleteApiKeyMutation.mutate(
       { apiKeyId: id, projectId: effectiveProjectId },
       {
         onError: (error) => {
           alert(`Failed to delete API key: ${error.message}`);
-        }
+        },
       }
     );
   };
@@ -128,7 +128,7 @@ export default function ApiKeysPage() {
                 disabled={!newKeyName || createApiKeyMutation.isPending}
                 className="gap-2"
               >
-                <Plus size={16} /> 
+                <Plus size={16} />
                 {createApiKeyMutation.isPending ? "Creating..." : "Create Key"}
               </Button>
             </div>

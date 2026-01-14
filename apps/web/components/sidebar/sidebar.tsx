@@ -13,6 +13,7 @@ import {
   Home,
   Cloud,
   Key,
+  FileCode,
 } from "lucide-react";
 import { useProjects } from "apps/web/hooks/use-projects";
 import { logger } from "apps/web/lib/logger";
@@ -200,6 +201,12 @@ export function Sidebar() {
       </div>
 
       <div className="mt-auto border-t border-zinc-100 pt-4 flex flex-col gap-1">
+        <NavItem
+          href="/api-docs"
+          label="API Docs"
+          icon={FileCode}
+          isActive={pathname.startsWith("/api-docs")}
+        />
         <NavItem
           href="/settings/keys"
           label="API Keys"

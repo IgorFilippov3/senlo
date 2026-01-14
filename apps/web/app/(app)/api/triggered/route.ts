@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  ApiKeyRepository,
   CampaignRepository,
   EmailTemplateRepository,
   EmailProviderRepository,
@@ -9,7 +8,7 @@ import {
 } from "@senlo/db";
 import { replaceMergeTags, wrapLinksWithTracking } from "@senlo/core";
 import { emailQueue } from "@senlo/core/src/queue";
-import { logger } from "apps/web/lib";
+import { logger, validateApiKey } from "apps/web/lib";
 
 interface TriggeredEmailRequest {
   campaignId: string | number;
@@ -17,7 +16,6 @@ interface TriggeredEmailRequest {
   data?: Record<string, unknown>;
 }
 
-const apiKeyRepo = new ApiKeyRepository();
 const campaignRepo = new CampaignRepository();
 const templateRepo = new EmailTemplateRepository();
 const providerRepo = new EmailProviderRepository();
@@ -28,19 +26,10 @@ export async function POST(req: NextRequest) {
   let body: TriggeredEmailRequest | null = null;
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Missing or invalid Authorization header" },
-        { status: 401 }
-      );
-    }
+    const auth = await validateApiKey(req);
+    if (!auth.success) return auth.response;
 
-    const key = authHeader.split(" ")[1];
-    const apiKey = await apiKeyRepo.findByKey(key);
-    if (!apiKey) {
-      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
-    }
+    const apiKey = auth.apiKey;
 
     body = await req.json();
     if (!body) {
@@ -111,7 +100,7 @@ export async function POST(req: NextRequest) {
     let personalizedHtml = replaceMergeTags(template.html, {
       custom: data,
       contact: { email: to, ...data },
-      unsubscribeUrl: "#", // No unsubscribe for triggered emails in MVP
+      unsubscribeUrl: "#",
     });
 
     personalizedHtml = wrapLinksWithTracking(
@@ -142,8 +131,6 @@ export async function POST(req: NextRequest) {
       error: null,
       data: data,
     });
-
-    await apiKeyRepo.updateLastUsed(apiKey.id);
 
     return NextResponse.json({
       success: true,

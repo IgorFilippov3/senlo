@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",
+    "@scalar/api-reference-react": "^0.8.20",
+    "@scalar/nextjs-api-reference": "^0.9.9",
     "@senlo/core": "workspace:^",
     "@senlo/db": "workspace:^",
     "@senlo/editor": "workspace:^",

@@ -95,7 +95,4 @@ const JsonEditorComponent = ({
   );
 };
 
-JsonEditorComponent.displayName = "JsonEditor";
-
-export const JsonEditor = JsonEditorComponent;
-
+JsonEditorComponent.displayName = "JsonEditor";export const JsonEditor = JsonEditorComponent;
