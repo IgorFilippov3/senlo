@@ -6,7 +6,11 @@ import {
   ProjectRepository,
   TriggeredSendLogRepository,
 } from "@senlo/db";
-import { replaceMergeTags, wrapLinksWithTracking } from "@senlo/core";
+import {
+  renderEmailDesign,
+  wrapLinksWithTracking,
+  EmailDesignDocument,
+} from "@senlo/core";
 import { emailQueue } from "@senlo/core/src/queue";
 import { logger, validateApiKey } from "apps/web/lib";
 
@@ -97,11 +101,16 @@ export async function POST(req: NextRequest) {
 
     const clickTrackingBaseUrl = `${baseUrl}/api/track/click/${campaign.id}/${emailEncoded}`;
 
-    let personalizedHtml = replaceMergeTags(template.html, {
-      custom: data,
-      contact: { email: to, ...data },
-      unsubscribeUrl: "#",
-    });
+    let personalizedHtml = template.designJson
+      ? renderEmailDesign(template.designJson as EmailDesignDocument, {
+          baseUrl,
+          data: {
+            custom: data,
+            contact: { email: to, ...data },
+            unsubscribeUrl: "#",
+          },
+        })
+      : template.html;
 
     personalizedHtml = wrapLinksWithTracking(
       personalizedHtml,
@@ -114,7 +123,7 @@ export async function POST(req: NextRequest) {
       ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
       : campaign.fromEmail || "hello@senlo.io";
 
-    await emailQueue.add(`triggered-${campaign.id}-${to}-${Date.now()}`, {
+    const job = await emailQueue.add(`triggered-${campaign.id}-${to}-${Date.now()}`, {
       campaignId: campaign.id,
       contactId: 0,
       email: to,
@@ -122,6 +131,21 @@ export async function POST(req: NextRequest) {
       subject: campaign.subject || template.subject,
       html: personalizedHtml,
       providerId: project.providerId,
+    });
+
+    const workers = await emailQueue.getWorkers();
+    if (workers.length === 0) {
+      logger.warn("Triggered email added to queue but NO active workers found.", {
+        campaignId: campaign.id,
+        to,
+      });
+    }
+
+    logger.info("Triggered email queued successfully", {
+      jobId: job.id,
+      campaignId: campaign.id,
+      to,
+      activeWorkers: workers.length,
     });
 
     await logRepo.create({

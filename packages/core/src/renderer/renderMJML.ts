@@ -8,7 +8,7 @@ export function renderEmailDesignMJML(
   design: EmailDesignDocument,
   options?: RenderOptions
 ): string {
-  const sections = design.rows.map((row) => renderMJMLSection(row)).join("\n");
+  const sections = design.rows.map((row) => renderMJMLSection(row, options)).join("\n");
 
   let mjml = `
 <mjml>
@@ -34,9 +34,9 @@ export function renderEmailDesignMJML(
   return mjml;
 }
 
-function renderMJMLSection(row: RowBlock): string {
+function renderMJMLSection(row: RowBlock, options?: RenderOptions): string {
   const { settings } = row;
-  const columns = row.columns.map((col) => renderMJMLColumn(col)).join("\n");
+  const columns = row.columns.map((col) => renderMJMLColumn(col, options)).join("\n");
   const borderRadius = settings.borderRadius || { top: 0, bottom: 0 };
   const borderRadiusStr = `${borderRadius.top || 0}px ${borderRadius.top || 0}px ${borderRadius.bottom || 0}px ${borderRadius.bottom || 0}px`;
 
@@ -52,8 +52,8 @@ function renderMJMLSection(row: RowBlock): string {
     </mj-section>`;
 }
 
-function renderMJMLColumn(column: ColumnBlock): string {
-  const blocks = column.blocks.map((block) => renderMJMLBlock(block)).join("\n");
+function renderMJMLColumn(column: ColumnBlock, options?: RenderOptions): string {
+  const blocks = column.blocks.map((block) => renderMJMLBlock(block, options)).join("\n");
 
   return `
       <mj-column width="${column.width}%">

@@ -1,14 +1,15 @@
 import { ContentBlock } from "../emailDesign";
-import { renderPadding } from "./utils";
+import { renderPadding, normalizeUrl } from "./utils";
+import { RenderOptions } from "./types";
 
-export function renderMJMLBlock(block: ContentBlock): string {
+export function renderMJMLBlock(block: ContentBlock, options?: RenderOptions): string {
   switch (block.type) {
     case "heading":
       return renderMJMLHeading(block);
     case "paragraph":
       return renderMJMLParagraph(block);
     case "image":
-      return renderMJMLImage(block);
+      return renderMJMLImage(block, options);
     case "button":
       return renderMJMLButton(block);
     case "spacer":
@@ -20,20 +21,21 @@ export function renderMJMLBlock(block: ContentBlock): string {
     case "product-line":
       return renderMJMLProductLine(block);
     case "socials":
-      return renderMJMLSocials(block);
+      return renderMJMLSocials(block, options);
     default:
       return `<!-- Unknown MJML block type: ${(block as any).type} -->`;
   }
 }
 
-function renderMJMLSocials(block: any): string {
+function renderMJMLSocials(block: any, options?: RenderOptions): string {
   const { data } = block;
   const iconSize = data.size || 32;
   const spacing = data.spacing || 10;
   const padding = renderPadding(data.padding);
 
   const elements = (data.links || []).map((link: any) => {
-    return `<mj-social-element name="${link.type}-noshare" src="${link.icon}" href="${link.url || "#"}" />`;
+    const iconSrc = normalizeUrl(link.icon, options?.baseUrl);
+    return `<mj-social-element name="${link.type}-noshare" src="${iconSrc}" href="${link.url || "#"}" />`;
   });
 
   return `
@@ -83,11 +85,12 @@ function renderMJMLParagraph(block: any): string {
         </mj-text>`;
 }
 
-function renderMJMLImage(block: any): string {
+function renderMJMLImage(block: any, options?: RenderOptions): string {
   const { data } = block;
+  const src = normalizeUrl(data.src, options?.baseUrl);
   return `
         <mj-image
-          src="${data.src || ""}"
+          src="${src}"
           alt="${data.alt || ""}"
           width="${data.fullWidth ? "" : (data.width ? data.width + "px" : "")}"
           fluid-on-mobile="${data.fullWidth ? "true" : "false"}"

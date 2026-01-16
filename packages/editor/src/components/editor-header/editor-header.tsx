@@ -83,7 +83,8 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
 
     setIsSaving(true);
     try {
-      const html = renderEmailDesign(design);
+      const options = { baseUrl: window.location.origin };
+      const html = renderEmailDesign(design, options);
       await onSave(templateId, design, html, {
         name: templateName,
         subject: templateSubject,
@@ -102,7 +103,8 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
 
     setIsSaving(true);
     try {
-      const html = renderEmailDesign(design);
+      const options = { baseUrl: window.location.origin };
+      const html = renderEmailDesign(design, options);
       await onSave(templateId, design, html, {
         name: editName,
         subject: editSubject,

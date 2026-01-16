@@ -1,6 +1,6 @@
 import { ContentBlock } from "../emailDesign";
 import { RenderContext } from "./types";
-import { renderPadding } from "./utils";
+import { renderPadding, normalizeUrl } from "./utils";
 
 export function renderBlock(
   block: ContentBlock,
@@ -12,7 +12,7 @@ export function renderBlock(
     case "paragraph":
       return renderParagraph(block);
     case "image":
-      return renderImage(block);
+      return renderImage(block, context);
     case "button":
       return renderButton(block);
     case "spacer":
@@ -24,13 +24,13 @@ export function renderBlock(
     case "product-line":
       return renderProductLine(block);
     case "socials":
-      return renderSocials(block);
+      return renderSocials(block, context);
     default:
       return `<!-- Unknown block type: ${(block as any).type} -->`;
   }
 }
 
-function renderSocials(block: any): string {
+function renderSocials(block: any, context: RenderContext): string {
   const { data } = block;
   const iconSize = data.size || 32;
   const spacing = data.spacing || 10;
@@ -43,7 +43,8 @@ function renderSocials(block: any): string {
 
   const linksHtml = (data.links || [])
     .map((link: any) => {
-      const imgHtml = `<img src="${link.icon}" alt="${link.type}" width="${iconSize}" height="${iconSize}" style="display: inline-block; border-radius: 4px;" />`;
+      const iconSrc = normalizeUrl(link.icon, context.options?.baseUrl);
+      const imgHtml = `<img src="${iconSrc}" alt="${link.type}" width="${iconSize}" height="${iconSize}" style="display: inline-block; border-radius: 4px;" />`;
       if (link.url) {
         return `<a href="${link.url}" target="_blank" style="text-decoration: none; margin: 0 ${spacing / 2}px; display: inline-block;">${imgHtml}</a>`;
       }
@@ -106,7 +107,7 @@ function renderParagraph(block: any): string {
   return `<p style="${style}">${content}</p>`;
 }
 
-function renderImage(block: any): string {
+function renderImage(block: any, context: RenderContext): string {
   const { data } = block;
 
   const imgStyle = [
@@ -135,7 +136,8 @@ function renderImage(block: any): string {
     `line-height: 0px`,
   ].join("; ");
 
-  let html = `<img src="${data.src || ""}" alt="${data.alt || ""}" width="${
+  const src = normalizeUrl(data.src, context.options?.baseUrl);
+  let html = `<img src="${src}" alt="${data.alt || ""}" width="${
     data.width || ""
   }" style="${imgStyle}" />`;
 

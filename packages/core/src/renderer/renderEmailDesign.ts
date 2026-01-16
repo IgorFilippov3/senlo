@@ -10,6 +10,7 @@ export function renderEmailDesign(
 ): string {
   const context: RenderContext = {
     responsiveStyles: [],
+    options,
   };
 
   const headContent = renderHead(design, context);

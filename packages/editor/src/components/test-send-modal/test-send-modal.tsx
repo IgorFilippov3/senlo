@@ -13,9 +13,11 @@ interface TestSendModalProps {
 }
 
 const STORAGE_KEY = "senlo_last_test_email";
+const FROM_STORAGE_KEY = "senlo_last_test_from_email";
 
 export const TestSendModal = ({ isOpen, onClose }: TestSendModalProps) => {
   const [email, setEmail] = useState("");
+  const [fromEmail, setFromEmail] = useState("hello@senlo.io");
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -30,6 +32,10 @@ export const TestSendModal = ({ isOpen, onClose }: TestSendModalProps) => {
       if (lastEmail) {
         setEmail(lastEmail);
       }
+      const lastFromEmail = localStorage.getItem(FROM_STORAGE_KEY);
+      if (lastFromEmail) {
+        setFromEmail(lastFromEmail);
+      }
       setStatus("idle");
       setErrorMessage(null);
     }
@@ -37,16 +43,16 @@ export const TestSendModal = ({ isOpen, onClose }: TestSendModalProps) => {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !onSendTest || !templateId) return;
+    if (!email || !fromEmail || !onSendTest || !templateId) return;
 
     setStatus("sending");
     setErrorMessage(null);
 
     try {
       localStorage.setItem(STORAGE_KEY, email);
-      const html = renderEmailDesign(design);
+      localStorage.setItem(FROM_STORAGE_KEY, fromEmail);
       
-      const result = await onSendTest(templateId, email, html, subject);
+      const result = await onSendTest(templateId, email, fromEmail, design, subject);
       
       if (result.success) {
         setStatus("success");
@@ -79,17 +85,30 @@ export const TestSendModal = ({ isOpen, onClose }: TestSendModalProps) => {
           </div>
         ) : (
           <form onSubmit={handleSend} className={styles.form}>
-            <FormField label="Recipient Email" description="Enter the email address where you want to receive the test.">
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={status === "sending"}
-                autoFocus
-              />
-            </FormField>
+            <div className="space-y-4 mb-6">
+              <FormField label="From Email" description="The email address that will appear as the sender.">
+                <Input
+                  type="email"
+                  placeholder="sender@example.com"
+                  value={fromEmail}
+                  onChange={(e) => setFromEmail(e.target.value)}
+                  required
+                  disabled={status === "sending"}
+                />
+              </FormField>
+
+              <FormField label="Recipient Email" description="Enter the email address where you want to receive the test.">
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={status === "sending"}
+                  autoFocus
+                />
+              </FormField>
+            </div>
 
             {status === "error" && (
               <div className={styles.errorState}>

@@ -18,9 +18,10 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
   const [copiedType, setCopiedType] = useState<"html" | "mjml" | null>(null);
 
   const handleCopy = async (type: "html" | "mjml") => {
+    const options = { baseUrl: window.location.origin };
     const content = type === "html" 
-      ? renderEmailDesign(design) 
-      : renderEmailDesignMJML(design);
+      ? renderEmailDesign(design, options) 
+      : renderEmailDesignMJML(design, options);
 
     try {
       await navigator.clipboard.writeText(content);

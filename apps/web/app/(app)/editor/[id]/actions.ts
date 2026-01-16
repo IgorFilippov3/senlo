@@ -6,7 +6,7 @@ import {
   EmailProviderRepository,
   ProjectRepository,
 } from "@senlo/db";
-import { EmailDesignDocument, replaceMergeTags } from "@senlo/core";
+import { EmailDesignDocument, renderEmailDesign } from "@senlo/core";
 import { emailQueue } from "@senlo/core/src/queue";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
@@ -64,7 +64,8 @@ export async function saveTemplateFromEditor(
 export async function sendTestEmailAction(
   templateId: number,
   targetEmail: string,
-  html: string,
+  fromEmail: string,
+  design: EmailDesignDocument,
   subject: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -81,25 +82,42 @@ export async function sendTestEmailAction(
       throw new Error("Email provider not found. It may have been deleted.");
     }
 
-    const personalizedHtml = replaceMergeTags(html, {
-      contact: {
-        email: targetEmail,
-        name: "Test Recipient",
-        first_name: "Test",
-        last_name: "Recipient",
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    const personalizedHtml = renderEmailDesign(design, {
+      baseUrl,
+      data: {
+        contact: {
+          email: targetEmail,
+          name: "Test Recipient",
+          first_name: "Test",
+          last_name: "Recipient",
+        },
+        project: { name: project.name },
+        unsubscribeUrl: "#test-unsubscribe",
       },
-      project: { name: project.name },
-      unsubscribeUrl: "#test-unsubscribe",
     });
 
-    await emailQueue.add(`test-email-${templateId}-${Date.now()}`, {
+    const job = await emailQueue.add(`test-email-${templateId}-${Date.now()}`, {
       campaignId: 0, // 0 for test emails
       contactId: 0, // 0 for test emails
       email: targetEmail,
-      from: "onboarding@resend.dev",
+      from: fromEmail || "hello@senlo.io",
       subject: `[TEST] ${subject || template.subject || "No Subject"}`,
       html: personalizedHtml,
       providerId: project.providerId,
+    });
+
+    const workers = await emailQueue.getWorkers();
+    if (workers.length === 0) {
+      logger.warn("Test email added to queue but NO active workers found. Is the worker running?");
+    }
+
+    logger.info("Test email queued successfully", {
+      jobId: job.id,
+      templateId,
+      targetEmail,
+      activeWorkers: workers.length,
     });
 
     return { success: true };

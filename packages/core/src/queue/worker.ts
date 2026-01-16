@@ -31,33 +31,37 @@ export class EmailWorkerProcessor {
         throw new Error(result.error || "Failed to send email");
       }
 
-      await this.campaignRepo.logEvent({
-        campaignId,
-        contactId,
-        email,
-        type: "SENT",
-        metadata: { provider: provider.type, messageId: result.messageId },
-      });
+      if (campaignId !== 0) {
+        await this.campaignRepo.logEvent({
+          campaignId,
+          contactId,
+          email,
+          type: "SENT",
+          metadata: { provider: provider.type, messageId: result.messageId },
+        });
 
-      await this.campaignRepo.logEvent({
-        campaignId,
-        contactId,
-        email,
-        type: "DELIVERED",
-        metadata: { deliveryTime: "0.1s" },
-      });
+        await this.campaignRepo.logEvent({
+          campaignId,
+          contactId,
+          email,
+          type: "DELIVERED",
+          metadata: { deliveryTime: "0.1s" },
+        });
+      }
     } catch (error) {
       console.error(`Failed to process email job ${job.id}:`, error);
 
-      await this.campaignRepo.logEvent({
-        campaignId,
-        contactId,
-        email,
-        type: "FAILED",
-        metadata: {
-          error: error instanceof Error ? error.message : String(error),
-        },
-      });
+      if (campaignId !== 0) {
+        await this.campaignRepo.logEvent({
+          campaignId,
+          contactId,
+          email,
+          type: "FAILED",
+          metadata: {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
 
       throw error; // Rethrow to let BullMQ handle retries
     }

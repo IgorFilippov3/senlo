@@ -7,9 +7,11 @@ export interface EmailRenderer {
 export type RenderContext = {
   // To store shared state during rendering (e.g. unique classes for media queries)
   responsiveStyles: string[];
+  options?: RenderOptions;
 };
 
 export interface RenderOptions {
+  baseUrl?: string;
   data?: {
     contact?: Record<string, any>;
     project?: { name: string };

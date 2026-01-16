@@ -28,7 +28,8 @@ interface EditorLayoutProps {
   onSendTest?: (
     id: number,
     targetEmail: string,
-    html: string,
+    fromEmail: string,
+    design: EmailDesignDocument,
     subject: string
   ) => Promise<{ success: boolean; error?: string }>;
 }

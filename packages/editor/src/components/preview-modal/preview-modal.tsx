@@ -24,6 +24,7 @@ export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
     if (!isOpen) return "";
     
     const options: RenderOptions = {
+      baseUrl: typeof window !== "undefined" ? window.location.origin : undefined,
       data: {
         contact: previewContact || {},
         project: { name: "Sample Project" },

@@ -143,7 +143,8 @@ export interface EditorState {
   onSendTest?: (
     id: number,
     targetEmail: string,
-    html: string,
+    fromEmail: string,
+    design: EmailDesignDocument,
     subject: string
   ) => Promise<{ success: boolean; error?: string }>;
 
@@ -275,7 +276,8 @@ export interface EditorState {
     fn: (
       id: number,
       targetEmail: string,
-      html: string,
+      fromEmail: string,
+      design: EmailDesignDocument,
       subject: string
     ) => Promise<{ success: boolean; error?: string }>
   ) => void;

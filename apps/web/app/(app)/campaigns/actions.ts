@@ -17,9 +17,10 @@ import {
   RecipientList,
   TriggeredSendLog,
   encodeUnsubscribeToken,
-  replaceMergeTags,
+  renderEmailDesign,
   wrapLinksWithTracking,
   MailerFactory,
+  EmailDesignDocument,
 } from "@senlo/core";
 import { emailQueue } from "@senlo/core/src/queue";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
@@ -380,12 +381,17 @@ export async function sendCampaignAction(
 
     const clickTrackingBaseUrl = `${baseUrl}/api/track/click/${campaign.id}/${emailEncoded}`;
 
-    let personalizedHtml = replaceMergeTags(template.html, {
-      contact: contact,
-      project: { name: project.name },
-      campaign: { name: campaign.name, id: campaign.id },
-      unsubscribeUrl,
-    });
+    let personalizedHtml = template.designJson 
+      ? renderEmailDesign(template.designJson as EmailDesignDocument, {
+          baseUrl,
+          data: {
+            contact: contact,
+            project: { name: project.name },
+            campaign: { name: campaign.name, id: campaign.id },
+            unsubscribeUrl,
+          }
+        })
+      : template.html;
 
     personalizedHtml = wrapLinksWithTracking(
       personalizedHtml,
@@ -409,6 +415,20 @@ export async function sendCampaignAction(
   });
 
   await emailQueue.addBulk(jobs);
+
+  const workers = await emailQueue.getWorkers();
+  if (workers.length === 0) {
+    logger.warn("Campaign emails added to queue but NO active workers found.", {
+      campaignId,
+      jobCount: jobs.length,
+    });
+  }
+
+  logger.info("Campaign emails queued successfully", {
+    campaignId,
+    jobCount: jobs.length,
+    activeWorkers: workers.length,
+  });
 
   // We set it to COMPLETED for now because the queue will handle the rest,
   // but ideally, we should have a way to track when the queue finishes.
