@@ -11,6 +11,10 @@ import {
   PaddingControl,
   FormGrid,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Slider,
   Input,
 } from "@senlo/ui";
@@ -34,7 +38,10 @@ import {
   DEFAULT_PARAGRAPH_LETTER_SPACING,
 } from "./defaults/paragraph";
 import { DEFAULT_PADDING, DEFAULT_COLOR } from "./defaults/common";
-import { TextareaExpandedModal, ExpandButton } from "../textarea-expanded-modal";
+import {
+  TextareaExpandedModal,
+  ExpandButton,
+} from "../textarea-expanded-modal";
 
 interface ParagraphSectionProps {
   block: ParagraphBlock;
@@ -52,7 +59,7 @@ export const ParagraphSection = ({ block }: ParagraphSectionProps) => {
 
   const handleInsertTag = (
     tag: string,
-    fieldName: "text" | "href" = "text"
+    fieldName: "text" | "href" = "text",
   ) => {
     const currentVal = getValues(fieldName) || "";
     setValue(fieldName, currentVal + tag);
@@ -158,11 +165,16 @@ export const ParagraphSection = ({ block }: ParagraphSectionProps) => {
             control={control}
             render={({ field }) => (
               <Select
-                {...field}
                 value={field.value ?? DEFAULT_PARAGRAPH_FONT_WEIGHT}
+                onValueChange={field.onChange}
               >
-                <option value="normal">Regular</option>
-                <option value="bold">Bold</option>
+                <SelectTrigger>
+                  <SelectValue placeholder="Weight" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Regular</SelectItem>
+                  <SelectItem value="bold">Bold</SelectItem>
+                </SelectContent>
               </Select>
             )}
           />

@@ -10,6 +10,10 @@ import {
   PaddingControl,
   FormGrid,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Slider,
 } from "@senlo/ui";
 import { ProductLineBlock } from "@senlo/core";
@@ -17,7 +21,10 @@ import { Controller, useWatch } from "react-hook-form";
 import { MergeTagSelector } from "../merge-tag-selector";
 import { validateHTML } from "@senlo/core";
 import { HTMLValidationMessage } from "./html-validation-message";
-import { TextareaExpandedModal, ExpandButton } from "../textarea-expanded-modal";
+import {
+  TextareaExpandedModal,
+  ExpandButton,
+} from "../textarea-expanded-modal";
 import { useMemo, useState } from "react";
 import {
   DEFAULT_PRODUCT_LINE_LEFT_TEXT,
@@ -35,7 +42,7 @@ interface ProductLineSectionProps {
 export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
   const [isLeftExpanded, setIsLeftExpanded] = useState(false);
   const [isRightExpanded, setIsRightExpanded] = useState(false);
-  
+
   const { register, control, errors, setValue, getValues } = useBlockForm({
     block,
     schema: productLineSchema,
@@ -43,12 +50,18 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
 
   const leftTextValue = useWatch({ control, name: "leftText" });
   const rightTextValue = useWatch({ control, name: "rightText" });
-  const leftHtmlErrors = useMemo(() => validateHTML(leftTextValue || ""), [leftTextValue]);
-  const rightHtmlErrors = useMemo(() => validateHTML(rightTextValue || ""), [rightTextValue]);
+  const leftHtmlErrors = useMemo(
+    () => validateHTML(leftTextValue || ""),
+    [leftTextValue],
+  );
+  const rightHtmlErrors = useMemo(
+    () => validateHTML(rightTextValue || ""),
+    [rightTextValue],
+  );
 
   const handleInsertTag = (
     tag: string,
-    fieldName: "leftText" | "rightText" = "leftText"
+    fieldName: "leftText" | "rightText" = "leftText",
   ) => {
     const currentVal = getValues(fieldName) || "";
     setValue(fieldName, currentVal + tag);
@@ -60,7 +73,9 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
         label="Left Text"
         error={errors.leftText?.message as string}
         headerAction={
-          <MergeTagSelector onSelect={(tag) => handleInsertTag(tag, "leftText")} />
+          <MergeTagSelector
+            onSelect={(tag) => handleInsertTag(tag, "leftText")}
+          />
         }
       >
         <Textarea
@@ -83,7 +98,10 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
 
       <FormSection title="Left Text Styling">
         <FormGrid cols={2}>
-          <FormField label="Color" error={errors.leftStyle?.color?.message as string}>
+          <FormField
+            label="Color"
+            error={errors.leftStyle?.color?.message as string}
+          >
             <Controller
               name="leftStyle.color"
               control={control}
@@ -106,11 +124,18 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
               control={control}
               render={({ field }) => (
                 <Select
-                  {...field}
-                  value={field.value ?? DEFAULT_PRODUCT_LINE_LEFT_STYLE.fontWeight}
+                  value={
+                    field.value ?? DEFAULT_PRODUCT_LINE_LEFT_STYLE.fontWeight
+                  }
+                  onValueChange={field.onChange}
                 >
-                  <option value="normal">Regular</option>
-                  <option value="bold">Bold</option>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Weight" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Regular</SelectItem>
+                    <SelectItem value="bold">Bold</SelectItem>
+                  </SelectContent>
                 </Select>
               )}
             />
@@ -152,7 +177,9 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
         label="Right Text"
         error={errors.rightText?.message as string}
         headerAction={
-          <MergeTagSelector onSelect={(tag) => handleInsertTag(tag, "rightText")} />
+          <MergeTagSelector
+            onSelect={(tag) => handleInsertTag(tag, "rightText")}
+          />
         }
       >
         <Textarea
@@ -175,7 +202,10 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
 
       <FormSection title="Right Text Styling">
         <FormGrid cols={2}>
-          <FormField label="Color" error={errors.rightStyle?.color?.message as string}>
+          <FormField
+            label="Color"
+            error={errors.rightStyle?.color?.message as string}
+          >
             <Controller
               name="rightStyle.color"
               control={control}
@@ -198,11 +228,18 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
               control={control}
               render={({ field }) => (
                 <Select
-                  {...field}
-                  value={field.value ?? DEFAULT_PRODUCT_LINE_RIGHT_STYLE.fontWeight}
+                  value={
+                    field.value ?? DEFAULT_PRODUCT_LINE_RIGHT_STYLE.fontWeight
+                  }
+                  onValueChange={field.onChange}
                 >
-                  <option value="normal">Regular</option>
-                  <option value="bold">Bold</option>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Weight" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Regular</SelectItem>
+                    <SelectItem value="bold">Bold</SelectItem>
+                  </SelectContent>
                 </Select>
               )}
             />

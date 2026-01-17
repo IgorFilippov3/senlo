@@ -4,6 +4,13 @@ import styles from "./rows-section.module.css";
 import { useEditorStore } from "../../../../state/editor.store";
 import { PaletteItem } from "../palette-item/palette-item";
 import { SidebarSection } from "../sidebar-section/sidebar-section";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@senlo/ui";
 import { Loader2 } from "lucide-react";
 import { SavedRowCard } from "./saved-row-card";
 
@@ -18,14 +25,18 @@ export const RowsSection = () => {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <select
-          className={styles.select}
+        <Select
           value={mode}
-          onChange={(e) => setMode(e.target.value as "empty" | "saved")}
+          onValueChange={(val) => setMode(val as "empty" | "saved")}
         >
-          <option value="empty">Empty Rows</option>
-          <option value="saved">Saved Rows</option>
-        </select>
+          <SelectTrigger className={styles.selectTrigger}>
+            <SelectValue placeholder="Select rows type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="empty">Empty Rows</SelectItem>
+            <SelectItem value="saved">Saved Rows</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className={styles.content}>

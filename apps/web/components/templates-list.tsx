@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Select, Button, Card, Input } from "@senlo/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Button,
+  Card,
+  Input,
+} from "@senlo/ui";
 import { useTemplates, TemplateFilters } from "../hooks/use-templates";
 import { useProjects } from "../hooks/use-projects";
 import { FileText, Search, Filter } from "lucide-react";
@@ -27,7 +36,7 @@ export function TemplatesList({
   // Memoize default project ID to prevent recreating filters
   const defaultProjectId = useMemo(
     () => (projects.length > 0 ? projects[0].id : 0),
-    [projects]
+    [projects],
   );
 
   const [filters, setFilters] = useState<TemplateFilters>(() => ({
@@ -91,16 +100,19 @@ export function TemplatesList({
             <div>
               <label className="block text-sm font-medium mb-1">Project</label>
               <Select
-                value={filters.projectId}
-                onChange={(e) =>
-                  updateFilter("projectId", Number(e.target.value))
-                }
+                value={String(filters.projectId)}
+                onValueChange={(val) => updateFilter("projectId", Number(val))}
               >
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
+                <SelectTrigger>
+                  <SelectValue placeholder="Project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={String(project.id)}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
 
@@ -108,11 +120,16 @@ export function TemplatesList({
               <label className="block text-sm font-medium mb-1">Status</label>
               <Select
                 value={filters.status || "all"}
-                onChange={(e) => updateFilter("status", e.target.value)}
+                onValueChange={(val) => updateFilter("status", val)}
               >
-                <option value="all">All Status</option>
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                </SelectContent>
               </Select>
             </div>
 

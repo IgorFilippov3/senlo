@@ -11,6 +11,10 @@ import {
   ColorPicker,
   FormGrid,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Slider,
   PaddingControl,
 } from "@senlo/ui";
@@ -42,8 +46,10 @@ import {
   SHADOW_PRESETS,
   ShadowPresetKey,
 } from "./defaults/button";
-import { DEFAULT_COLOR } from "./defaults/common";
-import { TextareaExpandedModal, ExpandButton } from "../textarea-expanded-modal";
+import {
+  TextareaExpandedModal,
+  ExpandButton,
+} from "../textarea-expanded-modal";
 
 interface ButtonSectionProps {
   block: ButtonBlock;
@@ -56,7 +62,10 @@ export const ButtonSection = ({ block }: ButtonSectionProps) => {
     schema: buttonSchema,
   });
 
-  const handleInsertTag = (tag: string, fieldName: "text" | "href" = "text") => {
+  const handleInsertTag = (
+    tag: string,
+    fieldName: "text" | "href" = "text",
+  ) => {
     const currentVal = getValues(fieldName) || "";
     setValue(fieldName, currentVal + tag);
   };
@@ -77,25 +86,59 @@ export const ButtonSection = ({ block }: ButtonSectionProps) => {
   ];
 
   const borderStyleOptions = [
-    { value: "solid", icon: <Square size={16} fill="currentColor" fillOpacity={0.2} />, label: "Solid" },
+    {
+      value: "solid",
+      icon: <Square size={16} fill="currentColor" fillOpacity={0.2} />,
+      label: "Solid",
+    },
     { value: "dashed", icon: <MoreHorizontal size={16} />, label: "Dashed" },
-    { value: "dotted", icon: <Minus size={16} style={{ transform: 'rotate(90deg)' }} />, label: "Dotted" },
+    {
+      value: "dotted",
+      icon: <Minus size={16} style={{ transform: "rotate(90deg)" }} />,
+      label: "Dotted",
+    },
   ];
 
   const shadowPresetOptions = [
-    { value: "none", icon: <span style={{ fontSize: '12px' }}>None</span>, label: "No shadow" },
-    { value: "s", icon: <span style={{ fontSize: '12px' }}>S</span>, label: "Small" },
-    { value: "m", icon: <span style={{ fontSize: '12px' }}>M</span>, label: "Medium" },
-    { value: "l", icon: <span style={{ fontSize: '12px' }}>L</span>, label: "Large" },
+    {
+      value: "none",
+      icon: <span style={{ fontSize: "12px" }}>None</span>,
+      label: "No shadow",
+    },
+    {
+      value: "s",
+      icon: <span style={{ fontSize: "12px" }}>S</span>,
+      label: "Small",
+    },
+    {
+      value: "m",
+      icon: <span style={{ fontSize: "12px" }}>M</span>,
+      label: "Medium",
+    },
+    {
+      value: "l",
+      icon: <span style={{ fontSize: "12px" }}>L</span>,
+      label: "Large",
+    },
   ];
 
   // Helper to determine active shadow preset
   const getActiveShadowPreset = (): string => {
-    if (!currentShadow || (currentShadow.blur === 0 && currentShadow.x === 0 && currentShadow.y === 0)) return "none";
-    
+    if (
+      !currentShadow ||
+      (currentShadow.blur === 0 &&
+        currentShadow.x === 0 &&
+        currentShadow.y === 0)
+    )
+      return "none";
+
     for (const [key, value] of Object.entries(SHADOW_PRESETS)) {
       // Compare only x, y, and blur to keep preset active even if color changes
-      if (value.blur === currentShadow.blur && value.x === currentShadow.x && value.y === currentShadow.y) {
+      if (
+        value.blur === currentShadow.blur &&
+        value.x === currentShadow.x &&
+        value.y === currentShadow.y
+      ) {
         return key;
       }
     }
@@ -103,18 +146,23 @@ export const ButtonSection = ({ block }: ButtonSectionProps) => {
   };
 
   const handleShadowPresetChange = (preset: string) => {
-    const shadowData = SHADOW_PRESETS[preset as ShadowPresetKey] || SHADOW_PRESETS.none;
+    const shadowData =
+      SHADOW_PRESETS[preset as ShadowPresetKey] || SHADOW_PRESETS.none;
     setValue("shadow", shadowData);
   };
 
   return (
     <FormSection title="Button Settings">
-      <FormField 
-        label="Button Text" 
+      <FormField
+        label="Button Text"
         error={errors.text?.message as string}
         headerAction={<MergeTagSelector onSelect={handleInsertTag} />}
       >
-        <Textarea {...register("text")} placeholder="Enter button text..." minRows={1} />
+        <Textarea
+          {...register("text")}
+          placeholder="Enter button text..."
+          minRows={1}
+        />
         <ExpandButton onClick={() => setIsExpanded(true)} />
         <HTMLValidationMessage errors={htmlErrors} />
       </FormField>
@@ -128,10 +176,12 @@ export const ButtonSection = ({ block }: ButtonSectionProps) => {
         title="Edit Button Text"
       />
 
-      <FormField 
-        label="Link URL" 
+      <FormField
+        label="Link URL"
         error={errors.href?.message as string}
-        headerAction={<MergeTagSelector onSelect={(tag) => handleInsertTag(tag, "href")} />}
+        headerAction={
+          <MergeTagSelector onSelect={(tag) => handleInsertTag(tag, "href")} />
+        }
       >
         <Input {...register("href")} placeholder="https://example.com" />
       </FormField>
@@ -208,9 +258,17 @@ export const ButtonSection = ({ block }: ButtonSectionProps) => {
             name="fontWeight"
             control={control}
             render={({ field }) => (
-              <Select {...field} value={field.value ?? DEFAULT_BUTTON_FONT_WEIGHT}>
-                <option value="normal">Regular</option>
-                <option value="bold">Bold</option>
+              <Select
+                value={field.value ?? DEFAULT_BUTTON_FONT_WEIGHT}
+                onValueChange={field.onChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Weight" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Regular</SelectItem>
+                  <SelectItem value="bold">Bold</SelectItem>
+                </SelectContent>
               </Select>
             )}
           />
@@ -224,8 +282,16 @@ export const ButtonSection = ({ block }: ButtonSectionProps) => {
               <ToggleGroup
                 value={field.value || "none"}
                 options={[
-                  { value: "none", icon: <span style={{fontSize: '10px'}}>Aa</span>, label: "Normal" },
-                  { value: "uppercase", icon: <span style={{fontSize: '10px'}}>AA</span>, label: "All Caps" },
+                  {
+                    value: "none",
+                    icon: <span style={{ fontSize: "10px" }}>Aa</span>,
+                    label: "Normal",
+                  },
+                  {
+                    value: "uppercase",
+                    icon: <span style={{ fontSize: "10px" }}>AA</span>,
+                    label: "All Caps",
+                  },
                 ]}
                 onChange={field.onChange}
               />
@@ -293,7 +359,7 @@ export const ButtonSection = ({ block }: ButtonSectionProps) => {
             />
           </FormField>
         </FormGrid>
-        
+
         <Controller
           name="border.width"
           control={control}

@@ -1,7 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Dialog, FormField, Input, Textarea, Select } from "@senlo/ui";
+import {
+  Button,
+  Dialog,
+  FormField,
+  Input,
+  Textarea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@senlo/ui";
 import { Settings2 } from "lucide-react";
 import { Project, EmailProvider } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
@@ -17,14 +28,14 @@ export function EditProjectDialog({
   providers,
 }: EditProjectDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  
+
   // Use React Query mutation for updating project
   const { mutate: updateProject, isPending: isUpdating } = useUpdateProject();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     updateProject(
       { projectId: project.id, formData },
       {
@@ -37,8 +48,8 @@ export function EditProjectDialog({
             error: error instanceof Error ? error.message : String(error),
           });
           alert("Failed to update project. Please try again.");
-        }
-      }
+        },
+      },
     );
   }
 
@@ -90,12 +101,17 @@ export function EditProjectDialog({
               name="providerId"
               defaultValue={project.providerId?.toString() || ""}
             >
-              <option value="">— No provider selected —</option>
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.id.toString()}>
-                  {provider.name} ({provider.type})
-                </option>
-              ))}
+              <SelectTrigger>
+                <SelectValue placeholder="— No provider selected —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— No provider selected —</SelectItem>
+                {providers.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.id.toString()}>
+                    {provider.name} ({provider.type})
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </FormField>
 

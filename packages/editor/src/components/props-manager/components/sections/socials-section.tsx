@@ -7,11 +7,14 @@ import {
   FormField,
   ToggleGroup,
   PaddingControl,
-  FormGrid,
   Slider,
   Button,
   Dialog,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@senlo/ui";
 import { SocialsBlock } from "@senlo/core";
 import { AlignLeft, AlignCenter, AlignRight, Plus } from "lucide-react";
@@ -32,7 +35,6 @@ interface SocialsSectionProps {
 }
 
 export const SocialsSection = ({ block }: SocialsSectionProps) => {
-  
   const { control, setValue, getValues } = useBlockForm({
     block,
     schema: socialsSchema,
@@ -50,7 +52,6 @@ export const SocialsSection = ({ block }: SocialsSectionProps) => {
     { value: "right", icon: <AlignRight size={16} />, label: "Right" },
   ];
 
-
   const handleUpdateLink = (index: number, field: keyof any, value: string) => {
     const updatedLinks = [...currentLinks];
     updatedLinks[index] = { ...updatedLinks[index], [field]: value };
@@ -58,22 +59,29 @@ export const SocialsSection = ({ block }: SocialsSectionProps) => {
   };
 
   const handleDeleteLink = (index: number) => {
-    const updatedLinks = currentLinks.filter((_: any, i: number) => i !== index);
+    const updatedLinks = currentLinks.filter(
+      (_: any, i: number) => i !== index,
+    );
     setValue("links", updatedLinks);
   };
-
 
   const handleMoveUp = (index: number) => {
     if (index === 0) return;
     const updatedLinks = [...currentLinks];
-    [updatedLinks[index - 1], updatedLinks[index]] = [updatedLinks[index], updatedLinks[index - 1]];
+    [updatedLinks[index - 1], updatedLinks[index]] = [
+      updatedLinks[index],
+      updatedLinks[index - 1],
+    ];
     setValue("links", updatedLinks);
   };
 
   const handleMoveDown = (index: number) => {
     if (index === currentLinks.length - 1) return;
     const updatedLinks = [...currentLinks];
-    [updatedLinks[index], updatedLinks[index + 1]] = [updatedLinks[index + 1], updatedLinks[index]];
+    [updatedLinks[index], updatedLinks[index + 1]] = [
+      updatedLinks[index + 1],
+      updatedLinks[index],
+    ];
     setValue("links", updatedLinks);
   };
 
@@ -86,7 +94,6 @@ export const SocialsSection = ({ block }: SocialsSectionProps) => {
     setValue("links", [...currentLinks, newLink]);
     setIsAddModalOpen(false);
   };
-
 
   return (
     <FormSection title="Social Links Settings">
@@ -120,26 +127,25 @@ export const SocialsSection = ({ block }: SocialsSectionProps) => {
             <Button variant="ghost" onClick={() => setIsAddModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddLink}>
-              Add Link
-            </Button>
+            <Button onClick={handleAddLink}>Add Link</Button>
           </div>
         }
       >
         <FormField label="Social Network">
-          <Select
-            value={selectedNetwork}
-            onChange={(e) => setSelectedNetwork(e.target.value)}
-          >
-            {Object.entries(SOCIAL_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+          <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select network..." />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(SOCIAL_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </FormField>
       </Dialog>
-
 
       <FormSection title="Display Settings">
         <FormField label="Alignment">

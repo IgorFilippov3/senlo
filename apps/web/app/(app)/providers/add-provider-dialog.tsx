@@ -1,14 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Dialog, FormField, Input, Select } from "@senlo/ui";
+import {
+  Button,
+  Dialog,
+  FormField,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@senlo/ui";
 import { Plus } from "lucide-react";
 import { useCreateProvider } from "apps/web/queries/providers";
 import type { EmailProviderType } from "@senlo/core";
 
-interface AddProviderDialogProps {}
-
-export function AddProviderDialog({}: AddProviderDialogProps = {}) {
+export function AddProviderDialog() {
   const [isOpen, setIsOpen] = useState(false);
   const [type, setType] = useState<EmailProviderType>("RESEND");
   const { mutate: createProvider } = useCreateProvider();
@@ -26,7 +34,12 @@ export function AddProviderDialog({}: AddProviderDialogProps = {}) {
       },
       onError: (error) => {
         // Handle field errors from the server action
-        if (error && typeof error === "object" && "error" in error && error.error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "error" in error &&
+          error.error
+        ) {
           const fieldErrors = (error.error as any).fieldErrors;
           let errorMessage = "Validation failed";
 
@@ -48,7 +61,7 @@ export function AddProviderDialog({}: AddProviderDialogProps = {}) {
         } else {
           alert("Failed to create provider. Please try again.");
         }
-      }
+      },
     });
   };
 
@@ -90,10 +103,15 @@ export function AddProviderDialog({}: AddProviderDialogProps = {}) {
             <Select
               name="type"
               value={type}
-              onChange={(e) => setType(e.target.value as EmailProviderType)}
+              onValueChange={(val) => setType(val as EmailProviderType)}
             >
-              <option value="RESEND">Resend</option>
-              <option value="MAILGUN">Mailgun</option>
+              <SelectTrigger>
+                <SelectValue placeholder="Select provider" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="RESEND">Resend</SelectItem>
+                <SelectItem value="MAILGUN">Mailgun</SelectItem>
+              </SelectContent>
             </Select>
           </FormField>
 
@@ -140,8 +158,13 @@ export function AddProviderDialog({}: AddProviderDialogProps = {}) {
                 hint="Choose based on your Mailgun account region"
               >
                 <Select name="region" defaultValue="US">
-                  <option value="US">US (api.mailgun.net)</option>
-                  <option value="EU">EU (api.eu.mailgun.net)</option>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="US">US (api.mailgun.net)</SelectItem>
+                    <SelectItem value="EU">EU (api.eu.mailgun.net)</SelectItem>
+                  </SelectContent>
                 </Select>
               </FormField>
             </>

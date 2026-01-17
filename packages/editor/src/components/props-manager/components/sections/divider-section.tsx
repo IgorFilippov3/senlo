@@ -11,16 +11,15 @@ import {
   PaddingControl,
   FormGrid,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Slider,
 } from "@senlo/ui";
 import { DividerBlock } from "@senlo/core";
-import {
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-} from "lucide-react";
+import { AlignLeft, AlignCenter, AlignRight } from "lucide-react";
 import { Controller } from "react-hook-form";
-import { DEFAULT_COLOR } from "./defaults/common";
 import {
   DEFAULT_DIVIDER_COLOR,
   DEFAULT_DIVIDER_WIDTH,
@@ -103,15 +102,19 @@ export const DividerSection = memo(({ block }: DividerSectionProps) => {
             control={control}
             render={({ field }) => (
               <Select
-                {...field}
-                value={field.value ?? DEFAULT_DIVIDER_BORDER_WIDTH}
-                onChange={(e) => field.onChange(parseInt(e.target.value))}
+                value={String(field.value ?? DEFAULT_DIVIDER_BORDER_WIDTH)}
+                onValueChange={(val) => field.onChange(parseInt(val))}
               >
-                {[1, 2, 3, 4, 5, 8, 10].map((v) => (
-                  <option key={v} value={v}>
-                    {v}px
-                  </option>
-                ))}
+                <SelectTrigger>
+                  <SelectValue placeholder="Thickness" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 8, 10].map((v) => (
+                    <SelectItem key={v} value={String(v)}>
+                      {v}px
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             )}
           />
@@ -126,12 +129,17 @@ export const DividerSection = memo(({ block }: DividerSectionProps) => {
             control={control}
             render={({ field }) => (
               <Select
-                {...field}
                 value={field.value ?? DEFAULT_DIVIDER_BORDER_STYLE}
+                onValueChange={field.onChange}
               >
-                <option value="solid">Solid</option>
-                <option value="dashed">Dashed</option>
-                <option value="dotted">Dotted</option>
+                <SelectTrigger>
+                  <SelectValue placeholder="Style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="solid">Solid</SelectItem>
+                  <SelectItem value="dashed">Dashed</SelectItem>
+                  <SelectItem value="dotted">Dotted</SelectItem>
+                </SelectContent>
               </Select>
             )}
           />
@@ -153,7 +161,3 @@ export const DividerSection = memo(({ block }: DividerSectionProps) => {
     </FormSection>
   );
 });
-
-
-
-

@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Dialog, Button, Input, Label, Select } from "@senlo/ui";
+import {
+  Dialog,
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@senlo/ui";
 import { Upload, FileText, Check, AlertCircle, Loader2 } from "lucide-react";
 import Papa, { ParseResult } from "papaparse";
 import { useImportContacts } from "apps/web/queries/audience";
@@ -64,7 +74,7 @@ export function ImportContactsDialog({
   };
 
   const handleTargetListChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     //@ts-ignore
@@ -105,12 +115,12 @@ export function ImportContactsDialog({
 
         // Auto-mapping
         const emailIdx = fileHeaders.findIndex((h) =>
-          h.toLowerCase().includes("email")
+          h.toLowerCase().includes("email"),
         );
         const nameIdx = fileHeaders.findIndex(
           (h) =>
             h.toLowerCase().includes("name") ||
-            h.toLowerCase().includes("full name")
+            h.toLowerCase().includes("full name"),
         );
 
         setMapping({
@@ -148,34 +158,42 @@ export function ImportContactsDialog({
             }))
             .filter((c) => c.email && c.email.includes("@"));
 
-          importContacts({
-            projectId,
-            contacts: contactsToImport,
-            listId:
-              targetList !== "none" && targetList !== "new"
-                ? (targetList as number)
-                : undefined,
-            newListName: targetList === "new" ? newListName : undefined,
-          }, {
-            onSuccess: (data) => {
-              setResult(data);
-              setStep("complete");
+          importContacts(
+            {
+              projectId,
+              contacts: contactsToImport,
+              listId:
+                targetList !== "none" && targetList !== "new"
+                  ? (targetList as number)
+                  : undefined,
+              newListName: targetList === "new" ? newListName : undefined,
             },
-            onError: (error) => {
-              // Handle validation errors
-              let errorMessage = "Import failed";
-              if (error && typeof error === "object" && "error" in error && error.error) {
-                const fieldErrors = (error.error as any).fieldErrors;
-                errorMessage =
-                  fieldErrors?.contacts?.[0] ||
-                  fieldErrors?.newListName?.[0] ||
-                  fieldErrors?.general?.[0] ||
-                  "Import failed";
-              }
-              setError(errorMessage);
-              setStep("target");
-            }
-          });
+            {
+              onSuccess: (data) => {
+                setResult(data);
+                setStep("complete");
+              },
+              onError: (error) => {
+                // Handle validation errors
+                let errorMessage = "Import failed";
+                if (
+                  error &&
+                  typeof error === "object" &&
+                  "error" in error &&
+                  error.error
+                ) {
+                  const fieldErrors = (error.error as any).fieldErrors;
+                  errorMessage =
+                    fieldErrors?.contacts?.[0] ||
+                    fieldErrors?.newListName?.[0] ||
+                    fieldErrors?.general?.[0] ||
+                    "Import failed";
+                }
+                setError(errorMessage);
+                setStep("target");
+              },
+            },
+          );
         },
         error: (error) => {
           setError(`Failed to parse CSV: ${error.message}`);
@@ -253,16 +271,21 @@ export function ImportContactsDialog({
                   <Label>Email Column (Required)</Label>
                   <Select
                     value={mapping.email}
-                    onChange={(e) =>
-                      setMapping((prev) => ({ ...prev, email: e.target.value }))
+                    onValueChange={(val) =>
+                      setMapping((prev) => ({ ...prev, email: val }))
                     }
                   >
-                    <option value="">Select column...</option>
-                    {headers.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select column..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Select column...</SelectItem>
+                      {headers.map((h) => (
+                        <SelectItem key={h} value={h}>
+                          {h}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
 
@@ -270,16 +293,21 @@ export function ImportContactsDialog({
                   <Label>Name Column (Optional)</Label>
                   <Select
                     value={mapping.name}
-                    onChange={(e) =>
-                      setMapping((prev) => ({ ...prev, name: e.target.value }))
+                    onValueChange={(val) =>
+                      setMapping((prev) => ({ ...prev, name: val }))
                     }
                   >
-                    <option value="">None</option>
-                    {headers.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
+                    <SelectTrigger>
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {headers.map((h) => (
+                        <SelectItem key={h} value={h}>
+                          {h}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
@@ -418,14 +446,19 @@ export function ImportContactsDialog({
                       </label>
                       {targetList !== "none" && targetList !== "new" && (
                         <Select
-                          value={targetList}
-                          onChange={handleTargetListChange}
+                          value={String(targetList)}
+                          onValueChange={(val) => setTargetList(Number(val))}
                         >
-                          {lists.map((l) => (
-                            <option key={l.id} value={l.id}>
-                              {l.name}
-                            </option>
-                          ))}
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select list" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {lists.map((l) => (
+                              <SelectItem key={l.id} value={String(l.id)}>
+                                {l.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                       )}
                     </div>

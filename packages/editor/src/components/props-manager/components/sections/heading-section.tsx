@@ -8,6 +8,10 @@ import {
   Textarea,
   Input,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   FormGrid,
   ToggleGroup,
   ColorPicker,
@@ -19,7 +23,6 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Type,
   AArrowUp,
   AArrowDown,
 } from "lucide-react";
@@ -35,7 +38,10 @@ import {
   DEFAULT_HEADING_LETTER_SPACING,
 } from "./defaults/heading";
 import { DEFAULT_PADDING, DEFAULT_COLOR } from "./defaults/common";
-import { TextareaExpandedModal, ExpandButton } from "../textarea-expanded-modal";
+import {
+  TextareaExpandedModal,
+  ExpandButton,
+} from "../textarea-expanded-modal";
 
 interface HeadingSectionProps {
   block: HeadingBlock;
@@ -48,7 +54,10 @@ export const HeadingSection = ({ block }: HeadingSectionProps) => {
     schema: headingSchema,
   });
 
-  const handleInsertTag = (tag: string, fieldName: "text" | "href" = "text") => {
+  const handleInsertTag = (
+    tag: string,
+    fieldName: "text" | "href" = "text",
+  ) => {
     const currentVal = getValues(fieldName) || "";
     setValue(fieldName, currentVal + tag);
   };
@@ -79,8 +88,8 @@ export const HeadingSection = ({ block }: HeadingSectionProps) => {
 
   return (
     <FormSection title="Heading Settings">
-      <FormField 
-        label="Text" 
+      <FormField
+        label="Text"
         error={errors.text?.message as string}
         headerAction={<MergeTagSelector onSelect={handleInsertTag} />}
       >
@@ -98,10 +107,12 @@ export const HeadingSection = ({ block }: HeadingSectionProps) => {
         title="Edit Heading"
       />
 
-      <FormField 
-        label="Link URL" 
+      <FormField
+        label="Link URL"
         error={errors.href?.message as string}
-        headerAction={<MergeTagSelector onSelect={(tag) => handleInsertTag(tag, "href")} />}
+        headerAction={
+          <MergeTagSelector onSelect={(tag) => handleInsertTag(tag, "href")} />
+        }
       >
         <Input {...register("href")} placeholder="https://example.com" />
       </FormField>
@@ -154,11 +165,25 @@ export const HeadingSection = ({ block }: HeadingSectionProps) => {
 
       <FormGrid cols={2}>
         <FormField label="Level" error={errors.level?.message as string}>
-          <Select {...register("level", { valueAsNumber: true })}>
-            <option value={1}>H1</option>
-            <option value={2}>H2</option>
-            <option value={3}>H3</option>
-          </Select>
+          <Controller
+            name="level"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={String(field.value)}
+                onValueChange={(val) => field.onChange(Number(val))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">H1</SelectItem>
+                  <SelectItem value="2">H2</SelectItem>
+                  <SelectItem value="3">H3</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
         </FormField>
 
         <FormField
@@ -169,9 +194,17 @@ export const HeadingSection = ({ block }: HeadingSectionProps) => {
             name="fontWeight"
             control={control}
             render={({ field }) => (
-              <Select {...field} value={field.value ?? defaultFontWeight}>
-                <option value="normal">Regular</option>
-                <option value="bold">Bold</option>
+              <Select
+                value={field.value ?? defaultFontWeight}
+                onValueChange={field.onChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Weight" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Regular</SelectItem>
+                  <SelectItem value="bold">Bold</SelectItem>
+                </SelectContent>
               </Select>
             )}
           />

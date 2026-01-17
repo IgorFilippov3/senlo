@@ -10,17 +10,15 @@ import {
   PaddingControl,
   FormGrid,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Slider,
   Button,
 } from "@senlo/ui";
 import { ListBlock } from "@senlo/core";
-import {
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { AlignLeft, AlignCenter, AlignRight, Plus, Trash2 } from "lucide-react";
 import { Controller, useFieldArray } from "react-hook-form";
 import { DEFAULT_PADDING, DEFAULT_COLOR } from "./defaults/common";
 import {
@@ -29,7 +27,10 @@ import {
   DEFAULT_LIST_FONT_WEIGHT,
   DEFAULT_LIST_TYPE,
 } from "./defaults/list";
-import { TextareaExpandedModal, ExpandButton } from "../textarea-expanded-modal";
+import {
+  TextareaExpandedModal,
+  ExpandButton,
+} from "../textarea-expanded-modal";
 import { useState } from "react";
 
 interface ListSectionProps {
@@ -112,9 +113,22 @@ export const ListSection = memo(({ block }: ListSectionProps) => {
       <TextareaExpandedModal
         isOpen={expandedIndex !== null}
         onClose={() => setExpandedIndex(null)}
-        value={expandedIndex !== null ? getValues(`items.${expandedIndex}` as any) : ""}
-        onChange={(val) => expandedIndex !== null && setValue(`items.${expandedIndex}` as any, val)}
-        onInsertTag={(tag) => expandedIndex !== null && setValue(`items.${expandedIndex}` as any, getValues(`items.${expandedIndex}` as any) + tag)}
+        value={
+          expandedIndex !== null
+            ? getValues(`items.${expandedIndex}` as any)
+            : ""
+        }
+        onChange={(val) =>
+          expandedIndex !== null &&
+          setValue(`items.${expandedIndex}` as any, val)
+        }
+        onInsertTag={(tag) =>
+          expandedIndex !== null &&
+          setValue(
+            `items.${expandedIndex}` as any,
+            getValues(`items.${expandedIndex}` as any) + tag,
+          )
+        }
         title={`Edit List Item ${expandedIndex !== null ? expandedIndex + 1 : ""}`}
       />
 
@@ -157,11 +171,16 @@ export const ListSection = memo(({ block }: ListSectionProps) => {
           control={control}
           render={({ field }) => (
             <Select
-              {...field}
               value={field.value ?? DEFAULT_LIST_FONT_WEIGHT}
+              onValueChange={field.onChange}
             >
-              <option value="normal">Regular</option>
-              <option value="bold">Bold</option>
+              <SelectTrigger>
+                <SelectValue placeholder="Weight" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="normal">Regular</SelectItem>
+                <SelectItem value="bold">Bold</SelectItem>
+              </SelectContent>
             </Select>
           )}
         />
@@ -212,4 +231,3 @@ export const ListSection = memo(({ block }: ListSectionProps) => {
     </FormSection>
   );
 });
-
