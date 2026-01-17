@@ -28,7 +28,7 @@ interface DndEditorContentProps {
 export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
   useKeyboardShortcuts();
   useUnsavedChanges();
-  
+
   const handleDragEnd = useEditorStore((s) => s.handleDragEnd);
   const setDragActive = useEditorStore((s) => s.setDragActive);
   const setHoveredRowId = useEditorStore((s) => s.setHoveredRowId);
@@ -47,7 +47,7 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
       activationConstraint: {
         distance: 8,
       },
-    })
+    }),
   );
 
   const onDragStart = (event: DragStartEvent) => {
@@ -56,11 +56,16 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
 
     const data = event.active.data.current as {
       type: string;
-      data: LayoutPreset | ContentBlockType;
+      data: any;
       label?: string;
     };
 
-    if (data.type === "row" || data.type === "block" || data.type === "content") {
+    if (
+      data.type === "row" ||
+      data.type === "block" ||
+      data.type === "content" ||
+      data.type === "saved-row"
+    ) {
       clearSelection();
       setDragActive(true, data.type as any);
     }
@@ -70,7 +75,7 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
 
     if (originalWidth === 0) {
       const element = document.querySelector(
-        `[data-rbd-draggable-id="${event.active.id}"]`
+        `[data-rbd-draggable-id="${event.active.id}"]`,
       ) as HTMLElement;
 
       if (!element) {
@@ -93,11 +98,20 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
       }
     }
 
+    let label = data.label;
+    if (!label) {
+      if (data.type === "saved-row") {
+        label = data.data.name;
+      } else {
+        label = String(data.data);
+      }
+    }
+
     setActiveData({
       type: data.type,
       data: data.data,
-      label: data.label || String(data.data),
-      originalWidth: originalWidth > 0 ? originalWidth * 0.8 : 200, // ✅ Уже умножаем на 0.8 здесь
+      label: label || "",
+      originalWidth: originalWidth > 0 ? originalWidth * 0.8 : 200,
     });
   };
 
@@ -142,9 +156,18 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
           <div
             style={{
               position: "absolute",
-              right: (activeData.type === "block" || activeData.type === "content") ? "50%" : 0,
-              bottom: (activeData.type === "block" || activeData.type === "content") ? "50%" : 0,
-              transform: (activeData.type === "block" || activeData.type === "content") ? "translate(50%, 50%)" : "none",
+              right:
+                activeData.type === "block" || activeData.type === "content"
+                  ? "50%"
+                  : 0,
+              bottom:
+                activeData.type === "block" || activeData.type === "content"
+                  ? "50%"
+                  : 0,
+              transform:
+                activeData.type === "block" || activeData.type === "content"
+                  ? "translate(50%, 50%)"
+                  : "none",
             }}
           >
             <DragOverlayItem
@@ -157,12 +180,13 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
                 activeData.type === "content"
                   ? (activeData.data as ContentBlockType)
                   : activeData.type === "block"
-                  ? activeData.data.blockType
-                  : undefined
+                    ? activeData.data.blockType
+                    : undefined
               }
               label={activeData.label}
               width={activeData.originalWidth}
               isBlock={activeData.type === "block"}
+              isSavedRow={activeData.type === "saved-row"}
             />
           </div>
         </DragOverlay>

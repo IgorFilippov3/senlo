@@ -11,6 +11,7 @@ interface DragOverlayItemProps {
   label: string;
   width: number;
   isBlock?: boolean;
+  isSavedRow?: boolean;
 }
 
 export const DragOverlayItem = ({
@@ -19,6 +20,7 @@ export const DragOverlayItem = ({
   label,
   width,
   isBlock = false,
+  isSavedRow = false,
 }: DragOverlayItemProps) => {
   const renderPreview = () => {
     if (!preset) return null;
@@ -144,23 +146,60 @@ export const DragOverlayItem = ({
     );
   };
 
+  const renderSavedRowOverlay = () => {
+    return (
+      <div
+        style={{
+          height: "60px",
+          backgroundColor: "#fafafa",
+          borderRadius: "10px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#333",
+          fontSize: "14px",
+          fontWeight: "600",
+          boxShadow: "0 2px 12px rgba(0, 0, 0, 0.2)",
+          border: "2px solid var(--sl-color-primary)",
+          gap: "8px",
+          padding: "0 20px",
+          width: "100%",
+        }}
+      >
+        <GripVertical size={18} />
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {label}
+        </span>
+      </div>
+    );
+  };
+
   const isContentItem = isBlock || blockType;
+  const isRowItem = preset || isSavedRow;
 
   return (
     <div
       className={styles.item}
       style={{
-        width: isContentItem ? "160px" : `${width}px`,
-        opacity: isContentItem ? 0.95 : 0.9,
-        transform: isContentItem ? "none" : "rotate(2deg)",
-        background: isContentItem ? "transparent" : undefined,
-        border: isContentItem ? "none" : undefined,
-        padding: isContentItem ? "0" : undefined,
+        width: isContentItem ? "160px" : isSavedRow ? "240px" : `${width}px`,
+        opacity: isContentItem || isSavedRow ? 0.95 : 0.9,
+        transform: isContentItem || isSavedRow ? "none" : "rotate(2deg)",
+        background: isContentItem || isSavedRow ? "transparent" : undefined,
+        border: isContentItem || isSavedRow ? "none" : undefined,
+        padding: isContentItem || isSavedRow ? "0" : undefined,
       }}
     >
       {isContentItem
         ? renderContentOverlay()
-        : preset && <div className={styles.preview}>{renderPreview()}</div>}
+        : isSavedRow
+          ? renderSavedRowOverlay()
+          : preset && <div className={styles.preview}>{renderPreview()}</div>}
     </div>
   );
 };

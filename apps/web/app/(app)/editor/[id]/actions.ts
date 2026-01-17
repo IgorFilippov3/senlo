@@ -5,8 +5,14 @@ import {
   EmailTemplateRepository,
   EmailProviderRepository,
   ProjectRepository,
+  SavedRowRepository,
 } from "@senlo/db";
-import { EmailDesignDocument, renderEmailDesign } from "@senlo/core";
+import {
+  EmailDesignDocument,
+  renderEmailDesign,
+  SavedRow,
+  RowBlock,
+} from "@senlo/core";
 import { emailQueue } from "@senlo/core/src/queue";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
@@ -14,6 +20,7 @@ import { auth } from "apps/web/auth";
 const repo = new EmailTemplateRepository();
 const providerRepo = new EmailProviderRepository();
 const projectRepo = new ProjectRepository();
+const savedRowRepo = new SavedRowRepository();
 
 async function authorizeTemplate(templateId: number) {
   const session = await auth();
@@ -34,7 +41,7 @@ export async function saveTemplateFromEditor(
   id: number,
   design: EmailDesignDocument,
   html: string,
-  metadata?: { name: string; subject: string }
+  metadata?: { name: string; subject: string },
 ): Promise<{ success: boolean }> {
   try {
     const { template } = await authorizeTemplate(id);
@@ -66,14 +73,14 @@ export async function sendTestEmailAction(
   targetEmail: string,
   fromEmail: string,
   design: EmailDesignDocument,
-  subject: string
+  subject: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { template, project } = await authorizeTemplate(templateId);
 
     if (!project.providerId) {
       throw new Error(
-        "No email provider configured for this project. Please set one in Project Settings."
+        "No email provider configured for this project. Please set one in Project Settings.",
       );
     }
 
@@ -110,7 +117,9 @@ export async function sendTestEmailAction(
 
     const workers = await emailQueue.getWorkers();
     if (workers.length === 0) {
-      logger.warn("Test email added to queue but NO active workers found. Is the worker running?");
+      logger.warn(
+        "Test email added to queue but NO active workers found. Is the worker running?",
+      );
     }
 
     logger.info("Test email queued successfully", {
@@ -131,5 +140,59 @@ export async function sendTestEmailAction(
       stack: errorStack,
     });
     return { success: false, error: errorMessage };
+  }
+}
+
+export async function listSavedRowsAction(): Promise<SavedRow[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  return savedRowRepo.findByUser(session.user.id);
+}
+
+export async function saveRowAction(
+  name: string,
+  data: RowBlock,
+  projectId?: number,
+): Promise<{ success: boolean; data?: SavedRow }> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const savedRow = await savedRowRepo.create({
+      name,
+      data,
+      userId: session.user.id,
+      projectId: projectId || null,
+    });
+
+    return { success: true, data: savedRow };
+  } catch (error) {
+    logger.error("Failed to save row", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { success: false };
+  }
+}
+
+export async function deleteSavedRowAction(
+  id: number,
+): Promise<{ success: boolean }> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const row = await savedRowRepo.findById(id);
+    if (!row || row.userId !== session.user.id) {
+      throw new Error("Unauthorized");
+    }
+
+    await savedRowRepo.delete(id);
+    return { success: true };
+  } catch (error) {
+    logger.error("Failed to delete saved row", {
+      id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { success: false };
   }
 }

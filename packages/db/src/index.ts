@@ -16,3 +16,4 @@ export * from "./repositories/contactRepository";
 export * from "./repositories/emailProviderRepository";
 export * from "./repositories/apiKeyRepository";
 export * from "./repositories/triggeredSendLogRepository";
+export * from "./repositories/savedRowRepository";

@@ -46,7 +46,7 @@ export const accounts = pgTable(
     compoundKey: primaryKey({
       columns: [account.provider, account.providerAccountId],
     }),
-  })
+  }),
 );
 
 export const sessions = pgTable("session", {
@@ -66,7 +66,7 @@ export const verificationTokens = pgTable(
   },
   (vt) => ({
     compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
-  })
+  }),
 );
 
 // --- Core Domain Enums ---
@@ -155,7 +155,7 @@ export const contacts = pgTable(
   },
   (table) => ({
     unq: unique().on(table.projectId, table.email),
-  })
+  }),
 );
 
 export const recipientLists = pgTable("recipient_lists", {
@@ -182,7 +182,7 @@ export const recipientListContacts = pgTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.listId, table.contactId] }),
-  })
+  }),
 );
 
 export const campaigns = pgTable("campaigns", {
@@ -207,8 +207,9 @@ export const campaigns = pgTable("campaigns", {
   templateId: integer("template_id")
     .notNull()
     .references(() => emailTemplates.id, { onDelete: "cascade" }),
-  listId: integer("list_id")
-    .references(() => recipientLists.id, { onDelete: "cascade" }),
+  listId: integer("list_id").references(() => recipientLists.id, {
+    onDelete: "cascade",
+  }),
   variablesSchema: jsonb("variables_schema"),
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   sentAt: timestamp("sent_at", { withTimezone: true }),
@@ -276,7 +277,25 @@ export const triggeredSendLogs = pgTable("triggered_send_logs", {
   status: text("status").notNull(), // 'SUCCESS', 'FAILED'
   error: text("error"),
   data: jsonb("data"), // payload received in webhook
-  sentAt: timestamp("sent_at", { withTimezone: true })
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const savedRows = pgTable("saved_rows", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, {
+      onDelete: "cascade",
+    }),
+  projectId: integer("project_id").references(() => projects.id, {
+    onDelete: "cascade",
+  }),
+  name: text("name").notNull(),
+  data: jsonb("data").notNull(), // The RowBlock JSON
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });

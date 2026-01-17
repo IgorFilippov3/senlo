@@ -1,0 +1,95 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.select {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: var(--primary);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.emptyState {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+
+.savedRowsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.savedRowCard {
+  text-align: left;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--sl-color-bg-subtle);
+  cursor: pointer;
+  width: 100%;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.savedRowCard:hover {
+  background: var(--sl-color-bg-hover);
+}
+
+.deleteButton {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  opacity: 0.4;
+  color: #6b7280;
+  padding: 6px;
+  border-radius: 6px;
+  background-color: white;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.savedRowCard:hover .deleteButton {
+  opacity: 1;
+}
+
+.deleteButton:hover {
+  background-color: #ef4444 !important;
+  color: white !important;
+  border-color: #ef4444 !important;
+  opacity: 1 !important;
+}
+
+.loading {
+  padding: 20px;
+  text-align: center;
+}

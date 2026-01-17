@@ -2,7 +2,13 @@ import { notFound } from "next/navigation";
 import { EmailTemplateRepository, CampaignRepository } from "@senlo/db";
 import { EditorLayout } from "@senlo/editor";
 import { EmailDesignDocument, emailDesignVersion, MergeTag } from "@senlo/core";
-import { saveTemplateFromEditor, sendTestEmailAction } from "./actions";
+import {
+  saveTemplateFromEditor,
+  sendTestEmailAction,
+  listSavedRowsAction,
+  saveRowAction,
+  deleteSavedRowAction,
+} from "./actions";
 
 interface EditorPageProps {
   params: Promise<{ id: string }>;
@@ -73,6 +79,9 @@ export default async function EditorIdPage({
       mergeTags={mergeTags}
       onSave={saveTemplateFromEditor}
       onSendTest={sendTestEmailAction}
+      onListSavedRows={listSavedRowsAction}
+      onSaveRow={saveRowAction}
+      onDeleteSavedRow={deleteSavedRowAction}
     />
   );
 }

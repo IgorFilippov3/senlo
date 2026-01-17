@@ -16,7 +16,9 @@ export const EmailCanvas = () => {
 
   const { isOver, setNodeRef } = useDroppable({
     id: "canvas-drop-zone",
-    disabled: !isDragActive || activeDragType !== "row",
+    disabled:
+      !isDragActive ||
+      (activeDragType !== "row" && activeDragType !== "saved-row"),
     data: {
       type: "canvas",
     },
@@ -33,10 +35,10 @@ export const EmailCanvas = () => {
       ref={setNodeRef}
       className={cn(styles.canvas, isOver && styles.dragOver)}
       onClick={handleCanvasClick}
-      style={{ 
+      style={{
         backgroundColor: settings?.backgroundColor,
         fontFamily: settings?.fontFamily,
-        color: settings?.textColor
+        color: settings?.textColor,
       }}
     >
       <div className={styles.email}>

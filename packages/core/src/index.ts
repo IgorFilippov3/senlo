@@ -2,6 +2,7 @@ export * from "./domain";
 export * from "./emailDesign";
 export * from "./emailTemplate";
 export * from "./renderer/renderEmailDesign";
+export * from "./renderer/renderRow";
 export * from "./renderer/renderMJML";
 export * from "./renderer/types";
 export * from "./ports";

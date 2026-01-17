@@ -3,7 +3,7 @@
 import "./styles.css";
 
 import { useEffect, FC, useState } from "react";
-import { EmailDesignDocument, MergeTag } from "@senlo/core";
+import { EmailDesignDocument, MergeTag, SavedRow, RowBlock } from "@senlo/core";
 import { Sidebar } from "./components/sidebar/sidebar";
 import { EmailCanvas } from "./components/email-canvas/email-canvas";
 import { EditorHeader } from "./components/editor-header/editor-header";
@@ -23,15 +23,21 @@ interface EditorLayoutProps {
     id: number,
     design: EmailDesignDocument,
     html: string,
-    metadata?: { name: string; subject: string }
+    metadata?: { name: string; subject: string },
   ) => Promise<any>;
   onSendTest?: (
     id: number,
     targetEmail: string,
     fromEmail: string,
     design: EmailDesignDocument,
-    subject: string
+    subject: string,
   ) => Promise<{ success: boolean; error?: string }>;
+  onListSavedRows?: () => Promise<SavedRow[]>;
+  onSaveRow?: (
+    name: string,
+    data: RowBlock,
+  ) => Promise<{ success: boolean; data?: SavedRow }>;
+  onDeleteSavedRow?: (id: number) => Promise<{ success: boolean }>;
 }
 
 export const EditorLayout: FC<EditorLayoutProps> = ({
@@ -43,6 +49,9 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   mergeTags = [],
   onSave,
   onSendTest,
+  onListSavedRows,
+  onSaveRow,
+  onDeleteSavedRow,
 }) => {
   const setDesign = useEditorStore((s) => s.setDesign);
   const setTemplateId = useEditorStore((s) => s.setTemplateId);
@@ -50,6 +59,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   const setCustomMergeTags = useEditorStore((s) => s.setCustomMergeTags);
   const setOnSave = useEditorStore((s) => s.setOnSave);
   const setOnSendTest = useEditorStore((s) => s.setOnSendTest);
+  const setSavedRowCallbacks = useEditorStore((s) => s.setSavedRowCallbacks);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -63,6 +73,13 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
     if (onSendTest) {
       setOnSendTest(onSendTest);
     }
+
+    setSavedRowCallbacks({
+      onList: onListSavedRows,
+      onSave: onSaveRow,
+      onDelete: onDeleteSavedRow,
+    });
+
     setIsMounted(true);
   }, [
     initialDesign,
@@ -78,6 +95,10 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
     setOnSave,
     onSendTest,
     setOnSendTest,
+    onListSavedRows,
+    onSaveRow,
+    onDeleteSavedRow,
+    setSavedRowCallbacks,
   ]);
 
   if (!isMounted) {

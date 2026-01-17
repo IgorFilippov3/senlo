@@ -18,6 +18,7 @@ import {
   type ContentBlock,
   type ContentBlockType,
   type MergeTag,
+  type SavedRow,
 } from "@senlo/core";
 
 import { EMPTY_EMAIL_DESIGN } from "@senlo/core";
@@ -113,13 +114,19 @@ export interface EditorState {
   /** Whether a drag operation is in progress */
   isDragActive: boolean;
   /** Type of element being dragged */
-  activeDragType: "row" | "block" | "content" | null;
+  activeDragType: "row" | "block" | "content" | "saved-row" | null;
   /** ID of row currently being hovered during drag */
   hoveredRowId: RowId | null;
   /** Whether preview mode is enabled */
   previewMode: boolean;
   /** Sample contact data for merge tag preview */
   previewContact: Record<string, any> | null;
+  /** Currently active mode in the rows tab */
+  rowsSidebarMode: "empty" | "saved";
+  /** List of saved rows available to the user */
+  savedRows: SavedRow[];
+  /** Whether saved rows are currently being loaded */
+  isLoadingSavedRows: boolean;
 
   // History State
   /** Array of past design states for undo functionality */
@@ -147,6 +154,12 @@ export interface EditorState {
     design: EmailDesignDocument,
     subject: string
   ) => Promise<{ success: boolean; error?: string }>;
+  /** Callback functions for saved rows */
+  savedRowCallbacks: {
+    onList?: () => Promise<SavedRow[]>;
+    onSave?: (name: string, data: RowBlock) => Promise<{ success: boolean; data?: SavedRow }>;
+    onDelete?: (id: number) => Promise<{ success: boolean }>;
+  };
 
   // Design Actions
   /** Load a new design document into the editor */
@@ -186,7 +199,7 @@ export interface EditorState {
   /** Set drag operation state */
   setDragActive: (
     isActive: boolean,
-    type?: "row" | "block" | "content" | null
+    type?: "row" | "block" | "content" | "saved-row" | null
   ) => void;
   /** Set hovered row during drag operations */
   setHoveredRowId: (rowId: RowId | null) => void;
@@ -281,6 +294,18 @@ export interface EditorState {
       subject: string
     ) => Promise<{ success: boolean; error?: string }>
   ) => void;
+  /** Set saved row callback functions */
+  setSavedRowCallbacks: (callbacks: EditorState["savedRowCallbacks"]) => void;
+  /** Switch the mode in the rows sidebar tab */
+  setRowsSidebarMode: (mode: "empty" | "saved") => void;
+  /** Fetch the list of saved rows from the server */
+  loadSavedRows: () => Promise<void>;
+  /** Save a row to the library */
+  saveRowToLibrary: (name: string, rowId: RowId) => Promise<boolean>;
+  /** Delete a row from the library */
+  deleteSavedRow: (id: number) => Promise<boolean>;
+  /** Add a saved row to the design */
+  addSavedRowToDesign: (savedRow: SavedRow, position?: number) => void;
 }
 
 /** Maximum number of design states stored in history for undo/redo functionality */
@@ -333,6 +358,9 @@ export const useEditorStore = create<EditorState>()(
       last_name: "Doe",
       email: "john.doe@example.com",
     },
+    rowsSidebarMode: "empty",
+    savedRows: [],
+    isLoadingSavedRows: false,
 
     setPreviewMode: (enabled) => {
       set((s) => {
@@ -530,6 +558,14 @@ export const useEditorStore = create<EditorState>()(
           get().addRowAtPosition(dragData as LayoutPreset, position);
         } else if (overType === "canvas" || over.id === "canvas-drop-zone") {
           get().addRowAtPosition(dragData as LayoutPreset);
+        }
+      } else if (dragType === "saved-row") {
+        const savedRow = dragData as SavedRow;
+        if (overType === "row-drop-zone") {
+          const position = over.data.current?.position as number;
+          get().addSavedRowToDesign(savedRow, position);
+        } else if (overType === "canvas" || over.id === "canvas-drop-zone") {
+          get().addSavedRowToDesign(savedRow);
         }
       } else if (dragType === "content") {
         if (overType === "column") {
@@ -1004,6 +1040,112 @@ export const useEditorStore = create<EditorState>()(
     setOnSendTest: (fn) => {
       set((s) => {
         s.onSendTest = fn;
+      });
+    },
+
+    savedRowCallbacks: {},
+    setSavedRowCallbacks: (callbacks) => {
+      set((s) => {
+        s.savedRowCallbacks = callbacks;
+      });
+    },
+
+    setRowsSidebarMode: (mode) => {
+      set((s) => {
+        s.rowsSidebarMode = mode;
+      });
+      if (mode === "saved") {
+        get().loadSavedRows();
+      }
+    },
+
+    loadSavedRows: async () => {
+      const { onList } = get().savedRowCallbacks;
+      if (!onList) return;
+
+      set((s) => {
+        s.isLoadingSavedRows = true;
+      });
+
+      try {
+        const rows = await onList();
+        set((s) => {
+          s.savedRows = rows;
+        });
+      } catch (error) {
+        console.error("Failed to load saved rows:", error);
+      } finally {
+        set((s) => {
+          s.isLoadingSavedRows = false;
+        });
+      }
+    },
+
+    saveRowToLibrary: async (name, rowId) => {
+      const { onSave } = get().savedRowCallbacks;
+      if (!onSave) return false;
+
+      const row = get().design.rows.find((r) => r.id === rowId);
+      if (!row) return false;
+
+      try {
+        const result = await onSave(name, row);
+        if (result.success && result.data) {
+          set((s) => {
+            s.savedRows = [result.data!, ...s.savedRows];
+          });
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error("Failed to save row to library:", error);
+        return false;
+      }
+    },
+
+    deleteSavedRow: async (id) => {
+      const { onDelete } = get().savedRowCallbacks;
+      if (!onDelete) return false;
+
+      try {
+        const result = await onDelete(id);
+        if (result.success) {
+          set((s) => {
+            s.savedRows = s.savedRows.filter((r) => r.id !== id);
+          });
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error("Failed to delete saved row:", error);
+        return false;
+      }
+    },
+
+    addSavedRowToDesign: (savedRow, position) => {
+      set((s) => {
+        saveToHistory(s);
+        // Deep clone the saved row data and generate new IDs
+        const originalData = savedRow.data as RowBlock;
+        const newRow: RowBlock = {
+          ...originalData,
+          id: nanoid() as RowId,
+          columns: originalData.columns.map((column) => ({
+            ...column,
+            id: nanoid() as ColumnId,
+            blocks: column.blocks.map((block) => ({
+              ...block,
+              id: nanoid() as ContentBlockId,
+            })),
+          })),
+        };
+
+        if (position !== undefined) {
+          s.design.rows.splice(position, 0, newRow);
+        } else {
+          s.design.rows.push(newRow);
+        }
+        s.selection = { kind: "row", id: newRow.id };
       });
     },
   }))

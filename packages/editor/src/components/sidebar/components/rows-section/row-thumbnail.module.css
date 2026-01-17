@@ -1,0 +1,25 @@
+.thumbnailContainer {
+  width: 100%;
+  height: 80px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.thumbnailScaler {
+  width: 600px;
+  min-height: 100%;
+  transform: scale(0.5);
+  transform-origin: center;
+  pointer-events: none;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.thumbnailContent {
+  width: 100%;
+  min-height: 100%;
+}

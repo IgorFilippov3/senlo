@@ -79,7 +79,9 @@ export const RowView = ({ row }: RowViewProps) => {
         </div>
       </div>
 
-      {isDragActive && activeDragType === "row" && <RowDropZones rowId={row.id} />}
+      {isDragActive && (activeDragType === "row" || activeDragType === "saved-row") && (
+        <RowDropZones rowId={row.id} />
+      )}
     </div>
   );
 };

@@ -115,3 +115,13 @@ export interface TriggeredSendLog {
   data?: Record<string, any> | null;
   sentAt: Date;
 }
+
+export interface SavedRow {
+  id: number;
+  userId: string;
+  projectId?: number | null;
+  name: string;
+  data: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
