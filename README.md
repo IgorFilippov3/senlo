@@ -1,6 +1,6 @@
-# Senlo — Open-Source Email Platform
+# Senlo — Open-Source Email Marketing Infrastructure
 
-**Senlo** is an open-source, self-hosted email marketing and transactional email platform. It provides a powerful visual editor, campaign management, and real-time tracking, all in one package that you can control.
+**Senlo** is a modern, self-hosted alternative to Mailchimp and Brevo. A powerful open-source email marketing infrastructure that combines a professional visual editor, campaign management, and real-time analytics — all under your own control.
 
 ---
 
@@ -55,6 +55,13 @@ Traditional email platforms are often closed-source, expensive, or tied to a spe
 - **Database**: PostgreSQL with Drizzle ORM.
 - **Communication**: Auth.js, Zod (Validation), Resend/Mailgun (Sending).
 - **Package Management**: pnpm workspaces (Monorepo).
+
+---
+
+## Author
+
+**Igor Filippov**
+- GitHub: [@IgorFilippov3](https://github.com/IgorFilippov3)
 
 ---
 

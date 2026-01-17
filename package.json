@@ -2,6 +2,10 @@
   "name": "senlo",
   "private": true,
   "version": "0.0.2",
+  "author": {
+    "name": "Igor Filippov",
+    "url": "https://github.com/IgorFilippov3"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"

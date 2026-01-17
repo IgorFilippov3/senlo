@@ -90,14 +90,14 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-zinc-900 mb-8 bg-clip-text text-transparent bg-gradient-to-b from-zinc-900 to-zinc-500">
-              Build and automate your <br className="hidden md:block" />
-              email communication
+              Complete Email Marketing <br className="hidden md:block" />
+              Infrastructure
             </h1>
 
             <p className="text-lg md:text-xl text-zinc-500 mb-12 max-w-3xl mx-auto leading-relaxed">
-              Senlo is a free, self-hosted platform combining a powerful visual
-              email builder with robust campaign management and transactional
-              API. Control your data, your templates, and your delivery.
+              Senlo is a modern, self-hosted alternative to Mailchimp and Brevo.
+              A powerful platform combining a professional visual editor with
+              robust campaign management and transactional API.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -312,9 +312,9 @@ export default function HomePage() {
                 <span className="text-lg font-bold text-zinc-900">Senlo</span>
               </div>
               <p className="text-zinc-500 text-sm max-w-xs leading-relaxed">
-                An open-source, self-hosted email platform for building,
-                managing, and sending email campaigns and transactional
-                messages.
+                A modern, self-hosted alternative to Mailchimp and Brevo.
+                Open-source email marketing infrastructure for building,
+                managing, and sending campaigns.
               </p>
             </div>
             <div>

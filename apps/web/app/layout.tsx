@@ -13,19 +13,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Senlo - Email Builder",
+  title: "Senlo — Open-Source Email Marketing Infrastructure",
   description:
-    "Open-source self-hosted email builder platform for creating and managing email templates and campaigns",
+    "A modern, self-hosted alternative to Mailchimp and Brevo. Open-source email marketing infrastructure for building, managing, and sending campaigns.",
   keywords: [
+    "email marketing infrastructure",
     "email builder",
     "email templates",
-    "email marketing",
+    "brevo alternative",
+    "mailchimp alternative",
     "open source",
     "self-hosted",
   ],
-  authors: [{ name: "Senlo Team" }],
-  creator: "Senlo",
-  publisher: "Senlo",
+  authors: [{ name: "Igor Filippov" }],
+  creator: "Igor Filippov",
+  publisher: "Igor Filippov",
   formatDetection: {
     email: false,
     address: false,
@@ -41,24 +43,24 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: "/",
-    title: "Senlo - Email Builder",
+    title: "Senlo — Open-Source Email Marketing Infrastructure",
     description:
-      "Open-source self-hosted email builder platform for creating and managing email templates and campaigns",
+      "A modern, self-hosted alternative to Mailchimp and Brevo. Open-source email marketing infrastructure for building, managing, and sending campaigns.",
     siteName: "Senlo",
     images: [
       {
         url: "/logo-editor.png",
         width: 1200,
         height: 630,
-        alt: "Senlo Email Builder",
+        alt: "Senlo — Email Marketing Infrastructure",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Senlo - Email Builder",
+    title: "Senlo — Open-Source Email Marketing Infrastructure",
     description:
-      "Open-source self-hosted email builder platform for creating and managing email templates and campaigns",
+      "A modern, self-hosted alternative to Mailchimp and Brevo. Open-source email marketing infrastructure for building, managing, and sending campaigns.",
     images: ["/logo-editor.png"],
   },
   robots: {

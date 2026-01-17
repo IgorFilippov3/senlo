@@ -1,3 +1,9 @@
+/**
+ * Senlo Email Marketing Infrastructure
+ * Copyright (C) 2026 Igor Filippov
+ * Licensed under AGPL-3.0
+ */
+
 export * from "./domain";
 export * from "./emailDesign";
 export * from "./emailTemplate";
