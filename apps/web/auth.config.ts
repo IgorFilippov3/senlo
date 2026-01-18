@@ -10,7 +10,8 @@ export const authConfig = {
       const isAuthRoute =
         nextUrl.pathname.startsWith("/login") ||
         nextUrl.pathname.startsWith("/register");
-      const isPublicRoute = nextUrl.pathname === "/";
+      const isPublicRoute =
+        nextUrl.pathname === "/" || nextUrl.pathname.startsWith("/api/track/");
 
       // 1. Allow API routes with Authorization header (API Keys)
       const isApiRoute =
