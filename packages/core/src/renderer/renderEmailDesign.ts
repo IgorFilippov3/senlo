@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { EmailDesignDocument } from "../emailDesign";
 import { RenderContext, RenderOptions } from "./types";
 import { renderHead } from "./renderHead";
