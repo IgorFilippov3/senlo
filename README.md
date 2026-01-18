@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/be7f4f59-3180-4a03-b016-b85311a22b19" alt="Senlo logo" width="280" />
+</p>
+
 # Senlo — Open-Source Email Marketing Infrastructure
 
 **Senlo** is a modern, self-hosted alternative to Mailchimp and Brevo. A powerful open-source email marketing infrastructure that combines a professional visual editor, campaign management, and real-time analytics — all under your own control.
