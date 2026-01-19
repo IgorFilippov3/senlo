@@ -4,7 +4,6 @@
 
 import { Button, Card, Badge } from "@senlo/ui";
 import {
-  Mail,
   Zap,
   ArrowRight,
   Github,
@@ -16,7 +15,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { Logo } from "../components/logo";
 
 export default function HomePage() {
   return (
@@ -26,12 +24,15 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-zinc-900 rounded-xl flex items-center justify-center shadow-sm">
-                <Logo />
+              <div className="w-9 h-9 flex items-center justify-center">
+                <Image
+                  src="/core/logo-light.svg"
+                  alt="Senlo Logo"
+                  width={140}
+                  height={60}
+                  style={{ maxWidth: "none" }}
+                />
               </div>
-              <span className="text-xl font-bold tracking-tight text-zinc-900">
-                Senlo
-              </span>
             </div>
             <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-500">
               <Link
@@ -310,10 +311,13 @@ export default function HomePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-2">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center">
-                  <Mail className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-lg font-bold text-zinc-900">Senlo</span>
+                <Image
+                  src="/core/logo-light.svg"
+                  alt="Senlo Logo"
+                  width={140}
+                  height={60}
+                  style={{ maxWidth: "none" }}
+                />
               </div>
               <p className="text-zinc-500 text-sm max-w-xs leading-relaxed">
                 A modern, self-hosted alternative to Mailchimp and Brevo.
@@ -387,10 +391,16 @@ export default function HomePage() {
           <div className="pt-8 border-t border-zinc-100 flex justify-between items-center text-xs text-zinc-400 font-medium tracking-wider uppercase">
             <p>&copy; 2026 Senlo. AGPL-3.0 Licensed.</p>
             <div className="flex gap-6">
-              <Link href="/privacy" className="hover:text-zinc-600 transition-colors">
+              <Link
+                href="/privacy"
+                className="hover:text-zinc-600 transition-colors"
+              >
                 Privacy
               </Link>
-              <Link href="/terms" className="hover:text-zinc-600 transition-colors">
+              <Link
+                href="/terms"
+                className="hover:text-zinc-600 transition-colors"
+              >
                 Terms
               </Link>
             </div>

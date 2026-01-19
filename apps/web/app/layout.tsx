@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     telephone: false,
   },
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   ),
   alternates: {
     canonical: "/",
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     siteName: "Senlo",
     images: [
       {
-        url: "/logo-editor.png",
+        url: "/logo-preview.png",
         width: 1200,
         height: 630,
         alt: "Senlo — Email Marketing Infrastructure",
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
     title: "Senlo — Open-Source Email Marketing Infrastructure",
     description:
       "A modern, self-hosted alternative to Mailchimp and Brevo. Open-source email marketing infrastructure for building, managing, and sending campaigns.",
-    images: ["/logo-editor.png"],
+    images: ["/logo-preview.png"],
   },
   robots: {
     index: true,
