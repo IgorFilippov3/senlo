@@ -28,3 +28,5 @@ export * from "./components/page-header/page-header";
 export * from "./components/empty-state/empty-state";
 export * from "./components/json-editor/json-editor";
 export * from "./components/dropdown-menu/dropdown-menu";
+export * from "./components/tabs/tabs";
+export * from "./components/tooltip/tooltip";

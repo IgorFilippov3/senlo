@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -28,6 +28,7 @@
     "nanoid": "^5.1.6",
     "next": "16.0.8",
     "next-auth": "5.0.0-beta.25",
+    "openai": "^6.16.0",
     "papaparse": "^5.5.3",
     "pg": "^8.16.3",
     "react": "19.2.1",

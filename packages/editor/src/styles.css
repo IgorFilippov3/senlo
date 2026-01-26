@@ -27,4 +27,44 @@
 
 .senlo-editor-canvas {
   background: var(--sl-color-bg-muted);
+  position: relative;
+}
+
+.senlo-canvas-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.senlo-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--sl-color-bg-accent);
+  border-top-color: var(--sl-color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

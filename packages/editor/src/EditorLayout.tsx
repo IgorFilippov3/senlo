@@ -16,6 +16,7 @@ interface EditorLayoutProps {
   initialDesign: EmailDesignDocument;
   templateId: number;
   projectId: number;
+  hasAiProvider?: boolean;
   templateName: string;
   templateSubject: string;
   mergeTags?: MergeTag[];
@@ -44,6 +45,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   initialDesign,
   templateId,
   projectId,
+  hasAiProvider = false,
   templateName,
   templateSubject,
   mergeTags = [],
@@ -55,6 +57,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
 }) => {
   const setDesign = useEditorStore((s) => s.setDesign);
   const setTemplateId = useEditorStore((s) => s.setTemplateId);
+  const setProjectInfo = useEditorStore((s) => s.setProjectInfo);
   const setTemplateMetadata = useEditorStore((s) => s.setTemplateMetadata);
   const setCustomMergeTags = useEditorStore((s) => s.setCustomMergeTags);
   const setOnSave = useEditorStore((s) => s.setOnSave);
@@ -65,6 +68,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   useEffect(() => {
     setDesign(initialDesign);
     setTemplateId(templateId);
+    setProjectInfo(projectId, hasAiProvider);
     setTemplateMetadata(templateName, templateSubject);
     setCustomMergeTags(mergeTags);
     if (onSave) {
@@ -89,6 +93,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
     mergeTags,
     setDesign,
     setTemplateId,
+    setProjectInfo,
     setTemplateMetadata,
     setCustomMergeTags,
     onSave,

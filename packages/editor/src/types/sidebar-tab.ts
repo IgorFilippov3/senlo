@@ -1,1 +1,1 @@
-export type SidebarTab = "rows" | "content";
+export type SidebarTab = "rows" | "content" | "ai";

@@ -33,6 +33,7 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
   const setDragActive = useEditorStore((s) => s.setDragActive);
   const setHoveredRowId = useEditorStore((s) => s.setHoveredRowId);
   const clearSelection = useEditorStore((s) => s.clearSelection);
+  const isAiGenerating = useEditorStore((s) => s.isAiGenerating);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeData, setActiveData] = useState<{
     type: string;
@@ -140,6 +141,11 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
             <Sidebar />
           </aside>
           <main className="senlo-editor-canvas">
+            {isAiGenerating && (
+              <div className="senlo-canvas-overlay">
+                <div className="senlo-spinner" />
+              </div>
+            )}
             <EmailCanvas />
           </main>
           <aside className="senlo-editor-inspector">

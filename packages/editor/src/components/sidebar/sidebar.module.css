@@ -14,8 +14,12 @@
   margin-bottom: 12px;
 }
 
-.tab {
+.tabs > * {
   flex: 1;
+}
+
+.tab {
+  width: 100%;
   padding: 10px 12px;
   border: none;
   background: transparent;
@@ -35,3 +39,5 @@
   color: rgba(0, 0, 0, 0.9);
   border-bottom-color: var(--sl-color-text-primary);
 }
+
+

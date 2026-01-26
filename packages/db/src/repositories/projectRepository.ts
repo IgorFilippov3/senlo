@@ -31,6 +31,7 @@ export class ProjectRepository
       name: row.name,
       description: row.description ?? undefined,
       providerId: row.providerId ?? undefined,
+      aiProviderId: row.aiProviderId ?? undefined,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -81,7 +82,12 @@ export class ProjectRepository
    */
   async update(
     id: number,
-    data: { name?: string; description?: string | null; providerId?: number | null }
+    data: {
+      name?: string;
+      description?: string | null;
+      providerId?: number | null;
+      aiProviderId?: number | null;
+    },
   ): Promise<Project | null> {
     const [row] = await db
       .update(projects)

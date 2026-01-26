@@ -95,6 +95,10 @@ export interface EditorState {
   design: EmailDesignDocument;
   /** Database ID of the template being edited, null for new templates */
   templateId: number | null;
+  /** Database ID of the project the template belongs to */
+  projectId: number | null;
+  /** Whether the project has an AI provider configured */
+  hasAiProvider: boolean;
   /** Display name of the template */
   templateName: string;
   /** Email subject line for the template */
@@ -127,6 +131,8 @@ export interface EditorState {
   savedRows: SavedRow[];
   /** Whether saved rows are currently being loaded */
   isLoadingSavedRows: boolean;
+  /** Whether AI is currently generating a template */
+  isAiGenerating: boolean;
 
   // History State
   /** Array of past design states for undo functionality */
@@ -144,7 +150,7 @@ export interface EditorState {
     id: number,
     design: EmailDesignDocument,
     html: string,
-    metadata?: { name: string; subject: string }
+    metadata?: { name: string; subject: string },
   ) => Promise<any>;
   /** Callback function for sending test emails */
   onSendTest?: (
@@ -152,20 +158,27 @@ export interface EditorState {
     targetEmail: string,
     fromEmail: string,
     design: EmailDesignDocument,
-    subject: string
+    subject: string,
   ) => Promise<{ success: boolean; error?: string }>;
   /** Callback functions for saved rows */
   savedRowCallbacks: {
     onList?: () => Promise<SavedRow[]>;
-    onSave?: (name: string, data: RowBlock) => Promise<{ success: boolean; data?: SavedRow }>;
+    onSave?: (
+      name: string,
+      data: RowBlock,
+    ) => Promise<{ success: boolean; data?: SavedRow }>;
     onDelete?: (id: number) => Promise<{ success: boolean }>;
   };
 
   // Design Actions
   /** Load a new design document into the editor */
   setDesign: (design: EmailDesignDocument) => void;
+  /** Update design document from AI with history tracking */
+  updateDesignFromAi: (design: EmailDesignDocument) => void;
   /** Set the template database ID */
   setTemplateId: (id: number) => void;
+  /** Set the project database ID and AI provider status */
+  setProjectInfo: (projectId: number, hasAiProvider: boolean) => void;
   /** Update template name and subject line */
   setTemplateMetadata: (name: string, subject: string) => void;
   /** Update available custom merge tags */
@@ -174,14 +187,16 @@ export interface EditorState {
   resetDesign: () => void;
   /** Update global design settings with history tracking */
   updateGlobalSettings: (
-    updates: Partial<EmailDesignDocument["settings"]>
+    updates: Partial<EmailDesignDocument["settings"]>,
   ) => void;
   /** Update global design settings without history tracking */
   updateGlobalSettingsWithoutHistory: (
-    updates: Partial<EmailDesignDocument["settings"]>
+    updates: Partial<EmailDesignDocument["settings"]>,
   ) => void;
   /** Mark design as dirty/clean */
   setDirty: (isDirty: boolean) => void;
+  /** Set AI generation state */
+  setIsAiGenerating: (isGenerating: boolean) => void;
 
   // Selection Actions
   /** Select a specific element */
@@ -199,7 +214,7 @@ export interface EditorState {
   /** Set drag operation state */
   setDragActive: (
     isActive: boolean,
-    type?: "row" | "block" | "content" | "saved-row" | null
+    type?: "row" | "block" | "content" | "saved-row" | null,
   ) => void;
   /** Set hovered row during drag operations */
   setHoveredRowId: (rowId: RowId | null) => void;
@@ -234,7 +249,7 @@ export interface EditorState {
   /** Update row settings without history tracking */
   updateRowWithoutHistory: (
     rowId: RowId,
-    updates: Partial<RowBlock["settings"]>
+    updates: Partial<RowBlock["settings"]>,
   ) => void;
 
   // Block Actions
@@ -244,20 +259,20 @@ export interface EditorState {
   addBlockToColumn: (
     type: ContentBlockType,
     columnId: ColumnId,
-    position?: number
+    position?: number,
   ) => void;
   /** Move a block to new position within the same column */
   moveBlockWithinColumn: (
     blockId: ContentBlockId,
     columnId: ColumnId,
-    newPosition: number
+    newPosition: number,
   ) => void;
   /** Move a block from one column to another */
   moveBlockBetweenColumns: (
     blockId: ContentBlockId,
     sourceColumnId: ColumnId,
     targetColumnId: ColumnId,
-    position: number
+    position: number,
   ) => void;
   /** Remove a block from its column */
   removeBlockFromColumn: (blockId: ContentBlockId, columnId: ColumnId) => void;
@@ -266,12 +281,12 @@ export interface EditorState {
   /** Update block data with history tracking */
   updateBlock: (
     blockId: ContentBlockId,
-    updates: Partial<ContentBlock["data"]>
+    updates: Partial<ContentBlock["data"]>,
   ) => void;
   /** Update block data without history tracking */
   updateBlockWithoutHistory: (
     blockId: ContentBlockId,
-    updates: Partial<ContentBlock["data"]>
+    updates: Partial<ContentBlock["data"]>,
   ) => void;
 
   // Callback Setters
@@ -281,8 +296,8 @@ export interface EditorState {
       id: number,
       design: EmailDesignDocument,
       html: string,
-      metadata?: { name: string; subject: string }
-    ) => Promise<any>
+      metadata?: { name: string; subject: string },
+    ) => Promise<any>,
   ) => void;
   /** Set test email callback function */
   setOnSendTest: (
@@ -291,8 +306,8 @@ export interface EditorState {
       targetEmail: string,
       fromEmail: string,
       design: EmailDesignDocument,
-      subject: string
-    ) => Promise<{ success: boolean; error?: string }>
+      subject: string,
+    ) => Promise<{ success: boolean; error?: string }>,
   ) => void;
   /** Set saved row callback functions */
   setSavedRowCallbacks: (callbacks: EditorState["savedRowCallbacks"]) => void;
@@ -335,6 +350,8 @@ export const useEditorStore = create<EditorState>()(
   immer((set, get) => ({
     design: EMPTY_EMAIL_DESIGN,
     templateId: null,
+    projectId: null,
+    hasAiProvider: false,
     selection: null,
     activeSidebarTab: "rows",
     isDragActive: false,
@@ -361,6 +378,7 @@ export const useEditorStore = create<EditorState>()(
     rowsSidebarMode: "empty",
     savedRows: [],
     isLoadingSavedRows: false,
+    isAiGenerating: false,
 
     setPreviewMode: (enabled) => {
       set((s) => {
@@ -397,9 +415,33 @@ export const useEditorStore = create<EditorState>()(
       });
     },
 
+    updateDesignFromAi: (design) => {
+      set((s) => {
+        saveToHistory(s);
+        s.design = design;
+        s.isDirty = true;
+        // Initialize settings if missing in loaded design
+        if (!s.design.settings) {
+          s.design.settings = {
+            backgroundColor: "#ffffff",
+            contentWidth: 600,
+            fontFamily: "Arial, sans-serif",
+            textColor: "#111827",
+          };
+        }
+      });
+    },
+
     setTemplateId: (id) => {
       set((s) => {
         s.templateId = id;
+      });
+    },
+
+    setProjectInfo: (projectId, hasAiProvider) => {
+      set((s) => {
+        s.projectId = projectId;
+        s.hasAiProvider = hasAiProvider;
       });
     },
 
@@ -454,6 +496,12 @@ export const useEditorStore = create<EditorState>()(
     setDirty: (isDirty) => {
       set((s) => {
         s.isDirty = isDirty;
+      });
+    },
+
+    setIsAiGenerating: (isGenerating) => {
+      set((s) => {
+        s.isAiGenerating = isGenerating;
       });
     },
 
@@ -577,7 +625,7 @@ export const useEditorStore = create<EditorState>()(
           get().addBlockToColumn(
             dragData as ContentBlockType,
             columnId,
-            position
+            position,
           );
         } else if (over.id === "canvas-drop-zone") {
           return;
@@ -598,7 +646,7 @@ export const useEditorStore = create<EditorState>()(
               blockData.blockId,
               blockData.sourceColumnId,
               targetColumnId,
-              0
+              0,
             );
           }
         } else if (overType === "block-drop-zone") {
@@ -610,7 +658,7 @@ export const useEditorStore = create<EditorState>()(
             get().moveBlockWithinColumn(
               blockData.blockId,
               targetColumnId,
-              position
+              position,
             );
           } else {
             // Moving between columns
@@ -618,7 +666,7 @@ export const useEditorStore = create<EditorState>()(
               blockData.blockId,
               blockData.sourceColumnId,
               targetColumnId,
-              position
+              position,
             );
           }
         }
@@ -739,7 +787,7 @@ export const useEditorStore = create<EditorState>()(
 
         if (s.selection.kind === "row") {
           const index = s.design.rows.findIndex(
-            (r) => r.id === s.selection?.id
+            (r) => r.id === s.selection?.id,
           );
           if (index !== -1 && index < s.design.rows.length - 1) {
             s.selection = { kind: "row", id: s.design.rows[index + 1].id };
@@ -756,7 +804,7 @@ export const useEditorStore = create<EditorState>()(
           });
 
           const currentIndex = allBlocks.findIndex(
-            (b) => b.id === s.selection?.id
+            (b) => b.id === s.selection?.id,
           );
           if (currentIndex !== -1 && currentIndex < allBlocks.length - 1) {
             s.selection = { kind: "block", id: allBlocks[currentIndex + 1].id };
@@ -771,7 +819,7 @@ export const useEditorStore = create<EditorState>()(
 
         if (s.selection.kind === "row") {
           const index = s.design.rows.findIndex(
-            (r) => r.id === s.selection?.id
+            (r) => r.id === s.selection?.id,
           );
           if (index > 0) {
             s.selection = { kind: "row", id: s.design.rows[index - 1].id };
@@ -787,7 +835,7 @@ export const useEditorStore = create<EditorState>()(
           });
 
           const currentIndex = allBlocks.findIndex(
-            (b) => b.id === s.selection?.id
+            (b) => b.id === s.selection?.id,
           );
           if (currentIndex > 0) {
             s.selection = { kind: "block", id: allBlocks[currentIndex - 1].id };
@@ -803,7 +851,7 @@ export const useEditorStore = create<EditorState>()(
         if (blockResult) {
           const [block] = blockResult.column.blocks.splice(
             blockResult.blockIndex,
-            1
+            1,
           );
 
           // Adjust position if moving down and target position is after current
@@ -814,10 +862,10 @@ export const useEditorStore = create<EditorState>()(
           blockResult.column.blocks.splice(
             Math.max(
               0,
-              Math.min(adjustedPosition, blockResult.column.blocks.length)
+              Math.min(adjustedPosition, blockResult.column.blocks.length),
             ),
             0,
-            block
+            block,
           );
 
           s.selection = { kind: "block", id: blockId };
@@ -829,7 +877,7 @@ export const useEditorStore = create<EditorState>()(
       blockId,
       sourceColumnId,
       targetColumnId,
-      position
+      position,
     ) => {
       set((s) => {
         saveToHistory(s);
@@ -842,7 +890,7 @@ export const useEditorStore = create<EditorState>()(
           const column = row.columns.find((col) => col.id === sourceColumnId);
           if (column) {
             const blockIndex = column.blocks.findIndex(
-              (block) => block.id === blockId
+              (block) => block.id === blockId,
             );
             if (blockIndex !== -1) {
               sourceColumn = column;
@@ -864,14 +912,14 @@ export const useEditorStore = create<EditorState>()(
         if (sourceColumn && targetColumn && blockToMove) {
           // Remove from source
           const sourceIndex = sourceColumn.blocks.findIndex(
-            (block) => block.id === blockId
+            (block) => block.id === blockId,
           );
           sourceColumn.blocks.splice(sourceIndex, 1);
 
           // Add to target
           const safePosition = Math.max(
             0,
-            Math.min(position, targetColumn.blocks.length)
+            Math.min(position, targetColumn.blocks.length),
           );
           targetColumn.blocks.splice(safePosition, 0, blockToMove);
 
@@ -908,7 +956,7 @@ export const useEditorStore = create<EditorState>()(
           blockResult.column.blocks.splice(
             blockResult.blockIndex + 1,
             0,
-            duplicatedBlock
+            duplicatedBlock,
           );
 
           // Select the newly created block
@@ -935,7 +983,7 @@ export const useEditorStore = create<EditorState>()(
       const hasChanges = Object.entries(updates).some(([key, value]) => {
         return (
           JSON.stringify(
-            currentBlock?.data[key as keyof typeof currentBlock.data]
+            currentBlock?.data[key as keyof typeof currentBlock.data],
           ) !== JSON.stringify(value)
         );
       });
@@ -969,7 +1017,7 @@ export const useEditorStore = create<EditorState>()(
       const hasChanges = Object.entries(updates).some(([key, value]) => {
         return (
           JSON.stringify(
-            currentRow.settings[key as keyof typeof currentRow.settings]
+            currentRow.settings[key as keyof typeof currentRow.settings],
           ) !== JSON.stringify(value)
         );
       });
@@ -999,7 +1047,7 @@ export const useEditorStore = create<EditorState>()(
       const hasChanges = Object.entries(updates).some(([key, value]) => {
         return (
           JSON.stringify(
-            state.design.settings?.[key as keyof typeof state.design.settings]
+            state.design.settings?.[key as keyof typeof state.design.settings],
           ) !== JSON.stringify(value)
         );
       });
@@ -1125,7 +1173,6 @@ export const useEditorStore = create<EditorState>()(
     addSavedRowToDesign: (savedRow, position) => {
       set((s) => {
         saveToHistory(s);
-        // Deep clone the saved row data and generate new IDs
         const originalData = savedRow.data as RowBlock;
         const newRow: RowBlock = {
           ...originalData,
@@ -1148,7 +1195,7 @@ export const useEditorStore = create<EditorState>()(
         s.selection = { kind: "row", id: newRow.id };
       });
     },
-  }))
+  })),
 );
 
 /**

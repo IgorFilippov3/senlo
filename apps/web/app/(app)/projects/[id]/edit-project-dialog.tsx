@@ -13,23 +13,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@senlo/ui";
-import { Settings2 } from "lucide-react";
-import { Project, EmailProvider } from "@senlo/core";
+import { Settings2, Bot } from "lucide-react";
+import { Project, EmailProvider, AiProvider } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
 import { useUpdateProject } from "apps/web/queries/projects";
 
 interface EditProjectDialogProps {
   project: Project;
   providers: EmailProvider[];
+  aiProviders: AiProvider[];
 }
 
 export function EditProjectDialog({
   project,
   providers,
+  aiProviders,
 }: EditProjectDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Use React Query mutation for updating project
   const { mutate: updateProject, isPending: isUpdating } = useUpdateProject();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -99,7 +100,7 @@ export function EditProjectDialog({
           >
             <Select
               name="providerId"
-              defaultValue={project.providerId?.toString() || ""}
+              defaultValue={project.providerId?.toString() || "none"}
             >
               <SelectTrigger>
                 <SelectValue placeholder="— No provider selected —" />
@@ -118,6 +119,40 @@ export function EditProjectDialog({
           {providers.length === 0 && (
             <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
               No email providers configured yet. Go to{" "}
+              <a href="/providers" className="underline font-medium">
+                Providers
+              </a>{" "}
+              to add one.
+            </p>
+          )}
+
+          <FormField
+            label="AI Provider"
+            hint="Select the AI provider for template generation in this project"
+          >
+            <Select
+              name="aiProviderId"
+              defaultValue={project.aiProviderId?.toString() || "none"}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="— No AI provider selected —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  — No AI provider selected —
+                </SelectItem>
+                {aiProviders.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.id.toString()}>
+                    {provider.name} ({provider.type})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+
+          {aiProviders.length === 0 && (
+            <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+              No AI providers configured yet. Go to{" "}
               <a href="/providers" className="underline font-medium">
                 Providers
               </a>{" "}

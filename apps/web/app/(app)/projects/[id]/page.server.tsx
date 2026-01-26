@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { PageHeader } from "@senlo/ui";
-import { EmailProvider } from "@senlo/core";
 import Link from "next/link";
 import { CreateTemplateDialog } from "./create-template-dialog";
 import { EditProjectDialog } from "./edit-project-dialog";
 import { useProject } from "apps/web/queries/projects";
 import { useProjectTemplates } from "apps/web/queries/templates";
+import { useProviders } from "apps/web/queries/providers";
+import { useAiProviders } from "apps/web/queries/ai-providers";
 import { TemplatesList } from "./templates-list";
 
 interface ProjectPageClientProps {
@@ -15,41 +15,28 @@ interface ProjectPageClientProps {
 }
 
 export default function ProjectPage({ projectId }: ProjectPageClientProps) {
-  const [providers, setProviders] = useState<EmailProvider[]>([]);
-  const [providersLoading, setProvidersLoading] = useState(true);
-
   const {
     data: project,
     isLoading: projectLoading,
     error: projectError,
   } = useProject(projectId);
 
-  const {
-    data: templates = [],
-    isLoading: templatesLoading,
-    totalCount,
-  } = useProjectTemplates({
-    projectId: project?.id || 0,
-  });
+  const { data: templates = [], isLoading: templatesLoading } =
+    useProjectTemplates({
+      projectId: project?.id || 0,
+    });
 
-  useEffect(() => {
-    async function loadProviders() {
-      try {
-        const { listProviders } = await import("./actions");
-        const result = await listProviders();
-        if (result.success) {
-          setProviders(result.data);
-        }
-      } catch (error) {
-        console.error("Failed to load providers:", error);
-      } finally {
-        setProvidersLoading(false);
-      }
-    }
-    loadProviders();
-  }, []);
+  const { data: providers = [], isLoading: providersLoading } = useProviders();
 
-  if (projectLoading || providersLoading || templatesLoading) {
+  const { data: aiProviders = [], isLoading: aiProvidersLoading } =
+    useAiProviders();
+
+  if (
+    projectLoading ||
+    providersLoading ||
+    aiProvidersLoading ||
+    templatesLoading
+  ) {
     return (
       <main className="max-w-6xl mx-auto py-10 px-8">
         <div className="flex items-center justify-center py-12">
@@ -101,7 +88,11 @@ export default function ProjectPage({ projectId }: ProjectPageClientProps) {
         }
         actions={
           <div className="flex items-center gap-3">
-            <EditProjectDialog project={project} providers={providers} />
+            <EditProjectDialog
+              project={project}
+              providers={providers}
+              aiProviders={aiProviders}
+            />
             <CreateTemplateDialog projectId={projectId} />
           </div>
         }

@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
-import { EmailTemplateRepository, CampaignRepository } from "@senlo/db";
+import {
+  EmailTemplateRepository,
+  CampaignRepository,
+  ProjectRepository,
+} from "@senlo/db";
 import { EditorLayout } from "@senlo/editor";
 import { EmailDesignDocument, emailDesignVersion, MergeTag } from "@senlo/core";
 import {
@@ -17,6 +21,7 @@ interface EditorPageProps {
 
 const templateRepo = new EmailTemplateRepository();
 const campaignRepo = new CampaignRepository();
+const projectRepo = new ProjectRepository();
 
 export default async function EditorIdPage({
   params,
@@ -42,6 +47,9 @@ export default async function EditorIdPage({
   if (!template) {
     notFound();
   }
+
+  const project = await projectRepo.findById(template.projectId);
+  const hasAiProvider = !!project?.aiProviderId;
 
   const design: EmailDesignDocument =
     (template.designJson as EmailDesignDocument | null) ?? {
@@ -74,6 +82,7 @@ export default async function EditorIdPage({
       initialDesign={design}
       templateId={templateId}
       projectId={template.projectId}
+      hasAiProvider={hasAiProvider}
       templateName={template.name}
       templateSubject={template.subject}
       mergeTags={mergeTags}

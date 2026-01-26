@@ -105,6 +105,11 @@ export const emailProviderTypeEnum = pgEnum("email_provider_type", [
   "MAILGUN",
 ]);
 
+export const aiProviderTypeEnum = pgEnum("ai_provider_type", [
+  "OPENAI",
+  "ANTHROPIC",
+]);
+
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   userId: text("user_id").references(() => users.id, {
@@ -113,6 +118,9 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   description: text("description"),
   providerId: integer("provider_id").references(() => emailProviders.id, {
+    onDelete: "set null",
+  }),
+  aiProviderId: integer("ai_provider_id").references(() => aiProviders.id, {
     onDelete: "set null",
   }),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -249,6 +257,23 @@ export const emailProviders = pgTable("email_providers", {
   }),
   name: text("name").notNull(),
   type: emailProviderTypeEnum("type").notNull(),
+  config: jsonb("config").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const aiProviders = pgTable("ai_providers", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, {
+    onDelete: "cascade",
+  }),
+  name: text("name").notNull(),
+  type: aiProviderTypeEnum("type").notNull(),
   config: jsonb("config").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })

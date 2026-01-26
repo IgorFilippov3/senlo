@@ -5,11 +5,13 @@ import {
   ProjectRepository,
   EmailTemplateRepository,
   EmailProviderRepository,
+  AiProviderRepository,
 } from "@senlo/db";
 import {
   type Project,
   type EmailTemplate,
   type EmailProvider,
+  type AiProvider,
   EMPTY_EMAIL_DESIGN,
 } from "@senlo/core";
 import {
@@ -23,6 +25,7 @@ import { auth } from "apps/web/auth";
 const projectRepo = new ProjectRepository();
 const templateRepo = new EmailTemplateRepository();
 const providerRepo = new EmailProviderRepository();
+const aiProviderRepo = new AiProviderRepository();
 
 async function getAuthorizedProject(projectId: number) {
   const session = await auth();
@@ -36,7 +39,7 @@ async function getAuthorizedProject(projectId: number) {
 }
 
 export async function getProjectById(
-  id: string
+  id: string,
 ): Promise<ActionResult<Project | null>> {
   return withErrorHandling(async () => {
     const projectId = validateId(id, "projectId");
@@ -46,7 +49,7 @@ export async function getProjectById(
 }
 
 export async function listProjectTemplates(
-  id: string
+  id: string,
 ): Promise<ActionResult<EmailTemplate[]>> {
   return withErrorHandling(async () => {
     const projectId = validateId(id, "projectId");
@@ -59,7 +62,7 @@ export async function listProjectTemplates(
 
 export async function createTemplate(
   projectId: string,
-  formData: FormData
+  formData: FormData,
 ): Promise<ActionResult<EmailTemplate>> {
   return withErrorHandling(async () => {
     const name = String(formData.get("name") || "").trim();
@@ -83,21 +86,24 @@ export async function createTemplate(
     });
 
     revalidatePath(`/projects/${projectId}`);
-    
+
     return template;
   });
 }
 
 export async function deleteTemplate(
   projectId: string,
-  templateId: number
+  templateId: number,
 ): Promise<ActionResult<void>> {
   return withErrorHandling(async () => {
     const numericProjectId = parseInt(projectId, 10);
     await getAuthorizedProject(numericProjectId);
 
-    logger.debug("Deleting template", { projectId: numericProjectId, templateId });
-    
+    logger.debug("Deleting template", {
+      projectId: numericProjectId,
+      templateId,
+    });
+
     await templateRepo.delete(templateId);
     revalidatePath(`/projects/${projectId}`);
   });
@@ -105,7 +111,7 @@ export async function deleteTemplate(
 
 export async function updateProject(
   id: number,
-  formData: FormData
+  formData: FormData,
 ): Promise<void> {
   const { session } = await getAuthorizedProject(id);
 
@@ -118,17 +124,31 @@ export async function updateProject(
 
   const providerIdRaw = formData.get("providerId");
   const providerId =
-    providerIdRaw && providerIdRaw !== "" ? Number(providerIdRaw) : null;
+    providerIdRaw && providerIdRaw !== "" && providerIdRaw !== "none"
+      ? Number(providerIdRaw)
+      : null;
+
+  const aiProviderIdRaw = formData.get("aiProviderId");
+  const aiProviderId =
+    aiProviderIdRaw && aiProviderIdRaw !== "" && aiProviderIdRaw !== "none"
+      ? Number(aiProviderIdRaw)
+      : null;
 
   if (!name) {
     throw new Error("Project name is required");
   }
 
-  // If setting a provider, verify it belongs to the user
   if (providerId) {
     const provider = await providerRepo.findById(providerId);
     if (!provider || provider.userId !== session.user?.id) {
-      throw new Error("Invalid provider");
+      throw new Error("Invalid email provider");
+    }
+  }
+
+  if (aiProviderId) {
+    const aiProvider = await aiProviderRepo.findById(aiProviderId);
+    if (!aiProvider || aiProvider.userId !== session.user?.id) {
+      throw new Error("Invalid AI provider");
     }
   }
 
@@ -136,6 +156,7 @@ export async function updateProject(
     name,
     description,
     providerId,
+    aiProviderId,
   });
 
   revalidatePath(`/projects/${id}`);
@@ -144,7 +165,10 @@ export async function updateProject(
 export async function listProviders(): Promise<ActionResult<EmailProvider[]>> {
   const session = await auth();
   if (!session?.user?.id) {
-    return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized', statusCode: 401 } };
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
   }
 
   const userId = session.user.id;
@@ -152,5 +176,22 @@ export async function listProviders(): Promise<ActionResult<EmailProvider[]>> {
   return withErrorHandling(async () => {
     logger.debug("Listing all email providers for project", { userId });
     return await providerRepo.findByUser(userId);
+  });
+}
+
+export async function listAiProviders(): Promise<ActionResult<AiProvider[]>> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
+  }
+
+  const userId = session.user.id;
+
+  return withErrorHandling(async () => {
+    logger.debug("Listing all AI providers for project", { userId });
+    return await aiProviderRepo.findByUser(userId);
   });
 }

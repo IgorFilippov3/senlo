@@ -4,6 +4,7 @@ export interface Project {
   name: string;
   description?: string | null;
   providerId?: number | null;
+  aiProviderId?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -91,6 +92,19 @@ export interface EmailProvider {
   userId?: string | null;
   name: string;
   type: EmailProviderType;
+  config: Record<string, any>;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type AiProviderType = "OPENAI" | "ANTHROPIC";
+
+export interface AiProvider {
+  id: number;
+  userId?: string | null;
+  name: string;
+  type: AiProviderType;
   config: Record<string, any>;
   isActive: boolean;
   createdAt: Date;

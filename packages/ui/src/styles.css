@@ -114,9 +114,10 @@
   /* ============================================
    * Z-Index
    * ============================================ */
-  --sl-z-dropdown: 100;
+  --sl-z-dropdown: 1000;
   --sl-z-modal: 200;
   --sl-z-overlay: 150;
+  --sl-z-tooltip: 1100;
 
   /* ============================================
    * Legacy variable aliases (for backward compatibility)

@@ -18,6 +18,7 @@ export * from "./repositories/campaignRepository";
 export * from "./repositories/recipientListRepository";
 export * from "./repositories/contactRepository";
 export * from "./repositories/emailProviderRepository";
+export * from "./repositories/aiProviderRepository";
 export * from "./repositories/apiKeyRepository";
 export * from "./repositories/triggeredSendLogRepository";
 export * from "./repositories/savedRowRepository";

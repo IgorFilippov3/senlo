@@ -1,0 +1,28 @@
+.tooltip {
+  padding: var(--sl-space-1) var(--sl-space-2);
+  background-color: var(--sl-color-text-primary);
+  color: var(--sl-color-bg);
+  font-size: 10px;
+  font-weight: var(--sl-font-weight-medium);
+  border-radius: var(--sl-radius-sm);
+  white-space: nowrap;
+  z-index: var(--sl-z-tooltip);
+  pointer-events: none;
+  box-shadow: var(--sl-shadow-md);
+  animation: tooltipFadeIn 0.15s ease-out;
+}
+
+.arrow {
+  fill: var(--sl-color-text-primary);
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
