@@ -123,8 +123,8 @@ export default function AddProviderDialog({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="RESEND">Resend</SelectItem>
-              <SelectItem value="MAILGUN">Mailgun</SelectItem>
-              <SelectItem value="SES">Amazon SES</SelectItem>
+              {/* <SelectItem value="MAILGUN">Mailgun</SelectItem> */}
+              {/* <SelectItem value="SES">Amazon SES</SelectItem> */}
               <SelectItem value="POSTMARK">Postmark</SelectItem>
             </SelectContent>
           </Select>
