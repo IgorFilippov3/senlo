@@ -8,6 +8,7 @@ import type {
   TriggeredSendLog,
   LinkStat,
   TimeSeriesData,
+  Suppression,
 } from "./domain";
 import type { EmailTemplate } from "./emailTemplate";
 
@@ -32,6 +33,16 @@ export interface SendMailResult {
 
 export interface IMailer {
   send(options: SendMailOptions): Promise<SendMailResult>;
+}
+
+export interface ISuppressionRepository {
+  create(data: Omit<Suppression, "id" | "createdAt">): Promise<Suppression>;
+  findByProjectAndEmail(
+    projectId: number,
+    email: string,
+  ): Promise<Suppression | null>;
+  findAllByUser(userId: string): Promise<(Suppression & { projectName: string })[]>;
+  delete(id: number): Promise<void>;
 }
 
 export interface IEmailProviderRepository {

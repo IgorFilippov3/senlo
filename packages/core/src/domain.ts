@@ -148,6 +148,14 @@ export interface SavedRow {
   updatedAt: Date;
 }
 
+export interface Suppression {
+  id: number;
+  projectId: number;
+  email: string;
+  reason: "SPAM" | "BOUNCE";
+  createdAt: Date;
+}
+
 export interface LinkStat {
   url: string;
   totalClicks: number;

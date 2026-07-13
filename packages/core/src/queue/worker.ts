@@ -5,6 +5,7 @@ import {
   ICampaignRepository,
   IEmailProviderRepository,
   ITriggeredSendLogRepository,
+  ISuppressionRepository,
 } from "../ports";
 import { MailerFactory } from "../services/mail";
 
@@ -13,6 +14,7 @@ export class EmailWorkerProcessor {
     private readonly campaignRepo: ICampaignRepository,
     private readonly providerRepo: IEmailProviderRepository,
     private readonly logRepo?: ITriggeredSendLogRepository,
+    private readonly suppressionRepo?: ISuppressionRepository,
   ) {}
 
   async processEmailJob(job: Job<EmailJobData>) {
@@ -30,6 +32,38 @@ export class EmailWorkerProcessor {
     } = job.data;
 
     try {
+      // 1. Check suppression list if repository is provided
+      if (this.suppressionRepo) {
+        const isSuppressed = await this.suppressionRepo.findByProjectAndEmail(
+          projectId,
+          email,
+        );
+
+        if (isSuppressed) {
+          const reason = `Recipient is suppressed (Reason: ${isSuppressed.reason})`;
+          console.warn(`[Worker] Skipping email to ${email}: ${reason}`);
+
+          if (logId && this.logRepo) {
+            await this.logRepo.update(logId, {
+              status: "FAILED",
+              error: reason,
+            });
+          }
+
+          if (campaignId !== 0) {
+            await this.campaignRepo.logEvent({
+              campaignId,
+              contactId: contactId && contactId !== 0 ? contactId : null,
+              email,
+              type: "FAILED",
+              metadata: { error: reason },
+            });
+          }
+
+          return; // Stop processing
+        }
+      }
+
       const provider = await this.providerRepo.findById(providerId);
       if (!provider) throw new Error(`Provider ${providerId} not found`);
 

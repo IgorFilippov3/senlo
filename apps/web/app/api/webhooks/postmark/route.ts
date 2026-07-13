@@ -4,6 +4,7 @@ import {
   CampaignRepository,
   ProjectRepository,
   EmailProviderRepository,
+  SuppressionRepository,
 } from "@senlo/db";
 import { logger } from "apps/web/lib";
 
@@ -11,6 +12,7 @@ const logRepo = new TriggeredSendLogRepository();
 const campaignRepo = new CampaignRepository();
 const projectRepo = new ProjectRepository();
 const providerRepo = new EmailProviderRepository();
+const suppressionRepo = new SuppressionRepository();
 
 interface PostmarkWebhookPayload {
   RecordType: "Delivery" | "Bounce" | "Open" | "Click" | "SpamComplaint";
@@ -119,6 +121,20 @@ export async function POST(req: NextRequest) {
             RecordType === "SpamComplaint" ? "SPAM_REPORT" :
             "DELIVERED",
           metadata: { postmark_event: jsonPayload },
+        });
+      }
+
+      // 4. Add to suppression list if it's a permanent failure
+      if (RecordType === "Bounce" || RecordType === "SpamComplaint") {
+        logger.info("Adding email to suppression list from Postmark webhook", {
+          projectId,
+          email,
+          reason: RecordType,
+        });
+        await suppressionRepo.create({
+          projectId,
+          email,
+          reason: RecordType === "Bounce" ? "BOUNCE" : "SPAM",
         });
       }
     } else if (RecordType === "Open" || RecordType === "Click") {

@@ -13,6 +13,8 @@ import {
   Cloud,
   Key,
   FileCode,
+  ShieldAlert,
+  Users,
 } from "lucide-react";
 import { useProjects } from "apps/web/hooks/use-projects";
 import { logger } from "apps/web/lib/logger";
@@ -183,6 +185,15 @@ export function Sidebar() {
               icon={Cloud}
               isActive={pathname.startsWith("/providers")}
             />
+
+            <div className="mt-6">
+              <NavItem
+                href="/audience/suppressions"
+                label="Audience"
+                icon={Users}
+                isActive={pathname.startsWith("/audience")}
+              />
+            </div>
           </>
         )}
       </div>

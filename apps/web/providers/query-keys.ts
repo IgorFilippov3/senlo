@@ -98,6 +98,15 @@ export const queryKeys = {
     detail: (id: number) => [...queryKeys.apiKeys.details(), id] as const,
   },
 
+  suppressions: {
+    all: ["suppressions"] as const,
+    lists: () => [...queryKeys.suppressions.all, "list"] as const,
+    list: (filters?: Record<string, unknown>) =>
+      [...queryKeys.suppressions.lists(), { filters }] as const,
+    details: () => [...queryKeys.suppressions.all, "detail"] as const,
+    detail: (id: number) => [...queryKeys.suppressions.details(), id] as const,
+  },
+
   analytics: {
     all: ["analytics"] as const,
     campaign: (campaignId: number) =>

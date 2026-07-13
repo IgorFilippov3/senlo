@@ -333,3 +333,21 @@ export const savedRows = pgTable("saved_rows", {
     .notNull()
     .defaultNow(),
 });
+
+export const suppressions = pgTable(
+  "suppressions",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    reason: text("reason").notNull(), // 'SPAM', 'BOUNCE'
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    unq: unique().on(table.projectId, table.email),
+  }),
+);

@@ -5,6 +5,7 @@ import {
   CampaignRepository,
   ProjectRepository,
   EmailProviderRepository,
+  SuppressionRepository,
 } from "@senlo/db";
 import { logger } from "apps/web/lib";
 
@@ -12,6 +13,7 @@ const logRepo = new TriggeredSendLogRepository();
 const campaignRepo = new CampaignRepository();
 const projectRepo = new ProjectRepository();
 const providerRepo = new EmailProviderRepository();
+const suppressionRepo = new SuppressionRepository();
 
 interface ResendTag {
   name: string;
@@ -188,6 +190,20 @@ export async function POST(req: NextRequest) {
                 ? "SPAM_REPORT"
                 : "DELIVERED",
           metadata: { resend_event: evt },
+        });
+      }
+
+      // 4. Add to suppression list if it's a permanent failure
+      if (type === "email.bounced" || type === "email.complained") {
+        logger.info("Adding email to suppression list from Resend webhook", {
+          projectId,
+          email,
+          reason: type,
+        });
+        await suppressionRepo.create({
+          projectId,
+          email,
+          reason: type === "email.bounced" ? "BOUNCE" : "SPAM",
         });
       }
     }
