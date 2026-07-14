@@ -28,7 +28,7 @@ export const authConfig = {
       // 2. Auth routes logic
       if (isAuthRoute) {
         if (isLoggedIn) {
-          return Response.redirect(new URL("/projects", nextUrl));
+          return Response.redirect(new URL("/dashboard", nextUrl));
         }
         return true;
       }

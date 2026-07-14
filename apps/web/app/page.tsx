@@ -36,6 +36,12 @@ export default function HomePage() {
             </div>
             <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-500">
               <Link
+                href="/dashboard"
+                className="hover:text-zinc-900 transition-colors"
+              >
+                Dashboard
+              </Link>
+              <Link
                 href="/projects"
                 className="hover:text-zinc-900 transition-colors"
               >
@@ -57,7 +63,7 @@ export default function HomePage() {
               </Link>
             </nav>
             <div className="flex items-center gap-4">
-              <Link href="/projects">
+              <Link href="/dashboard">
                 <Button
                   variant="primary"
                   size="sm"
@@ -100,7 +106,7 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/projects">
+              <Link href="/dashboard">
                 <Button
                   size="lg"
                   variant="primary"

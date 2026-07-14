@@ -167,3 +167,26 @@ export interface TimeSeriesData {
   opens: number;
   clicks: number;
 }
+
+export interface DashboardStats {
+  totalSent: number;
+  delivered: number;
+  bounced: number;
+  opened: number;
+  clicked: number;
+  savedSends: number;
+}
+
+export interface DashboardActivity {
+  timestamp: string;
+  success: number;
+  suppressed: number;
+}
+
+export interface DashboardEvent {
+  id: string | number;
+  type: "SUPPRESSION_ADDED" | "CAMPAIGN_COMPLETED" | "CAMPAIGN_STARTED" | "BOUNCE" | "SPAM" | "FAILED";
+  title: string;
+  description: string;
+  occurredAt: Date;
+}

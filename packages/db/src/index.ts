@@ -23,3 +23,4 @@ export * from "./repositories/apiKeyRepository";
 export * from "./repositories/triggeredSendLogRepository";
 export * from "./repositories/savedRowRepository";
 export * from "./repositories/suppressionRepository";
+export * from "./repositories/dashboardRepository";

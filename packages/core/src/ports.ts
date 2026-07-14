@@ -9,6 +9,9 @@ import type {
   LinkStat,
   TimeSeriesData,
   Suppression,
+  DashboardStats,
+  DashboardActivity,
+  DashboardEvent,
 } from "./domain";
 import type { EmailTemplate } from "./emailTemplate";
 
@@ -158,4 +161,10 @@ export interface ITriggeredSendLogRepository {
     delivered: number;
     errors: number;
   }>;
+}
+
+export interface IDashboardRepository {
+  getGlobalStats(userId: string): Promise<DashboardStats>;
+  getActivityStats(userId: string, days: number): Promise<DashboardActivity[]>;
+  getRecentEvents(userId: string, limit: number): Promise<DashboardEvent[]>;
 }

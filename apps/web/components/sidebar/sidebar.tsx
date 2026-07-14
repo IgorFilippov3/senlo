@@ -15,6 +15,7 @@ import {
   FileCode,
   ShieldAlert,
   Users,
+  LayoutDashboard,
 } from "lucide-react";
 import { useProjects } from "apps/web/hooks/use-projects";
 import { logger } from "apps/web/lib/logger";
@@ -167,6 +168,12 @@ export function Sidebar() {
             <div className="px-3 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
               Main Menu
             </div>
+            <NavItem
+              href="/dashboard"
+              label="Dashboard"
+              icon={LayoutDashboard}
+              isActive={pathname === "/dashboard"}
+            />
             <NavItem
               href="/projects"
               label="Projects"
