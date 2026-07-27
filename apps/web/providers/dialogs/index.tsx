@@ -9,25 +9,29 @@ type DialogComponentProps<T extends DialogType> = DialogPropsMap[T] & {
 };
 
 const EditTriggerConfigDialog = lazy(
-  () => import("../../app/(app)/triggers/[id]/edit-trigger-dialog"),
+  () =>
+    import("../../app/(app)/workspace/[id]/triggers/[triggerId]/edit-trigger-dialog"),
 );
 const DeleteTriggerDialog = lazy(
-  () => import("../../app/(app)/triggers/delete-trigger-dialog"),
+  () => import("../../app/(app)/workspace/[id]/triggers/delete-trigger-dialog"),
 );
-const CreateProjectDialog = lazy(
-  () => import("../../app/(app)/projects/create-project-dialog"),
+const CreateWorkspaceDialog = lazy(
+  () => import("../../app/(app)/workspace/create-workspace-dialog"),
 );
-const EditProjectDialog = lazy(
-  () => import("../../app/(app)/projects/[id]/edit-project-dialog"),
+const EditWorkspaceDialog = lazy(
+  () =>
+    import("../../app/(app)/workspace/[id]/templates/edit-workspace-dialog"),
 );
-const DeleteProjectDialog = lazy(
-  () => import("../../app/(app)/projects/delete-project-dialog"),
+const DeleteWorkspaceDialog = lazy(
+  () => import("../../app/(app)/workspace/delete-workspace-dialog"),
 );
 const CreateTemplateDialog = lazy(
-  () => import("../../app/(app)/projects/[id]/create-template-dialog"),
+  () =>
+    import("../../app/(app)/workspace/[id]/templates/create-template-dialog"),
 );
 const DeleteTemplateDialog = lazy(
-  () => import("../../app/(app)/projects/[id]/delete-template-dialog"),
+  () =>
+    import("../../app/(app)/workspace/[id]/templates/delete-template-dialog"),
 );
 const AddProviderDialog = lazy(
   () => import("../../app/(app)/providers/add-provider-dialog"),
@@ -50,9 +54,9 @@ const dialogComponents: {
 } = {
   EDIT_TRIGGER_CONFIG: EditTriggerConfigDialog,
   DELETE_TRIGGER: DeleteTriggerDialog,
-  CREATE_PROJECT: CreateProjectDialog,
-  EDIT_PROJECT: EditProjectDialog,
-  DELETE_PROJECT: DeleteProjectDialog,
+  CREATE_WORKSPACE: CreateWorkspaceDialog,
+  EDIT_WORKSPACE: EditWorkspaceDialog,
+  DELETE_WORKSPACE: DeleteWorkspaceDialog,
   CREATE_TEMPLATE: CreateTemplateDialog,
   DELETE_TEMPLATE: DeleteTemplateDialog,
   ADD_PROVIDER: AddProviderDialog,

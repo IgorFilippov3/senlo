@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, Sparkles } from "lucide-react";
+import { Bot } from "lucide-react";
 import { Button, EmptyState } from "@senlo/ui";
 import styles from "./ai-section.module.css";
 import { useEditorStore } from "../../../../state/editor.store";
@@ -26,15 +26,17 @@ export const AiSection = () => {
         <EmptyState
           icon={<Bot size={40} className="text-zinc-300" />}
           title="AI not configured"
-          description="To enable AI template generation and editing, please connect an AI provider in your project settings."
+          description="To enable AI template generation and editing, please connect an AI provider in your workspace settings."
           className="border-dashed border-2 py-10"
           action={
             <Button
               variant="outline"
               size="sm"
-              onClick={() => (window.location.href = `/projects/${projectId}`)}
+              onClick={() =>
+                (window.location.href = `/workspace/${projectId}/templates`)
+              }
             >
-              Configure Project
+              Configure Workspace
             </Button>
           }
         />

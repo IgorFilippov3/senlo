@@ -12,11 +12,11 @@ export default function ApiDocsPage() {
       {/* Top Bar to get back */}
       <div className="flex items-center px-4 py-3 border-b border-zinc-200 bg-white sticky top-0 z-50">
         <Link
-          href="/projects"
+          href="/home"
           className="flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 transition-colors font-medium"
         >
           <ArrowLeft size={16} />
-          Back to Dashboard
+          Back to Workspace
         </Link>
       </div>
 

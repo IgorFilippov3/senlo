@@ -39,10 +39,10 @@ export default function EditorError({
                 Try Again
               </button>
               <Link
-                href="/projects"
+                href="/workspaces"
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                Back to Projects
+                Back to Workspaces
               </Link>
             </div>
           </div>

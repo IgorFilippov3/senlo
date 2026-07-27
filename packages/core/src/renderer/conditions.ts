@@ -70,12 +70,20 @@ function getVariableValue(variable: string, data: any): any {
     return undefined;
   }
 
-  if (context === "project" && data.project) {
-    return (data.project as any)[key];
+  if (
+    (context === "project" || context === "workspace") &&
+    (data.workspace || data.project)
+  ) {
+    const projectData = data.workspace || data.project;
+    return (projectData as any)[key];
   }
 
-  if (context === "campaign" && data.campaign) {
-    return (data.campaign as any)[key];
+  if (
+    (context === "campaign" || context === "trigger") &&
+    (data.trigger || data.campaign)
+  ) {
+    const campaignData = data.trigger || data.campaign;
+    return (campaignData as any)[key];
   }
 
   return undefined;

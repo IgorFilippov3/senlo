@@ -33,8 +33,8 @@ export const RowView = ({ row }: RowViewProps) => {
         data: {
           contact: previewContact || {},
           custom: previewContact || {},
-          project: { name: "Sample Project" },
-          campaign: { name: "Sample Campaign" },
+          workspace: { name: "Sample Workspace" },
+          trigger: { name: "Sample Trigger" },
           unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
         },
       },

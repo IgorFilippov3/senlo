@@ -36,14 +36,13 @@ export type UpdateProviderResult = CreateProviderResult;
 
 export async function listProviders(): Promise<ActionResult<EmailProvider[]>> {
   const session = await auth();
-  if (!session?.user?.id) {
+  const userId = session?.user?.id;
+  if (!userId) {
     return {
       success: false,
       error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
     };
   }
-
-  const userId = session.user.id;
 
   return withErrorHandling(async () => {
     logger.debug("Listing all email providers", { userId });
@@ -55,7 +54,8 @@ export async function createProviderAction(
   formData: FormData,
 ): Promise<CreateProviderResult> {
   const session = await auth();
-  if (!session?.user?.id) {
+  const userId = session?.user?.id;
+  if (!userId) {
     return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
   }
 
@@ -150,7 +150,7 @@ export async function createProviderAction(
       type,
       hasDomain: !!domain,
       region: region || "US",
-      userId: session.user.id,
+      userId,
     });
 
     const provider = await providerRepo.create({
@@ -158,7 +158,7 @@ export async function createProviderAction(
       type: type as EmailProviderType,
       config,
       isActive: true,
-      userId: session.user.id,
+      userId,
     });
 
     revalidatePath("/providers");
@@ -186,8 +186,22 @@ export async function createProviderAction(
 export async function deleteProviderAction(
   id: number,
 ): Promise<ActionResult<void>> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
+  }
+
   return withErrorHandling(async () => {
-    logger.debug("Deleting email provider", { providerId: id });
+    const provider = await providerRepo.findById(id);
+    if (!provider || provider.userId !== userId) {
+      throw new Error("Provider not found or unauthorized");
+    }
+
+    logger.debug("Deleting email provider", { providerId: id, userId });
     await providerRepo.delete(id);
     revalidatePath("/providers");
   });
@@ -197,10 +211,25 @@ export async function toggleProviderAction(
   id: number,
   isActive: boolean,
 ): Promise<ActionResult<EmailProvider>> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
+  }
+
   return withErrorHandling(async () => {
+    const provider = await providerRepo.findById(id);
+    if (!provider || provider.userId !== userId) {
+      throw new Error("Provider not found or unauthorized");
+    }
+
     logger.debug("Toggling email provider status", {
       providerId: id,
       isActive,
+      userId,
     });
     const updatedProvider = await providerRepo.update(id, { isActive });
     if (!updatedProvider) {
@@ -216,12 +245,13 @@ export async function updateProviderAction(
   formData: FormData,
 ): Promise<UpdateProviderResult> {
   const session = await auth();
-  if (!session?.user?.id) {
+  const userId = session?.user?.id;
+  if (!userId) {
     return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
   }
 
   const provider = await providerRepo.findById(id);
-  if (!provider || provider.userId !== session.user.id) {
+  if (!provider || provider.userId !== userId) {
     return { error: { formErrors: ["Provider not found"], fieldErrors: {} } };
   }
 

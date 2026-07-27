@@ -15,7 +15,9 @@ export interface RenderOptions {
   data?: {
     contact?: Record<string, any>;
     project?: { name: string };
+    workspace?: { name: string };
     campaign?: { name: string; id?: number };
+    trigger?: { name: string; id?: number };
     unsubscribeUrl?: string;
     custom?: Record<string, any>;
   };

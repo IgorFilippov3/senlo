@@ -79,7 +79,7 @@ export default function ProvidersPage() {
 
   if (isLoading) {
     return (
-      <main className="max-w-6xl mx-auto py-10 px-8">
+      <main className="max-w-7xl mx-auto py-10 px-8">
         <div className="flex items-center justify-center py-12">
           <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
         </div>
@@ -89,7 +89,7 @@ export default function ProvidersPage() {
 
   if (error) {
     return (
-      <main className="max-w-6xl mx-auto py-10 px-8">
+      <main className="max-w-7xl mx-auto py-10 px-8">
         <div className="text-center space-y-6">
           <div className="mx-auto w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
             <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
@@ -118,7 +118,7 @@ export default function ProvidersPage() {
   }
 
   return (
-    <main className="max-w-6xl mx-auto py-10 px-8">
+    <main className="max-w-7xl mx-auto py-10 px-8">
       <Tabs defaultValue="email">
         <div className="flex items-center justify-between mb-8">
           <div className="space-y-1">

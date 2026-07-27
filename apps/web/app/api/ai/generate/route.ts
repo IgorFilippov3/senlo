@@ -15,7 +15,8 @@ You are an expert email designer for the Senlo Email Builder.
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    const userId = session?.user?.id;
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const project = await projectRepo.findById(Number(projectId));
-    if (!project || project.userId !== session.user.id) {
+    if (!project || project.userId !== userId) {
       return NextResponse.json(
         { error: "Project not found or access denied" },
         { status: 404 },

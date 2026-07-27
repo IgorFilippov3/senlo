@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Campaign, CampaignStatus } from "@senlo/core";
-import { listAllCampaigns } from "../app/(app)/triggers/actions";
+import { listAllCampaigns } from "../app/(app)/workspace/[id]/triggers/actions";
 
 export interface CampaignFilters {
   projectId?: number;

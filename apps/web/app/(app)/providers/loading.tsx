@@ -2,7 +2,7 @@ import { PageHeader } from "@senlo/ui";
 
 export default function ProvidersLoading() {
   return (
-    <main className="max-w-6xl mx-auto py-10 px-8">
+    <main className="max-w-7xl mx-auto py-10 px-8">
       <div className="animate-pulse">
         <PageHeader
           title="Email Providers"

@@ -6,14 +6,14 @@ import {
   listApiKeys,
   createApiKey,
   deleteApiKey,
-} from "apps/web/app/(app)/settings/keys/actions";
+} from "apps/web/app/(app)/workspace/[id]/settings/keys/actions";
 
 /**
  * Hook to fetch API keys for a specific project
  */
 export function useApiKeys(projectId: number, enabled: boolean = true) {
   const queryKey = queryKeys.apiKeys.byProject(projectId);
-  
+
   return useQuery({
     queryKey,
     queryFn: async () => {
@@ -32,7 +32,7 @@ export function useApiKeys(projectId: number, enabled: boolean = true) {
  */
 export function useCreateApiKey() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({
       projectId,
@@ -53,9 +53,9 @@ export function useCreateApiKey() {
         queryKeys.apiKeys.byProject(variables.projectId),
         (oldData: any[] | undefined) => {
           return oldData ? [...oldData, newApiKey] : [newApiKey];
-        }
+        },
       );
-      
+
       // Also invalidate to ensure server sync
       queryClient.invalidateQueries({
         queryKey: queryKeys.apiKeys.all,
@@ -69,14 +69,14 @@ export function useCreateApiKey() {
  */
 export function useDeleteApiKey() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: async ({ 
-      apiKeyId, 
-      projectId 
-    }: { 
-      apiKeyId: number; 
-      projectId: number; 
+    mutationFn: async ({
+      apiKeyId,
+      projectId,
+    }: {
+      apiKeyId: number;
+      projectId: number;
     }) => {
       const result = await deleteApiKey(apiKeyId);
       if (!result.success) {
@@ -89,10 +89,12 @@ export function useDeleteApiKey() {
       queryClient.setQueryData(
         queryKeys.apiKeys.byProject(data.projectId),
         (oldData: any[] | undefined) => {
-          return oldData ? oldData.filter(key => key.id !== data.apiKeyId) : [];
-        }
+          return oldData
+            ? oldData.filter((key) => key.id !== data.apiKeyId)
+            : [];
+        },
       );
-      
+
       // Also invalidate to ensure server sync
       queryClient.invalidateQueries({
         queryKey: queryKeys.apiKeys.all,

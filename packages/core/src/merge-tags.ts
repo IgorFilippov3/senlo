@@ -8,8 +8,8 @@ export const STANDARD_MERGE_TAGS: MergeTag[] = [
   { label: "First Name", value: "{{contact.first_name}}", category: "contact" },
   { label: "Last Name", value: "{{contact.last_name}}", category: "contact" },
   { label: "Email", value: "{{contact.email}}", category: "contact" },
-  { label: "Project Name", value: "{{project.name}}", category: "project" },
-  { label: "Campaign Name", value: "{{campaign.name}}", category: "campaign" },
+  { label: "Workspace Name", value: "{{workspace.name}}", category: "project" },
+  { label: "Trigger Name", value: "{{trigger.name}}", category: "campaign" },
   {
     label: "Unsubscribe URL",
     value: "{{unsubscribe_url}}",
@@ -22,12 +22,17 @@ export function replaceMergeTags(
   data: {
     contact?: Record<string, any>;
     project?: { name: string };
+    workspace?: { name: string };
     campaign?: { name: string; id?: number };
+    trigger?: { name: string; id?: number };
     unsubscribeUrl?: string;
     custom?: Record<string, any>;
-  }
+  },
 ): string {
   if (!text) return text;
+
+  const projectData = data.workspace || data.project;
+  const campaignData = data.trigger || data.campaign;
 
   return text.replace(/\{\{(.*?)\}\}/g, (match, tag) => {
     const rawTag = tag.trim();
@@ -68,11 +73,11 @@ export function replaceMergeTags(
 
       return match;
     }
-    if (context === "project" && data.project) {
-      return (data.project as any)[key] || match;
+    if ((context === "project" || context === "workspace") && projectData) {
+      return (projectData as any)[key] || match;
     }
-    if (context === "campaign" && data.campaign) {
-      return (data.campaign as any)[key] || match;
+    if ((context === "campaign" || context === "trigger") && campaignData) {
+      return (campaignData as any)[key] || match;
     }
 
     return match;

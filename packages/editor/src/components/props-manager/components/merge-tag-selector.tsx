@@ -12,14 +12,20 @@ interface MergeTagSelectorProps {
   label?: string;
 }
 
-export const MergeTagSelector = ({ onSelect, label = "Personalize" }: MergeTagSelectorProps) => {
+export const MergeTagSelector = ({
+  onSelect,
+  label = "Personalize",
+}: MergeTagSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const customMergeTags = useEditorStore((s) => s.customMergeTags);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -55,8 +61,8 @@ export const MergeTagSelector = ({ onSelect, label = "Personalize" }: MergeTagSe
         <div className={styles.dropdown}>
           {customMergeTags.length > 0 && (
             <div className={styles.section}>
-              <div className={styles.sectionTitle}>Campaign Specific</div>
-              {customMergeTags.map(tag => (
+              <div className={styles.sectionTitle}>Trigger Specific</div>
+              {customMergeTags.map((tag) => (
                 <button
                   key={tag.value}
                   type="button"
@@ -72,39 +78,39 @@ export const MergeTagSelector = ({ onSelect, label = "Personalize" }: MergeTagSe
 
           <div className={styles.section}>
             <div className={styles.sectionTitle}>Contact</div>
-            {STANDARD_MERGE_TAGS.filter(t => t.category === "contact").map(tag => (
-              <button
-                key={tag.value}
-                type="button"
-                className={styles.item}
-                onClick={() => handleSelect(tag)}
-              >
-                <span className={styles.itemLabel}>{tag.label}</span>
-                <span className={styles.itemValue}>{tag.value}</span>
-              </button>
-            ))}
+            {STANDARD_MERGE_TAGS.filter((t) => t.category === "contact").map(
+              (tag) => (
+                <button
+                  key={tag.value}
+                  type="button"
+                  className={styles.item}
+                  onClick={() => handleSelect(tag)}
+                >
+                  <span className={styles.itemLabel}>{tag.label}</span>
+                  <span className={styles.itemValue}>{tag.value}</span>
+                </button>
+              ),
+            )}
           </div>
 
           <div className={styles.section}>
             <div className={styles.sectionTitle}>System</div>
-            {STANDARD_MERGE_TAGS.filter(t => t.category !== "contact").map(tag => (
-              <button
-                key={tag.value}
-                type="button"
-                className={styles.item}
-                onClick={() => handleSelect(tag)}
-              >
-                <span className={styles.itemLabel}>{tag.label}</span>
-                <span className={styles.itemValue}>{tag.value}</span>
-              </button>
-            ))}
+            {STANDARD_MERGE_TAGS.filter((t) => t.category !== "contact").map(
+              (tag) => (
+                <button
+                  key={tag.value}
+                  type="button"
+                  className={styles.item}
+                  onClick={() => handleSelect(tag)}
+                >
+                  <span className={styles.itemLabel}>{tag.label}</span>
+                  <span className={styles.itemValue}>{tag.value}</span>
+                </button>
+              ),
+            )}
           </div>
         </div>
       )}
     </div>
   );
 };
-
-
-
-

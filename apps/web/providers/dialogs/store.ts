@@ -10,9 +10,9 @@ import {
 export type DialogType =
   | "EDIT_TRIGGER_CONFIG"
   | "DELETE_TRIGGER"
-  | "CREATE_PROJECT"
-  | "EDIT_PROJECT"
-  | "DELETE_PROJECT"
+  | "CREATE_WORKSPACE"
+  | "EDIT_WORKSPACE"
+  | "DELETE_WORKSPACE"
   | "CREATE_TEMPLATE"
   | "DELETE_TEMPLATE"
   | "ADD_PROVIDER"
@@ -30,13 +30,13 @@ export interface DialogPropsMap {
   DELETE_TRIGGER: {
     campaign: Campaign;
   };
-  CREATE_PROJECT: Record<string, never>;
-  EDIT_PROJECT: {
+  CREATE_WORKSPACE: Record<string, never>;
+  EDIT_WORKSPACE: {
     project: Project;
     providers: EmailProvider[];
     aiProviders: AiProvider[];
   };
-  DELETE_PROJECT: {
+  DELETE_WORKSPACE: {
     project: Project;
   };
   CREATE_TEMPLATE: {

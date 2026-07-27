@@ -44,6 +44,7 @@ export interface ISuppressionRepository {
     projectId: number,
     email: string,
   ): Promise<Suppression | null>;
+  findByProject(projectId: number): Promise<Suppression[]>;
   findAllByUser(userId: string): Promise<(Suppression & { projectName: string })[]>;
   delete(id: number): Promise<void>;
 }
@@ -164,7 +165,7 @@ export interface ITriggeredSendLogRepository {
 }
 
 export interface IDashboardRepository {
-  getGlobalStats(userId: string): Promise<DashboardStats>;
-  getActivityStats(userId: string, days: number): Promise<DashboardActivity[]>;
-  getRecentEvents(userId: string, limit: number): Promise<DashboardEvent[]>;
+  getGlobalStats(userId: string, projectId?: number): Promise<DashboardStats>;
+  getActivityStats(userId: string, days: number, projectId?: number): Promise<DashboardActivity[]>;
+  getRecentEvents(userId: string, limit: number, projectId?: number): Promise<DashboardEvent[]>;
 }

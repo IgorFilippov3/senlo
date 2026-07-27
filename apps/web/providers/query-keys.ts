@@ -107,6 +107,16 @@ export const queryKeys = {
     detail: (id: number) => [...queryKeys.suppressions.details(), id] as const,
   },
 
+  dashboard: {
+    all: ["dashboard"] as const,
+    stats: (projectId?: number) =>
+      [...queryKeys.dashboard.all, "stats", projectId] as const,
+    activity: (projectId?: number, days?: number) =>
+      [...queryKeys.dashboard.all, "activity", projectId, days] as const,
+    events: (projectId?: number, limit?: number) =>
+      [...queryKeys.dashboard.all, "events", projectId, limit] as const,
+  },
+
   analytics: {
     all: ["analytics"] as const,
     campaign: (campaignId: number) =>

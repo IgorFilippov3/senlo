@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Project } from "@senlo/core";
 import {
-  listProjects,
-  createProject as createProjectAction,
-  deleteProject as deleteProjectAction,
-} from "../app/(app)/projects/actions";
-import { 
-  getProjectById,
-  updateProject as updateProjectAction
-} from "../app/(app)/projects/[id]/actions";
+  listWorkspaces,
+  createWorkspace as createProjectAction,
+  deleteWorkspace as deleteProjectAction,
+} from "../app/(app)/workspace/actions";
+import {
+  getWorkspaceById,
+  updateWorkspace as updateProjectAction,
+} from "../app/(app)/workspace/[id]/templates/actions";
 import { queryKeys } from "../providers";
 import { logger } from "../lib/logger";
 
@@ -16,7 +16,7 @@ import { logger } from "../lib/logger";
  * Query function for fetching all projects
  */
 async function fetchProjects(): Promise<Project[]> {
-  const result = await listProjects();
+  const result = await listWorkspaces();
 
   if (!result.success) {
     throw new Error(result.error.message);
@@ -29,10 +29,10 @@ async function fetchProjects(): Promise<Project[]> {
  * Query function for fetching a single project
  */
 async function fetchProject(projectId: string): Promise<Project> {
-  const result = await getProjectById(projectId);
+  const result = await getWorkspaceById(projectId);
 
   if (!result.success || !result.data) {
-    throw new Error("Project not found");
+    throw new Error("Workspace not found");
   }
 
   return result.data;
@@ -94,12 +94,12 @@ export function useCreateProject() {
 
       // Snapshot previous value
       const previousProjects = queryClient.getQueryData<Project[]>(
-        queryKeys.projects.lists()
+        queryKeys.projects.lists(),
       );
 
       // Optimistically update cache
       queryClient.setQueryData<Project[]>(queryKeys.projects.lists(), (old) =>
-        old ? [...old, optimisticProject] : [optimisticProject]
+        old ? [...old, optimisticProject] : [optimisticProject],
       );
 
       // Return context with snapshot
@@ -110,16 +110,16 @@ export function useCreateProject() {
       if (context?.previousProjects) {
         queryClient.setQueryData(
           queryKeys.projects.lists(),
-          context.previousProjects
+          context.previousProjects,
         );
       }
 
-      logger.error("Failed to create project", {
+      logger.error("Failed to create workspace", {
         error: err instanceof Error ? err.message : String(err),
       });
     },
     onSuccess: (data, formData, context) => {
-      logger.info("Project created successfully", { projectId: data.id });
+      logger.info("Workspace created successfully", { projectId: data.id });
     },
     onSettled: () => {
       // Always invalidate and refetch to sync with server
@@ -135,19 +135,27 @@ export function useUpdateProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ projectId, formData }: { projectId: number; formData: FormData }) => {
+    mutationFn: async ({
+      projectId,
+      formData,
+    }: {
+      projectId: number;
+      formData: FormData;
+    }) => {
       await updateProjectAction(projectId, formData);
-      
+
       // Fetch updated project to get the latest data
-      const result = await getProjectById(projectId.toString());
+      const result = await getWorkspaceById(projectId.toString());
       if (!result.success || !result.data) {
-        throw new Error("Failed to fetch updated project");
+        throw new Error("Failed to fetch updated workspace");
       }
       return result.data;
     },
     onMutate: async ({ projectId, formData }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.projects.detail(projectId) });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.projects.detail(projectId),
+      });
       await queryClient.cancelQueries({ queryKey: queryKeys.projects.lists() });
 
       // Get form data for optimistic update
@@ -157,10 +165,10 @@ export function useUpdateProject() {
 
       // Snapshot previous values
       const previousProject = queryClient.getQueryData<Project>(
-        queryKeys.projects.detail(projectId)
+        queryKeys.projects.detail(projectId),
       );
       const previousProjects = queryClient.getQueryData<Project[]>(
-        queryKeys.projects.lists()
+        queryKeys.projects.lists(),
       );
 
       // Optimistically update individual project cache
@@ -175,12 +183,16 @@ export function useUpdateProject() {
 
         queryClient.setQueryData(
           queryKeys.projects.detail(projectId),
-          optimisticProject
+          optimisticProject,
         );
 
         // Also update the project in the projects list
-        queryClient.setQueryData<Project[]>(queryKeys.projects.lists(), (old) =>
-          old ? old.map(p => p.id === projectId ? optimisticProject : p) : []
+        queryClient.setQueryData<Project[]>(
+          queryKeys.projects.lists(),
+          (old) =>
+            old
+              ? old.map((p) => (p.id === projectId ? optimisticProject : p))
+              : [],
         );
       }
 
@@ -191,17 +203,17 @@ export function useUpdateProject() {
       if (context?.previousProject) {
         queryClient.setQueryData(
           queryKeys.projects.detail(projectId),
-          context.previousProject
+          context.previousProject,
         );
       }
       if (context?.previousProjects) {
         queryClient.setQueryData(
           queryKeys.projects.lists(),
-          context.previousProjects
+          context.previousProjects,
         );
       }
 
-      logger.error("Failed to update project", {
+      logger.error("Failed to update workspace", {
         projectId,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -210,18 +222,20 @@ export function useUpdateProject() {
       // Update both caches with the actual server data
       queryClient.setQueryData(
         queryKeys.projects.detail(projectId),
-        updatedProject
-      );
-      
-      queryClient.setQueryData<Project[]>(queryKeys.projects.lists(), (old) =>
-        old ? old.map(p => p.id === projectId ? updatedProject : p) : []
+        updatedProject,
       );
 
-      logger.info("Project updated successfully", { projectId });
+      queryClient.setQueryData<Project[]>(queryKeys.projects.lists(), (old) =>
+        old ? old.map((p) => (p.id === projectId ? updatedProject : p)) : [],
+      );
+
+      logger.info("Workspace updated successfully", { projectId });
     },
     onSettled: (data, error, { projectId }) => {
       // Invalidate to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.projects.detail(projectId),
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.lists() });
     },
   });
@@ -247,12 +261,12 @@ export function useDeleteProject() {
 
       // Snapshot previous value
       const previousProjects = queryClient.getQueryData<Project[]>(
-        queryKeys.projects.lists()
+        queryKeys.projects.lists(),
       );
 
       // Optimistically remove project
       queryClient.setQueryData<Project[]>(queryKeys.projects.lists(), (old) =>
-        old ? old.filter((p) => p.id !== projectId) : []
+        old ? old.filter((p) => p.id !== projectId) : [],
       );
 
       // Return context with snapshot
@@ -263,11 +277,11 @@ export function useDeleteProject() {
       if (context?.previousProjects) {
         queryClient.setQueryData(
           queryKeys.projects.lists(),
-          context.previousProjects
+          context.previousProjects,
         );
       }
 
-      logger.error("Failed to delete project", {
+      logger.error("Failed to delete workspace", {
         projectId,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -278,7 +292,7 @@ export function useDeleteProject() {
         queryKey: queryKeys.projects.detail(projectId),
       });
 
-      logger.info("Project deleted successfully", { projectId });
+      logger.info("Workspace deleted successfully", { projectId });
     },
     onSettled: () => {
       // Always invalidate and refetch to sync with server

@@ -77,9 +77,9 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
     }
 
     if (campaignId) {
-      router.push(`/campaigns/${campaignId}`);
+      router.push(`/workspace/${projectId}/triggers/${campaignId}`);
     } else {
-      router.push(`/projects/${projectId}`);
+      router.push(`/workspace/${projectId}/templates`);
     }
   };
 

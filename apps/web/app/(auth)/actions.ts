@@ -32,18 +32,24 @@ export async function registerAction(formData: FormData) {
 
   try {
     // Check if user already exists
-    const [existingUser] = await db.select().from(users).where(eq(users.email, email));
-    
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+
     if (existingUser) {
       return { error: { email: ["Email already in use"] } };
     }
 
     // Create user
-    const [user] = await db.insert(users).values({
-      name,
-      email,
-      password: hashedPassword,
-    }).returning();
+    const [user] = await db
+      .insert(users)
+      .values({
+        name,
+        email,
+        password: hashedPassword,
+      })
+      .returning();
 
     // Seed data for demo mode
     if (user) {
@@ -54,7 +60,7 @@ export async function registerAction(formData: FormData) {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/projects",
+      redirectTo: "/home",
     });
 
     return { success: true };
@@ -79,7 +85,7 @@ export async function loginAction(formData: FormData) {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/projects",
+      redirectTo: "/home",
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -97,5 +103,3 @@ export async function loginAction(formData: FormData) {
 export async function logoutAction() {
   await signOut({ redirectTo: "/login" });
 }
-
-

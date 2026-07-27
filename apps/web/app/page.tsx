@@ -36,16 +36,16 @@ export default function HomePage() {
             </div>
             <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-500">
               <Link
-                href="/dashboard"
+                href="/home"
                 className="hover:text-zinc-900 transition-colors"
               >
                 Dashboard
               </Link>
               <Link
-                href="/projects"
+                href="/workspaces"
                 className="hover:text-zinc-900 transition-colors"
               >
-                Projects
+                Workspaces
               </Link>
               <Link
                 href="/triggers"
@@ -63,7 +63,7 @@ export default function HomePage() {
               </Link>
             </nav>
             <div className="flex items-center gap-4">
-              <Link href="/dashboard">
+              <Link href="/home">
                 <Button
                   variant="primary"
                   size="sm"
@@ -106,7 +106,7 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/dashboard">
+              <Link href="/home">
                 <Button
                   size="lg"
                   variant="primary"
@@ -279,7 +279,7 @@ export default function HomePage() {
                 sending emails without vendor lock-in.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link href="/projects">
+                <Link href="/home">
                   <Button
                     size="lg"
                     variant="primary"
@@ -328,7 +328,7 @@ export default function HomePage() {
               <h4 className="text-zinc-900 font-semibold mb-6">Product</h4>
               <ul className="space-y-4 text-sm text-zinc-500">
                 <li>
-                  <Link href="/projects" className="hover:text-zinc-900">
+                  <Link href="/home" className="hover:text-zinc-900">
                     Editor
                   </Link>
                 </li>
@@ -338,7 +338,7 @@ export default function HomePage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/projects" className="hover:text-zinc-900">
+                  <Link href="/home" className="hover:text-zinc-900">
                     API
                   </Link>
                 </li>

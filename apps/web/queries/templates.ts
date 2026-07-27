@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmailTemplate } from "@senlo/core";
-import { 
+import {
   listProjectTemplates,
   createTemplate as createTemplateAction,
   deleteTemplate as deleteTemplateAction,
-} from "../app/(app)/projects/[id]/actions";
+} from "../app/(app)/workspace/[id]/templates/actions";
 import { queryKeys } from "../providers";
 import { logger } from "../lib/logger";
 
@@ -17,13 +17,15 @@ export interface TemplateFilters {
 /**
  * Query function for fetching project templates
  */
-async function fetchProjectTemplates(projectId: number): Promise<EmailTemplate[]> {
+async function fetchProjectTemplates(
+  projectId: number,
+): Promise<EmailTemplate[]> {
   const result = await listProjectTemplates(projectId.toString());
-  
+
   if (!result.success) {
     throw new Error(result.error.message);
   }
-  
+
   return result.data;
 }
 
@@ -46,7 +48,7 @@ export function useProjectTemplates(filters: TemplateFilters) {
         filtered = filtered.filter(
           (template) =>
             template.name.toLowerCase().includes(searchLower) ||
-            template.subject.toLowerCase().includes(searchLower)
+            template.subject.toLowerCase().includes(searchLower),
         );
       }
 
@@ -63,7 +65,8 @@ export function useProjectTemplates(filters: TemplateFilters) {
     // Add computed values
     totalCount: query.data?.length || 0,
     draftCount: query.data?.filter((t) => t.status === "draft").length || 0,
-    publishedCount: query.data?.filter((t) => t.status === "published").length || 0,
+    publishedCount:
+      query.data?.filter((t) => t.status === "published").length || 0,
   };
 }
 
@@ -74,7 +77,13 @@ export function useCreateTemplate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ projectId, formData }: { projectId: string; formData: FormData }) => {
+    mutationFn: async ({
+      projectId,
+      formData,
+    }: {
+      projectId: string;
+      formData: FormData;
+    }) => {
       const result = await createTemplateAction(projectId, formData);
       if (!result.success) {
         throw result;
@@ -88,16 +97,16 @@ export function useCreateTemplate() {
       });
     },
     onSuccess: (data, { projectId }) => {
-      logger.info("Template created successfully", { 
-        templateId: data.id, 
-        projectId 
+      logger.info("Template created successfully", {
+        templateId: data.id,
+        projectId,
       });
     },
     onSettled: (data, error, { projectId }) => {
       const numericProjectId = Number(projectId);
       // Invalidate and refetch templates for this project
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.templates.lists() 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.templates.lists(),
       });
     },
   });
@@ -110,7 +119,13 @@ export function useDeleteTemplate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ projectId, templateId }: { projectId: string; templateId: number }) => {
+    mutationFn: async ({
+      projectId,
+      templateId,
+    }: {
+      projectId: string;
+      templateId: number;
+    }) => {
       const result = await deleteTemplateAction(projectId, templateId);
       if (!result.success) {
         throw result;
@@ -126,17 +141,17 @@ export function useDeleteTemplate() {
     },
     onSuccess: ({ templateId, projectId }) => {
       // Remove from individual template cache too
-      queryClient.removeQueries({ 
-        queryKey: queryKeys.templates.detail(templateId) 
+      queryClient.removeQueries({
+        queryKey: queryKeys.templates.detail(templateId),
       });
-      
+
       logger.info("Template deleted successfully", { templateId, projectId });
     },
     onSettled: (data, error, { projectId }) => {
       const numericProjectId = Number(projectId);
       // Always invalidate and refetch to sync with server
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.templates.lists() 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.templates.lists(),
       });
     },
   });

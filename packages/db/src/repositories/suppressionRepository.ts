@@ -60,6 +60,17 @@ export class SuppressionRepository
     return row ? this.mapToEntity(row) : null;
   }
 
+  async findByProject(projectId: number): Promise<Suppression[]> {
+    const { desc } = await import("drizzle-orm");
+    const rows = await db
+      .select()
+      .from(suppressions)
+      .where(eq(suppressions.projectId, projectId))
+      .orderBy(desc(suppressions.createdAt));
+
+    return rows.map((r) => this.mapToEntity(r));
+  }
+
   async findAllByUser(userId: string): Promise<(Suppression & { projectName: string })[]> {
     const { projects } = await import("../schema");
     const { eq, desc } = await import("drizzle-orm");

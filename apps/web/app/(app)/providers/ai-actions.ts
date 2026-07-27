@@ -12,14 +12,13 @@ const aiProviderRepo = new AiProviderRepository();
 
 export async function listAiProviders(): Promise<ActionResult<AiProvider[]>> {
   const session = await auth();
-  if (!session?.user?.id) {
+  const userId = session?.user?.id;
+  if (!userId) {
     return {
       success: false,
       error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
     };
   }
-
-  const userId = session.user.id;
 
   return withErrorHandling(async () => {
     logger.debug("Listing all AI providers", { userId });
@@ -29,7 +28,8 @@ export async function listAiProviders(): Promise<ActionResult<AiProvider[]>> {
 
 export async function createAiProviderAction(formData: FormData) {
   const session = await auth();
-  if (!session?.user?.id) {
+  const userId = session?.user?.id;
+  if (!userId) {
     return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
   }
 
@@ -54,7 +54,7 @@ export async function createAiProviderAction(formData: FormData) {
       name,
       type,
       model: config.model,
-      userId: session.user.id,
+      userId,
     });
 
     const provider = await aiProviderRepo.create({
@@ -62,7 +62,7 @@ export async function createAiProviderAction(formData: FormData) {
       type: type as AiProviderType,
       config,
       isActive: true,
-      userId: session.user.id,
+      userId,
     });
 
     revalidatePath("/providers");
@@ -90,8 +90,22 @@ export async function createAiProviderAction(formData: FormData) {
 export async function deleteAiProviderAction(
   id: number,
 ): Promise<ActionResult<void>> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
+  }
+
   return withErrorHandling(async () => {
-    logger.debug("Deleting AI provider", { providerId: id });
+    const provider = await aiProviderRepo.findById(id);
+    if (!provider || provider.userId !== userId) {
+      throw new Error("AI provider not found or unauthorized");
+    }
+
+    logger.debug("Deleting AI provider", { providerId: id, userId });
     await aiProviderRepo.delete(id);
     revalidatePath("/providers");
   });
@@ -101,8 +115,26 @@ export async function toggleAiProviderAction(
   id: number,
   isActive: boolean,
 ): Promise<ActionResult<AiProvider>> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
+  }
+
   return withErrorHandling(async () => {
-    logger.debug("Toggling AI provider status", { providerId: id, isActive });
+    const provider = await aiProviderRepo.findById(id);
+    if (!provider || provider.userId !== userId) {
+      throw new Error("AI provider not found or unauthorized");
+    }
+
+    logger.debug("Toggling AI provider status", {
+      providerId: id,
+      isActive,
+      userId,
+    });
     const updatedProvider = await aiProviderRepo.update(id, { isActive });
     if (!updatedProvider) {
       throw new Error("AI provider not found");

@@ -19,14 +19,31 @@ import {
 } from "@senlo/core";
 
 export class DashboardRepository implements IDashboardRepository {
-  async getGlobalStats(userId: string): Promise<DashboardStats> {
-    const userProjectsQuery = db
+  private async getProjectIds(
+    userId: string,
+    projectId?: number,
+  ): Promise<number[]> {
+    if (projectId) {
+      // Validate that the project belongs to the user
+      const [project] = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.userId, userId)));
+      return project ? [project.id] : [];
+    }
+
+    const userProjects = await db
       .select({ id: projects.id })
       .from(projects)
       .where(eq(projects.userId, userId));
+    return userProjects.map((p) => p.id);
+  }
 
-    const userProjects = await userProjectsQuery;
-    const projectIds = userProjects.map((p) => p.id);
+  async getGlobalStats(
+    userId: string,
+    projectId?: number,
+  ): Promise<DashboardStats> {
+    const projectIds = await this.getProjectIds(userId, projectId);
 
     if (projectIds.length === 0) {
       return {
@@ -73,21 +90,17 @@ export class DashboardRepository implements IDashboardRepository {
       opened: Number(stats?.opened || 0),
       clicked: Number(stats?.clicked || 0),
       savedSends:
-        Number(stats?.savedSends || 0) + Number(triggeredStats?.savedSends || 0),
+        Number(stats?.savedSends || 0) +
+        Number(triggeredStats?.savedSends || 0),
     };
   }
 
   async getActivityStats(
     userId: string,
     days: number,
+    projectId?: number,
   ): Promise<DashboardActivity[]> {
-    const userProjectsQuery = db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.userId, userId));
-
-    const userProjects = await userProjectsQuery;
-    const projectIds = userProjects.map((p) => p.id);
+    const projectIds = await this.getProjectIds(userId, projectId);
 
     if (projectIds.length === 0) {
       return [];
@@ -145,14 +158,9 @@ export class DashboardRepository implements IDashboardRepository {
   async getRecentEvents(
     userId: string,
     limit: number,
+    projectId?: number,
   ): Promise<DashboardEvent[]> {
-    const userProjectsQuery = db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.userId, userId));
-
-    const userProjectsData = await userProjectsQuery;
-    const projectIds = userProjectsData.map((p) => p.id);
+    const projectIds = await this.getProjectIds(userId, projectId);
 
     if (projectIds.length === 0) {
       return [];
@@ -187,7 +195,7 @@ export class DashboardRepository implements IDashboardRepository {
       })
       .from(suppressions)
       .innerJoin(projects, eq(suppressions.projectId, projects.id))
-      .where(eq(projects.userId, userId))
+      .where(inArray(suppressions.projectId, projectIds))
       .orderBy(desc(suppressions.createdAt))
       .limit(limit);
 
@@ -240,9 +248,8 @@ export class DashboardRepository implements IDashboardRepository {
       })),
       ...activeCampaigns.map((c) => ({
         id: `camp-${c.id}`,
-        type: (c.status === "COMPLETED"
-          ? "CAMPAIGN_COMPLETED"
-          : "CAMPAIGN_STARTED") as const,
+        type:
+          c.status === "COMPLETED" ? "CAMPAIGN_COMPLETED" : "CAMPAIGN_STARTED",
         title:
           c.status === "COMPLETED" ? "Campaign Completed" : "Campaign Started",
         description: `Campaign "${c.name}" is ${c.status.toLowerCase()}`,

@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Campaign } from "@senlo/core";
-import { 
+import {
   listAllCampaigns,
   listProjectCampaigns,
   deleteCampaignAction,
-} from "../app/(app)/triggers/actions";
+} from "../app/(app)/workspace/[id]/triggers/actions";
 import { queryKeys } from "../providers";
 import { logger } from "../lib/logger";
 
@@ -13,11 +13,11 @@ import { logger } from "../lib/logger";
  */
 async function fetchAllCampaigns(): Promise<Campaign[]> {
   const result = await listAllCampaigns();
-  
+
   if (!result.success) {
     throw new Error(result.error.message);
   }
-  
+
   return result.data;
 }
 
@@ -26,11 +26,11 @@ async function fetchAllCampaigns(): Promise<Campaign[]> {
  */
 async function fetchProjectCampaigns(projectId: number): Promise<Campaign[]> {
   const result = await listProjectCampaigns(projectId);
-  
+
   if (!result.success) {
     throw new Error(result.error.message);
   }
-  
+
   return result.data;
 }
 
@@ -77,16 +77,16 @@ export function useDeleteCampaign() {
     },
     onSuccess: (campaignId) => {
       // Remove from individual campaign cache
-      queryClient.removeQueries({ 
-        queryKey: queryKeys.campaigns.detail(campaignId) 
+      queryClient.removeQueries({
+        queryKey: queryKeys.campaigns.detail(campaignId),
       });
-      
+
       logger.info("Campaign deleted successfully", { campaignId });
     },
     onSettled: () => {
       // Invalidate all campaign lists to refresh UI
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.campaigns.lists() 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.lists(),
       });
     },
   });

@@ -1,75 +1,26 @@
-import { useState, useEffect, useCallback } from "react";
-import { Project } from "@senlo/core";
-import { listProjects } from "../app/(app)/projects/actions";
+import { useProjects as useProjectsQuery } from "../queries/projects";
 
 /**
- * Hook for loading and managing projects data
- *
- * @returns Object with projects data, loading state, error state, and refetch function
+ * Hook for loading and managing projects data.
+ * Re-exports the React Query version for consistency.
  */
 export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadProjects = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const result = await listProjects();
-
-      if (result.success) {
-        setProjects(result.data);
-      } else {
-        setError(result.error.message);
-        setProjects([]);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load projects");
-      setProjects([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
-
-  const refetch = useCallback(() => {
-    loadProjects();
-  }, [loadProjects]);
-
-  // Optimistic updates
-  const addProjectOptimistic = useCallback((newProject: Project) => {
-    setProjects(prev => [...prev, newProject]);
-  }, []);
-
-  const updateProjectOptimistic = useCallback((projectId: number, updates: Partial<Project>) => {
-    setProjects(prev => 
-      prev.map(project => 
-        project.id === projectId ? { ...project, ...updates } : project
-      )
-    );
-  }, []);
-
-  const removeProjectOptimistic = useCallback((projectId: number) => {
-    setProjects(prev => prev.filter(project => project.id !== projectId));
-  }, []);
+  const {
+    data: projects = [],
+    isLoading: loading,
+    error,
+    refetch,
+  } = useProjectsQuery();
 
   return {
     projects,
     loading,
-    error,
+    error:
+      error instanceof Error ? error.message : error ? String(error) : null,
     refetch,
-    // Optimistic update methods
-    addProjectOptimistic,
-    updateProjectOptimistic,
-    removeProjectOptimistic,
+    // Note: Optimistic methods are handled by useCreateProject/useDeleteProject in queries/projects.ts
+    addProjectOptimistic: () => {},
+    updateProjectOptimistic: () => {},
+    removeProjectOptimistic: () => {},
   };
 }
-
-
-
-

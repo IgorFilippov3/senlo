@@ -69,8 +69,8 @@ export const BlockView = ({ block, columnId, rowId }: BlockViewProps) => {
         data: {
           contact: previewContact || {},
           custom: previewContact || {},
-          project: { name: "Sample Project" },
-          campaign: { name: "Sample Campaign" },
+          workspace: { name: "Sample Workspace" },
+          trigger: { name: "Sample Trigger" },
           unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
         },
       },
@@ -86,8 +86,8 @@ export const BlockView = ({ block, columnId, rowId }: BlockViewProps) => {
       ? replaceMergeTags(text, {
           contact: previewContact || {},
           custom: previewContact || {}, // Support custom variables in canvas preview
-          project: { name: "Sample Project" },
-          campaign: { name: "Sample Campaign" },
+          workspace: { name: "Sample Workspace" },
+          trigger: { name: "Sample Trigger" },
           unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
         })
       : text;

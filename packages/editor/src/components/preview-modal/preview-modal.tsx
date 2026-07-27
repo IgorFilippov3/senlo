@@ -45,8 +45,8 @@ export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
       data: {
         contact: previewContact || {},
         custom: previewContact || {}, // Pass mock data as custom variables too
-        project: { name: "Sample Project" },
-        campaign: { name: "Sample Campaign" },
+        workspace: { name: "Sample Workspace" },
+        trigger: { name: "Sample Trigger" },
         unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
       },
     };

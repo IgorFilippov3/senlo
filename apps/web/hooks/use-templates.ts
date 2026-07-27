@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { EmailTemplate } from "@senlo/core";
-import { listProjectTemplates } from "../app/(app)/projects/[id]/actions";
+import { listProjectTemplates } from "../app/(app)/workspace/[id]/templates/actions";
 
 export interface TemplateFilters {
   projectId: number; // Required for templates
@@ -46,7 +46,7 @@ export function useTemplates(options: UseTemplatesOptions) {
         }
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to load templates"
+          err instanceof Error ? err.message : "Failed to load templates",
         );
         setTemplates([]);
       } finally {
@@ -67,7 +67,7 @@ export function useTemplates(options: UseTemplatesOptions) {
       filtered = filtered.filter(
         (template) =>
           template.name.toLowerCase().includes(searchLower) ||
-          template.subject.toLowerCase().includes(searchLower)
+          template.subject.toLowerCase().includes(searchLower),
       );
     }
 
@@ -104,19 +104,24 @@ export function useTemplates(options: UseTemplatesOptions) {
 
   // Optimistic updates
   const addTemplateOptimistic = useCallback((newTemplate: EmailTemplate) => {
-    setTemplates(prev => [...prev, newTemplate]);
+    setTemplates((prev) => [...prev, newTemplate]);
   }, []);
 
-  const updateTemplateOptimistic = useCallback((templateId: number, updates: Partial<EmailTemplate>) => {
-    setTemplates(prev => 
-      prev.map(template => 
-        template.id === templateId ? { ...template, ...updates } : template
-      )
-    );
-  }, []);
+  const updateTemplateOptimistic = useCallback(
+    (templateId: number, updates: Partial<EmailTemplate>) => {
+      setTemplates((prev) =>
+        prev.map((template) =>
+          template.id === templateId ? { ...template, ...updates } : template,
+        ),
+      );
+    },
+    [],
+  );
 
   const removeTemplateOptimistic = useCallback((templateId: number) => {
-    setTemplates(prev => prev.filter(template => template.id !== templateId));
+    setTemplates((prev) =>
+      prev.filter((template) => template.id !== templateId),
+    );
   }, []);
 
   return {

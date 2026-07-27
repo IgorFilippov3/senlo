@@ -11,16 +11,16 @@ function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // No caching - always fetch fresh data
-        staleTime: 0,
-        gcTime: 0,
-        // Retry failed requests 3 times
-        retry: 3,
+        // Cache data for 1 minute by default to prevent excessive refetching
+        staleTime: 60 * 1000,
+        gcTime: 5 * 60 * 1000,
+        // Retry failed requests 2 times
+        retry: 2,
         // Retry with exponential backoff
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-        // Always fetch fresh data
+        // Refetch on mount only if data is stale
         refetchOnMount: true,
-        refetchOnWindowFocus: true,
+        refetchOnWindowFocus: false,
         refetchOnReconnect: true,
       },
       mutations: {

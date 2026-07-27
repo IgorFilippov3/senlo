@@ -24,13 +24,14 @@ const savedRowRepo = new SavedRowRepository();
 
 async function authorizeTemplate(templateId: number) {
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Unauthorized");
 
   const template = await repo.findById(templateId);
   if (!template) throw new Error("Template not found");
 
   const project = await projectRepo.findById(template.projectId);
-  if (!project || project.userId !== session.user.id) {
+  if (!project || project.userId !== userId) {
     throw new Error("Unauthorized");
   }
 
@@ -55,7 +56,7 @@ export async function saveTemplateFromEditor(
       locale: metadata?.locale,
     });
 
-    revalidatePath(`/projects/${template.projectId}`);
+    revalidatePath(`/workspace/${template.projectId}/templates`);
     revalidatePath(`/editor/${id}`);
 
     return { success: true };
@@ -147,8 +148,9 @@ export async function sendTestEmailAction(
 
 export async function listSavedRowsAction(): Promise<SavedRow[]> {
   const session = await auth();
-  if (!session?.user?.id) return [];
-  return savedRowRepo.findByUser(session.user.id);
+  const userId = session?.user?.id;
+  if (!userId) return [];
+  return savedRowRepo.findByUser(userId);
 }
 
 export async function saveRowAction(
@@ -158,12 +160,13 @@ export async function saveRowAction(
 ): Promise<{ success: boolean; data?: SavedRow }> {
   try {
     const session = await auth();
-    if (!session?.user?.id) throw new Error("Unauthorized");
+    const userId = session?.user?.id;
+    if (!userId) throw new Error("Unauthorized");
 
     const savedRow = await savedRowRepo.create({
       name,
       data,
-      userId: session.user.id,
+      userId,
       projectId: projectId || null,
     });
 
@@ -181,10 +184,11 @@ export async function deleteSavedRowAction(
 ): Promise<{ success: boolean }> {
   try {
     const session = await auth();
-    if (!session?.user?.id) throw new Error("Unauthorized");
+    const userId = session?.user?.id;
+    if (!userId) throw new Error("Unauthorized");
 
     const row = await savedRowRepo.findById(id);
-    if (!row || row.userId !== session.user.id) {
+    if (!row || row.userId !== userId) {
       throw new Error("Unauthorized");
     }
 
