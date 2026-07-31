@@ -5,6 +5,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "@senlo/ui/styles.css";
 import Script from "next/script";
 import { IS_DEMO_MODE, UMAMI_WEBSITE_ID } from "../lib";
 

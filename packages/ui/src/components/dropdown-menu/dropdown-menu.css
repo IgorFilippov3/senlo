@@ -1,0 +1,73 @@
+/* packages/ui/src/components/dropdown-menu/dropdown-menu.css */
+
+.sl-dropdown-content {
+  z-index: var(--sl-z-dropdown);
+  min-width: 8rem;
+  overflow: hidden;
+  border-radius: var(--sl-radius-md);
+  border: 1px solid var(--sl-color-border);
+  background-color: var(--sl-color-bg);
+  padding: var(--sl-space-1);
+  box-shadow: var(--sl-shadow-md);
+}
+
+.sl-dropdown-item {
+  position: relative;
+  display: flex;
+  cursor: default;
+  user-select: none;
+  align-items: center;
+  gap: var(--sl-space-2);
+  border-radius: var(--sl-radius-sm);
+  padding: var(--sl-space-1) var(--sl-space-2);
+  font-size: var(--sl-font-size-sm);
+  outline: none;
+  transition: background-color var(--sl-transition-normal), color var(--sl-transition-normal);
+}
+
+.sl-dropdown-item:focus {
+  background-color: var(--sl-color-bg-hover);
+  color: var(--sl-color-text-primary);
+}
+
+.sl-dropdown-item[data-disabled] {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.sl-dropdown-item-icon {
+  display: flex;
+  height: 1rem;
+  width: 1rem;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Animations - these usually require a plugin or raw CSS for Radix */
+.sl-dropdown-content[data-state="open"] {
+  animation: sl-fade-in 0.15s ease-out, sl-zoom-in 0.15s ease-out;
+}
+
+.sl-dropdown-content[data-state="closed"] {
+  animation: sl-fade-out 0.1s ease-in, sl-zoom-out 0.1s ease-in;
+}
+
+@keyframes sl-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sl-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes sl-zoom-in {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
+}
+
+@keyframes sl-zoom-out {
+  from { transform: scale(1); }
+  to { transform: scale(0.95); }
+}

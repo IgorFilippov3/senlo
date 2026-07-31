@@ -2,9 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Export design tokens (CSS variables)
-import "./styles.css";
-
 // Utility functions
 export { cn } from "./lib/cn";
 

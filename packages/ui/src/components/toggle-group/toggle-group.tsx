@@ -1,3 +1,5 @@
+"use client";
+
 import React, { ReactNode } from "react";
 import { cn } from "../../lib/cn";
 import styles from "./toggle-group.module.css";
