@@ -1,8 +1,9 @@
 import { eq, desc } from "drizzle-orm";
-import { db } from "../client";
 import { emailProviders } from "../schema";
 import { EmailProvider } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 /**
  * Repository for managing email providers (Resend, Mailgun, etc.).
@@ -14,6 +15,11 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
   EmailProvider
 > {
   protected table = emailProviders;
+
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
 
   /**
    * Map a database row to an EmailProvider entity.
@@ -39,7 +45,7 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
    * @returns Array of providers belonging to the user
    */
   async findByUser(userId: string): Promise<EmailProvider[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(emailProviders)
       .where(eq(emailProviders.userId, userId))
@@ -53,7 +59,7 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
    * This method will be removed in a future version.
    */
   async findActive(): Promise<EmailProvider | null> {
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(emailProviders)
       .where(eq(emailProviders.isActive, true))
@@ -70,7 +76,7 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
   async create(
     data: Omit<EmailProvider, "id" | "createdAt" | "updatedAt">
   ): Promise<EmailProvider> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(emailProviders)
       .values({
         ...data,
@@ -92,7 +98,7 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
     id: number,
     data: Partial<Omit<EmailProvider, "id" | "createdAt" | "updatedAt">>
   ): Promise<EmailProvider | null> {
-    const [row] = await db
+    const [row] = await this.db
       .update(emailProviders)
       .set({
         ...data,

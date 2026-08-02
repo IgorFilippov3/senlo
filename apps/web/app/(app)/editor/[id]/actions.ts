@@ -2,11 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  EmailTemplateRepository,
-  EmailProviderRepository,
-  ProjectRepository,
-  SavedRowRepository,
-} from "@senlo/db";
+  EmailTemplateRepository, EmailProviderRepository, ProjectRepository, SavedRowRepository, db } from "@senlo/db";
 import {
   EmailDesignDocument,
   renderEmailDesign,
@@ -17,10 +13,10 @@ import { emailQueue } from "@senlo/core/src/queue";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 
-const repo = new EmailTemplateRepository();
-const providerRepo = new EmailProviderRepository();
-const projectRepo = new ProjectRepository();
-const savedRowRepo = new SavedRowRepository();
+const repo = new EmailTemplateRepository(db);
+const providerRepo = new EmailProviderRepository(db);
+const projectRepo = new ProjectRepository(db);
+const savedRowRepo = new SavedRowRepository(db);
 
 async function authorizeTemplate(templateId: number) {
   const session = await auth();

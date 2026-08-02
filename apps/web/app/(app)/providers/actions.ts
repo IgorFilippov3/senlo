@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { EmailProviderRepository } from "@senlo/db";
+import { EmailProviderRepository, db } from "@senlo/db";
 import { EmailProvider, EmailProviderType } from "@senlo/core";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { CreateProviderSchema, UpdateProviderSchema } from "./schemas";
 import { auth } from "apps/web/auth";
 
-const providerRepo = new EmailProviderRepository();
+const providerRepo = new EmailProviderRepository(db);
 
 export type CreateProviderError = {
   error: {

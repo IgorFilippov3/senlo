@@ -1,8 +1,9 @@
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
-import { db } from "../client";
 import { contacts } from "../schema";
 import { Contact } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 /**
  * Repository for managing contacts (email subscribers) in the database.
@@ -14,6 +15,11 @@ export class ContactRepository extends BaseRepository<
   Contact
 > {
   protected table = contacts;
+
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
 
   /**
    * Map a database row to a Contact entity.
@@ -39,7 +45,7 @@ export class ContactRepository extends BaseRepository<
    * @returns Array of contacts
    */
   async findByProject(projectId: number): Promise<Contact[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(contacts)
       .where(eq(contacts.projectId, projectId))
@@ -55,7 +61,7 @@ export class ContactRepository extends BaseRepository<
    * @returns The contact or null if not found
    */
   async findByEmail(projectId: number, email: string): Promise<Contact | null> {
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(contacts)
       .where(and(eq(contacts.projectId, projectId), eq(contacts.email, email)));
@@ -74,7 +80,7 @@ export class ContactRepository extends BaseRepository<
     name?: string | null;
     meta?: Record<string, any> | null;
   }): Promise<Contact> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(contacts)
       .values({
         ...data,
@@ -96,7 +102,7 @@ export class ContactRepository extends BaseRepository<
     name?: string | null;
     meta?: Record<string, any> | null;
   }): Promise<Contact> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(contacts)
       .values({
         ...data,
@@ -134,7 +140,7 @@ export class ContactRepository extends BaseRepository<
       createdAt: new Date(),
     }));
 
-    const rows = await db
+    const rows = await this.db
       .insert(contacts)
       .values(values)
       .onConflictDoUpdate({
@@ -157,7 +163,7 @@ export class ContactRepository extends BaseRepository<
    */
   async findByEmails(projectId: number, emails: string[]): Promise<Contact[]> {
     if (emails.length === 0) return [];
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(contacts)
       .where(
@@ -172,7 +178,7 @@ export class ContactRepository extends BaseRepository<
    * @param email - The email address
    */
   async unsubscribeByEmail(projectId: number, email: string): Promise<void> {
-    await db
+    await this.db
       .update(contacts)
       .set({
         unsubscribed: true,
@@ -186,7 +192,7 @@ export class ContactRepository extends BaseRepository<
    * @param id - The contact ID
    */
   async unsubscribe(id: number): Promise<void> {
-    await db
+    await this.db
       .update(contacts)
       .set({
         unsubscribed: true,

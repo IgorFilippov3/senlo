@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { eq, sql, desc, and, inArray } from "drizzle-orm";
-import { db } from "../client";
 import {
   campaignEvents,
   triggeredSendLogs,
@@ -17,22 +16,25 @@ import {
   DashboardEvent,
   IDashboardRepository,
 } from "@senlo/core";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 export class DashboardRepository implements IDashboardRepository {
+  constructor(private readonly db: NodePgDatabase<typeof schema>) {}
   private async getProjectIds(
     userId: string,
     projectId?: number,
   ): Promise<number[]> {
     if (projectId) {
       // Validate that the project belongs to the user
-      const [project] = await db
+      const [project] = await this.db
         .select({ id: projects.id })
         .from(projects)
         .where(and(eq(projects.id, projectId), eq(projects.userId, userId)));
       return project ? [project.id] : [];
     }
 
-    const userProjects = await db
+    const userProjects = await this.db
       .select({ id: projects.id })
       .from(projects)
       .where(eq(projects.userId, userId));
@@ -56,7 +58,7 @@ export class DashboardRepository implements IDashboardRepository {
       };
     }
 
-    const [stats] = await db
+    const [stats] = await this.db
       .select({
         totalSent: sql<number>`count(*) filter (where ${campaignEvents.type} = 'SENT')`,
         delivered: sql<number>`count(*) filter (where ${campaignEvents.type} = 'DELIVERED')`,
@@ -69,7 +71,7 @@ export class DashboardRepository implements IDashboardRepository {
       .innerJoin(campaigns, eq(campaignEvents.campaignId, campaigns.id))
       .where(inArray(campaigns.projectId, projectIds));
 
-    const [triggeredStats] = await db
+    const [triggeredStats] = await this.db
       .select({
         totalSent: sql<number>`count(*) filter (where ${triggeredSendLogs.status} in ('SUCCESS', 'DELIVERED', 'BOUNCED', 'COMPLAINED'))`,
         delivered: sql<number>`count(*) filter (where ${triggeredSendLogs.status} = 'DELIVERED')`,
@@ -146,7 +148,7 @@ export class DashboardRepository implements IDashboardRepository {
       ORDER BY intervals.bucket ASC
     `;
 
-    const result = await db.execute(query);
+    const result = await this.db.execute(query);
 
     return (result.rows as any[]).map((r: any) => ({
       timestamp: new Date(r.timestamp).toISOString(),
@@ -166,7 +168,7 @@ export class DashboardRepository implements IDashboardRepository {
       return [];
     }
 
-    const recentEventsQuery = db
+    const recentEventsQuery = this.db
       .select({
         id: campaignEvents.id,
         type: campaignEvents.type,
@@ -185,7 +187,7 @@ export class DashboardRepository implements IDashboardRepository {
       .orderBy(desc(campaignEvents.occurredAt))
       .limit(limit);
 
-    const recentSuppressionsQuery = db
+    const recentSuppressionsQuery = this.db
       .select({
         id: suppressions.id,
         email: suppressions.email,
@@ -199,7 +201,7 @@ export class DashboardRepository implements IDashboardRepository {
       .orderBy(desc(suppressions.createdAt))
       .limit(limit);
 
-    const recentCampaignsQuery = db
+    const recentCampaignsQuery = this.db
       .select({
         id: campaigns.id,
         name: campaigns.name,

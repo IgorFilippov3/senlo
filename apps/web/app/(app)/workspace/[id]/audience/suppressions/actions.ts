@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { SuppressionRepository } from "@senlo/db";
+import { SuppressionRepository, db } from "@senlo/db";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 import { Suppression } from "@senlo/core";
 
-const suppressionRepo = new SuppressionRepository();
+const suppressionRepo = new SuppressionRepository(db);
 
 export async function listAllSuppressions(): Promise<
   ActionResult<(Suppression & { projectName: string })[]>

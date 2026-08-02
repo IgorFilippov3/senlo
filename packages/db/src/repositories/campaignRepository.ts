@@ -1,5 +1,4 @@
 import { eq, desc, and, ilike, sql } from "drizzle-orm";
-import { db } from "../client";
 import { campaigns, campaignEvents } from "../schema";
 import {
   Campaign,
@@ -9,6 +8,8 @@ import {
   TimeSeriesData,
 } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 // Drizzle inferred types for insert operations
 type CampaignInsert = typeof campaigns.$inferInsert;
@@ -26,6 +27,10 @@ export class CampaignRepository
   >
   implements ICampaignRepository
 {
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
   protected table = campaigns;
 
   /**
@@ -76,7 +81,7 @@ export class CampaignRepository
    * @returns The first campaign using this template or null
    */
   async findByTemplateId(templateId: number): Promise<Campaign | null> {
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(campaigns)
       .where(eq(campaigns.templateId, templateId));
@@ -90,7 +95,7 @@ export class CampaignRepository
    * @returns Array of campaigns
    */
   async findByProject(projectId: number): Promise<Campaign[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(campaigns)
       .where(eq(campaigns.projectId, projectId))
@@ -104,7 +109,7 @@ export class CampaignRepository
    * @returns Array of all campaigns
    */
   async findAll(): Promise<Campaign[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(campaigns)
       .orderBy(desc(campaigns.createdAt));
@@ -120,7 +125,7 @@ export class CampaignRepository
   async create(
     data: Omit<CampaignInsert, "id" | "createdAt" | "updatedAt">,
   ): Promise<Campaign> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(campaigns)
       .values({
         ...data,
@@ -144,7 +149,7 @@ export class CampaignRepository
       Omit<CampaignInsert, "id" | "projectId" | "createdAt" | "updatedAt">
     >,
   ): Promise<Campaign | null> {
-    const [row] = await db
+    const [row] = await this.db
       .update(campaigns)
       .set({
         ...data,
@@ -168,7 +173,7 @@ export class CampaignRepository
   async logEvent(
     data: Omit<CampaignEventInsert, "id" | "occurredAt">,
   ): Promise<CampaignEvent> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(campaignEvents)
       .values({
         ...data,
@@ -185,7 +190,7 @@ export class CampaignRepository
    * @returns Array of campaign events
    */
   async getEventsByCampaign(campaignId: number): Promise<CampaignEvent[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(campaignEvents)
       .where(eq(campaignEvents.campaignId, campaignId))
@@ -222,7 +227,7 @@ export class CampaignRepository
       whereClauses.push(ilike(campaignEvents.email, `%${search}%`));
     }
 
-    const query = db
+    const query = this.db
       .select()
       .from(campaignEvents)
       .where(and(...whereClauses))
@@ -230,7 +235,7 @@ export class CampaignRepository
       .limit(pageSize)
       .offset(offset);
 
-    const countQuery = db
+    const countQuery = this.db
       .select({ count: sql<number>`count(*)` })
       .from(campaignEvents)
       .where(and(...whereClauses));
@@ -252,7 +257,7 @@ export class CampaignRepository
     opens: { unique: number; total: number };
     clicks: { unique: number; total: number };
   }> {
-    const [openStats] = await db
+    const [openStats] = await this.db
       .select({
         total: sql<number>`count(*)`,
         unique: sql<number>`count(distinct ${campaignEvents.email})`,
@@ -265,7 +270,7 @@ export class CampaignRepository
         ),
       );
 
-    const [clickStats] = await db
+    const [clickStats] = await this.db
       .select({
         total: sql<number>`count(*)`,
         unique: sql<number>`count(distinct ${campaignEvents.email})`,
@@ -294,7 +299,7 @@ export class CampaignRepository
    * Get statistics for each link in a campaign.
    */
   async getLinkStatsByCampaign(campaignId: number): Promise<LinkStat[]> {
-    const rows = await db
+    const rows = await this.db
       .select({
         url: campaignEvents.linkUrl,
         totalClicks: sql<number>`count(*)`,
@@ -357,7 +362,7 @@ export class CampaignRepository
       ORDER BY intervals.bucket ASC
     `;
 
-    const result = await db.execute(query);
+    const result = await this.db.execute(query);
 
     return (result.rows as any[]).map((r: any) => ({
       timestamp: new Date(r.timestamp).toISOString(),

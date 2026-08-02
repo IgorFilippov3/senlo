@@ -1,8 +1,9 @@
 import { eq, desc, and } from "drizzle-orm";
-import { db } from "../client";
 import { savedRows } from "../schema";
 import { SavedRow } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 /**
  * Repository for managing saved email rows.
@@ -14,6 +15,11 @@ export class SavedRowRepository extends BaseRepositoryWithTimestamps<
   SavedRow
 > {
   protected table = savedRows;
+
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
 
   /**
    * Map a database row to a SavedRow entity.
@@ -36,7 +42,7 @@ export class SavedRowRepository extends BaseRepositoryWithTimestamps<
    * @returns Array of saved rows ordered by creation date
    */
   async findByUser(userId: string): Promise<SavedRow[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(this.table)
       .where(eq(this.table.userId, userId))
@@ -53,7 +59,7 @@ export class SavedRowRepository extends BaseRepositoryWithTimestamps<
   async create(
     data: Omit<typeof savedRows.$inferInsert, "id" | "createdAt" | "updatedAt">,
   ): Promise<SavedRow> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(this.table)
       .values({
         ...data,
@@ -77,7 +83,7 @@ export class SavedRowRepository extends BaseRepositoryWithTimestamps<
       >
     >,
   ): Promise<SavedRow | null> {
-    const [row] = await db
+    const [row] = await this.db
       .update(this.table)
       .set({
         ...data,

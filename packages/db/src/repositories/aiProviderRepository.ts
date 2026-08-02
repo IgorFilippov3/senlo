@@ -1,8 +1,9 @@
 import { eq, desc } from "drizzle-orm";
-import { db } from "../client";
 import { aiProviders } from "../schema";
 import { AiProvider } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 /**
  * Repository for managing AI providers (OpenAI, Anthropic, etc.).
@@ -14,6 +15,11 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
   AiProvider
 > {
   protected table = aiProviders;
+
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
 
   /**
    * Map a database row to an AiProvider entity.
@@ -39,7 +45,7 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
    * @returns Array of AI providers belonging to the user
    */
   async findByUser(userId: string): Promise<AiProvider[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(aiProviders)
       .where(eq(aiProviders.userId, userId))
@@ -53,7 +59,7 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
    * @returns The active AI provider or null if not found
    */
   async findActive(): Promise<AiProvider | null> {
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(aiProviders)
       .where(eq(aiProviders.isActive, true))
@@ -70,7 +76,7 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
   async create(
     data: Omit<AiProvider, "id" | "createdAt" | "updatedAt">,
   ): Promise<AiProvider> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(aiProviders)
       .values({
         ...data,
@@ -92,7 +98,7 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
     id: number,
     data: Partial<Omit<AiProvider, "id" | "createdAt" | "updatedAt">>,
   ): Promise<AiProvider | null> {
-    const [row] = await db
+    const [row] = await this.db
       .update(aiProviders)
       .set({
         ...data,

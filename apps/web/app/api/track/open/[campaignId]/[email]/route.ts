@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CampaignRepository } from "@senlo/db";
+import { CampaignRepository, db } from "@senlo/db";
 import { logger } from "apps/web/lib/logger";
 
-const campaignRepo = new CampaignRepository();
+const campaignRepo = new CampaignRepository(db);
 
 // 1x1 transparent GIF
 const TRANSPARENT_PIXEL = Buffer.from(

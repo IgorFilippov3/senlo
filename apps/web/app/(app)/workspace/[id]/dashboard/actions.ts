@@ -1,10 +1,10 @@
 "use server";
 
-import { DashboardRepository } from "@senlo/db";
+import { DashboardRepository, db } from "@senlo/db";
 import { auth } from "apps/web/auth";
 import { logger } from "apps/web/lib/logger";
 
-const dashboardRepo = new DashboardRepository();
+const dashboardRepo = new DashboardRepository(db);
 
 export async function getDashboardStats(projectId?: number) {
   const session = await auth();

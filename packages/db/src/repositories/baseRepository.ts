@@ -1,6 +1,7 @@
 import { eq, desc } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
-import { db } from "../client";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 /**
  * Abstract base repository providing common CRUD operations.
@@ -8,27 +9,14 @@ import { db } from "../client";
  * @typeParam TTable - The Drizzle table type
  * @typeParam TSelect - The type returned by select queries (inferred from table)
  * @typeParam TEntity - The domain entity type returned by repository methods
- *
- * @example
- * ```typescript
- * class ProjectRepository extends BaseRepository<typeof projects, typeof projects.$inferSelect, Project> {
- *   protected table = projects;
- *
- *   protected mapToEntity(row: typeof projects.$inferSelect): Project {
- *     return {
- *       id: row.id,
- *       name: row.name,
- *       // ... map other fields
- *     };
- *   }
- * }
- * ```
  */
 export abstract class BaseRepository<
   TTable extends PgTable & { id: any },
   TSelect,
   TEntity
 > {
+  constructor(protected readonly db: NodePgDatabase<typeof schema>) {}
+
   /**
    * The Drizzle table this repository operates on.
    */
@@ -47,7 +35,7 @@ export abstract class BaseRepository<
    * @returns The entity or null if not found
    */
   async findById(id: number): Promise<TEntity | null> {
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(this.table as any)
       .where(eq((this.table as any).id, id));
@@ -60,7 +48,7 @@ export abstract class BaseRepository<
    * @param id - The entity ID
    */
   async delete(id: number): Promise<void> {
-    await db.delete(this.table as any).where(eq((this.table as any).id, id));
+    await this.db.delete(this.table as any).where(eq((this.table as any).id, id));
   }
 }
 
@@ -78,7 +66,7 @@ export abstract class BaseRepositoryWithTimestamps<
    * @returns Array of all entities
    */
   async findAll(): Promise<TEntity[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(this.table as any)
       .orderBy(desc((this.table as any).createdAt));

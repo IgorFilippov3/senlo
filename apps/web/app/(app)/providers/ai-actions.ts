@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AiProviderRepository } from "@senlo/db";
+import { AiProviderRepository, db } from "@senlo/db";
 import { AiProvider, AiProviderType } from "@senlo/core";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { CreateAiProviderSchema } from "./schemas";
 import { auth } from "apps/web/auth";
 
-const aiProviderRepo = new AiProviderRepository();
+const aiProviderRepo = new AiProviderRepository(db);
 
 export async function listAiProviders(): Promise<ActionResult<AiProvider[]>> {
   const session = await auth();

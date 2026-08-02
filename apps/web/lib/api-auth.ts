@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ApiKeyRepository } from "@senlo/db";
+import { ApiKeyRepository, db } from "@senlo/db";
 import { ApiKey } from "@senlo/core";
 
-const apiKeyRepo = new ApiKeyRepository();
+const apiKeyRepo = new ApiKeyRepository(db);
 
 export type ApiAuthResult =
   | { success: true; apiKey: ApiKey }

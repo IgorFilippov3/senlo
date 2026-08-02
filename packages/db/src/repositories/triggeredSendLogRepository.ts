@@ -1,8 +1,9 @@
 import { eq, desc, sql, and } from "drizzle-orm";
-import { db } from "../client";
 import { triggeredSendLogs } from "../schema";
 import { TriggeredSendLog } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 /**
  * Repository for logging triggered (API-initiated) email sends.
@@ -14,6 +15,11 @@ export class TriggeredSendLogRepository extends BaseRepository<
   TriggeredSendLog
 > {
   protected table = triggeredSendLogs;
+
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
 
   /**
    * Map a database row to a TriggeredSendLog entity.
@@ -41,7 +47,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
    * @returns Array of send logs
    */
   async findByCampaign(campaignId: number): Promise<TriggeredSendLog[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(triggeredSendLogs)
       .where(eq(triggeredSendLogs.campaignId, campaignId))
@@ -58,7 +64,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
   async create(
     data: Omit<TriggeredSendLog, "id" | "sentAt">,
   ): Promise<TriggeredSendLog> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(triggeredSendLogs)
       .values({
         campaignId: data.campaignId,
@@ -80,7 +86,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
     id: number,
     data: Partial<Omit<TriggeredSendLog, "id" | "sentAt">>,
   ): Promise<TriggeredSendLog | null> {
-    const [row] = await db
+    const [row] = await this.db
       .update(triggeredSendLogs)
       .set({
         ...data,
@@ -97,7 +103,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
   async findByProviderMessageId(
     providerMessageId: string,
   ): Promise<TriggeredSendLog | null> {
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(triggeredSendLogs)
       .where(eq(triggeredSendLogs.providerMessageId, providerMessageId));
@@ -112,7 +118,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
     campaignId: number,
     email: string,
   ): Promise<TriggeredSendLog | null> {
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(triggeredSendLogs)
       .where(
@@ -135,7 +141,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
     delivered: number;
     errors: number;
   }> {
-    const [stats] = await db
+    const [stats] = await this.db
       .select({
         sent: sql<number>`count(*) filter (where status in ('SUCCESS', 'DELIVERED', 'BOUNCED', 'COMPLAINED'))`,
         delivered: sql<number>`count(*) filter (where status = 'DELIVERED')`,
@@ -145,7 +151,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
       .where(eq(triggeredSendLogs.campaignId, campaignId));
 
     // Also count events from campaign_events as a fallback/complement
-    const [eventStats] = await db
+    const [eventStats] = await this.db
       .select({
         delivered: sql<number>`count(*) filter (where type = 'DELIVERED')`,
       })

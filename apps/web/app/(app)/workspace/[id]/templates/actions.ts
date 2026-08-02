@@ -2,11 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  ProjectRepository,
-  EmailTemplateRepository,
-  EmailProviderRepository,
-  AiProviderRepository,
-} from "@senlo/db";
+  ProjectRepository, EmailTemplateRepository, EmailProviderRepository, AiProviderRepository, db } from "@senlo/db";
 import {
   type Project,
   type EmailTemplate,
@@ -22,10 +18,10 @@ import {
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 
-const projectRepo = new ProjectRepository();
-const templateRepo = new EmailTemplateRepository();
-const providerRepo = new EmailProviderRepository();
-const aiProviderRepo = new AiProviderRepository();
+const projectRepo = new ProjectRepository(db);
+const templateRepo = new EmailTemplateRepository(db);
+const providerRepo = new EmailProviderRepository(db);
+const aiProviderRepo = new AiProviderRepository(db);
 
 async function getAuthorizedProject(projectId: number) {
   const session = await auth();

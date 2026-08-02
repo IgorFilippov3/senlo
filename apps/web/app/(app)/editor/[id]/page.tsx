@@ -1,9 +1,6 @@
 import { notFound } from "next/navigation";
 import {
-  EmailTemplateRepository,
-  CampaignRepository,
-  ProjectRepository,
-} from "@senlo/db";
+  EmailTemplateRepository, CampaignRepository, ProjectRepository, db } from "@senlo/db";
 import { EditorLayout } from "@senlo/editor";
 import { EmailDesignDocument, emailDesignVersion, MergeTag } from "@senlo/core";
 import {
@@ -19,9 +16,9 @@ interface EditorPageProps {
   searchParams: Promise<{ campaignId?: string }>;
 }
 
-const templateRepo = new EmailTemplateRepository();
-const campaignRepo = new CampaignRepository();
-const projectRepo = new ProjectRepository();
+const templateRepo = new EmailTemplateRepository(db);
+const campaignRepo = new CampaignRepository(db);
+const projectRepo = new ProjectRepository(db);
 
 export default async function EditorIdPage({
   params,

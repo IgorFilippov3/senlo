@@ -1,8 +1,9 @@
 import { eq, inArray, and, count } from "drizzle-orm";
-import { db } from "../client";
 import { recipientLists, recipientListContacts, contacts } from "../schema";
 import { RecipientList, Contact } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 /**
  * Repository for managing recipient lists (email segments).
@@ -14,6 +15,11 @@ export class RecipientListRepository extends BaseRepository<
   RecipientList
 > {
   protected table = recipientLists;
+
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
 
   /**
    * Map a database row to a RecipientList entity.
@@ -36,7 +42,7 @@ export class RecipientListRepository extends BaseRepository<
    * @returns Array of recipient lists
    */
   async findByProject(projectId: number): Promise<RecipientList[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(recipientLists)
       .where(eq(recipientLists.projectId, projectId));
@@ -54,7 +60,7 @@ export class RecipientListRepository extends BaseRepository<
     name: string;
     description?: string | null;
   }): Promise<RecipientList> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(recipientLists)
       .values({
         projectId: data.projectId,
@@ -80,7 +86,7 @@ export class RecipientListRepository extends BaseRepository<
       contactId,
     }));
 
-    await db.insert(recipientListContacts).values(values).onConflictDoNothing();
+    await this.db.insert(recipientListContacts).values(values).onConflictDoNothing();
   }
 
   /**
@@ -91,7 +97,7 @@ export class RecipientListRepository extends BaseRepository<
   async removeContacts(listId: number, contactIds: number[]): Promise<void> {
     if (contactIds.length === 0) return;
 
-    await db
+    await this.db
       .delete(recipientListContacts)
       .where(
         and(
@@ -117,7 +123,7 @@ export class RecipientListRepository extends BaseRepository<
       conditions.push(eq(contacts.unsubscribed, false));
     }
 
-    const rows = await db
+    const rows = await this.db
       .select({
         id: contacts.id,
         projectId: contacts.projectId,
@@ -147,7 +153,7 @@ export class RecipientListRepository extends BaseRepository<
    * @returns The contact count
    */
   async getContactCount(listId: number): Promise<number> {
-    const [result] = await db
+    const [result] = await this.db
       .select({ count: count() })
       .from(recipientListContacts)
       .where(eq(recipientListContacts.listId, listId));

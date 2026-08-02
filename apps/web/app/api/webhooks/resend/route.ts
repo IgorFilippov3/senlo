@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "svix";
 import {
-  TriggeredSendLogRepository,
-  CampaignRepository,
-  ProjectRepository,
-  EmailProviderRepository,
-  SuppressionRepository,
-} from "@senlo/db";
+  TriggeredSendLogRepository, CampaignRepository, ProjectRepository, EmailProviderRepository, SuppressionRepository, db } from "@senlo/db";
 import { logger } from "apps/web/lib";
 
-const logRepo = new TriggeredSendLogRepository();
-const campaignRepo = new CampaignRepository();
-const projectRepo = new ProjectRepository();
-const providerRepo = new EmailProviderRepository();
-const suppressionRepo = new SuppressionRepository();
+const logRepo = new TriggeredSendLogRepository(db);
+const campaignRepo = new CampaignRepository(db);
+const projectRepo = new ProjectRepository(db);
+const providerRepo = new EmailProviderRepository(db);
+const suppressionRepo = new SuppressionRepository(db);
 
 interface ResendTag {
   name: string;

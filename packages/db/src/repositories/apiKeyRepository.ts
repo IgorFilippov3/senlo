@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
-import { db } from "../client";
 import { apiKeys } from "../schema";
 import { ApiKey } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 /**
  * Repository for managing API keys used for triggered email sends.
@@ -13,6 +14,10 @@ export class ApiKeyRepository extends BaseRepository<
   typeof apiKeys.$inferSelect,
   ApiKey
 > {
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
   protected table = apiKeys;
 
   /**
@@ -37,7 +42,7 @@ export class ApiKeyRepository extends BaseRepository<
    * @returns The API key record or null if not found
    */
   async findByKey(key: string): Promise<ApiKey | null> {
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(apiKeys)
       .where(eq(apiKeys.key, key));
@@ -51,7 +56,7 @@ export class ApiKeyRepository extends BaseRepository<
    * @returns Array of API keys
    */
   async findByProject(projectId: number): Promise<ApiKey[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(apiKeys)
       .where(eq(apiKeys.projectId, projectId));
@@ -67,7 +72,7 @@ export class ApiKeyRepository extends BaseRepository<
   async create(
     data: Omit<ApiKey, "id" | "createdAt" | "lastUsedAt">
   ): Promise<ApiKey> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(apiKeys)
       .values({
         projectId: data.projectId,
@@ -85,7 +90,7 @@ export class ApiKeyRepository extends BaseRepository<
    * @param id - The API key ID
    */
   async updateLastUsed(id: number): Promise<void> {
-    await db
+    await this.db
       .update(apiKeys)
       .set({ lastUsedAt: new Date() })
       .where(eq(apiKeys.id, id));

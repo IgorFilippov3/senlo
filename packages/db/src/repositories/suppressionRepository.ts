@@ -1,7 +1,8 @@
 import { eq, and } from "drizzle-orm";
-import { db } from "../client";
 import { suppressions } from "../schema";
 import { BaseRepository } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 import type { ISuppressionRepository, Suppression } from "@senlo/core";
 
 export class SuppressionRepository
@@ -13,6 +14,11 @@ export class SuppressionRepository
   implements ISuppressionRepository
 {
   protected table = suppressions;
+
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
 
   protected mapToEntity(row: typeof suppressions.$inferSelect): Suppression {
     return {
@@ -27,7 +33,7 @@ export class SuppressionRepository
   async create(
     data: Omit<Suppression, "id" | "createdAt">,
   ): Promise<Suppression> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(suppressions)
       .values({
         projectId: data.projectId,
@@ -47,7 +53,7 @@ export class SuppressionRepository
     projectId: number,
     email: string,
   ): Promise<Suppression | null> {
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(suppressions)
       .where(
@@ -62,7 +68,7 @@ export class SuppressionRepository
 
   async findByProject(projectId: number): Promise<Suppression[]> {
     const { desc } = await import("drizzle-orm");
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(suppressions)
       .where(eq(suppressions.projectId, projectId))
@@ -75,7 +81,7 @@ export class SuppressionRepository
     const { projects } = await import("../schema");
     const { eq, desc } = await import("drizzle-orm");
     
-    const rows = await db
+    const rows = await this.db
       .select({
         suppression: suppressions,
         projectName: projects.name

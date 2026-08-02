@@ -1,7 +1,8 @@
 import { eq, desc } from "drizzle-orm";
-import { db } from "../client";
 import { projects } from "../schema";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 import type { IProjectRepository, Project } from "@senlo/core";
 
@@ -18,6 +19,11 @@ export class ProjectRepository
   implements IProjectRepository
 {
   protected table = projects;
+
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
 
   /**
    * Map a database row to a Project entity.
@@ -47,7 +53,7 @@ export class ProjectRepository
     description?: string | null;
     userId?: string | null;
   }): Promise<Project> {
-    const [row] = await db
+    const [row] = await this.db
       .insert(projects)
       .values({
         name: data.name,
@@ -65,7 +71,7 @@ export class ProjectRepository
    * @returns Array of projects belonging to the user
    */
   async findByUser(userId: string): Promise<Project[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(projects)
       .where(eq(projects.userId, userId))
@@ -89,7 +95,7 @@ export class ProjectRepository
       aiProviderId?: number | null;
     },
   ): Promise<Project | null> {
-    const [row] = await db
+    const [row] = await this.db
       .update(projects)
       .set({
         ...data,

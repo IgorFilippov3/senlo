@@ -5,6 +5,7 @@ import {
   EmailProviderRepository,
   ProjectRepository,
   TriggeredSendLogRepository,
+  db,
 } from "@senlo/db";
 import {
   renderEmailDesign,
@@ -24,11 +25,11 @@ interface TriggeredEmailRequest {
   subject?: string;
 }
 
-const campaignRepo = new CampaignRepository();
-const templateRepo = new EmailTemplateRepository();
-const providerRepo = new EmailProviderRepository();
-const projectRepo = new ProjectRepository();
-const logRepo = new TriggeredSendLogRepository();
+const campaignRepo = new CampaignRepository(db);
+const templateRepo = new EmailTemplateRepository(db);
+const providerRepo = new EmailProviderRepository(db);
+const projectRepo = new ProjectRepository(db);
+const logRepo = new TriggeredSendLogRepository(db);
 
 export async function POST(req: NextRequest) {
   let body: TriggeredEmailRequest | null = null;

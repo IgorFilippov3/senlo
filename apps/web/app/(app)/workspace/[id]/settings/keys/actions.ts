@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ApiKeyRepository, ProjectRepository } from "@senlo/db";
+import { ApiKeyRepository, ProjectRepository, db } from "@senlo/db";
 import { nanoid } from "nanoid";
 import {
   ActionResult,
@@ -12,8 +12,8 @@ import { logger } from "apps/web/lib/logger";
 import { ApiKey } from "@senlo/core";
 import { auth } from "apps/web/auth";
 
-const apiKeyRepository = new ApiKeyRepository();
-const projectRepo = new ProjectRepository();
+const apiKeyRepository = new ApiKeyRepository(db);
+const projectRepo = new ProjectRepository(db);
 
 async function authorizeProject(projectId: number) {
   const session = await auth();

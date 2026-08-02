@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { emailDesignDocumentSchema } from "@senlo/core";
 import { auth } from "../../../../auth";
-import { ProjectRepository, AiProviderRepository } from "@senlo/db";
+import { ProjectRepository, AiProviderRepository, db } from "@senlo/db";
 
-const projectRepo = new ProjectRepository();
-const aiProviderRepo = new AiProviderRepository();
+const projectRepo = new ProjectRepository(db);
+const aiProviderRepo = new AiProviderRepository(db);
 
 const SYSTEM_PROMPT = `
 You are an expert email designer for the Senlo Email Builder.

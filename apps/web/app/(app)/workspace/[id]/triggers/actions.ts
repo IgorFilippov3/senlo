@@ -2,13 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  CampaignRepository,
-  ProjectRepository,
-  EmailTemplateRepository,
-  EmailProviderRepository,
-  TriggeredSendLogRepository,
-  RecipientListRepository,
-} from "@senlo/db";
+  CampaignRepository, ProjectRepository, EmailTemplateRepository, EmailProviderRepository, TriggeredSendLogRepository, RecipientListRepository, db } from "@senlo/db";
 import {
   Campaign,
   Project,
@@ -27,11 +21,11 @@ import { logger } from "apps/web/lib/logger";
 import { CreateCampaignSchema, UpdateCampaignSchema } from "./schemas";
 import { auth } from "apps/web/auth";
 
-const campaignRepo = new CampaignRepository();
-const projectRepo = new ProjectRepository();
-const templateRepo = new EmailTemplateRepository();
-const providerRepo = new EmailProviderRepository();
-const triggeredLogRepo = new TriggeredSendLogRepository();
+const campaignRepo = new CampaignRepository(db);
+const projectRepo = new ProjectRepository(db);
+const templateRepo = new EmailTemplateRepository(db);
+const providerRepo = new EmailProviderRepository(db);
+const triggeredLogRepo = new TriggeredSendLogRepository(db);
 
 async function getAuthorizedCampaign(campaignId: number) {
   const session = await auth();
@@ -365,7 +359,7 @@ export async function sendCampaignAction(
       throw new Error("No recipient list selected for this campaign");
     }
 
-    const listRepo = new RecipientListRepository();
+    const listRepo = new RecipientListRepository(db);
     const contacts = await listRepo.getContacts(campaign.listId, true);
 
     if (contacts.length === 0) {

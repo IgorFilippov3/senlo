@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import { db } from "../client";
 import { emailTemplates } from "../schema";
 import {
   EmailTemplate,
@@ -8,6 +7,8 @@ import {
   EmailTemplateStatus,
 } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "../schema";
 
 /**
  * Repository for managing email templates.
@@ -19,6 +20,11 @@ export class EmailTemplateRepository extends BaseRepository<
   EmailTemplate
 > {
   protected table = emailTemplates;
+
+  constructor(db: NodePgDatabase<typeof schema>) {
+    super(db);
+  }
+
 
   /**
    * Map a database row to an EmailTemplate entity.
@@ -46,7 +52,7 @@ export class EmailTemplateRepository extends BaseRepository<
    * @returns Array of templates
    */
   async findByProject(projectId: number): Promise<EmailTemplate[]> {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(emailTemplates)
       .where(eq(emailTemplates.projectId, projectId))
@@ -63,7 +69,7 @@ export class EmailTemplateRepository extends BaseRepository<
   async create(input: CreateEmailTemplateInput): Promise<EmailTemplate> {
     const now = new Date();
 
-    const [row] = await db
+    const [row] = await this.db
       .insert(emailTemplates)
       .values({
         projectId: input.projectId,
@@ -100,7 +106,7 @@ export class EmailTemplateRepository extends BaseRepository<
     if (typeof input.status !== "undefined") set.status = input.status;
     if (typeof input.locale !== "undefined") set.locale = input.locale;
 
-    const [row] = await db
+    const [row] = await this.db
       .update(emailTemplates)
       .set(set)
       .where(eq(emailTemplates.id, input.id))

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ProjectRepository } from "@senlo/db";
+import { ProjectRepository, db } from "@senlo/db";
 import type { Project } from "@senlo/core";
 import {
   ActionResult,
@@ -12,7 +12,7 @@ import { CreateWorkspaceSchema } from "./schemas";
 import { logger } from "apps/web/lib";
 import { auth } from "apps/web/auth";
 
-const projectRepository = new ProjectRepository();
+const projectRepository = new ProjectRepository(db);
 
 export async function listWorkspaces(): Promise<ActionResult<Project[]>> {
   const session = await auth();
