@@ -12,6 +12,7 @@ import type {
   DashboardStats,
   DashboardActivity,
   DashboardEvent,
+  ApiKey,
 } from "./domain";
 import type { EmailTemplate } from "./emailTemplate";
 
@@ -103,6 +104,18 @@ export interface RecipientListRepository {
   findByProject(projectId: number): Promise<RecipientList[]>;
 }
 
+export interface IApiKeyRepository {
+  findByKey(key: string): Promise<ApiKey | null>;
+  findByProject(projectId: number): Promise<ApiKey[]>;
+  create(data: {
+    projectId: number;
+    name: string;
+    key: string;
+  }): Promise<ApiKey>;
+  updateLastUsed(id: number): Promise<void>;
+  delete(id: number): Promise<void>;
+}
+
 export interface ICampaignRepository {
   create(
     data: Omit<Campaign, "id" | "createdAt" | "updatedAt">,
@@ -145,6 +158,9 @@ export interface ICampaignRepository {
 }
 
 export interface ITriggeredSendLogRepository {
+  create(
+    data: Omit<TriggeredSendLog, "id" | "sentAt">,
+  ): Promise<TriggeredSendLog>;
   findById(id: number): Promise<TriggeredSendLog | null>;
   update(
     id: number,

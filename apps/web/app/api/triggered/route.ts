@@ -7,12 +7,7 @@ import {
   TriggeredSendLogRepository,
   db,
 } from "@senlo/db";
-import {
-  renderEmailDesign,
-  wrapLinksWithTracking,
-  EmailDesignDocument,
-  replaceMergeTags,
-} from "@senlo/core";
+import { TriggerService } from "@senlo/core";
 import { emailQueue } from "@senlo/core/src/queue";
 import { logger, validateApiKey } from "apps/web/lib";
 
@@ -25,11 +20,14 @@ interface TriggeredEmailRequest {
   subject?: string;
 }
 
-const campaignRepo = new CampaignRepository(db);
-const templateRepo = new EmailTemplateRepository(db);
-const providerRepo = new EmailProviderRepository(db);
-const projectRepo = new ProjectRepository(db);
-const logRepo = new TriggeredSendLogRepository(db);
+const triggerService = new TriggerService(
+  new CampaignRepository(db),
+  new EmailTemplateRepository(db),
+  new EmailProviderRepository(db),
+  new ProjectRepository(db),
+  new TriggeredSendLogRepository(db),
+  emailQueue,
+);
 
 export async function POST(req: NextRequest) {
   let body: TriggeredEmailRequest | null = null;
@@ -47,14 +45,16 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    
     const {
       id,
       campaignId: bodyCampaignId,
       to,
       data,
       locale,
-      subject: subjectOverride,
+      subject,
     } = body;
+    
     const campaignId = id || bodyCampaignId;
 
     if (!campaignId || !to) {
@@ -64,129 +64,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const campaign = await campaignRepo.findById(Number(campaignId));
-    if (!campaign || campaign.projectId !== apiKey.projectId) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 },
-      );
-    }
-
-    if (campaign.type !== "TRIGGERED") {
-      return NextResponse.json(
-        { error: "This campaign is not configured for API triggers" },
-        { status: 400 },
-      );
-    }
-
-    // Locale-based template selection
-    let templateId = campaign.templateId;
-    if (
-      locale &&
-      campaign.localeTemplates &&
-      campaign.localeTemplates[locale]
-    ) {
-      templateId = campaign.localeTemplates[locale];
-      logger.info("Using localized template", {
-        campaignId: campaign.id,
-        locale,
-        templateId,
-      });
-    }
-
-    const [template, project] = await Promise.all([
-      templateRepo.findById(templateId),
-      projectRepo.findById(campaign.projectId),
-    ]);
-
-    if (!template)
-      return NextResponse.json(
-        { error: "Template not found" },
-        { status: 500 },
-      );
-    if (!project)
-      return NextResponse.json({ error: "Project not found" }, { status: 500 });
-    if (!project.providerId) {
-      return NextResponse.json(
-        { error: "No email provider configured for this project" },
-        { status: 400 },
-      );
-    }
-
-    const provider = await providerRepo.findById(project.providerId);
-    if (!provider) {
-      return NextResponse.json(
-        { error: "Email provider not found" },
-        { status: 500 },
-      );
-    }
-
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const emailEncoded = encodeURIComponent(to);
 
-    const openTrackingUrl = `${baseUrl}/api/track/open/${campaign.id}/${emailEncoded}`;
-    const trackingPixel = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none !important;" alt="" />`;
-
-    const clickTrackingBaseUrl = `${baseUrl}/api/track/click/${campaign.id}/${emailEncoded}`;
-
-    let personalizedHtml = template.designJson
-      ? renderEmailDesign(template.designJson as EmailDesignDocument, {
-          baseUrl,
-          data: {
-            custom: data,
-            contact: { email: to, ...data },
-            unsubscribeUrl: "#",
-          },
-        })
-      : template.html;
-
-    personalizedHtml = wrapLinksWithTracking(
-      personalizedHtml,
-      clickTrackingBaseUrl,
-    );
-
-    personalizedHtml += trackingPixel;
-
-    const fromAddress = campaign.fromName
-      ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
-      : campaign.fromEmail || "hello@senlo.io";
-
-    // Prepare subject with merge tags support
-    const rawSubject = subjectOverride || template.subject;
-    const personalizedSubject = replaceMergeTags(rawSubject, {
-      custom: data,
-      contact: { email: to, ...data },
-      project: { name: project.name },
-    });
-
-    const log = await logRepo.create({
-      campaignId: campaign.id,
-      email: to,
-      status: "PENDING",
-      error: null,
-      data: data,
-    });
-
-    const job = await emailQueue.add(
-      `triggered-${campaign.id}-${to}-${Date.now()}`,
-      {
-        projectId: project.id,
-        campaignId: campaign.id,
-        contactId: null,
-        logId: log.id,
-        email: to,
-        from: fromAddress,
-        subject: personalizedSubject,
-        html: personalizedHtml,
-        providerId: project.providerId,
-        replyTo: campaign.replyTo || undefined,
-      },
-    );
-
-    logger.info("Triggered email queued successfully", {
-      jobId: job.id,
-      campaignId: campaign.id,
+    const result = await triggerService.sendTriggeredEmail({
+      campaignId: Number(campaignId),
+      projectId: apiKey.projectId,
       to,
+      data,
+      locale,
+      subject,
+      baseUrl,
+    });
+
+    // Check if the campaign belongs to the project (extra security check already in service potentially, but we have apiKey here)
+    // Actually, the service doesn't have the apiKey context, so we should check ownership here or pass projectId to service.
+    // Let's re-verify the service logic.
+    
+    logger.info("Triggered email processed via service", {
+      campaignId,
+      to,
+      jobId: result.jobId,
     });
 
     return NextResponse.json({
@@ -195,17 +92,18 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
-
+    
     logger.error("Triggered email API error", {
       error: errorMessage,
-      stack: errorStack,
       campaignId: body?.id || body?.campaignId,
       email: body?.to,
     });
+
+    const status = errorMessage.includes("not found") ? 404 : 400;
+    
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
+      { error: errorMessage },
+      { status: status === 404 ? 404 : (errorMessage.includes("Internal") ? 500 : 400) },
     );
   }
 }

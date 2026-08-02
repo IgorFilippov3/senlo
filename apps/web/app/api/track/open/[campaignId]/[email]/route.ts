@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CampaignRepository, db } from "@senlo/db";
+import { TrackingService } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
 
-const campaignRepo = new CampaignRepository(db);
+const trackingService = new TrackingService(new CampaignRepository(db));
 
 // 1x1 transparent GIF
 const TRANSPARENT_PIXEL = Buffer.from(
@@ -22,35 +23,20 @@ export async function GET(
     return new NextResponse("Invalid campaign ID", { status: 400 });
   }
 
-  try {
-    const userAgent = request.headers.get("user-agent") || "unknown";
-    const ip =
-      request.headers.get("x-forwarded-for") ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  const ip =
+    request.headers.get("x-forwarded-for") ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
 
-    logger.debug("Tracking email open", {
-      campaignId: id,
-      email: decodedEmail,
-    });
-
-    await campaignRepo.logEvent({
-      campaignId: id,
-      email: decodedEmail,
-      type: "OPEN",
-      metadata: {
-        userAgent,
-        ip,
-      },
-    });
-  } catch (error) {
-    // We don't want to break the image loading if DB fails
-    logger.error("Failed to log open event", {
+  // Fire and forget, don't block the response
+  trackingService.trackOpen(id, decodedEmail, { userAgent, ip }).catch((error) => {
+    logger.error("Failed to track open in background", {
       error: error instanceof Error ? error.message : String(error),
       campaignId: id,
       email: decodedEmail,
     });
-  }
+  });
 
   return new NextResponse(TRANSPARENT_PIXEL, {
     headers: {

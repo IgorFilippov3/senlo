@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ApiKeyRepository, db } from "@senlo/db";
-import { ApiKey } from "@senlo/core";
+import { ApiKey, AuthService } from "@senlo/core";
 
-const apiKeyRepo = new ApiKeyRepository(db);
+const authService = new AuthService(new ApiKeyRepository(db));
 
 export type ApiAuthResult =
   | { success: true; apiKey: ApiKey }
@@ -15,8 +15,6 @@ export type ApiAuthResult =
 export async function validateApiKey(req: NextRequest): Promise<ApiAuthResult> {
   const authHeader = req.headers.get("Authorization");
 
-  console.log(authHeader, "authHeader");
-
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return {
       success: false,
@@ -28,7 +26,7 @@ export async function validateApiKey(req: NextRequest): Promise<ApiAuthResult> {
   }
 
   const key = authHeader.split(" ")[1];
-  const apiKey = await apiKeyRepo.findByKey(key);
+  const apiKey = await authService.validateApiKey(key);
 
   if (!apiKey) {
     return {
@@ -39,8 +37,6 @@ export async function validateApiKey(req: NextRequest): Promise<ApiAuthResult> {
       ),
     };
   }
-
-  void apiKeyRepo.updateLastUsed(apiKey.id);
 
   return { success: true, apiKey };
 }

@@ -20,3 +20,6 @@ export * from "./services/projectService";
 export * from "./services/emailTemplateService";
 export * from "./services/campaignService";
 export * from "./services/mail";
+export * from "./services/triggerService";
+export * from "./services/authService";
+export * from "./services/trackingService";
