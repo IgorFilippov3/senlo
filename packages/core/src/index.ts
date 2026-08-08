@@ -23,3 +23,5 @@ export * from "./services/mail";
 export * from "./services/triggerService";
 export * from "./services/authService";
 export * from "./services/trackingService";
+export * from "./services/audienceService";
+export * from "./services/settingsService";

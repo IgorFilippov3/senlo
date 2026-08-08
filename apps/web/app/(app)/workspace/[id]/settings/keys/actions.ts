@@ -2,17 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { ApiKeyRepository, ProjectRepository, db } from "@senlo/db";
-import { nanoid } from "nanoid";
 import {
   ActionResult,
   withErrorHandling,
   validateId,
 } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
-import { ApiKey } from "@senlo/core";
+import { ApiKey, SettingsService } from "@senlo/core";
 import { auth } from "apps/web/auth";
 
-const apiKeyRepository = new ApiKeyRepository(db);
+const settingsService = new SettingsService(
+  new ApiKeyRepository(db),
+  new ProjectRepository(db),
+);
+
 const projectRepo = new ProjectRepository(db);
 
 async function authorizeProject(projectId: number) {
@@ -29,20 +32,20 @@ async function authorizeProject(projectId: number) {
 }
 
 export async function listApiKeys(
-  projectId: number
+  projectId: number,
 ): Promise<ActionResult<ApiKey[]>> {
   return withErrorHandling(async () => {
     const validProjectId = validateId(projectId, "projectId");
     await authorizeProject(validProjectId);
     logger.debug("Listing API keys", { projectId: validProjectId });
 
-    return apiKeyRepository.findByProject(validProjectId);
+    return await settingsService.listApiKeys(validProjectId);
   });
 }
 
 export async function createApiKey(
   projectId: number,
-  name: string
+  name: string,
 ): Promise<ActionResult<ApiKey>> {
   return withErrorHandling(async () => {
     const validProjectId = validateId(projectId, "projectId");
@@ -56,18 +59,15 @@ export async function createApiKey(
       throw new Error("API key name too long (max 255 characters)");
     }
 
-    const key = `snl_${nanoid(32)}`;
-
     logger.info("Creating API key", {
       projectId: validProjectId,
       name: name.trim(),
     });
 
-    const apiKey = await apiKeyRepository.create({
-      projectId: validProjectId,
-      name: name.trim(),
-      key,
-    });
+    const apiKey = await settingsService.createApiKey(
+      validProjectId,
+      name.trim(),
+    );
 
     revalidatePath(`/workspace/${validProjectId}/settings/keys`);
 
@@ -80,16 +80,16 @@ export async function createApiKey(
 export async function deleteApiKey(id: number): Promise<ActionResult<void>> {
   return withErrorHandling(async () => {
     const validId = validateId(id, "apiKeyId");
-    
+
     // Check ownership via project
-    const apiKey = await apiKeyRepository.findById(validId);
+    const apiKey = await settingsService.getApiKeyById(validId);
     if (!apiKey) throw new Error("API key not found");
-    
+
     await authorizeProject(apiKey.projectId);
 
     logger.info("Deleting API key", { apiKeyId: validId });
 
-    await apiKeyRepository.delete(validId);
+    await settingsService.deleteApiKey(validId);
     revalidatePath(`/workspace/${apiKey.projectId}/settings/keys`);
 
     logger.info("API key deleted successfully", { apiKeyId: validId });

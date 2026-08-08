@@ -2,13 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  ProjectRepository, EmailTemplateRepository, EmailProviderRepository, AiProviderRepository, db } from "@senlo/db";
+  ProjectRepository,
+  EmailTemplateRepository,
+  EmailProviderRepository,
+  AiProviderRepository,
+  ApiKeyRepository,
+  db,
+} from "@senlo/db";
 import {
   type Project,
   type EmailTemplate,
   type EmailProvider,
   type AiProvider,
   EMPTY_EMAIL_DESIGN,
+  SettingsService,
 } from "@senlo/core";
 import {
   ActionResult,
@@ -18,17 +25,21 @@ import {
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 
-const projectRepo = new ProjectRepository(db);
-const templateRepo = new EmailTemplateRepository(db);
+const settingsService = new SettingsService(
+  new ApiKeyRepository(db),
+  new ProjectRepository(db),
+);
+
 const providerRepo = new EmailProviderRepository(db);
 const aiProviderRepo = new AiProviderRepository(db);
+const templateRepo = new EmailTemplateRepository(db);
 
 async function getAuthorizedProject(projectId: number) {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) throw new Error("Unauthorized");
 
-  const project = await projectRepo.findById(projectId);
+  const project = await settingsService.getWorkspace(projectId);
   if (!project) throw new Error("Project not found");
   if (project.userId !== userId) throw new Error("Unauthorized");
 
@@ -155,7 +166,7 @@ export async function updateWorkspace(
     }
   }
 
-  await projectRepo.update(id, {
+  await settingsService.updateWorkspace(id, {
     name,
     description,
     providerId,

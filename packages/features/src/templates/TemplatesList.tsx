@@ -1,27 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { EmailTemplate } from "@senlo/core";
-import { TemplateCard } from "./template-card";
+import React, { useState } from "react";
+import type { EmailTemplate } from "@senlo/core";
+import { TemplateCard } from "./TemplateCard";
 import { Badge, Card } from "@senlo/ui";
 import { Grid2x2, Table2, FileText, Trash2, ExternalLink } from "lucide-react";
-import Link from "next/link";
-import { useDialogStore } from "apps/web/providers/dialogs/store";
 
-interface TemplatesListProps {
+export interface TemplatesListProps {
   templates: EmailTemplate[];
-  projectId: number;
-  showFilters?: boolean;
+  onDelete?: (template: EmailTemplate) => void;
+  renderLink?: (
+    templateId: number,
+    children: React.ReactNode,
+  ) => React.ReactNode;
 }
 
-export function TemplatesList({ templates, projectId }: TemplatesListProps) {
+export function TemplatesList({
+  templates,
+  onDelete,
+  renderLink,
+}: TemplatesListProps) {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const openDialog = useDialogStore((state) => state.open);
 
   const handleDeleteClick = (e: React.MouseEvent, template: EmailTemplate) => {
     e.preventDefault();
     e.stopPropagation();
-    openDialog("DELETE_TEMPLATE", { template, projectId });
+    onDelete?.(template);
   };
 
   return (
@@ -71,7 +75,8 @@ export function TemplatesList({ templates, projectId }: TemplatesListProps) {
             <TemplateCard
               key={template.id}
               template={template}
-              projectId={projectId}
+              onDelete={onDelete}
+              renderLink={renderLink}
             />
           ))}
         </div>
@@ -101,17 +106,16 @@ export function TemplatesList({ templates, projectId }: TemplatesListProps) {
                   className="hover:bg-zinc-50 transition-colors group"
                 >
                   <td className="px-6 py-4">
-                    <Link
-                      href={`/editor/${template.id}`}
-                      className="flex items-center gap-3"
-                    >
+                    <div className="flex items-center gap-3">
                       <div className="p-1.5 bg-blue-50 rounded-md text-blue-600">
                         <FileText size={16} />
                       </div>
                       <span className="font-medium text-zinc-900 group-hover:text-blue-600 transition-colors">
-                        {template.name}
+                        {renderLink
+                          ? renderLink(template.id, template.name)
+                          : template.name}
                       </span>
-                    </Link>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-zinc-500 truncate max-w-[200px]">
                     {template.subject}
@@ -123,13 +127,16 @@ export function TemplatesList({ templates, projectId }: TemplatesListProps) {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Link
-                        href={`/editor/${template.id}`}
-                        className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                        title="Edit in editor"
-                      >
-                        <ExternalLink size={16} />
-                      </Link>
+                      {renderLink &&
+                        renderLink(
+                          template.id,
+                          <div
+                            className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                            title="Edit in editor"
+                          >
+                            <ExternalLink size={16} />
+                          </div>,
+                        )}
                       <button
                         onClick={(e) => handleDeleteClick(e, template)}
                         className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"

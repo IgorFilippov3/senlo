@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ProjectRepository, db } from "@senlo/db";
-import type { Project } from "@senlo/core";
+import { ProjectRepository, ApiKeyRepository, db } from "@senlo/db";
+import { Project, SettingsService } from "@senlo/core";
 import {
   ActionResult,
   validateId,
@@ -11,6 +11,11 @@ import {
 import { CreateWorkspaceSchema } from "./schemas";
 import { logger } from "apps/web/lib";
 import { auth } from "apps/web/auth";
+
+const settingsService = new SettingsService(
+  new ApiKeyRepository(db),
+  new ProjectRepository(db),
+);
 
 const projectRepository = new ProjectRepository(db);
 
@@ -98,14 +103,14 @@ export async function deleteWorkspace(
     const validId = validateId(projectId, "projectId");
 
     // Check ownership
-    const project = await projectRepository.findById(validId);
+    const project = await settingsService.getWorkspace(validId);
     if (!project || project.userId !== userId) {
       throw new Error("Workspace not found or unauthorized");
     }
 
     logger.info("Deleting workspace", { projectId: validId, userId });
 
-    await projectRepository.delete(validId);
+    await settingsService.deleteWorkspace(validId);
     revalidatePath("/workspaces");
 
     logger.info("Workspace deleted successfully", { projectId: validId });
@@ -127,7 +132,7 @@ export async function getWorkspace(
 
   return withErrorHandling(async () => {
     const validId = validateId(projectId, "projectId");
-    const project = await projectRepository.findById(validId);
+    const project = await settingsService.getWorkspace(validId);
 
     if (!project || project.userId !== userId) {
       throw new Error("Workspace not found or unauthorized");

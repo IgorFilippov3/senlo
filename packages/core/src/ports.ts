@@ -46,7 +46,10 @@ export interface ISuppressionRepository {
     email: string,
   ): Promise<Suppression | null>;
   findByProject(projectId: number): Promise<Suppression[]>;
-  findAllByUser(userId: string): Promise<(Suppression & { projectName: string })[]>;
+  findAllByUser(
+    userId: string,
+  ): Promise<(Suppression & { projectName: string })[]>;
+  findById(id: number): Promise<Suppression | null>;
   delete(id: number): Promise<void>;
 }
 
@@ -67,6 +70,11 @@ export interface IProjectRepository {
   findAll(): Promise<Project[]>;
 
   findByUser(userId: string): Promise<Project[]>;
+  update(
+    id: number,
+    data: Partial<Omit<Project, "id" | "createdAt" | "updatedAt">>,
+  ): Promise<Project | null>;
+  delete(id: number): Promise<void>;
 }
 
 export interface IEmailTemplateRepository {
@@ -107,6 +115,7 @@ export interface RecipientListRepository {
 export interface IApiKeyRepository {
   findByKey(key: string): Promise<ApiKey | null>;
   findByProject(projectId: number): Promise<ApiKey[]>;
+  findById(id: number): Promise<ApiKey | null>;
   create(data: {
     projectId: number;
     name: string;
@@ -182,6 +191,14 @@ export interface ITriggeredSendLogRepository {
 
 export interface IDashboardRepository {
   getGlobalStats(userId: string, projectId?: number): Promise<DashboardStats>;
-  getActivityStats(userId: string, days: number, projectId?: number): Promise<DashboardActivity[]>;
-  getRecentEvents(userId: string, limit: number, projectId?: number): Promise<DashboardEvent[]>;
+  getActivityStats(
+    userId: string,
+    days: number,
+    projectId?: number,
+  ): Promise<DashboardActivity[]>;
+  getRecentEvents(
+    userId: string,
+    limit: number,
+    projectId?: number,
+  ): Promise<DashboardEvent[]>;
 }

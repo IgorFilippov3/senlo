@@ -5,9 +5,16 @@
   "private": true,
   "types": "src/index.ts",
   "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch"
+  },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.978.0",
     "bullmq": "^5.66.4",
     "ioredis": "^5.9.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
   }
 }

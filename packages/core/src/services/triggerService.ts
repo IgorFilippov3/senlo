@@ -5,12 +5,10 @@ import {
   IProjectRepository,
   ITriggeredSendLogRepository,
 } from "../ports";
-import {
-  renderEmailDesign,
-  wrapLinksWithTracking,
-  EmailDesignDocument,
-  replaceMergeTags,
-} from "../index";
+import { renderEmailDesign } from "../renderer/renderEmailDesign";
+import { wrapLinksWithTracking } from "../tracking";
+import { EmailDesignDocument } from "../emailDesign";
+import { replaceMergeTags } from "../merge-tags";
 import { Queue } from "bullmq";
 
 export interface TriggeredEmailOptions {

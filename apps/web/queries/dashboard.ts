@@ -6,13 +6,18 @@ import {
   getDashboardData,
 } from "../app/(app)/workspace/[id]/dashboard/actions";
 import { queryKeys } from "../providers/query-keys";
+import { DashboardStats, DashboardActivity, DashboardEvent } from "@senlo/core";
 
 export function useDashboardData(
   projectId: number,
   days: number = 7,
   eventLimit: number = 10,
 ) {
-  return useQuery({
+  return useQuery<{
+    stats: DashboardStats;
+    activity: DashboardActivity[];
+    events: DashboardEvent[];
+  }>({
     queryKey: [
       ...queryKeys.dashboard.all,
       "combined",

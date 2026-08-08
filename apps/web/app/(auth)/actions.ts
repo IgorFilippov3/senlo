@@ -100,6 +100,10 @@ export async function loginAction(formData: FormData) {
   }
 }
 
+export async function githubLoginAction() {
+  await signIn("github", { redirectTo: "/home" });
+}
+
 export async function logoutAction() {
   await signOut({ redirectTo: "/login" });
 }

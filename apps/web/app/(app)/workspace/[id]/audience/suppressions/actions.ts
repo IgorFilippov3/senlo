@@ -1,13 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { SuppressionRepository, db } from "@senlo/db";
+import { SuppressionRepository, ContactRepository, db } from "@senlo/db";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
-import { Suppression } from "@senlo/core";
+import { Suppression, AudienceService } from "@senlo/core";
 
-const suppressionRepo = new SuppressionRepository(db);
+const audienceService = new AudienceService(
+  new SuppressionRepository(db),
+);
 
 export async function listAllSuppressions(): Promise<
   ActionResult<(Suppression & { projectName: string })[]>
@@ -24,7 +26,7 @@ export async function listAllSuppressions(): Promise<
 
   return withErrorHandling(async () => {
     logger.debug("Listing all suppressions for user", { userId });
-    return await suppressionRepo.findAllByUser(userId);
+    return await audienceService.listAllSuppressions(userId);
   });
 }
 
@@ -43,7 +45,7 @@ export async function listProjectSuppressions(
 
   return withErrorHandling(async () => {
     logger.debug("Listing suppressions for project", { projectId, userId });
-    return await suppressionRepo.findByProject(projectId);
+    return await audienceService.listProjectSuppressions(projectId);
   });
 }
 
@@ -62,9 +64,9 @@ export async function deleteSuppressionAction(
 
   return withErrorHandling(async () => {
     logger.info("Deleting suppression entry", { id, userId });
-    const suppression = await suppressionRepo.findById(id);
+    const suppression = await audienceService.getSuppressionById(id);
     if (suppression) {
-      await suppressionRepo.delete(id);
+      await audienceService.removeSuppression(id);
       revalidatePath(
         `/workspace/${suppression.projectId}/audience/suppressions`,
       );

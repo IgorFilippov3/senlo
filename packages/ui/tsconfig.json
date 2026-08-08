@@ -5,7 +5,6 @@
   ],
   "compilerOptions": {
     "outDir": "dist",
-    "declaration": true,
-    "declarationMap": true
+    "noEmit": true
   }
 }

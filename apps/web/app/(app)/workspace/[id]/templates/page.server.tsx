@@ -6,9 +6,10 @@ import { useProject } from "apps/web/queries/projects";
 import { useProjectTemplates } from "apps/web/queries/templates";
 import { useProviders } from "apps/web/queries/providers";
 import { useAiProviders } from "apps/web/queries/ai-providers";
-import { TemplatesList } from "./templates-list";
+import { TemplatesList } from "@senlo/features";
 import { useDialogStore } from "apps/web/providers/dialogs/store";
 import { Settings2, Plus } from "lucide-react";
+import { EmailTemplate } from "@senlo/core";
 
 interface ProjectPageClientProps {
   projectId: string;
@@ -71,6 +72,14 @@ export default function ProjectPage({ projectId }: ProjectPageClientProps) {
     );
   }
 
+  const handleDeleteTemplate = (template: EmailTemplate) => {
+    openDialog("DELETE_TEMPLATE", { template, projectId: project.id });
+  };
+
+  const renderTemplateLink = (id: number, children: React.ReactNode) => (
+    <Link href={`/editor/${id}`}>{children}</Link>
+  );
+
   return (
     <main className="max-w-7xl mx-auto py-10 px-8">
       <div className="mb-6">
@@ -110,7 +119,11 @@ export default function ProjectPage({ projectId }: ProjectPageClientProps) {
         }
       />
 
-      <TemplatesList templates={templates} projectId={project.id} />
+      <TemplatesList
+        templates={templates}
+        onDelete={handleDeleteTemplate}
+        renderLink={renderTemplateLink}
+      />
     </main>
   );
 }

@@ -62,11 +62,17 @@ export async function getRecentEvents(limit: number = 10, projectId?: number) {
   }
 }
 
+import { DashboardStats, DashboardActivity, DashboardEvent } from "@senlo/core";
+
 export async function getDashboardData(
   projectId: number,
   days: number = 7,
   eventLimit: number = 10,
-) {
+): Promise<{
+  stats: DashboardStats;
+  activity: DashboardActivity[];
+  events: DashboardEvent[];
+}> {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) {

@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Button, Card, FormField, Input } from "@senlo/ui";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Github } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { registerAction } from "../actions";
+import { registerAction, githubLoginAction } from "../actions";
 
 export default function RegisterPage() {
   const [error, setError] = useState<Record<string, string[]>>({});
@@ -95,6 +95,26 @@ export default function RegisterPage() {
             {!isPending && <ArrowRight size={18} className="ml-2" />}
           </Button>
         </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-zinc-200" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-zinc-500">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          className="w-full h-11"
+          onClick={() => githubLoginAction()}
+        >
+          <Github size={18} className="mr-2" />
+          GitHub
+        </Button>
 
         <p className="text-center text-sm text-zinc-500 pt-2">
           Already have an account?{" "}
