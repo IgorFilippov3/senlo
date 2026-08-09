@@ -2,7 +2,10 @@ import { ContentBlock } from "../emailDesign";
 import { renderPadding, normalizeUrl } from "./utils";
 import { RenderOptions } from "./types";
 
-export function renderMJMLBlock(block: ContentBlock, options?: RenderOptions): string {
+export function renderMJMLBlock(
+  block: ContentBlock,
+  options?: RenderOptions,
+): string {
   switch (block.type) {
     case "heading":
       return renderMJMLHeading(block);
@@ -92,7 +95,7 @@ function renderMJMLImage(block: any, options?: RenderOptions): string {
         <mj-image
           src="${src}"
           alt="${data.alt || ""}"
-          width="${data.fullWidth ? "" : (data.width ? data.width + "px" : "")}"
+          width="${data.fullWidth ? "" : data.width ? data.width + "px" : ""}"
           fluid-on-mobile="${data.fullWidth ? "true" : "false"}"
           align="${data.align || "center"}"
           border-radius="${data.borderRadius || 0}px"
@@ -105,6 +108,42 @@ function renderMJMLImage(block: any, options?: RenderOptions): string {
 function renderMJMLButton(block: any): string {
   const { data } = block;
   const padding = data.padding || { top: 12, right: 24, bottom: 12, left: 24 };
+  const border = data.border || { width: 0, style: "solid", color: "#000000" };
+
+  const borderAttrs = [];
+  if (border.width !== undefined && border.width > 0) {
+    borderAttrs.push(
+      `border="${border.width}px ${border.style || "solid"} ${border.color || "#000000"}"`,
+    );
+  } else {
+    if (border.top)
+      borderAttrs.push(
+        `border-top="${border.top}px ${border.style || "solid"} ${border.color || "#000000"}"`,
+      );
+    if (border.right)
+      borderAttrs.push(
+        `border-right="${border.right}px ${border.style || "solid"} ${border.color || "#000000"}"`,
+      );
+    if (border.bottom)
+      borderAttrs.push(
+        `border-bottom="${border.bottom}px ${border.style || "solid"} ${border.color || "#000000"}"`,
+      );
+    if (border.left)
+      borderAttrs.push(
+        `border-left="${border.left}px ${border.style || "solid"} ${border.color || "#000000"}"`,
+      );
+  }
+
+  // Handle hard shadow fallback in MJML
+  if (data.shadow && data.shadow.blur === 0) {
+    const { x = 0, y = 0, color = "#000000" } = data.shadow;
+    if (y > 0) borderAttrs.push(`border-bottom="${y}px solid ${color}"`);
+    if (x > 0) borderAttrs.push(`border-right="${x}px solid ${color}"`);
+    if (y < 0) borderAttrs.push(`border-top="${Math.abs(y)}px solid ${color}"`);
+    if (x < 0)
+      borderAttrs.push(`border-left="${Math.abs(x)}px solid ${color}"`);
+  }
+
   return `
         <mj-button
           background-color="${data.backgroundColor || "#3b82f6"}"
@@ -113,7 +152,7 @@ function renderMJMLButton(block: any): string {
           font-size="${data.fontSize || 16}px"
           font-weight="${data.fontWeight || "bold"}"
           border-radius="${data.borderRadius || 4}px"
-          border="${data.border?.width ? `${data.border.width}px ${data.border.style} ${data.border.color}` : "none"}"
+          ${borderAttrs.join("\n          ")}
           padding="10px 0"
           inner-padding="${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px"
           text-transform="${data.textTransform || "none"}"
@@ -171,24 +210,18 @@ function renderMJMLProductLine(block: any): string {
   const { data } = block;
   const leftStyle = data.leftStyle || {};
   const rightStyle = data.rightStyle || {};
-  
+
   return `
         <mj-text padding="${renderPadding(data.padding)}">
           <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%;">
             <tr>
-              <td align="left" style="font-family: ${leftStyle.fontFamily || 'Arial, sans-serif'}; font-size: ${leftStyle.fontSize || 14}px; line-height: ${leftStyle.lineHeight || 1.4}; color: ${leftStyle.color || '#000000'}; font-weight: ${leftStyle.fontWeight || 'normal'};">
+              <td align="left" style="font-family: ${leftStyle.fontFamily || "Arial, sans-serif"}; font-size: ${leftStyle.fontSize || 14}px; line-height: ${leftStyle.lineHeight || 1.4}; color: ${leftStyle.color || "#000000"}; font-weight: ${leftStyle.fontWeight || "normal"};">
                 ${data.leftText}
               </td>
-              <td align="right" width="${data.rightWidth || 120}" style="width: ${data.rightWidth || 120}px; font-family: ${rightStyle.fontFamily || 'Arial, sans-serif'}; font-size: ${rightStyle.fontSize || 14}px; line-height: ${rightStyle.lineHeight || 1.4}; color: ${rightStyle.color || '#000000'}; font-weight: ${rightStyle.fontWeight || 'normal'}; white-space: nowrap;">
+              <td align="right" width="${data.rightWidth || 120}" style="width: ${data.rightWidth || 120}px; font-family: ${rightStyle.fontFamily || "Arial, sans-serif"}; font-size: ${rightStyle.fontSize || 14}px; line-height: ${rightStyle.lineHeight || 1.4}; color: ${rightStyle.color || "#000000"}; font-weight: ${rightStyle.fontWeight || "normal"}; white-space: nowrap;">
                 ${data.rightText}
               </td>
             </tr>
           </table>
         </mj-text>`;
 }
-
-
-
-
-
-

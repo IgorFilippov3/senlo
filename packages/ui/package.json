@@ -1,6 +1,6 @@
 {
   "name": "@senlo/ui",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Senlo UI component library",
   "type": "module",
   "main": "./src/index.ts",

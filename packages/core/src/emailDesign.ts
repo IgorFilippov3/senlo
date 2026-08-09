@@ -97,6 +97,10 @@ export interface ImageBlock extends BaseContentBlock {
     };
     border?: {
       width?: number;
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
       style?: "solid" | "dashed" | "dotted";
       color?: string;
     };
@@ -123,6 +127,10 @@ export interface ButtonBlock extends BaseContentBlock {
     };
     border?: {
       width?: number;
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
       style?: "solid" | "dashed" | "dotted";
       color?: string;
     };
@@ -390,6 +398,10 @@ export const paragraphBlockSchema = z.object({
 
 export const borderSchema = z.object({
   width: z.number().int().nonnegative().optional(),
+  top: z.number().int().nonnegative().optional(),
+  right: z.number().int().nonnegative().optional(),
+  bottom: z.number().int().nonnegative().optional(),
+  left: z.number().int().nonnegative().optional(),
   style: z.enum(["solid", "dashed", "dotted"]).optional(),
   color: z.string().optional(),
 });

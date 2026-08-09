@@ -9,16 +9,16 @@ import { nanoid } from "nanoid";
 
 import type { DragEndEvent } from "@dnd-kit/core";
 
-import {
-  type EmailDesignDocument,
-  type RowId,
-  type ColumnId,
-  type ContentBlockId,
-  type RowBlock,
-  type ContentBlock,
-  type ContentBlockType,
-  type MergeTag,
-  type SavedRow,
+import type {
+  EmailDesignDocument,
+  RowId,
+  ColumnId,
+  ContentBlockId,
+  RowBlock,
+  ContentBlock,
+  ContentBlockType,
+  MergeTag,
+  SavedRow,
 } from "@senlo/core";
 
 import { EMPTY_EMAIL_DESIGN } from "@senlo/core";

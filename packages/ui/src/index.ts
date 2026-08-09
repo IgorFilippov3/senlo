@@ -19,6 +19,7 @@ export * from "./components/toggle-group/toggle-group";
 export * from "./components/color-picker/color-picker";
 export * from "./components/slider/slider";
 export * from "./components/padding-control/padding-control";
+export * from "./components/border-control/border-control";
 export * from "./components/dialog/dialog";
 export * from "./components/badge/badge";
 export * from "./components/page-header/page-header";

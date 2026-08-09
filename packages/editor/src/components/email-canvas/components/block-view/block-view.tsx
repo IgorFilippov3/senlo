@@ -282,7 +282,38 @@ export const BlockView = ({ block, columnId, rowId }: BlockViewProps) => {
           </div>
         );
 
-      case "image":
+      case "image": {
+        const border = block.data.border || DEFAULT_IMAGE_BORDER;
+        const imageStyles: React.CSSProperties = {
+          width: block.data.fullWidth
+            ? "100%"
+            : block.data.width
+              ? `${block.data.width}px`
+              : "auto",
+          height: "auto",
+          maxWidth: "100%",
+          display: "inline-block",
+          borderRadius:
+            block.data.borderRadius !== undefined
+              ? `${block.data.borderRadius}px`
+              : `${DEFAULT_IMAGE_BORDER_RADIUS}px`,
+          borderStyle: border.style || DEFAULT_IMAGE_BORDER.style,
+          borderColor: border.color || DEFAULT_IMAGE_BORDER.color,
+        };
+
+        if (border.width !== undefined && border.width > 0) {
+          imageStyles.borderWidth = `${border.width}px`;
+        } else {
+          if (border.top !== undefined)
+            imageStyles.borderTopWidth = `${border.top}px`;
+          if (border.right !== undefined)
+            imageStyles.borderRightWidth = `${border.right}px`;
+          if (border.bottom !== undefined)
+            imageStyles.borderBottomWidth = `${border.bottom}px`;
+          if (border.left !== undefined)
+            imageStyles.borderLeftWidth = `${border.left}px`;
+        }
+
         return (
           <div
             {...commonProps}
@@ -320,34 +351,77 @@ export const BlockView = ({ block, columnId, rowId }: BlockViewProps) => {
                   "https://via.placeholder.com/300x150?text=No+Image"
                 }
                 alt={block.data.alt || ""}
-                style={{
-                  width: block.data.fullWidth
-                    ? "100%"
-                    : block.data.width
-                      ? `${block.data.width}px`
-                      : "auto",
-                  height: "auto",
-                  maxWidth: "100%",
-                  display: "inline-block",
-                  borderRadius:
-                    block.data.borderRadius !== undefined
-                      ? `${block.data.borderRadius}px`
-                      : `${DEFAULT_IMAGE_BORDER_RADIUS}px`,
-                  borderStyle:
-                    block.data.border?.style || DEFAULT_IMAGE_BORDER.style,
-                  borderWidth:
-                    block.data.border?.width !== undefined
-                      ? `${block.data.border.width}px`
-                      : `${DEFAULT_IMAGE_BORDER.width}px`,
-                  borderColor:
-                    block.data.border?.color || DEFAULT_IMAGE_BORDER.color,
-                }}
+                style={imageStyles}
               />
             </a>
           </div>
         );
+      }
 
-      case "button":
+      case "button": {
+        const padding = block.data.padding || DEFAULT_BUTTON_PADDING;
+        const border = block.data.border || DEFAULT_BUTTON_BORDER;
+
+        const buttonStyles: React.CSSProperties = {
+          backgroundColor:
+            block.data.backgroundColor || DEFAULT_BUTTON_BG_COLOR,
+          color: block.data.color || DEFAULT_BUTTON_COLOR,
+          fontSize: block.data.fontSize
+            ? `${block.data.fontSize}px`
+            : `${DEFAULT_BUTTON_FONT_SIZE}px`,
+          fontWeight: block.data.fontWeight || DEFAULT_BUTTON_FONT_WEIGHT,
+          borderRadius:
+            block.data.borderRadius !== undefined
+              ? `${block.data.borderRadius}px`
+              : `${DEFAULT_BUTTON_BORDER_RADIUS}px`,
+          letterSpacing:
+            block.data.letterSpacing !== undefined
+              ? `${block.data.letterSpacing}px`
+              : undefined,
+          textTransform: block.data.textTransform || "none",
+          paddingTop:
+            padding.top !== undefined
+              ? `${padding.top}px`
+              : `${DEFAULT_BUTTON_PADDING.top}px`,
+          paddingRight:
+            padding.right !== undefined
+              ? `${padding.right}px`
+              : `${DEFAULT_BUTTON_PADDING.right}px`,
+          paddingBottom:
+            padding.bottom !== undefined
+              ? `${padding.bottom}px`
+              : `${DEFAULT_BUTTON_PADDING.bottom}px`,
+          paddingLeft:
+            padding.left !== undefined
+              ? `${padding.left}px`
+              : `${DEFAULT_BUTTON_PADDING.left}px`,
+          display: block.data.fullWidth ? "block" : "inline-block",
+          width: block.data.fullWidth ? "100%" : "auto",
+          boxSizing: "border-box",
+          borderStyle: border.style || DEFAULT_BUTTON_BORDER.style,
+          borderColor: border.color || DEFAULT_BUTTON_BORDER.color,
+          boxShadow: block.data.shadow
+            ? `${block.data.shadow.x || 0}px ${block.data.shadow.y || 0}px ${block.data.shadow.blur || 0}px ${block.data.shadow.color || "#000000"}`
+            : "none",
+        };
+
+        // Handle borders
+        if (border.width !== undefined && border.width > 0) {
+          buttonStyles.borderWidth = `${border.width}px`;
+        } else {
+          if (border.top !== undefined)
+            buttonStyles.borderTopWidth = `${border.top}px`;
+          if (border.right !== undefined)
+            buttonStyles.borderRightWidth = `${border.right}px`;
+          if (border.bottom !== undefined)
+            buttonStyles.borderBottomWidth = `${border.bottom}px`;
+          if (border.left !== undefined)
+            buttonStyles.borderLeftWidth = `${border.left}px`;
+
+          // If we have individual borders but no global width, we need to ensure borderStyle and borderColor are applied
+          // which they already are above via buttonStyles.borderStyle and buttonStyles.borderColor
+        }
+
         return (
           <div
             {...commonProps}
@@ -362,59 +436,13 @@ export const BlockView = ({ block, columnId, rowId }: BlockViewProps) => {
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.preventDefault()}
-              style={{
-                backgroundColor:
-                  block.data.backgroundColor || DEFAULT_BUTTON_BG_COLOR,
-                color: block.data.color || DEFAULT_BUTTON_COLOR,
-                fontSize: block.data.fontSize
-                  ? `${block.data.fontSize}px`
-                  : `${DEFAULT_BUTTON_FONT_SIZE}px`,
-                fontWeight: block.data.fontWeight || DEFAULT_BUTTON_FONT_WEIGHT,
-                borderRadius:
-                  block.data.borderRadius !== undefined
-                    ? `${block.data.borderRadius}px`
-                    : `${DEFAULT_BUTTON_BORDER_RADIUS}px`,
-                letterSpacing:
-                  block.data.letterSpacing !== undefined
-                    ? `${block.data.letterSpacing}px`
-                    : undefined,
-                textTransform: block.data.textTransform || "none",
-                paddingTop:
-                  block.data.padding?.top !== undefined
-                    ? `${block.data.padding.top}px`
-                    : `${DEFAULT_BUTTON_PADDING.top}px`,
-                paddingRight:
-                  block.data.padding?.right !== undefined
-                    ? `${block.data.padding.right}px`
-                    : `${DEFAULT_BUTTON_PADDING.right}px`,
-                paddingBottom:
-                  block.data.padding?.bottom !== undefined
-                    ? `${block.data.padding.bottom}px`
-                    : `${DEFAULT_BUTTON_PADDING.bottom}px`,
-                paddingLeft:
-                  block.data.padding?.left !== undefined
-                    ? `${block.data.padding.left}px`
-                    : `${DEFAULT_BUTTON_PADDING.left}px`,
-                display: block.data.fullWidth ? "block" : "inline-block",
-                width: block.data.fullWidth ? "100%" : "auto",
-                boxSizing: "border-box",
-                borderStyle:
-                  block.data.border?.style || DEFAULT_BUTTON_BORDER.style,
-                borderWidth:
-                  block.data.border?.width !== undefined
-                    ? `${block.data.border.width}px`
-                    : `${DEFAULT_BUTTON_BORDER.width}px`,
-                borderColor:
-                  block.data.border?.color || DEFAULT_BUTTON_BORDER.color,
-                boxShadow: block.data.shadow
-                  ? `${block.data.shadow.x || 0}px ${block.data.shadow.y || 0}px ${block.data.shadow.blur || 0}px ${block.data.shadow.color || "#000000"}`
-                  : "none",
-              }}
+              style={buttonStyles}
             >
               {renderText(block.data.text)}
             </a>
           </div>
         );
+      }
 
       case "spacer":
         return (

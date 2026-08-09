@@ -61,6 +61,10 @@ export const paragraphSchema = z.object({
 
 export const borderSchema = z.object({
   width: z.number().min(0).max(20).optional(),
+  top: z.number().min(0).max(20).optional(),
+  right: z.number().min(0).max(20).optional(),
+  bottom: z.number().min(0).max(20).optional(),
+  left: z.number().min(0).max(20).optional(),
   style: z.enum(["solid", "dashed", "dotted"]).optional(),
   color: z.string().optional(),
 });

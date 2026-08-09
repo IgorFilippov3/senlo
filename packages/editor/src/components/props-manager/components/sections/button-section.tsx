@@ -17,6 +17,7 @@ import {
   SelectValue,
   Slider,
   PaddingControl,
+  BorderControl,
 } from "@senlo/ui";
 import { ButtonBlock } from "@senlo/core";
 import {
@@ -362,21 +363,24 @@ export const ButtonSection = ({ block }: ButtonSectionProps) => {
         </FormGrid>
 
         <Controller
-          name="border.width"
+          name="border"
           control={control}
           render={({ field }) => (
-            <Slider
-              label="Border Width"
-              unit="px"
-              min={0}
-              max={10}
-              value={field.value ?? DEFAULT_BUTTON_BORDER.width}
-              onChange={field.onChange}
+            <BorderControl
+              value={field.value}
+              onChange={(val) => field.onChange({ ...field.value, ...val })}
             />
           )}
         />
 
         <FormField label="Box Shadow Preset">
+          <div className="bg-amber-50 border border-amber-100 rounded-md p-2 mb-3">
+            <p className="text-[10px] text-amber-700 leading-tight">
+              <strong>Note:</strong> Shadow effects have limited support in
+              email clients. Hard shadows (blur: 0) will be automatically
+              converted to borders for better compatibility.
+            </p>
+          </div>
           <FormGrid cols={2}>
             <ToggleGroup
               value={getActiveShadowPreset()}

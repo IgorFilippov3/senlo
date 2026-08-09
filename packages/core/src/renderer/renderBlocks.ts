@@ -159,7 +159,7 @@ function renderButton(block: any): string {
   const padding = data.padding || { top: 12, right: 24, bottom: 12, left: 24 };
   const border = data.border || { width: 0, style: "solid", color: "#000000" };
 
-  const btnStyle = [
+  const styles = [
     `background-color: ${data.backgroundColor || "#3b82f6"}`,
     `color: ${data.color || "#ffffff"}`,
     `display: ${data.fullWidth ? "block" : "inline-block"}`,
@@ -172,18 +172,53 @@ function renderButton(block: any): string {
     `letter-spacing: ${
       data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"
     }`,
-    `border: ${border.width}px ${border.style} ${border.color}`,
-    `box-shadow: ${
-      data.shadow
-        ? `${data.shadow.x}px ${data.shadow.y}px ${data.shadow.blur}px ${data.shadow.color}`
-        : "none"
-    }`,
     `text-align: center`,
-  ].join("; ");
+  ];
+
+  // Handle borders
+  if (border.width !== undefined && border.width > 0) {
+    styles.push(
+      `border: ${border.width}px ${border.style || "solid"} ${border.color || "#000000"}`,
+    );
+  } else {
+    // Individual borders
+    if (border.top)
+      styles.push(
+        `border-top: ${border.top}px ${border.style || "solid"} ${border.color || "#000000"}`,
+      );
+    if (border.right)
+      styles.push(
+        `border-right: ${border.right}px ${border.style || "solid"} ${border.color || "#000000"}`,
+      );
+    if (border.bottom)
+      styles.push(
+        `border-bottom: ${border.bottom}px ${border.style || "solid"} ${border.color || "#000000"}`,
+      );
+    if (border.left)
+      styles.push(
+        `border-left: ${border.left}px ${border.style || "solid"} ${border.color || "#000000"}`,
+      );
+  }
+
+  // Handle shadow with fallback for hard shadows (blur: 0)
+  if (data.shadow) {
+    const { x = 0, y = 0, blur = 0, color = "#000000" } = data.shadow;
+
+    // Add box-shadow for modern clients
+    styles.push(`box-shadow: ${x}px ${y}px ${blur}px ${color}`);
+
+    // Fallback for hard shadows (often used in Brutalism style)
+    if (blur === 0 && (x !== 0 || y !== 0)) {
+      if (y > 0) styles.push(`border-bottom: ${y}px solid ${color}`);
+      if (x > 0) styles.push(`border-right: ${x}px solid ${color}`);
+      if (y < 0) styles.push(`border-top: ${Math.abs(y)}px solid ${color}`);
+      if (x < 0) styles.push(`border-left: ${Math.abs(x)}px solid ${color}`);
+    }
+  }
 
   return `
     <div style="text-align: ${data.align || "center"}; padding: 10px 0;">
-      <a href="${data.href || "#"}" target="_blank" style="${btnStyle}">
+      <a href="${data.href || "#"}" target="_blank" style="${styles.join("; ")}">
         ${data.text}
       </a>
     </div>

@@ -11,6 +11,10 @@ export const DEFAULT_IMAGE_PADDING = {
 };
 export const DEFAULT_IMAGE_BORDER = {
   width: 0,
+  top: undefined as number | undefined,
+  right: undefined as number | undefined,
+  bottom: undefined as number | undefined,
+  left: undefined as number | undefined,
   style: "solid" as const,
   color: "#000000",
 };
