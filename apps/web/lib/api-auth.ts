@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ApiKeyRepository, db } from "@senlo/db";
-import { ApiKey, AuthService } from "@senlo/core";
+import { ApiKey } from "@senlo/core";
+import { AuthService } from "@senlo/core/src/services/authService";
 
 const authService = new AuthService(new ApiKeyRepository(db));
 

@@ -15,8 +15,8 @@ import {
   type EmailProvider,
   type AiProvider,
   EMPTY_EMAIL_DESIGN,
-  SettingsService,
 } from "@senlo/core";
+import { SettingsService } from "@senlo/core/src/services/settingsService";
 import {
   ActionResult,
   withErrorHandling,

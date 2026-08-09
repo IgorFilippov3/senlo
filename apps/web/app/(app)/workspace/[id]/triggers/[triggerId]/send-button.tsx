@@ -23,8 +23,8 @@ export function SendCampaignButton({ campaignId }: SendCampaignButtonProps) {
       }
       return result;
     },
-    onSuccess: (result) => {
-      alert(`Successfully sent to ${result.data.sentCount} contacts!`);
+    onSuccess: () => {
+      alert(`Campaign has been queued for sending. Check the live feed for updates.`);
 
       // Invalidate campaigns data to refresh status
       queryClient.invalidateQueries({

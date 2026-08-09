@@ -1,6 +1,6 @@
 import { eq, desc, sql, and } from "drizzle-orm";
 import { triggeredSendLogs } from "../schema";
-import { TriggeredSendLog } from "@senlo/core";
+import type { TriggeredSendLog } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";

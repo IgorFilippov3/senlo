@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { apiKeys } from "../schema";
-import { ApiKey } from "@senlo/core";
+import type { ApiKey } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";

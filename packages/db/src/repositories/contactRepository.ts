@@ -1,6 +1,6 @@
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { contacts } from "../schema";
-import { Contact } from "@senlo/core";
+import type { Contact } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";

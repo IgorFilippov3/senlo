@@ -1,6 +1,6 @@
 import { eq, desc, and } from "drizzle-orm";
 import { savedRows } from "../schema";
-import { SavedRow } from "@senlo/core";
+import type { SavedRow } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";

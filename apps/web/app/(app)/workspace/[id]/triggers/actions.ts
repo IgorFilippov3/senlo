@@ -8,14 +8,10 @@ import {
   Project,
   EmailTemplate,
   CampaignEvent,
-  encodeUnsubscribeToken,
-  renderEmailDesign,
-  wrapLinksWithTracking,
-  EmailDesignDocument,
   LinkStat,
   TimeSeriesData,
 } from "@senlo/core";
-import { emailQueue } from "@senlo/core/src/queue";
+import { campaignQueue } from "@senlo/core/src/queue";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { CreateCampaignSchema, UpdateCampaignSchema } from "./schemas";
@@ -339,103 +335,40 @@ export async function updateCampaignAction(id: number, formData: FormData) {
 
 export async function sendCampaignAction(
   id: number,
-): Promise<ActionResult<{ sentCount: number }>> {
+): Promise<ActionResult<{ success: boolean }>> {
   return withErrorHandling(async () => {
-    const { campaign, project } = await getAuthorizedCampaign(id);
+    const { campaign, project, userId } = await getAuthorizedCampaign(id);
 
     if (!project.providerId) {
       throw new Error("No email provider configured for this workspace");
     }
 
-    const [template, provider] = await Promise.all([
-      templateRepo.findById(campaign.templateId),
-      providerRepo.findById(project.providerId),
-    ]);
-
-    if (!template) throw new Error("Template not found");
-    if (!provider) throw new Error("Email provider not found");
-
     if (!campaign.listId) {
       throw new Error("No recipient list selected for this campaign");
     }
 
-    const listRepo = new RecipientListRepository(db);
-    const contacts = await listRepo.getContacts(campaign.listId, true);
-
-    if (contacts.length === 0) {
-      throw new Error("Recipient list is empty");
-    }
-
-    logger.info("Starting campaign send", {
+    logger.info("Queuing campaign for dispatch", {
       campaignId: id,
-      recipientCount: contacts.length,
+      projectId: project.id,
+      userId,
     });
 
+    // Mark as pending sending
     await campaignRepo.update(id, {
       status: "SENDING",
       sentAt: new Date(),
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-    await Promise.all(
-      contacts.map(async (contact) => {
-        const emailEncoded = encodeURIComponent(contact.email);
-        const unsubscribeToken = encodeUnsubscribeToken({
-          contactId: contact.id,
-          campaignId: id,
-        });
-        const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${unsubscribeToken}`;
-
-        const openTrackingUrl = `${baseUrl}/api/track/open/${id}/${emailEncoded}`;
-        const trackingPixel = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none !important;" alt="" />`;
-
-        const clickTrackingBaseUrl = `${baseUrl}/api/track/click/${id}/${emailEncoded}`;
-
-        let personalizedHtml = template.designJson
-          ? renderEmailDesign(template.designJson as EmailDesignDocument, {
-              baseUrl,
-              data: {
-                contact,
-                unsubscribeUrl,
-              },
-            })
-          : template.html;
-
-        personalizedHtml = wrapLinksWithTracking(
-          personalizedHtml,
-          clickTrackingBaseUrl,
-        );
-        personalizedHtml += trackingPixel;
-
-        const fromAddress = campaign.fromName
-          ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
-          : campaign.fromEmail || "hello@senlo.io";
-
-        return emailQueue.add(`campaign-${id}-${contact.id}-${Date.now()}`, {
-          projectId: project.id,
-          campaignId: id,
-          contactId: contact.id,
-          email: contact.email,
-          from: fromAddress,
-          subject: campaign.subject || template.subject,
-          html: personalizedHtml,
-          providerId: project.providerId!,
-        });
-      }),
-    );
-
-    await campaignRepo.update(id, { status: "COMPLETED" });
-
-    logger.info("Campaign queued successfully", {
+    // Add to campaign queue - the worker will handle contact fetching and email generation
+    await campaignQueue.add(`dispatch-campaign-${id}-${Date.now()}`, {
       campaignId: id,
-      sentCount: contacts.length,
+      userId,
     });
 
     revalidatePath(`/workspace/${project.id}/triggers/${id}`);
     revalidatePath(`/workspace/${project.id}/triggers`);
 
-    return { sentCount: contacts.length };
+    return { success: true };
   });
 }
 

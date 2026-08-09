@@ -110,6 +110,7 @@ export interface RecipientListRepository {
   addContacts(listId: number, contactIds: number[]): Promise<void>;
 
   findByProject(projectId: number): Promise<RecipientList[]>;
+  getContacts(listId: number, onlyActive?: boolean): Promise<Contact[]>;
 }
 
 export interface IApiKeyRepository {

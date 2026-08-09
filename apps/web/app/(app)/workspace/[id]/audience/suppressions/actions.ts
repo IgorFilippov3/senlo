@@ -5,7 +5,8 @@ import { SuppressionRepository, ContactRepository, db } from "@senlo/db";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
-import { Suppression, AudienceService } from "@senlo/core";
+import { Suppression } from "@senlo/core";
+import { AudienceService } from "@senlo/core/src/services/audienceService";
 
 const audienceService = new AudienceService(
   new SuppressionRepository(db),

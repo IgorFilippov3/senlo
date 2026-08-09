@@ -1,6 +1,6 @@
 "use server";
 
-import { decodeUnsubscribeToken } from "@senlo/core";
+import { decodeUnsubscribeToken } from "@senlo/core/src/unsubscribe-token";
 import { ContactRepository, CampaignRepository, db } from "@senlo/db";
 import { logger } from "apps/web/lib/logger";
 import { withErrorHandling, ActionResult, AppError } from "apps/web/lib/errors";

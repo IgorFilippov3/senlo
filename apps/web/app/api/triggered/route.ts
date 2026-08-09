@@ -7,7 +7,7 @@ import {
   TriggeredSendLogRepository,
   db,
 } from "@senlo/db";
-import { TriggerService } from "@senlo/core";
+import { TriggerService } from "@senlo/core/src/services/triggerService";
 import { emailQueue } from "@senlo/core/src/queue";
 import { logger, validateApiKey } from "apps/web/lib";
 

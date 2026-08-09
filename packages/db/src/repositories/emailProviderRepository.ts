@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { emailProviders } from "../schema";
-import { EmailProvider } from "@senlo/core";
+import type { EmailProvider } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";

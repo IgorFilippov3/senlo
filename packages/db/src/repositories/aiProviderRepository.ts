@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { aiProviders } from "../schema";
-import { AiProvider } from "@senlo/core";
+import type { AiProvider } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";

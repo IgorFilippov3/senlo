@@ -3,36 +3,57 @@ import {
   EmailProviderRepository,
   TriggeredSendLogRepository,
   SuppressionRepository,
+  EmailTemplateRepository,
+  ProjectRepository,
+  RecipientListRepository,
   db,
 } from "@senlo/db";
-import { EmailWorkerProcessor, createEmailWorker } from "@senlo/core/src/queue";
+import {
+  EmailWorkerProcessor,
+  createEmailWorker,
+  createCampaignWorker,
+  emailQueue,
+} from "@senlo/core/src/queue";
 
 const campaignRepo = new CampaignRepository(db);
 const providerRepo = new EmailProviderRepository(db);
 const logRepo = new TriggeredSendLogRepository(db);
 const suppressionRepo = new SuppressionRepository(db);
+const templateRepo = new EmailTemplateRepository(db);
+const projectRepo = new ProjectRepository(db);
+const listRepo = new RecipientListRepository(db);
 
 const processor = new EmailWorkerProcessor(
   campaignRepo,
   providerRepo,
+  templateRepo,
+  projectRepo,
+  listRepo,
+  emailQueue,
   logRepo,
   suppressionRepo,
 );
 
-console.log("🚀 Starting Senlo Email Worker...");
+console.log("🚀 Starting Senlo Workers...");
 
-const worker = createEmailWorker(processor);
+const emailWorker = createEmailWorker(processor);
+const campaignWorker = createCampaignWorker(processor);
 
-worker.on("completed", (job) => {
-  console.log(`✅ Job ${job.id} completed`);
-});
+const setupLogging = (worker: any, name: string) => {
+  worker.on("completed", (job: any) => {
+    console.log(`✅ [${name}] Job ${job.id} completed`);
+  });
 
-worker.on("failed", (job, err) => {
-  console.error(`❌ Job ${job?.id} failed:`, err);
-});
+  worker.on("failed", (job: any, err: Error) => {
+    console.error(`❌ [${name}] Job ${job?.id} failed:`, err);
+  });
+};
+
+setupLogging(emailWorker, "Email");
+setupLogging(campaignWorker, "Campaign");
 
 process.on("SIGTERM", async () => {
-  console.log("Shutting down worker...");
-  await worker.close();
+  console.log("Shutting down workers...");
+  await Promise.all([emailWorker.close(), campaignWorker.close()]);
   process.exit(0);
 });

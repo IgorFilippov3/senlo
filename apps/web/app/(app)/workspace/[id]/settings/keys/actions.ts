@@ -8,7 +8,8 @@ import {
   validateId,
 } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
-import { ApiKey, SettingsService } from "@senlo/core";
+import { ApiKey } from "@senlo/core";
+import { SettingsService } from "@senlo/core/src/services/settingsService";
 import { auth } from "apps/web/auth";
 
 const settingsService = new SettingsService(
