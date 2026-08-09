@@ -23,6 +23,7 @@ import {
 import { Controller, useWatch } from "react-hook-form";
 import { RowBlock } from "@senlo/core";
 import { ConditionSection } from "./condition-section";
+import { LoopSection } from "./loop-section";
 
 interface RowSectionProps {
   row: RowBlock;
@@ -179,6 +180,7 @@ export const RowSection = ({ row }: RowSectionProps) => {
       </FormSection>
 
       <ConditionSection control={control} setValue={setValue} />
+      <LoopSection control={control} setValue={setValue} />
     </FormSection>
   );
 };

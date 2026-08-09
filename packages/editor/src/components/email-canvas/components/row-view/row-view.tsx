@@ -7,13 +7,15 @@ import { RowDropZones } from "../row-drop-zones/row-drop-zones";
 import { RowViewMenu } from "../row-view-menu/row-view-menu";
 import { useEditorStore } from "../../../../state/editor.store";
 import { cn } from "@senlo/ui";
-import { GitBranch } from "lucide-react";
+import { GitBranch, Repeat } from "lucide-react";
 
 interface RowViewProps {
   row: RowBlock;
+  localData?: Record<string, any>;
+  isLoopItem?: boolean;
 }
 
-export const RowView = ({ row }: RowViewProps) => {
+export const RowView = ({ row, localData, isLoopItem }: RowViewProps) => {
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
   const isDragActive = useEditorStore((s) => s.isDragActive);
@@ -29,6 +31,7 @@ export const RowView = ({ row }: RowViewProps) => {
   if (previewMode && row.condition) {
     const isVisible = evaluateCondition(row.condition, {
       responsiveStyles: [],
+      localData,
       options: {
         data: {
           contact: previewContact || {},
@@ -45,7 +48,8 @@ export const RowView = ({ row }: RowViewProps) => {
     }
   }
 
-  const isSelected = selection?.kind === "row" && selection.id === row.id;
+  const isSelected =
+    !isLoopItem && selection?.kind === "row" && selection.id === row.id;
   const isHovered = isDragActive && hoveredRowId === row.id;
 
   const { backgroundColor, padding, borderRadius } = row.settings;
@@ -103,10 +107,23 @@ export const RowView = ({ row }: RowViewProps) => {
           <GitBranch size={12} />
         </div>
       )}
+      {!previewMode && row.loop && (
+        <div
+          className="absolute top-2 right-10 z-10 bg-purple-600 text-white p-1 rounded-full shadow-md"
+          title={`Row Loop: ${row.loop.variable} as ${row.loop.alias}`}
+        >
+          <Repeat size={12} />
+        </div>
+      )}
       <div className={styles.row} style={contentStyle}>
         <div className={styles.inner}>
           {row.columns.map((column) => (
-            <ColumnView key={column.id} column={column} rowId={row.id} />
+            <ColumnView
+              key={column.id}
+              column={column}
+              rowId={row.id}
+              localData={localData}
+            />
           ))}
         </div>
       </div>

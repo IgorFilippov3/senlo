@@ -1,8 +1,23 @@
 import { ContentBlock } from "../emailDesign";
 import { renderPadding, normalizeUrl } from "./utils";
 import { RenderOptions } from "./types";
+import { replaceMergeTags } from "../merge-tags";
 
 export function renderMJMLBlock(
+  block: ContentBlock,
+  options?: RenderOptions,
+  localData?: Record<string, any>,
+): string {
+  const content = renderMJMLBlockContent(block, options);
+
+  if (localData && options?.data) {
+    return replaceMergeTags(content, options.data, localData);
+  }
+
+  return content;
+}
+
+function renderMJMLBlockContent(
   block: ContentBlock,
   options?: RenderOptions,
 ): string {

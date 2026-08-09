@@ -2,13 +2,53 @@ import { EmailDesignDocument, RowBlock, ColumnBlock } from "../emailDesign";
 import { renderMJMLBlock } from "./mjmlBlocks";
 import { renderPadding } from "./utils";
 import { replaceMergeTags } from "../merge-tags";
-import { RenderOptions } from "./types";
+import { RenderOptions, RenderContext } from "./types";
+import { resolveVariable } from "./conditions";
 
 export function renderEmailDesignMJML(
   design: EmailDesignDocument,
-  options?: RenderOptions
+  options?: RenderOptions,
 ): string {
-  const sections = design.rows.map((row) => renderMJMLSection(row, options)).join("\n");
+  const context: RenderContext = {
+    responsiveStyles: [],
+    options,
+  };
+
+  const sections = design.rows
+    .map((row) => {
+      if (row.loop) {
+        const data = options?.data || {};
+        const loopData = resolveVariable(row.loop.variable, data);
+
+        if (Array.isArray(loopData)) {
+          return loopData
+            .map((item) => {
+              const localContext = {
+                ...context,
+                localData: {
+                  ...context.localData,
+                  [row.loop!.alias]: item,
+                },
+              };
+              let sectionMjml = renderMJMLSection(row, localContext);
+              // Replace local tags immediately
+              if (localContext.localData && options?.data) {
+                sectionMjml = replaceMergeTags(
+                  sectionMjml,
+                  options.data,
+                  localContext.localData,
+                );
+              }
+              return sectionMjml;
+            })
+            .join("\n");
+        }
+        // In preview mode or editor, we might want to show at least one row or a message
+        return "";
+      }
+      return renderMJMLSection(row, context);
+    })
+    .join("\n");
 
   let mjml = `
 <mjml>
@@ -34,9 +74,11 @@ export function renderEmailDesignMJML(
   return mjml;
 }
 
-function renderMJMLSection(row: RowBlock, options?: RenderOptions): string {
+function renderMJMLSection(row: RowBlock, context: RenderContext): string {
   const { settings } = row;
-  const columns = row.columns.map((col) => renderMJMLColumn(col, options)).join("\n");
+  const columns = row.columns
+    .map((col) => renderMJMLColumn(col, context))
+    .join("\n");
   const borderRadius = settings.borderRadius || { top: 0, bottom: 0 };
   const borderRadiusStr = `${borderRadius.top || 0}px ${borderRadius.top || 0}px ${borderRadius.bottom || 0}px ${borderRadius.bottom || 0}px`;
 
@@ -52,16 +94,14 @@ function renderMJMLSection(row: RowBlock, options?: RenderOptions): string {
     </mj-section>`;
 }
 
-function renderMJMLColumn(column: ColumnBlock, options?: RenderOptions): string {
-  const blocks = column.blocks.map((block) => renderMJMLBlock(block, options)).join("\n");
+function renderMJMLColumn(column: ColumnBlock, context: RenderContext): string {
+  const blocks = column.blocks
+    .map((block) => renderMJMLBlock(block, context.options, context.localData))
+    .join("\n");
 
   return `
       <mj-column width="${column.width}%">
         ${blocks}
       </mj-column>`;
 }
-
-
-
-
-
+// remove getLoopData at the end

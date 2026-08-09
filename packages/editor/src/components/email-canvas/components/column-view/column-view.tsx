@@ -7,14 +7,14 @@ import { useDroppable } from "@dnd-kit/core";
 import { BlockView } from "../block-view/block-view";
 import { useEditorStore } from "../../../../state/editor.store";
 import { cn } from "@senlo/ui";
-import { DropIndicator } from "../drop-indicator/drop-indicator";
 
 interface ColumnViewProps {
   column: ColumnBlock;
   rowId: string;
+  localData?: Record<string, any>;
 }
 
-export const ColumnView = ({ column, rowId }: ColumnViewProps) => {
+export const ColumnView = ({ column, rowId, localData }: ColumnViewProps) => {
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
   const isDragActive = useEditorStore((s) => s.isDragActive);
@@ -67,7 +67,7 @@ export const ColumnView = ({ column, rowId }: ColumnViewProps) => {
         styles.column,
         isEmpty && styles.empty,
         isSelected && styles.selected,
-        isOver && styles.dragOver
+        isOver && styles.dragOver,
       )}
       style={style}
       onClick={handleClick}
@@ -85,6 +85,7 @@ export const ColumnView = ({ column, rowId }: ColumnViewProps) => {
               block={block}
               columnId={column.id}
               rowId={rowId}
+              localData={localData}
             />
           ))}
           {/* {isDragActive && (activeDragType === "block" || activeDragType === "content") && (

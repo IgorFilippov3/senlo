@@ -274,11 +274,17 @@ export interface ColumnBlock {
   blocks: ContentBlock[];
 }
 
+export interface RowLoop {
+  variable: string;
+  alias: string;
+}
+
 export interface RowBlock {
   id: RowId;
   type: "row";
   columns: ColumnBlock[];
   condition?: ContentCondition;
+  loop?: RowLoop;
   settings: {
     backgroundColor?: string;
     fullWidth?: boolean;
@@ -348,6 +354,11 @@ export const contentConditionSchema = z.object({
   variable: z.string(),
   operator: conditionOperatorSchema,
   value: z.union([z.string(), z.number(), z.boolean()]).optional(),
+});
+
+export const rowLoopSchema = z.object({
+  variable: z.string(),
+  alias: z.string(),
 });
 
 export const headingBlockSchema = z.object({
@@ -566,6 +577,7 @@ export const rowBlockSchema = z.object({
   type: z.literal("row"),
   columns: z.array(columnBlockSchema).min(1),
   condition: contentConditionSchema.optional(),
+  loop: rowLoopSchema.optional(),
   settings: z
     .object({
       backgroundColor: z.string().optional(),

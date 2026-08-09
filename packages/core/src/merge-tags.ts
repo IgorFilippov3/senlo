@@ -1,3 +1,5 @@
+import { resolveVariable } from "./renderer/conditions";
+
 export interface MergeTag {
   label: string;
   value: string;
@@ -28,11 +30,9 @@ export function replaceMergeTags(
     unsubscribeUrl?: string;
     custom?: Record<string, any>;
   },
+  localData?: Record<string, any>,
 ): string {
   if (!text) return text;
-
-  const projectData = data.workspace || data.project;
-  const campaignData = data.trigger || data.campaign;
 
   return text.replace(/\{\{(.*?)\}\}/g, (match, tag) => {
     const rawTag = tag.trim();
@@ -41,43 +41,11 @@ export function replaceMergeTags(
       return data.unsubscribeUrl || "[[Unsubscribe Link]]";
     }
 
-    // Check custom tags first (flat structure)
-    if (data.custom && rawTag in data.custom) {
-      return String(data.custom[rawTag]);
-    }
+    const val = resolveVariable(rawTag, data, localData);
 
-    const parts = rawTag.split(".");
-    const context = parts[0];
-    const key = parts.slice(1).join(".");
-
-    if (context === "contact" && data.contact) {
-      if (data.contact[key] !== undefined && data.contact[key] !== null) {
-        return String(data.contact[key]);
-      }
-
-      if (
-        data.contact.meta &&
-        data.contact.meta[key] !== undefined &&
-        data.contact.meta[key] !== null
-      ) {
-        return String(data.contact.meta[key]);
-      }
-
-      if (key === "first_name" && data.contact.name) {
-        return data.contact.name.split(" ")[0] || match;
-      }
-      if (key === "last_name" && data.contact.name) {
-        const nameParts = data.contact.name.split(" ");
-        return nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
-      }
-
-      return match;
-    }
-    if ((context === "project" || context === "workspace") && projectData) {
-      return (projectData as any)[key] || match;
-    }
-    if ((context === "campaign" || context === "trigger") && campaignData) {
-      return (campaignData as any)[key] || match;
+    if (val !== undefined && val !== null) {
+      if (typeof val === "object") return match; // Don't stringify objects/arrays into HTML
+      return String(val);
     }
 
     return match;

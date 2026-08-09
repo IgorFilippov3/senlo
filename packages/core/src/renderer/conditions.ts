@@ -9,8 +9,9 @@ export function evaluateCondition(
 
   const { variable, operator, value } = condition;
   const data = context.options?.data || {};
+  const localData = context.localData || {};
 
-  const actualValue = getVariableValue(variable, data);
+  const actualValue = resolveVariable(variable, data, localData);
 
   switch (operator) {
     case "equals":
@@ -34,57 +35,69 @@ export function evaluateCondition(
   }
 }
 
-function getVariableValue(variable: string, data: any): any {
-  if (!variable) return undefined;
+/**
+ * Deeply resolve a variable path in the given data objects.
+ * Priority: localData (loop) > custom (mock) > contact > workspace > campaign > root
+ */
+export function resolveVariable(
+  path: string,
+  data: any,
+  localData?: Record<string, any>,
+): any {
+  if (!path) return undefined;
 
-  // Check custom tags first (flat structure)
-  if (data.custom && variable in data.custom) {
-    return data.custom[variable];
+  const parts = path.split(".");
+  const root = parts[0];
+
+  // 1. Try local data (loops)
+  if (localData && root in localData) {
+    return getDeepValue(localData, parts);
   }
 
-  const parts = variable.split(".");
-  const context = parts[0];
-  const key = parts.slice(1).join(".");
+  // 2. Try custom data (mock data from preview)
+  if (data.custom) {
+    const val = getDeepValue(data.custom, parts);
+    if (val !== undefined) return val;
+  }
 
-  if (context === "contact" && data.contact) {
-    if (data.contact[key] !== undefined && data.contact[key] !== null) {
-      return data.contact[key];
-    }
+  // 3. Try standard contexts
+  if (root === "contact" && data.contact) {
+    const val = getDeepValue(data.contact, parts.slice(1));
+    if (val !== undefined) return val;
 
-    if (
-      data.contact.meta &&
-      data.contact.meta[key] !== undefined &&
-      data.contact.meta[key] !== null
-    ) {
-      return data.contact.meta[key];
+    // Fallback for flat contact in some contexts
+    if (data.contact[parts[0]] !== undefined) {
+      return getDeepValue(data.contact, parts);
     }
-
-    if (key === "first_name" && data.contact.name) {
-      return data.contact.name.split(" ")[0];
-    }
-    if (key === "last_name" && data.contact.name) {
-      const nameParts = data.contact.name.split(" ");
-      return nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
-    }
-
-    return undefined;
   }
 
   if (
-    (context === "project" || context === "workspace") &&
+    (root === "workspace" || root === "project") &&
     (data.workspace || data.project)
   ) {
-    const projectData = data.workspace || data.project;
-    return (projectData as any)[key];
+    return getDeepValue(data.workspace || data.project, parts.slice(1));
   }
 
   if (
-    (context === "campaign" || context === "trigger") &&
+    (root === "trigger" || root === "campaign") &&
     (data.trigger || data.campaign)
   ) {
-    const campaignData = data.trigger || data.campaign;
-    return (campaignData as any)[key];
+    return getDeepValue(data.trigger || data.campaign, parts.slice(1));
   }
 
-  return undefined;
+  // 4. Try top-level of data
+  return getDeepValue(data, parts);
+}
+
+function getDeepValue(obj: any, parts: string[]): any {
+  if (parts.length === 0) return obj;
+  let current = obj;
+  for (const part of parts) {
+    if (current && typeof current === "object" && part in current) {
+      current = current[part];
+    } else {
+      return undefined;
+    }
+  }
+  return current;
 }

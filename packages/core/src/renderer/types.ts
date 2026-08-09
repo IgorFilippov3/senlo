@@ -8,6 +8,7 @@ export type RenderContext = {
   // To store shared state during rendering (e.g. unique classes for media queries)
   responsiveStyles: string[];
   options?: RenderOptions;
+  localData?: Record<string, any>;
 };
 
 export interface RenderOptions {
@@ -20,14 +21,6 @@ export interface RenderOptions {
     trigger?: { name: string; id?: number };
     unsubscribeUrl?: string;
     custom?: Record<string, any>;
+    local?: Record<string, any>; // Used internally or for nested manual data
   };
 }
-
-
-
-
-
-
-
-
-

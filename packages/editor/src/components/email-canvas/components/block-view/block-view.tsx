@@ -51,9 +51,15 @@ interface BlockViewProps {
   block: ContentBlock;
   columnId: string;
   rowId: string;
+  localData?: Record<string, any>;
 }
 
-export const BlockView = ({ block, columnId, rowId }: BlockViewProps) => {
+export const BlockView = ({
+  block,
+  columnId,
+  rowId,
+  localData,
+}: BlockViewProps) => {
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
   const isDragActive = useEditorStore((s) => s.isDragActive);
@@ -65,6 +71,7 @@ export const BlockView = ({ block, columnId, rowId }: BlockViewProps) => {
   if (previewMode && block.condition) {
     const isVisible = evaluateCondition(block.condition, {
       responsiveStyles: [],
+      localData,
       options: {
         data: {
           contact: previewContact || {},
@@ -83,13 +90,17 @@ export const BlockView = ({ block, columnId, rowId }: BlockViewProps) => {
 
   const renderText = (text: string) => {
     const processedText = previewMode
-      ? replaceMergeTags(text, {
-          contact: previewContact || {},
-          custom: previewContact || {}, // Support custom variables in canvas preview
-          workspace: { name: "Sample Workspace" },
-          trigger: { name: "Sample Trigger" },
-          unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
-        })
+      ? replaceMergeTags(
+          text,
+          {
+            contact: previewContact || {},
+            custom: previewContact || {}, // Support custom variables in canvas preview
+            workspace: { name: "Sample Workspace" },
+            trigger: { name: "Sample Trigger" },
+            unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
+          },
+          localData,
+        )
       : text;
 
     return <span dangerouslySetInnerHTML={{ __html: processedText }} />;

@@ -251,12 +251,14 @@ export interface EditorState {
     rowId: RowId,
     updates: Partial<RowBlock["settings"]>,
     condition?: RowBlock["condition"],
+    loop?: RowBlock["loop"],
   ) => void;
   /** Update row settings without history tracking */
   updateRowWithoutHistory: (
     rowId: RowId,
     updates: Partial<RowBlock["settings"]>,
     condition?: RowBlock["condition"],
+    loop?: RowBlock["loop"],
   ) => void;
 
   // Block Actions
@@ -1025,7 +1027,7 @@ export const useEditorStore = create<EditorState>()(
       });
     },
 
-    updateRow: (rowId, updates, condition) => {
+    updateRow: (rowId, updates, condition, loop) => {
       const state = get();
       const currentRow = state.design.rows.find((r) => r.id === rowId);
       if (!currentRow) return;
@@ -1043,7 +1045,11 @@ export const useEditorStore = create<EditorState>()(
       const conditionHasChanges =
         JSON.stringify(currentRow.condition) !== JSON.stringify(condition);
 
-      if (!settingsHasChanges && !conditionHasChanges) return;
+      const loopHasChanges =
+        JSON.stringify(currentRow.loop) !== JSON.stringify(loop);
+
+      if (!settingsHasChanges && !conditionHasChanges && !loopHasChanges)
+        return;
 
       set((s) => {
         saveToHistory(s);
@@ -1051,16 +1057,18 @@ export const useEditorStore = create<EditorState>()(
         if (row) {
           Object.assign(row.settings, updates);
           row.condition = condition;
+          row.loop = loop;
         }
       });
     },
 
-    updateRowWithoutHistory: (rowId, updates, condition) => {
+    updateRowWithoutHistory: (rowId, updates, condition, loop) => {
       set((s) => {
         const row = s.design.rows.find((r) => r.id === rowId);
         if (row) {
           Object.assign(row.settings, updates);
           row.condition = condition;
+          row.loop = loop;
         }
       });
     },
