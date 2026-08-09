@@ -8,6 +8,8 @@
 *.pem
 *.key
 
+.cursor
+
 # Dependencies
 node_modules/
 .pnp
