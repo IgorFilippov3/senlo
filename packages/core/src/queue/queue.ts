@@ -1,9 +1,10 @@
 import { Queue } from "bullmq";
 import { redis } from "../redis";
-import type { EmailJobData, CampaignJobData } from "./types";
+import type { EmailJobData, CampaignJobData, AutomationJobData } from "./types";
 
 export const EMAIL_QUEUE_NAME = "email-queue";
 export const CAMPAIGN_QUEUE_NAME = "campaign-queue";
+export const AUTOMATION_QUEUE_NAME = "automation-queue";
 
 const queuePrefix = process.env.REDIS_QUEUE_PREFIX || "senlo";
 
@@ -30,3 +31,20 @@ export const campaignQueue = new Queue<CampaignJobData>(CAMPAIGN_QUEUE_NAME, {
     removeOnFail: false,
   },
 });
+
+export const automationQueue = new Queue<AutomationJobData>(
+  AUTOMATION_QUEUE_NAME,
+  {
+    connection: redis as any,
+    prefix: queuePrefix,
+    defaultJobOptions: {
+      attempts: 5,
+      backoff: {
+        type: "exponential",
+        delay: 1000,
+      },
+      removeOnComplete: true,
+      removeOnFail: false,
+    },
+  },
+);

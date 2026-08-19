@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -17,6 +17,7 @@
     "@senlo/db": "workspace:^",
     "@senlo/editor": "workspace:^",
     "@senlo/features": "workspace:^",
+    "@senlo/automation-builder": "workspace:^",
     "@senlo/ui": "workspace:^",
     "@tanstack/react-query": "^5.90.16",
     "@tanstack/react-query-devtools": "^5.91.2",

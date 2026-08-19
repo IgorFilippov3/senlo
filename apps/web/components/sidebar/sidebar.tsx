@@ -3,16 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useParams, useRouter } from "next/navigation";
-import {
-  Folder,
-  Zap,
-  Globe,
-  Cloud,
-  Key,
-  FileCode,
-  Users,
-  LayoutDashboard,
-} from "lucide-react";
+import { Settings, Folder, Zap, Globe, Cloud, Key, FileCode, Users, LayoutDashboard, GitBranch } from "lucide-react";
 import { useProjects } from "apps/web/hooks/use-projects";
 import { useWorkspaceStorage } from "apps/web/hooks/use-workspace-storage";
 import { Sidebar as SharedSidebar, NavItem } from "@senlo/features";
@@ -80,10 +71,22 @@ export function Sidebar() {
       isActive: pathname.startsWith(`/workspace/${workspaceId}/triggers`),
     },
     {
+      href: `/workspace/${workspaceId}/automations`,
+      label: "Automations",
+      icon: GitBranch,
+      isActive: pathname.startsWith(`/workspace/${workspaceId}/automations`),
+    },
+    {
       href: `/workspace/${workspaceId}/audience`,
       label: "Audience",
       icon: Users,
       isActive: pathname.startsWith(`/workspace/${workspaceId}/audience`),
+    },
+    {
+      href: `/workspace/${workspaceId}/settings/general`,
+      label: "Settings",
+      icon: Settings,
+      isActive: pathname.startsWith(`/workspace/${workspaceId}/settings`) && !pathname.includes("/keys"),
     },
     {
       href: `/workspace/${workspaceId}/settings/keys`,

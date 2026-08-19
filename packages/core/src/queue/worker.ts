@@ -1,6 +1,6 @@
 import { Worker, Job, Queue } from "bullmq";
 import { redis } from "../redis";
-import type { EmailJobData, CampaignJobData } from "./types";
+import type { EmailJobData, CampaignJobData, AutomationJobData } from "./types";
 import {
   ICampaignRepository,
   IEmailProviderRepository,
@@ -15,6 +15,8 @@ import { encodeUnsubscribeToken } from "../unsubscribe-token";
 import { renderEmailDesign } from "../renderer/renderEmailDesign";
 import { wrapLinksWithTracking } from "../tracking";
 import { EmailDesignDocument } from "../emailDesign";
+import { AutomationService } from "../services/automationService";
+import { AUTOMATION_QUEUE_NAME } from "./queue";
 
 export class EmailWorkerProcessor {
   constructor(
@@ -179,12 +181,16 @@ export class EmailWorkerProcessor {
     const contacts = await this.listRepo.getContacts(campaign.listId, true);
 
     if (contacts.length === 0) {
-      console.warn(`[Worker] Campaign ${campaignId} has no recipients, marking as completed`);
+      console.warn(
+        `[Worker] Campaign ${campaignId} has no recipients, marking as completed`,
+      );
       await this.campaignRepo.update(campaignId, { status: "COMPLETED" });
       return;
     }
 
-    console.log(`[Worker] Starting campaign ${campaignId} send to ${contacts.length} recipients`);
+    console.log(
+      `[Worker] Starting campaign ${campaignId} send to ${contacts.length} recipients`,
+    );
 
     await this.campaignRepo.update(campaignId, {
       status: "SENDING",
@@ -197,7 +203,7 @@ export class EmailWorkerProcessor {
     const CHUNK_SIZE = 100;
     for (let i = 0; i < contacts.length; i += CHUNK_SIZE) {
       const chunk = contacts.slice(i, i + CHUNK_SIZE);
-      
+
       await Promise.all(
         chunk.map(async (contact) => {
           const emailEncoded = encodeURIComponent(contact.email);
@@ -232,16 +238,19 @@ export class EmailWorkerProcessor {
             ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
             : campaign.fromEmail || "hello@senlo.io";
 
-          return this.emailQueue.add(`campaign-${campaign.id}-${contact.id}-${Date.now()}`, {
-            projectId: project.id,
-            campaignId: campaign.id,
-            contactId: contact.id,
-            email: contact.email,
-            from: fromAddress,
-            subject: campaign.subject || template.subject,
-            html: personalizedHtml,
-            providerId: project.providerId!,
-          });
+          return this.emailQueue.add(
+            `campaign-${campaign.id}-${contact.id}-${Date.now()}`,
+            {
+              projectId: project.id,
+              campaignId: campaign.id,
+              contactId: contact.id,
+              email: contact.email,
+              from: fromAddress,
+              subject: campaign.subject || template.subject,
+              html: personalizedHtml,
+              providerId: project.providerId!,
+            },
+          );
         }),
       );
     }
@@ -271,6 +280,30 @@ export function createCampaignWorker(processor: EmailWorkerProcessor) {
     "campaign-queue",
     async (job: Job<CampaignJobData>) => {
       await processor.processCampaignJob(job);
+    },
+    {
+      connection: redis as any,
+      prefix: queuePrefix,
+    },
+  );
+}
+
+export class AutomationWorkerProcessor {
+  constructor(private readonly automationService: AutomationService) {}
+
+  async processAutomationJob(job: Job<AutomationJobData>) {
+    const { executionId, nodeId } = job.data;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    await this.automationService.processStep(executionId, nodeId, baseUrl);
+  }
+}
+
+export function createAutomationWorker(processor: AutomationWorkerProcessor) {
+  const queuePrefix = process.env.REDIS_QUEUE_PREFIX || "senlo";
+  return new Worker(
+    AUTOMATION_QUEUE_NAME,
+    async (job: Job<AutomationJobData>) => {
+      await processor.processAutomationJob(job);
     },
     {
       connection: redis as any,

@@ -1,13 +1,26 @@
 "use client";
 
 import React, { useState } from "react";
-import type { Project } from "@senlo/core";
-import { Card, Button } from "@senlo/ui";
+import type { Project, EmailProvider } from "@senlo/core";
+import {
+  Card,
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@senlo/ui";
 import { Save, Trash2, AlertTriangle } from "lucide-react";
 
 export interface WorkspaceSettingsProps {
   workspace: Project;
-  onUpdate?: (data: { name: string; description?: string | null }) => void;
+  emailProviders?: EmailProvider[];
+  onUpdate?: (data: {
+    name: string;
+    description?: string | null;
+    providerId?: number | null;
+  }) => void;
   onDelete?: () => void;
   isUpdating?: boolean;
   isDeleting?: boolean;
@@ -15,6 +28,7 @@ export interface WorkspaceSettingsProps {
 
 export function WorkspaceSettings({
   workspace,
+  emailProviders = [],
   onUpdate,
   onDelete,
   isUpdating,
@@ -22,12 +36,16 @@ export function WorkspaceSettings({
 }: WorkspaceSettingsProps) {
   const [name, setName] = useState(workspace.name);
   const [description, setDescription] = useState(workspace.description || "");
+  const [providerId, setProviderId] = useState<string>(
+    workspace.providerId ? String(workspace.providerId) : "none",
+  );
 
   const handleSave = () => {
     if (!name.trim()) return;
     onUpdate?.({
       name: name.trim(),
       description: description.trim() || null,
+      providerId: providerId === "none" ? null : Number(providerId),
     });
   };
 
@@ -42,7 +60,10 @@ export function WorkspaceSettings({
   };
 
   const hasChanges =
-    name !== workspace.name || description !== (workspace.description || "");
+    name !== workspace.name ||
+    description !== (workspace.description || "") ||
+    providerId !==
+      (workspace.providerId ? String(workspace.providerId) : "none");
 
   return (
     <div className="space-y-8">
@@ -73,6 +94,29 @@ export function WorkspaceSettings({
               className="w-full p-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
               placeholder="What is this workspace for?"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-2">
+              Default Email Provider
+            </label>
+            <Select value={providerId} onValueChange={setProviderId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a provider" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None (Sending disabled)</SelectItem>
+                {emailProviders.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    {p.name} ({p.type})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-2 text-xs text-zinc-500">
+              This provider will be used for all automations and triggers in
+              this workspace.
+            </p>
           </div>
 
           <div className="flex justify-end pt-2">

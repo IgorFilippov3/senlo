@@ -16,3 +16,7 @@ export * from "./constants";
 export * from "./merge-tags";
 export * from "./tracking";
 export * from "./html-validator";
+export * from "./services/automationService";
+export * from "./services/audienceService";
+export * from "./services/triggerService";
+export * from "./services/authService";

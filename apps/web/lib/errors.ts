@@ -135,6 +135,8 @@ export async function withErrorHandling<T>(
     const data = await action();
     return { success: true, data };
   } catch (error) {
+    console.error("SERVER ACTION ERROR:", error);
+
     if (error instanceof AppError) {
       return { success: false, error: error.toJSON() };
     }

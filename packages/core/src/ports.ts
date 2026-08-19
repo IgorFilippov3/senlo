@@ -13,6 +13,11 @@ import type {
   DashboardActivity,
   DashboardEvent,
   ApiKey,
+  Workflow,
+  WorkflowNode,
+  WorkflowEdge,
+  WorkflowExecution,
+  WorkflowStepExecution,
 } from "./domain";
 import type { EmailTemplate } from "./emailTemplate";
 
@@ -98,6 +103,7 @@ export interface ContactRepository {
   }): Promise<Contact>;
 
   findByProject(projectId: number): Promise<Contact[]>;
+  findById(id: number): Promise<Contact | null>;
 }
 
 export interface RecipientListRepository {
@@ -202,4 +208,54 @@ export interface IDashboardRepository {
     limit: number,
     projectId?: number,
   ): Promise<DashboardEvent[]>;
+}
+
+export interface IWorkflowRepository {
+  create(
+    data: Omit<Workflow, "id" | "createdAt" | "updatedAt">,
+  ): Promise<Workflow>;
+  findById(id: number): Promise<Workflow | null>;
+  findByProject(projectId: number): Promise<Workflow[]>;
+  update(
+    id: number,
+    data: Partial<
+      Omit<Workflow, "id" | "projectId" | "createdAt" | "updatedAt">
+    >,
+  ): Promise<Workflow | null>;
+  delete(id: number): Promise<void>;
+
+  // Graph data
+  getNodes(workflowId: number): Promise<WorkflowNode[]>;
+  getEdges(workflowId: number): Promise<WorkflowEdge[]>;
+  saveGraph(
+    workflowId: number,
+    nodes: Omit<WorkflowNode, "workflowId">[],
+    edges: Omit<WorkflowEdge, "workflowId">[],
+  ): Promise<void>;
+}
+
+export interface IWorkflowExecutionRepository {
+  create(
+    data: Omit<WorkflowExecution, "id" | "startedAt">,
+  ): Promise<WorkflowExecution>;
+  findById(id: number): Promise<WorkflowExecution | null>;
+  findRunningByContact(
+    workflowId: number,
+    contactId: number,
+  ): Promise<WorkflowExecution | null>;
+  updateStatus(
+    id: number,
+    status: WorkflowExecution["status"],
+    completedAt?: Date,
+  ): Promise<void>;
+
+  // Step tracking
+  createStepExecution(
+    data: Omit<WorkflowStepExecution, "id" | "startedAt">,
+  ): Promise<WorkflowStepExecution>;
+  updateStepExecution(
+    id: number,
+    data: Partial<Omit<WorkflowStepExecution, "id" | "startedAt">>,
+  ): Promise<void>;
+  getStepExecutions(executionId: number): Promise<WorkflowStepExecution[]>;
 }

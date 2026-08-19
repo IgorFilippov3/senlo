@@ -1,0 +1,24 @@
+.react-flow__controls-button {
+  width: 36px !important;
+  height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.react-flow__controls-button svg {
+  width: 22px !important;
+  height: 22px !important;
+  max-width: 22px !important;
+  max-height: 22px !important;
+}
+
+.react-flow__handle {
+  width: 0 !important;
+  height: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+

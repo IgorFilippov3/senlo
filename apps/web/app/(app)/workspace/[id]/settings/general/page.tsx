@@ -9,24 +9,34 @@ import {
   useUpdateProject,
   useDeleteProject,
 } from "apps/web/queries/projects";
+import { useProviders } from "apps/web/queries/providers";
 
 export default function GeneralSettingsPage() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = Number(params.id);
 
-  const { data: workspace, isLoading } = useProject(workspaceId);
+  const { data: workspace, isLoading: isLoadingWorkspace } =
+    useProject(workspaceId);
+  const { data: providers = [], isLoading: isLoadingProviders } =
+    useProviders();
   const updateMutation = useUpdateProject();
   const deleteMutation = useDeleteProject();
 
   const handleUpdate = async (data: {
     name: string;
     description?: string | null;
+    providerId?: number | null;
   }) => {
     const formData = new FormData();
     formData.append("name", data.name);
     if (data.description) {
       formData.append("description", data.description);
+    }
+    if (data.providerId) {
+      formData.append("providerId", String(data.providerId));
+    } else {
+      formData.append("providerId", "none");
     }
 
     updateMutation.mutate(
@@ -54,6 +64,8 @@ export default function GeneralSettingsPage() {
       },
     });
   };
+
+  const isLoading = isLoadingWorkspace || isLoadingProviders;
 
   if (isLoading) {
     return (
@@ -84,6 +96,7 @@ export default function GeneralSettingsPage() {
       <div className="mt-8">
         <WorkspaceSettings
           workspace={workspace}
+          emailProviders={providers}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           isUpdating={updateMutation.isPending}

@@ -112,6 +112,13 @@ export const aiProviderTypeEnum = pgEnum("ai_provider_type", [
   "ANTHROPIC",
 ]);
 
+export const workflowStatusEnum = pgEnum("workflow_status", [
+  "DRAFT",
+  "ACTIVE",
+  "PAUSED",
+  "ARCHIVED",
+]);
+
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   userId: text("user_id").references(() => users.id, {
@@ -161,6 +168,7 @@ export const contacts = pgTable(
       .references(() => projects.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     name: text("name"),
+    locale: text("locale").default("en"),
     meta: jsonb("meta"),
     unsubscribed: boolean("unsubscribed").notNull().default(false),
     unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
@@ -351,3 +359,69 @@ export const suppressions = pgTable(
     unq: unique().on(table.projectId, table.email),
   }),
 );
+
+export const workflows = pgTable("workflows", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: workflowStatusEnum("status").notNull().default("DRAFT"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const workflowNodes = pgTable("workflow_nodes", {
+  id: text("id").primaryKey(),
+  workflowId: integer("workflow_id")
+    .notNull()
+    .references(() => workflows.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  data: jsonb("data").notNull(),
+  positionX: integer("position_x").notNull(),
+  positionY: integer("position_y").notNull(),
+});
+
+export const workflowEdges = pgTable("workflow_edges", {
+  id: text("id").primaryKey(),
+  workflowId: integer("workflow_id")
+    .notNull()
+    .references(() => workflows.id, { onDelete: "cascade" }),
+  sourceNodeId: text("source_node_id").notNull(),
+  targetNodeId: text("target_node_id").notNull(),
+  sourceHandle: text("source_handle"),
+});
+
+export const workflowExecutions = pgTable("workflow_executions", {
+  id: serial("id").primaryKey(),
+  workflowId: integer("workflow_id")
+    .notNull()
+    .references(() => workflows.id, { onDelete: "cascade" }),
+  contactId: integer("contact_id")
+    .notNull()
+    .references(() => contacts.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("RUNNING"),
+  startedAt: timestamp("started_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
+
+export const workflowStepExecutions = pgTable("workflow_step_executions", {
+  id: serial("id").primaryKey(),
+  executionId: integer("execution_id")
+    .notNull()
+    .references(() => workflowExecutions.id, { onDelete: "cascade" }),
+  nodeId: text("node_id").notNull(),
+  status: text("status").notNull(),
+  result: jsonb("result"),
+  startedAt: timestamp("started_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});

@@ -18,6 +18,7 @@ export const authConfig = {
       // 1. Allow API routes with Authorization header (API Keys)
       const isApiRoute =
         nextUrl.pathname.startsWith("/api/v1/") ||
+        nextUrl.pathname.startsWith("/api/contacts") ||
         nextUrl.pathname.startsWith("/api/triggered");
       const hasAuthHeader = headers.has("Authorization");
 

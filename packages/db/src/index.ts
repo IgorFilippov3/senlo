@@ -24,3 +24,5 @@ export * from "./repositories/triggeredSendLogRepository";
 export * from "./repositories/savedRowRepository";
 export * from "./repositories/suppressionRepository";
 export * from "./repositories/dashboardRepository";
+export * from "./repositories/workflowRepository";
+export * from "./repositories/workflowExecutionRepository";

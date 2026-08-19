@@ -1,0 +1,49 @@
+{
+  "name": "@senlo/automation-builder",
+  "version": "0.0.6",
+  "description": "Visual drag-and-drop workflow editor for Senlo",
+  "type": "module",
+  "main": "./src/index.tsx",
+  "module": "./src/index.tsx",
+  "types": "./src/index.tsx",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.mjs",
+        "require": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "build:package": "tsup",
+    "dev": "tsc --noEmit --watch",
+    "dev:package": "tsup --watch"
+  },
+  "dependencies": {
+    "@senlo/core": "workspace:*",
+    "@senlo/ui": "workspace:*",
+    "@xyflow/react": "^12.0.0",
+    "lucide-react": "^0.453.0",
+    "zustand": "^4.5.2",
+    "nanoid": "^5.0.7"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}

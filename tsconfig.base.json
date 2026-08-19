@@ -44,6 +44,12 @@
       ],
       "@senlo/integrations/*": [
         "packages/integrations/src/*"
+      ],
+      "@senlo/automation-builder": [
+        "packages/automation-builder/src"
+      ],
+      "@senlo/automation-builder/*": [
+        "packages/automation-builder/src/*"
       ]
     }
   }

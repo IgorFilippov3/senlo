@@ -34,6 +34,7 @@ export async function updateWorkspaceAction(
   data: {
     name?: string;
     description?: string | null;
+    providerId?: number | null;
   },
 ): Promise<ActionResult<Project>> {
   return withErrorHandling(async () => {

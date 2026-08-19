@@ -15,3 +15,8 @@ export type CampaignJobData = {
   campaignId: number;
   userId: string;
 };
+
+export type AutomationJobData = {
+  executionId: number;
+  nodeId: string;
+};
