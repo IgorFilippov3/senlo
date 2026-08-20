@@ -11,16 +11,19 @@ import {
   applyNodeChanges,
 } from "@xyflow/react";
 import { nanoid } from "nanoid";
+import { WorkflowNodeStats } from "@senlo/core";
 
 export interface AutomationState {
   nodes: Node[];
   edges: Edge[];
+  nodeStats: Record<string, WorkflowNodeStats>;
   selectedNodeId: string | null;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
+  setNodeStats: (stats: WorkflowNodeStats[]) => void;
   addNode: (
     type: string,
     position?: { x: number; y: number },
@@ -35,6 +38,7 @@ export interface AutomationState {
 export const useAutomationStore = create<AutomationState>((set, get) => ({
   nodes: [],
   edges: [],
+  nodeStats: {},
   selectedNodeId: null,
   onNodesChange: (changes) => {
     set({
@@ -53,6 +57,30 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
   },
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
+  setNodeStats: (stats) => {
+    const currentStats = get().nodeStats;
+    const statsMap: Record<string, WorkflowNodeStats> = {};
+    let hasChanged = false;
+
+    stats.forEach((s) => {
+      statsMap[s.nodeId] = s;
+      if (
+        !currentStats[s.nodeId] ||
+        JSON.stringify(currentStats[s.nodeId]) !== JSON.stringify(s)
+      ) {
+        hasChanged = true;
+      }
+    });
+
+    // Also check if some stats were removed
+    if (!hasChanged && Object.keys(currentStats).length !== stats.length) {
+      hasChanged = true;
+    }
+
+    if (hasChanged) {
+      set({ nodeStats: statsMap });
+    }
+  },
   addNode: (type, position, data = {}) => {
     if (type === "trigger") {
       const hasTrigger = get().nodes.some((n) => n.type === "trigger");

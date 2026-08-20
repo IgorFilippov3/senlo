@@ -36,9 +36,10 @@ interface Trigger {
 
 interface Props {
   triggers?: Trigger[];
+  stats?: import("@senlo/core").WorkflowNodeStats[];
 }
 
-export const AutomationCanvas = ({ triggers = [] }: Props) => {
+export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
   const {
     nodes,
     edges,
@@ -49,9 +50,16 @@ export const AutomationCanvas = ({ triggers = [] }: Props) => {
     addNode,
     deleteNode,
     selectedNodeId,
+    setNodeStats,
   } = useAutomationStore();
 
   const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
+
+  const statsString = JSON.stringify(stats);
+
+  React.useEffect(() => {
+    setNodeStats(stats);
+  }, [statsString, setNodeStats]);
 
   const onSelectionChange = useCallback(
     ({ nodes }: OnSelectionChangeParams) => {
@@ -191,10 +199,10 @@ export const AutomationCanvas = ({ triggers = [] }: Props) => {
   );
 };
 
-export const AutomationBuilder = ({ triggers }: Props) => {
+export const AutomationBuilder = ({ triggers, stats }: Props) => {
   return (
     <ReactFlowProvider>
-      <AutomationCanvas triggers={triggers} />
+      <AutomationCanvas triggers={triggers} stats={stats} />
     </ReactFlowProvider>
   );
 };

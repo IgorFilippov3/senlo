@@ -2,6 +2,7 @@ import React from "react";
 import { Handle, Position } from "@xyflow/react";
 import { Mail } from "lucide-react";
 import { AddStepButton } from "./AddStepButton";
+import { NodeStats } from "./NodeStats";
 
 export const ActionNode = ({ id, data }: any) => {
   return (
@@ -20,12 +21,15 @@ export const ActionNode = ({ id, data }: any) => {
           </span>
         </div>
       </div>
-      <div className="text-xs text-gray-500 leading-relaxed italic">
+      <div className="text-xs text-gray-500 leading-relaxed italic my-2">
         {data.label ||
           (data.triggerId || data.templateId
             ? `Trigger ID: ${data.triggerId || data.templateId}`
             : "No trigger selected")}
       </div>
+
+      <NodeStats nodeId={id} />
+
       <div className="relative mt-2">
         <Handle
           type="source"

@@ -135,6 +135,14 @@ export interface WorkflowStepExecution {
   completedAt?: Date | null;
 }
 
+export interface WorkflowNodeStats {
+  nodeId: string;
+  total: number;
+  active: number;
+  completed: number;
+  failed: number;
+}
+
 export type EmailProviderType = "RESEND" | "MAILGUN" | "SES" | "POSTMARK";
 
 export interface EmailProvider {

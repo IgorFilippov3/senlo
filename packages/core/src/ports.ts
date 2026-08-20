@@ -258,4 +258,7 @@ export interface IWorkflowExecutionRepository {
     data: Partial<Omit<WorkflowStepExecution, "id" | "startedAt">>,
   ): Promise<void>;
   getStepExecutions(executionId: number): Promise<WorkflowStepExecution[]>;
+  getNodeStats(
+    workflowId: number,
+  ): Promise<import("./domain").WorkflowNodeStats[]>;
 }

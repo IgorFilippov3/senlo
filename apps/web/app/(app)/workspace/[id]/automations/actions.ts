@@ -1,12 +1,53 @@
 "use server";
 
-import { WorkflowRepository, db } from "@senlo/db";
+import { revalidatePath } from "next/cache";
+import {
+  WorkflowRepository,
+  WorkflowExecutionRepository,
+  ContactRepository,
+  CampaignRepository,
+  EmailTemplateRepository,
+  EmailProviderRepository,
+  ProjectRepository,
+  TriggeredSendLogRepository,
+  db,
+} from "@senlo/db";
 import { auth } from "apps/web/auth";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
-import { Workflow, WorkflowNode, WorkflowEdge } from "@senlo/core";
-import { revalidatePath } from "next/cache";
+import {
+  Workflow,
+  WorkflowNode,
+  WorkflowEdge,
+  WorkflowNodeStats,
+} from "@senlo/core";
+import { AutomationService, TriggerService } from "@senlo/core";
+import { emailQueue, automationQueue } from "@senlo/core/src/queue";
 
 const workflowRepo = new WorkflowRepository(db);
+const executionRepo = new WorkflowExecutionRepository(db);
+const contactRepo = new ContactRepository(db);
+const campaignRepo = new CampaignRepository(db);
+const templateRepo = new EmailTemplateRepository(db);
+const providerRepo = new EmailProviderRepository(db);
+const projectRepo = new ProjectRepository(db);
+const logRepo = new TriggeredSendLogRepository(db);
+
+const triggerService = new TriggerService(
+  campaignRepo,
+  templateRepo,
+  providerRepo,
+  projectRepo,
+  logRepo,
+  emailQueue,
+);
+
+const automationService = new AutomationService(
+  workflowRepo,
+  executionRepo,
+  contactRepo,
+  automationQueue,
+  triggerService,
+);
 
 export async function listWorkflows(
   projectId: number,
@@ -57,7 +98,10 @@ export async function createWorkflow(
         [],
       );
     } catch (err) {
-      console.error("Failed to save initial graph, but workflow was created:", err);
+      console.error(
+        "Failed to save initial graph, but workflow was created:",
+        err,
+      );
       // We continue anyway because the workflow exists and can be edited
     }
 
@@ -66,9 +110,7 @@ export async function createWorkflow(
   });
 }
 
-export async function getWorkflow(
-  id: number,
-): Promise<
+export async function getWorkflow(id: number): Promise<
   ActionResult<{
     workflow: Workflow;
     nodes: WorkflowNode[];
@@ -162,5 +204,20 @@ export async function deleteWorkflow(id: number): Promise<ActionResult<void>> {
       await workflowRepo.delete(id);
       revalidatePath(`/workspace/${workflow.projectId}/automations`);
     }
+  });
+}
+
+export async function getWorkflowStats(
+  workflowId: number,
+): Promise<ActionResult<WorkflowNodeStats[]>> {
+  const session = await auth();
+  if (!session?.user?.id)
+    return {
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
+    };
+
+  return withErrorHandling(async () => {
+    return await automationService.getWorkflowStats(workflowId);
   });
 }

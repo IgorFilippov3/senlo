@@ -6,6 +6,7 @@ import {
 } from "../ports";
 import { TriggerService } from "./triggerService";
 import { AutomationJobData } from "../queue/types";
+import { WorkflowNodeStats } from "../domain";
 
 export class AutomationService {
   constructor(
@@ -142,7 +143,9 @@ export class AutomationService {
   ): Promise<void> {
     const campaignId = data.triggerId || data.campaignId || data.templateId;
     if (!campaignId)
-      throw new Error("No triggerId, campaignId or templateId specified for email action");
+      throw new Error(
+        "No triggerId, campaignId or templateId specified for email action",
+      );
 
     const workflow = await this.workflowRepo.findById(execution.workflowId);
     if (!workflow) throw new Error("Workflow not found");
@@ -240,5 +243,9 @@ export class AutomationService {
     };
 
     return duration * (multipliers[unit] || 0);
+  }
+
+  async getWorkflowStats(workflowId: number): Promise<WorkflowNodeStats[]> {
+    return this.executionRepo.getNodeStats(workflowId);
   }
 }

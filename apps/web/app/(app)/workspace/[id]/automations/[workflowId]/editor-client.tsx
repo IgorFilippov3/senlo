@@ -13,6 +13,7 @@ import { listProjectCampaigns } from "../../triggers/actions";
 import { useRouter } from "next/navigation";
 import { logger } from "apps/web/lib/logger";
 import { Badge } from "@senlo/ui";
+import { useWorkflowStats } from "apps/web/queries/automations";
 
 interface Props {
   initialWorkflow: Workflow;
@@ -30,6 +31,12 @@ export const WorkflowEditorClient = ({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(initialWorkflow.status);
   const [triggers, setTriggers] = useState<any[]>([]);
+
+  // Polling stats every 10 seconds if active
+  const { data: stats = [] } = useWorkflowStats(initialWorkflow.id, {
+    enabled: status === "ACTIVE",
+    refetchInterval: 10000,
+  });
 
   useEffect(() => {
     // Map DB nodes to React Flow nodes
@@ -153,7 +160,7 @@ export const WorkflowEditorClient = ({
       </div>
 
       <div className="flex-1 relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <AutomationBuilder triggers={triggers} />
+        <AutomationBuilder triggers={triggers} stats={stats} />
       </div>
     </div>
   );

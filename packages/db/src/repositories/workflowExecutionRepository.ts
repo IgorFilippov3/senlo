@@ -1,10 +1,11 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import {
   IWorkflowExecutionRepository,
   WorkflowExecution,
   WorkflowStepExecution,
+  WorkflowNodeStats,
 } from "@senlo/core";
 
 export class WorkflowExecutionRepository implements IWorkflowExecutionRepository {
@@ -102,5 +103,54 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
       status: row.status as WorkflowStepExecution["status"],
       result: row.result as Record<string, any> | null,
     }));
+  }
+
+  async getNodeStats(workflowId: number): Promise<WorkflowNodeStats[]> {
+    const rows = await this.db
+      .select({
+        nodeId: schema.workflowStepExecutions.nodeId,
+        status: schema.workflowStepExecutions.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(schema.workflowStepExecutions)
+      .innerJoin(
+        schema.workflowExecutions,
+        eq(
+          schema.workflowStepExecutions.executionId,
+          schema.workflowExecutions.id,
+        ),
+      )
+      .where(eq(schema.workflowExecutions.workflowId, workflowId))
+      .groupBy(
+        schema.workflowStepExecutions.nodeId,
+        schema.workflowStepExecutions.status,
+      );
+
+    const statsMap = new Map<string, WorkflowNodeStats>();
+
+    for (const row of rows) {
+      if (!statsMap.has(row.nodeId)) {
+        statsMap.set(row.nodeId, {
+          nodeId: row.nodeId,
+          total: 0,
+          active: 0,
+          completed: 0,
+          failed: 0,
+        });
+      }
+
+      const stats = statsMap.get(row.nodeId)!;
+      stats.total += row.count;
+
+      if (row.status === "PENDING") {
+        stats.active += row.count;
+      } else if (row.status === "COMPLETED") {
+        stats.completed += row.count;
+      } else if (row.status === "FAILED") {
+        stats.failed += row.count;
+      }
+    }
+
+    return Array.from(statsMap.values());
   }
 }

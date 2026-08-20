@@ -2,6 +2,7 @@ import React from "react";
 import { Handle, Position } from "@xyflow/react";
 import { GitBranch } from "lucide-react";
 import { AddStepButton } from "./AddStepButton";
+import { NodeStats } from "./NodeStats";
 
 export const ConditionNode = ({ id, data }: any) => {
   return (
@@ -12,40 +13,51 @@ export const ConditionNode = ({ id, data }: any) => {
           <GitBranch size={20} />
         </div>
         <div>
-          <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">Logic</span>
-          <span className="block font-bold text-sm text-gray-900 leading-none">API Check</span>
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            Logic
+          </span>
+          <span className="block font-bold text-sm text-gray-900 leading-none">
+            API Check
+          </span>
         </div>
       </div>
-      <div className="text-[11px] text-gray-500 leading-relaxed truncate max-w-[190px] bg-gray-50 p-1.5 rounded border border-gray-100">
+      <div className="text-[11px] text-gray-500 leading-relaxed truncate max-w-[190px] bg-gray-50 p-2 rounded border border-gray-100 my-2">
         {data.url || "https://api.example.com/check"}
       </div>
+
+      <NodeStats nodeId={id} />
+
       <div className="flex justify-between mt-5 pt-4 border-t border-gray-50 relative">
         <div className="relative flex flex-col items-center">
-          <span className="text-[9px] font-black uppercase text-green-600 mb-1">Yes</span>
+          <span className="text-[9px] font-black uppercase text-green-600 mb-1">
+            Yes
+          </span>
           <Handle
             type="source"
             position={Position.Bottom}
             id="yes"
             className="!opacity-0"
           />
-          <AddStepButton 
-            parentId={id} 
+          <AddStepButton
+            parentId={id}
             sourceHandle="yes"
-            className="absolute left-1/2 -translate-x-1/2 -bottom-[34px] z-10" 
+            className="absolute left-1/2 -translate-x-1/2 -bottom-[34px] z-10"
           />
         </div>
         <div className="relative flex flex-col items-center">
-          <span className="text-[9px] font-black uppercase text-red-500 mb-1">No</span>
+          <span className="text-[9px] font-black uppercase text-red-500 mb-1">
+            No
+          </span>
           <Handle
             type="source"
             position={Position.Bottom}
             id="no"
             className="!opacity-0"
           />
-          <AddStepButton 
-            parentId={id} 
+          <AddStepButton
+            parentId={id}
             sourceHandle="no"
-            className="absolute left-1/2 -translate-x-1/2 -bottom-[34px] z-10" 
+            className="absolute left-1/2 -translate-x-1/2 -bottom-[34px] z-10"
           />
         </div>
       </div>
