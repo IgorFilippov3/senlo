@@ -4,15 +4,15 @@ import { useEffect, useState } from "react";
 import {
   AutomationBuilder,
   useAutomationStore,
+  validateWorkflowGraph,
 } from "@senlo/automation-builder";
 import { Workflow, WorkflowNode, WorkflowEdge } from "@senlo/core";
-import { Button } from "@senlo/ui";
+import { Button, Dialog, Badge } from "@senlo/ui";
 import { Save, Play, Pause, ChevronLeft } from "lucide-react";
 import { saveWorkflowGraph, updateWorkflowStatus } from "../actions";
 import { listProjectCampaigns } from "../../triggers/actions";
 import { useRouter } from "next/navigation";
 import { logger } from "apps/web/lib/logger";
-import { Badge } from "@senlo/ui";
 import { useWorkflowStats } from "apps/web/queries/automations";
 
 interface Props {
@@ -31,15 +31,14 @@ export const WorkflowEditorClient = ({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(initialWorkflow.status);
   const [triggers, setTriggers] = useState<any[]>([]);
+  const [goLiveErrors, setGoLiveErrors] = useState<string[] | null>(null);
 
-  // Polling stats every 10 seconds if active
   const { data: stats = [] } = useWorkflowStats(initialWorkflow.id, {
     enabled: status === "ACTIVE",
     refetchInterval: 10000,
   });
 
   useEffect(() => {
-    // Map DB nodes to React Flow nodes
     const rfNodes = initialNodes.map((n) => ({
       id: n.id,
       type: n.type,
@@ -47,7 +46,6 @@ export const WorkflowEditorClient = ({
       position: { x: n.positionX, y: n.positionY },
     }));
 
-    // Map DB edges to React Flow edges
     const rfEdges = initialEdges.map((e) => ({
       id: e.id,
       source: e.sourceNodeId,
@@ -58,7 +56,6 @@ export const WorkflowEditorClient = ({
     setNodes(rfNodes);
     setEdges(rfEdges);
 
-    // Fetch triggers (campaigns) instead of raw templates
     const fetchTriggers = async () => {
       const result = await listProjectCampaigns(initialWorkflow.projectId);
       if (result.success) {
@@ -76,6 +73,7 @@ export const WorkflowEditorClient = ({
 
   const handleSave = async () => {
     setSaving(true);
+
     try {
       const result = await saveWorkflowGraph(initialWorkflow.id, nodes, edges);
       if (result.success) {
@@ -92,6 +90,15 @@ export const WorkflowEditorClient = ({
 
   const toggleStatus = async () => {
     const newStatus = status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+
+    if (newStatus === "ACTIVE") {
+      const graph = validateWorkflowGraph(nodes, edges);
+      if (!graph.valid) {
+        setGoLiveErrors(graph.reasons);
+        return;
+      }
+    }
+
     try {
       const result = await updateWorkflowStatus(initialWorkflow.id, newStatus);
       if (result.success) {
@@ -115,19 +122,21 @@ export const WorkflowEditorClient = ({
             <ChevronLeft size={20} className="text-gray-500" />
           </Button>
           <div>
-            <h1 className="font-bold text-gray-900 text-base leading-none mb-1">
-              {initialWorkflow.name}
-            </h1>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                Automation Builder
-              </span>
+              <h1 className="font-bold text-gray-900 text-base leading-none">
+                {initialWorkflow.name}
+              </h1>
               <Badge
                 variant={status === "ACTIVE" ? "success" : "secondary"}
                 className="h-4 text-[9px] px-1.5 uppercase font-bold"
               >
                 {status}
               </Badge>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                Automation Builder
+              </span>
             </div>
           </div>
         </div>
@@ -149,7 +158,7 @@ export const WorkflowEditorClient = ({
             )}
           </Button>
           <Button
-            className="font-semibold text-xs uppercase tracking-wider h-9 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/10"
+            className="font-semibold text-xs uppercase tracking-wider h-9 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/10 min-w-[140px]"
             onClick={handleSave}
             disabled={saving}
           >
@@ -162,6 +171,19 @@ export const WorkflowEditorClient = ({
       <div className="flex-1 relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <AutomationBuilder triggers={triggers} stats={stats} />
       </div>
+
+      <Dialog
+        isOpen={goLiveErrors !== null}
+        onClose={() => setGoLiveErrors(null)}
+        title="Cannot go live"
+        footer={<Button onClick={() => setGoLiveErrors(null)}>Got it</Button>}
+      >
+        <ul className="text-sm text-gray-600 list-disc pl-4 space-y-1">
+          {(goLiveErrors ?? []).map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      </Dialog>
     </div>
   );
 };

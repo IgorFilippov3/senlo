@@ -1,6 +1,6 @@
 {
   "name": "@senlo/automation-builder",
-  "version": "0.0.7",
+  "version": "0.0.18",
   "description": "Visual drag-and-drop workflow editor for Senlo",
   "type": "module",
   "main": "./src/index.tsx",

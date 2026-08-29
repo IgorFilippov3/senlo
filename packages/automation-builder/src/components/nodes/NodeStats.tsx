@@ -12,7 +12,7 @@ export const NodeStats = ({ nodeId }: NodeStatsProps) => {
   if (!stats) return null;
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-50 flex items-center gap-4 text-[10px] font-bold">
+    <div className="mt-3 py-1 border-t border-gray-50 flex items-center gap-4 text-[10px] font-bold">
       <div
         className="flex items-center gap-1 text-gray-500"
         title="Total contacts"

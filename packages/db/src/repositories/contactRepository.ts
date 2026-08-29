@@ -20,7 +20,6 @@ export class ContactRepository extends BaseRepository<
     super(db);
   }
 
-
   /**
    * Map a database row to a Contact entity.
    * @param row - The raw database row
@@ -128,7 +127,7 @@ export class ContactRepository extends BaseRepository<
    */
   async batchUpsert(
     projectId: number,
-    items: { email: string; name?: string; meta?: any }[]
+    items: { email: string; name?: string; meta?: any }[],
   ): Promise<Contact[]> {
     if (items.length === 0) return [];
 
@@ -167,7 +166,7 @@ export class ContactRepository extends BaseRepository<
       .select()
       .from(contacts)
       .where(
-        and(eq(contacts.projectId, projectId), inArray(contacts.email, emails))
+        and(eq(contacts.projectId, projectId), inArray(contacts.email, emails)),
       );
     return rows.map((r) => this.mapToEntity(r));
   }
@@ -199,5 +198,23 @@ export class ContactRepository extends BaseRepository<
         unsubscribedAt: new Date(),
       })
       .where(eq(contacts.id, id));
+  }
+
+  /**
+   * Update contact data.
+   * @param id - The contact ID
+   * @param data - The data to update
+   */
+  async update(
+    id: number,
+    data: Partial<Omit<Contact, "id" | "projectId" | "createdAt">>,
+  ): Promise<Contact | null> {
+    const [row] = await this.db
+      .update(contacts)
+      .set(data)
+      .where(eq(contacts.id, id))
+      .returning();
+
+    return row ? this.mapToEntity(row) : null;
   }
 }

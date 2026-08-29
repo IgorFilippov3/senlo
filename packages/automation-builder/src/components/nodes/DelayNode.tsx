@@ -4,9 +4,15 @@ import { Clock } from "lucide-react";
 import { AddStepButton } from "./AddStepButton";
 import { NodeStats } from "./NodeStats";
 
-export const DelayNode = ({ id, data }: any) => {
+export const DelayNode = ({ id, data, selected }: any) => {
   return (
-    <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm min-w-[200px] hover:border-blue-200 transition-colors group">
+    <div
+      className={`bg-white border p-4 rounded-xl shadow-sm min-w-[200px] transition-all group ${
+        selected
+          ? "border-blue-600 shadow-md"
+          : "border-gray-200 hover:border-blue-200"
+      }`}
+    >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
       <div className="flex items-center gap-3 mb-3">
         <div className="p-2 bg-purple-50 text-purple-600 rounded-lg border border-purple-100">
@@ -21,7 +27,7 @@ export const DelayNode = ({ id, data }: any) => {
           </span>
         </div>
       </div>
-      <div className="text-xs text-gray-500 leading-relaxed font-medium my-2">
+      <div className="text-xs text-gray-500 leading-relaxed font-medium mt-2">
         Wait for {data.duration || 1} {data.unit || "days"}
       </div>
 

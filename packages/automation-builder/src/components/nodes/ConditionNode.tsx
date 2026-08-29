@@ -4,9 +4,15 @@ import { GitBranch } from "lucide-react";
 import { AddStepButton } from "./AddStepButton";
 import { NodeStats } from "./NodeStats";
 
-export const ConditionNode = ({ id, data }: any) => {
+export const ConditionNode = ({ id, data, selected }: any) => {
   return (
-    <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm min-w-[220px] hover:border-blue-200 transition-colors group">
+    <div
+      className={`bg-white border p-4 rounded-xl shadow-sm min-w-[220px] transition-all group ${
+        selected
+          ? "border-blue-600 shadow-md"
+          : "border-gray-200 hover:border-blue-200"
+      }`}
+    >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
       <div className="flex items-center gap-3 mb-3">
         <div className="p-2 bg-green-50 text-green-600 rounded-lg border border-green-100">
@@ -21,33 +27,14 @@ export const ConditionNode = ({ id, data }: any) => {
           </span>
         </div>
       </div>
-      <div className="text-[11px] text-gray-500 leading-relaxed truncate max-w-[190px] bg-gray-50 p-2 rounded border border-gray-100 my-2">
+      <div className="text-[11px] text-gray-500 leading-relaxed truncate max-w-[190px] bg-gray-50 p-2 rounded border border-gray-100 mt-2">
         {data.url || "https://api.example.com/check"}
       </div>
 
       <NodeStats nodeId={id} />
 
-      <div className="flex justify-between mt-5 pt-4 border-t border-gray-50 relative">
+      <div className="flex justify-center gap-16 mt-4 pt-4 border-t border-gray-50 relative">
         <div className="relative flex flex-col items-center">
-          <span className="text-[9px] font-black uppercase text-green-600 mb-1">
-            Yes
-          </span>
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            id="yes"
-            className="!opacity-0"
-          />
-          <AddStepButton
-            parentId={id}
-            sourceHandle="yes"
-            className="absolute left-1/2 -translate-x-1/2 -bottom-[34px] z-10"
-          />
-        </div>
-        <div className="relative flex flex-col items-center">
-          <span className="text-[9px] font-black uppercase text-red-500 mb-1">
-            No
-          </span>
           <Handle
             type="source"
             position={Position.Bottom}
@@ -57,7 +44,22 @@ export const ConditionNode = ({ id, data }: any) => {
           <AddStepButton
             parentId={id}
             sourceHandle="no"
-            className="absolute left-1/2 -translate-x-1/2 -bottom-[34px] z-10"
+            variant="destructive"
+            className="absolute left-1/2 -translate-x-1/2 -bottom-[28px] z-10"
+          />
+        </div>
+        <div className="relative flex flex-col items-center">
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="yes"
+            className="!opacity-0"
+          />
+          <AddStepButton
+            parentId={id}
+            sourceHandle="yes"
+            variant="success"
+            className="absolute left-1/2 -translate-x-1/2 -bottom-[28px] z-10"
           />
         </div>
       </div>

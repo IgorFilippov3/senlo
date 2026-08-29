@@ -104,6 +104,10 @@ export interface ContactRepository {
 
   findByProject(projectId: number): Promise<Contact[]>;
   findById(id: number): Promise<Contact | null>;
+  update(
+    id: number,
+    data: Partial<Omit<Contact, "id" | "projectId" | "createdAt">>,
+  ): Promise<Contact | null>;
 }
 
 export interface RecipientListRepository {

@@ -24,23 +24,12 @@ export class AudienceService {
     const contact = await this.contactRepo.upsert(data);
 
     // Trigger workflows for 'contact_added' event
-    const workflows = await this.workflowRepo.findByProject(data.projectId);
-    for (const workflow of workflows) {
-      if (workflow.status === "ACTIVE") {
-        const nodes = await this.workflowRepo.getNodes(workflow.id);
-        const hasTrigger = nodes.some(
-          (n) => n.type === "trigger" && n.data.event === "contact_added",
-        );
-
-        if (hasTrigger) {
-          await this.automationService.triggerWorkflow({
-            workflowId: workflow.id,
-            contactId: contact.id,
-            projectId: data.projectId,
-          });
-        }
-      }
-    }
+    await this.automationService.triggerEvent({
+      event: "contact_added",
+      projectId: data.projectId,
+      contactId: contact.id,
+      metadata: contact.meta as Record<string, any>,
+    });
 
     return contact;
   }

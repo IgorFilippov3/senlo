@@ -89,6 +89,13 @@ export interface CampaignEvent {
 
 export type WorkflowStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
 
+export type WorkflowEventType =
+  | "contact_added"
+  | "contact_updated"
+  | "tag_added"
+  | "order_created"
+  | "event_triggered";
+
 export interface Workflow {
   id: number;
   projectId: number;

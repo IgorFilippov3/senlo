@@ -6,7 +6,7 @@ import {
 } from "../ports";
 import { TriggerService } from "./triggerService";
 import { AutomationJobData } from "../queue/types";
-import { WorkflowNodeStats } from "../domain";
+import { WorkflowNodeStats, WorkflowEventType } from "../domain";
 
 export class AutomationService {
   constructor(
@@ -71,6 +71,36 @@ export class AutomationService {
   }
 
   /**
+   * Trigger workflows for a specific event.
+   */
+  async triggerEvent(options: {
+    event: WorkflowEventType;
+    projectId: number;
+    contactId: number;
+    metadata?: Record<string, any>;
+  }) {
+    const { event, projectId, contactId } = options;
+
+    const workflows = await this.workflowRepo.findByProject(projectId);
+    for (const workflow of workflows) {
+      if (workflow.status === "ACTIVE") {
+        const nodes = await this.workflowRepo.getNodes(workflow.id);
+        const hasTrigger = nodes.some(
+          (n) => n.type === "trigger" && n.data.event === event,
+        );
+
+        if (hasTrigger) {
+          await this.triggerWorkflow({
+            workflowId: workflow.id,
+            contactId,
+            projectId,
+          });
+        }
+      }
+    }
+  }
+
+  /**
    * Process a single step in a workflow execution.
    */
   async processStep(
@@ -102,12 +132,29 @@ export class AutomationService {
 
         case "condition":
         case "condition_api":
-          nextHandle = await this.handleApiCondition(execution, node.data);
+          nextHandle = await this.handleApiCondition(
+            execution,
+            node.data,
+            baseUrl,
+          );
           break;
 
         case "delay":
           // Delays are handled by BullMQ delay, so if we are here, the delay is over.
           break;
+
+        case "update_contact":
+          await this.handleUpdateContactAction(execution, node.data);
+          break;
+
+        case "exit":
+          // Explicitly mark execution as completed
+          await this.executionRepo.updateStatus(
+            executionId,
+            "COMPLETED",
+            new Date(),
+          );
+          return; // Stop processing and don't schedule next nodes
 
         default:
           console.warn(`Unknown node type: ${node.type}`);
@@ -132,7 +179,9 @@ export class AutomationService {
         },
         completedAt: new Date(),
       });
-      // Optionally stop execution or continue based on error policy
+
+      // Also mark the main execution as FAILED so it doesn't block future runs
+      await this.executionRepo.updateStatus(executionId, "FAILED", new Date());
     }
   }
 
@@ -163,12 +212,26 @@ export class AutomationService {
     });
   }
 
-  private async handleApiCondition(execution: any, data: any): Promise<string> {
-    const { url } = data;
+  private async handleApiCondition(
+    execution: any,
+    data: any,
+    baseUrl: string,
+  ): Promise<string> {
+    let { url } = data;
     if (!url) throw new Error("No URL specified for API condition");
+
+    // If URL is relative, prepend baseUrl
+    if (url.startsWith("/")) {
+      url = `${baseUrl}${url}`;
+    }
 
     const contact = await this.contactRepo.findById(execution.contactId);
     if (!contact) throw new Error("Contact not found");
+
+    console.log(`[Automation] API Check for contact ${contact.email}`, {
+      url,
+      metadata: contact.meta,
+    });
 
     const response = await fetch(url, {
       method: "POST",
@@ -176,11 +239,56 @@ export class AutomationService {
       body: JSON.stringify({
         email: contact.email,
         name: contact.name,
+        metadata: contact.meta,
         meta: contact.meta,
       }),
     });
 
-    return response.status === 200 ? "yes" : "no";
+    const result = response.status === 200 ? "yes" : "no";
+    console.log(
+      `[Automation] API Check result for ${contact.email}: ${result} (Status: ${response.status})`,
+    );
+    return result;
+  }
+
+  private async handleUpdateContactAction(
+    execution: any,
+    data: any,
+  ): Promise<void> {
+    const { updates } = data;
+    if (!updates) return;
+
+    const contact = await this.contactRepo.findById(execution.contactId);
+    if (!contact) throw new Error("Contact not found");
+
+    const currentMeta = (contact.meta as Record<string, any>) || {};
+    const updatedMeta = { ...currentMeta };
+
+    // Special handling for tags
+    if (updates.tags && Array.isArray(updates.tags)) {
+      const currentTags = Array.isArray(currentMeta.tags)
+        ? currentMeta.tags
+        : [];
+      const newTags = Array.from(new Set([...currentTags, ...updates.tags]));
+      updatedMeta.tags = newTags;
+    }
+
+    // Merge other fields into meta
+    for (const [key, value] of Object.entries(updates)) {
+      if (key === "tags") continue;
+      updatedMeta[key] = value;
+    }
+
+    // Prepare update data
+    const updateData: any = {
+      meta: updatedMeta,
+    };
+
+    // If updates contains basic fields like name, update them directly
+    if (updates.name) updateData.name = updates.name;
+    if (updates.locale) updateData.locale = updates.locale;
+
+    await this.contactRepo.update(contact.id, updateData);
   }
 
   private async scheduleNextNodes(
@@ -198,6 +306,10 @@ export class AutomationService {
       (e) =>
         e.sourceNodeId === sourceNodeId &&
         (!handle || e.sourceHandle === handle),
+    );
+
+    console.log(
+      `[Automation] Scheduling next nodes for ${sourceNodeId}. Handle: ${handle || "any"}. Found ${nextEdges.length} edges.`,
     );
 
     if (nextEdges.length === 0) {

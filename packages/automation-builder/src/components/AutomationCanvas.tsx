@@ -1,16 +1,13 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ReactFlow,
   Background,
-  Controls,
   Panel,
   ReactFlowProvider,
   OnSelectionChangeParams,
   useReactFlow,
-  getOutgoers,
   Connection,
   Edge,
-  Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "../styles.css";
@@ -19,14 +16,20 @@ import { TriggerNode } from "./nodes/TriggerNode";
 import { ActionNode } from "./nodes/ActionNode";
 import { DelayNode } from "./nodes/DelayNode";
 import { ConditionNode } from "./nodes/ConditionNode";
+import { ExitNode } from "./nodes/ExitNode";
+import { UpdateContactNode } from "./nodes/UpdateContactNode";
 import { SidePanel } from "./SidePanel";
-import { Mail, Clock, GitBranch, Zap, Plus } from "lucide-react";
+import { Mail, Clock, GitBranch, Plus, LogOut, UserCog } from "lucide-react";
+import { Dialog, Button } from "@senlo/ui";
+import { validateWorkflowConnection } from "../validation/workflowConnections";
 
 const nodeTypes = {
   trigger: TriggerNode,
   action: ActionNode,
   delay: DelayNode,
   condition: ConditionNode,
+  exit: ExitNode,
+  update_contact: UpdateContactNode,
 };
 
 interface Trigger {
@@ -51,9 +54,12 @@ export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
     deleteNode,
     selectedNodeId,
     setNodeStats,
+    validationError,
+    setValidationError,
   } = useAutomationStore();
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
+  const { getNodes, getEdges } = useReactFlow();
 
   const statsString = JSON.stringify(stats);
 
@@ -70,32 +76,8 @@ export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
 
   const isValidConnection = useCallback(
     (connection: Edge | Connection) => {
-      // Prevent self-connection
-      if (connection.source === connection.target) return false;
-
-      const nodes = getNodes();
-      const edges = getEdges();
-
-      const target = nodes.find((node) => node.id === connection.target);
-
-      // Check if connection would create a cycle
-      const hasCycle = (node: Node, visited = new Set()) => {
-        if (visited.has(node.id)) return false;
-        visited.add(node.id);
-
-        for (const outgoer of getOutgoers(node, nodes, edges)) {
-          if (outgoer.id === connection.source) return true;
-          if (hasCycle(outgoer, visited)) return true;
-        }
-
-        return false;
-      };
-
-      if (target) {
-        return !hasCycle(target);
-      }
-
-      return true;
+      return validateWorkflowConnection(getNodes(), getEdges(), connection)
+        .valid;
     },
     [getNodes, getEdges],
   );
@@ -114,16 +96,34 @@ export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
         ) {
           return;
         }
-        deleteNode(selectedNodeId);
+        setIsDeleting(true);
       }
     },
-    [selectedNodeId, deleteNode],
+    [selectedNodeId],
   );
 
+  const confirmDelete = () => {
+    if (selectedNodeId) {
+      deleteNode(selectedNodeId);
+      setIsDeleting(false);
+    }
+  };
+
   const onAddNode = (type: string) => {
+    if (type === "trigger") {
+      const hasTrigger = nodes.some((n) => n.type === "trigger");
+      if (hasTrigger) {
+        setValidationError("Automation can only have one trigger node.");
+        return;
+      }
+    }
     // Add node near the center of the view
     addNode(type, { x: 300, y: 200 });
   };
+
+  const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+
+  const closeError = () => setValidationError(null);
 
   return (
     <div
@@ -141,10 +141,9 @@ export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
           onSelectionChange={onSelectionChange}
           nodeTypes={nodeTypes}
           fitView
-          deleteKeyCode={["Delete", "Backspace"]}
+          deleteKeyCode={[]} // We handle it manually via onKeyDown to show dialog
         >
           <Background color="#ccc" gap={20} />
-          <Controls />
           <Panel
             position="top-left"
             className="bg-white p-2 rounded-xl border border-gray-200 shadow-lg flex flex-col gap-2 ml-4 mt-4"
@@ -160,41 +159,95 @@ export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
               className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
               title="Add Email Action"
             >
-              <div className="p-1.5 bg-blue-50 text-blue-600 rounded-md border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <div className="p-1.5 bg-blue-50 text-blue-600 rounded-md border border-blue-100 transition-colors">
                 <Mail size={16} />
               </div>
-              <span className="text-xs font-semibold text-gray-700 group-hover:text-blue-700">
+              <span className="text-xs font-semibold text-gray-700">
                 Send Email
               </span>
             </button>
+
             <button
               onClick={() => onAddNode("delay")}
-              className="flex items-center gap-3 p-2 hover:bg-purple-50 rounded-lg group transition-colors text-left"
+              className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
               title="Add Time Delay"
             >
-              <div className="p-1.5 bg-purple-50 text-purple-600 rounded-md border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              <div className="p-1.5 bg-purple-50 text-purple-600 rounded-md border border-purple-100 transition-colors">
                 <Clock size={16} />
               </div>
-              <span className="text-xs font-semibold text-gray-700 group-hover:text-purple-700">
+              <span className="text-xs font-semibold text-gray-700">
                 Wait Delay
               </span>
             </button>
             <button
               onClick={() => onAddNode("condition")}
-              className="flex items-center gap-3 p-2 hover:bg-green-50 rounded-lg group transition-colors text-left"
+              className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
               title="Add API Check"
             >
-              <div className="p-1.5 bg-green-50 text-green-600 rounded-md border border-green-100 group-hover:bg-green-600 group-hover:text-white transition-colors">
+              <div className="p-1.5 bg-green-50 text-green-600 rounded-md border border-green-100 transition-colors">
                 <GitBranch size={16} />
               </div>
-              <span className="text-xs font-semibold text-gray-700 group-hover:text-green-700">
+              <span className="text-xs font-semibold text-gray-700">
                 API Check
               </span>
+            </button>
+            <button
+              onClick={() => onAddNode("update_contact")}
+              className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
+              title="Update Contact"
+            >
+              <div className="p-1.5 bg-orange-50 text-orange-600 rounded-md border border-orange-100 transition-colors">
+                <UserCog size={16} />
+              </div>
+              <span className="text-xs font-semibold text-gray-700">
+                Update Contact
+              </span>
+            </button>
+            <button
+              onClick={() => onAddNode("exit")}
+              className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
+              title="Exit Workflow"
+            >
+              <div className="p-1.5 bg-red-50 text-red-600 rounded-md border border-red-100 transition-colors">
+                <LogOut size={16} />
+              </div>
+              <span className="text-xs font-semibold text-gray-700">Exit</span>
             </button>
           </Panel>
         </ReactFlow>
       </div>
       <SidePanel triggers={triggers} />
+
+      <Dialog
+        isOpen={isDeleting}
+        onClose={() => setIsDeleting(false)}
+        title="Delete Node"
+        description={`Are you sure you want to delete this ${selectedNode?.type || "node"}? This will also remove all connected lines.`}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsDeleting(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete Node
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-gray-500">
+          Removing this node might break the workflow path for contacts
+          currently in this automation.
+        </p>
+      </Dialog>
+
+      <Dialog
+        isOpen={validationError !== null}
+        onClose={closeError}
+        title="Validation Error"
+        footer={<Button onClick={closeError}>Got it</Button>}
+      >
+        <p className="text-sm text-gray-500">{validationError}</p>
+      </Dialog>
     </div>
   );
 };

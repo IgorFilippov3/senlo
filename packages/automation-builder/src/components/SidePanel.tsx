@@ -1,5 +1,14 @@
-import React from "react";
-import { X, Mail, Zap, Clock, GitBranch, Trash2 } from "lucide-react";
+import React, { useState } from "react";
+import {
+  X,
+  Mail,
+  Zap,
+  Clock,
+  GitBranch,
+  Trash2,
+  LogOut,
+  UserCog,
+} from "lucide-react";
 import { useAutomationStore } from "../store/automationStore";
 import {
   Button,
@@ -11,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
   FormField,
+  Textarea,
+  Dialog,
 } from "@senlo/ui";
 
 interface Trigger {
@@ -30,15 +41,15 @@ export const SidePanel = ({ triggers = [] }: Props) => {
     setSelectedNodeId,
     deleteNode,
   } = useAutomationStore();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const node = nodes.find((n) => n.id === selectedNodeId);
 
   if (!node) return null;
 
   const onDelete = () => {
-    if (confirm("Are you sure you want to delete this node?")) {
-      deleteNode(node.id);
-    }
+    deleteNode(node.id);
+    setIsDeleting(false);
   };
 
   const renderConfig = () => {
@@ -61,6 +72,8 @@ export const SidePanel = ({ triggers = [] }: Props) => {
                     Contact Updated
                   </SelectItem>
                   <SelectItem value="tag_added">Tag Added</SelectItem>
+                  <SelectItem value="order_created">Order Created</SelectItem>
+                  <SelectItem value="event_triggered">Custom Event</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
@@ -171,7 +184,71 @@ export const SidePanel = ({ triggers = [] }: Props) => {
                 }
                 placeholder="https://api.example.com/check"
               />
+              <p className="text-[10px] text-gray-400 mt-1">
+                Senlo will send a POST request to this URL. Status 200 = YES,
+                any other = NO.
+              </p>
+              <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-100">
+                <p className="text-[9px] font-bold text-blue-700 uppercase mb-1">
+                  Testing Tip
+                </p>
+                <p className="text-[10px] text-blue-600">
+                  Use{" "}
+                  <code className="bg-white px-1 py-0.5 rounded border border-blue-200">
+                    /api/debug/check
+                  </code>{" "}
+                  to test. It returns YES if email contains "pass" or{" "}
+                  <code className="bg-white px-1 py-0.5 rounded border border-blue-200">
+                    test_check: true
+                  </code>{" "}
+                  in metadata.
+                </p>
+              </div>
             </FormField>
+          </div>
+        );
+      case "update_contact":
+        return (
+          <div className="space-y-4">
+            <FormField>
+              <Label>Field Updates (JSON)</Label>
+              <Textarea
+                value={JSON.stringify(node.data.updates || {}, null, 2)}
+                onChange={(e) => {
+                  try {
+                    const updates = JSON.parse(e.target.value);
+                    updateNodeData(node.id, { updates });
+                  } catch (err) {
+                    // Ignore invalid JSON while typing
+                  }
+                }}
+                placeholder='{ "tags": ["warmed"], "plan": "pro" }'
+                className="font-mono text-[10px] min-h-[120px]"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">
+                Enter field/value pairs to update on the contact. Use "tags"
+                array to append tags.
+              </p>
+            </FormField>
+            <FormField>
+              <Label>Node Label</Label>
+              <Input
+                value={(node.data.label as string) || ""}
+                onChange={(e) =>
+                  updateNodeData(node.id, { label: e.target.value })
+                }
+                placeholder="e.g. Mark as Warmed"
+              />
+            </FormField>
+          </div>
+        );
+      case "exit":
+        return (
+          <div className="space-y-4 text-center py-8">
+            <LogOut size={48} className="mx-auto text-red-200" />
+            <p className="text-sm text-gray-500">
+              This node explicitly ends the automation journey for the contact.
+            </p>
           </div>
         );
       default:
@@ -189,6 +266,10 @@ export const SidePanel = ({ triggers = [] }: Props) => {
         return <Clock className="text-purple-600" size={20} />;
       case "condition":
         return <GitBranch className="text-green-600" size={20} />;
+      case "update_contact":
+        return <UserCog className="text-orange-600" size={20} />;
+      case "exit":
+        return <LogOut className="text-red-600" size={20} />;
       default:
         return null;
     }
@@ -216,7 +297,7 @@ export const SidePanel = ({ triggers = [] }: Props) => {
       <div className="p-4 border-t border-gray-100 flex flex-col gap-4 bg-gray-50">
         <Button
           variant="outline"
-          onClick={onDelete}
+          onClick={() => setIsDeleting(true)}
           className="w-full text-red-600 border-red-100 hover:bg-red-50 hover:text-red-700 h-9 text-xs font-bold uppercase tracking-wider"
         >
           <Trash2 size={14} className="mr-2" />
@@ -224,6 +305,28 @@ export const SidePanel = ({ triggers = [] }: Props) => {
         </Button>
         <div className="text-[10px] text-gray-400">Node ID: {node.id}</div>
       </div>
+
+      <Dialog
+        isOpen={isDeleting}
+        onClose={() => setIsDeleting(false)}
+        title="Delete Node"
+        description={`Are you sure you want to delete this ${node.type} node? This will also remove all connected lines.`}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsDeleting(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={onDelete}>
+              Delete Node
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-gray-500">
+          Removing this node might break the workflow path for contacts
+          currently in this automation.
+        </p>
+      </Dialog>
     </div>
   );
 };

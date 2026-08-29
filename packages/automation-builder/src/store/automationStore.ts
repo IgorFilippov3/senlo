@@ -11,19 +11,25 @@ import {
   applyNodeChanges,
 } from "@xyflow/react";
 import { nanoid } from "nanoid";
-import { WorkflowNodeStats } from "@senlo/core";
+import type { WorkflowNodeStats } from "@senlo/core";
+import {
+  validateAddChild,
+  validateWorkflowConnection,
+} from "../validation/workflowConnections";
 
 export interface AutomationState {
   nodes: Node[];
   edges: Edge[];
   nodeStats: Record<string, WorkflowNodeStats>;
   selectedNodeId: string | null;
+  validationError: string | null;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
   setNodeStats: (stats: WorkflowNodeStats[]) => void;
+  setValidationError: (error: string | null) => void;
   addNode: (
     type: string,
     position?: { x: number; y: number },
@@ -40,6 +46,8 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
   edges: [],
   nodeStats: {},
   selectedNodeId: null,
+  validationError: null,
+  setValidationError: (error) => set({ validationError: error }),
   onNodesChange: (changes) => {
     set({
       nodes: applyNodeChanges(changes, get().nodes),
@@ -51,6 +59,16 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
     });
   },
   onConnect: (connection: Connection) => {
+    const result = validateWorkflowConnection(
+      get().nodes,
+      get().edges,
+      connection,
+    );
+    if (!result.valid) {
+      set({ validationError: result.reason });
+      return;
+    }
+
     set({
       edges: addEdge(connection, get().edges),
     });
@@ -85,7 +103,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
     if (type === "trigger") {
       const hasTrigger = get().nodes.some((n) => n.type === "trigger");
       if (hasTrigger) {
-        alert("Automation can only have one trigger.");
+        // We will handle this in the UI via the addNode callback or state
         return;
       }
     }
@@ -104,6 +122,18 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
     const parentNode = get().nodes.find((n) => n.id === parentId);
     if (!parentNode) return;
 
+    const result = validateAddChild(
+      get().nodes,
+      get().edges,
+      parentId,
+      type,
+      sourceHandle,
+    );
+    if (!result.valid) {
+      set({ validationError: result.reason });
+      return;
+    }
+
     const newNodeId = nanoid();
     const newNode: Node = {
       id: newNodeId,
@@ -111,7 +141,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
       data: {},
       position: {
         x: parentNode.position.x,
-        y: parentNode.position.y + 150, // Position below parent
+        y: parentNode.position.y + 150,
       },
     };
 
