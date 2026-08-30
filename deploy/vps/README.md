@@ -22,7 +22,7 @@ Before you begin, ensure your VPS has the following installed:
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/senlo.git
+git clone https://github.com/IgorFilippov3/senlo.git
 cd senlo
 ```
 
