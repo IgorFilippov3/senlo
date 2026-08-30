@@ -6,6 +6,24 @@
 
 Senlo is an open-source, developer-first email infrastructure designed to handle the entire lifecycle of your product's emails. It provides the tools to build, manage, and deliver transactional and lifecycle emails without being locked into a specific delivery provider.
 
+## Quick Start
+
+Run a full Senlo instance locally. Docker is the only requirement.
+
+```bash
+git clone https://github.com/IgorFilippov3/senlo.git
+cd senlo/deploy/vps
+cp env.example .env
+sed -i.bak "s|YOUR_AUTH_SECRET_HERE|$(openssl rand -base64 32)|" .env && rm .env.bak
+docker compose up -d --build
+```
+
+The first build compiles the app from source and takes a few minutes. When it finishes, open **http://localhost:3000** and create an account — you land in an example project with four ready-made templates you can open in the visual editor right away.
+
+To start sending, add your email provider credentials (Resend or Postmark) on the **Providers** page. The interactive API reference lives at **`/api-docs`** on your own instance.
+
+For a production setup on a server, see the [VPS Deployment Guide](./deploy/vps/README.md).
+
 ## Why Senlo?
 
 Most email platforms are built for marketing teams, bundling editing, sending, and analytics into closed ecosystems. Senlo is built for **developers and product teams** who need:
@@ -28,10 +46,6 @@ Most email platforms are built for marketing teams, bundling editing, sending, a
 - **Transactional Emails**: Reliable delivery for password resets, receipts, and verification codes.
 - **Product Lifecycle**: Automated onboarding series, feature announcements, and re-engagement campaigns.
 - **Embedded Editor**: Integrate the visual builder directly into your own SaaS product.
-
-## Deployment
-
-The easiest way to deploy Senlo is using Docker Compose. Check our [VPS Deployment Guide](./deploy/vps/README.md) for step-by-step instructions.
 
 ## Status
 

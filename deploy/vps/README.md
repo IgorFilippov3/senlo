@@ -4,19 +4,11 @@ This guide provides step-by-step instructions to deploy Senlo on a virtual priva
 
 ## Prerequisites
 
-Before you begin, ensure your VPS has the following installed:
+Docker and Docker Compose are the only requirements. Everything else — Node.js, pnpm, dependencies — is installed inside the image during the build.
 
-1.  **Docker & Docker Compose**: 
-    ```bash
-    curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
-    ```
-2.  **Node.js & pnpm** (on the host machine to prepare dependencies):
-    ```bash
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
-    corepack enable
-    corepack prepare pnpm@latest --activate
-    ```
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
+```
 
 ## Deployment Steps
 
@@ -26,27 +18,27 @@ git clone https://github.com/IgorFilippov3/senlo.git
 cd senlo
 ```
 
-### 2. Prepare dependencies
-It's recommended to run install on the host to ensure `pnpm-lock.yaml` is up to date:
-```bash
-pnpm install
-```
-
-### 3. Configure environment variables
-Go to the deployment directory and create a `.env` file:
+### 2. Configure environment variables
+Go to the deployment directory, create a `.env` file and generate an auth secret:
 ```bash
 cd deploy/vps
 cp env.example .env
+sed -i.bak "s|YOUR_AUTH_SECRET_HERE|$(openssl rand -base64 32)|" .env && rm .env.bak
 ```
 
-Edit the `.env` file and set the following required values:
-- `AUTH_SECRET`: Generate one with `openssl rand -base64 32`.
-- `AUTH_TRUST_HOST`: Set to `true` to allow authentication from your server's IP.
-- `NEXT_PUBLIC_APP_URL`: Set to `http://your-server-ip:3000`.
-- `DATABASE_URL`: Keep the default if using the included Postgres container.
-- `REDIS_URL`: Set to `redis://redis:6379` (standard for the included Redis container).
+Then set `NEXT_PUBLIC_APP_URL` in `.env` to the address users will open, including the port:
+```
+NEXT_PUBLIC_APP_URL="http://your-server-ip:3000"
+```
 
-### 4. Advanced Configuration (Optional)
+The remaining required values already have working defaults in `env.example`:
+- `AUTH_TRUST_HOST` — `true`, needed to authenticate from your server's IP.
+- `DATABASE_URL` — points at the included Postgres container.
+- `REDIS_URL` — points at the included Redis container.
+
+Change them only if you run Postgres or Redis outside of this Compose file.
+
+### 3. Advanced Configuration (Optional)
 Senlo provides several environment variables to control how the instance behaves:
 
 #### Registration Control
@@ -61,12 +53,12 @@ If you disable registration or want to create an admin account automatically dur
 
 When `INITIAL_USERS` are created, they automatically receive a set of example projects and templates.
 
-### 5. Start the application
+### 4. Start the application
 ```bash
 docker compose up -d --build
 ```
 
-The application will be available at `http://your-server-ip:3000`.
+The first build compiles the app from source and takes several minutes. Once it finishes, the application is available at `http://your-server-ip:3000`.
 
 ## Management & Troubleshooting
 
@@ -103,6 +95,5 @@ ufw allow 3000/tcp
 To update the application to the latest version:
 ```bash
 git pull
-pnpm install
 docker compose up -d --build
 ```
