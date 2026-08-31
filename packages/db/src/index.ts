@@ -11,6 +11,9 @@ export * from "./schema";
 // User Seeding
 export * from "./user-seed";
 
+// Demo Seeding (screenshots / public demo instance)
+export * from "./demo-seed";
+
 // Repositories
 export * from "./repositories/projectRepository";
 export * from "./repositories/emailTemplateRepository";
