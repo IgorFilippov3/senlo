@@ -12,6 +12,9 @@ export const authConfig = {
         nextUrl.pathname.startsWith("/register");
       const isPublicRoute =
         nextUrl.pathname === "/" ||
+        nextUrl.pathname === "/api-docs" ||
+        nextUrl.pathname.startsWith("/privacy") ||
+        nextUrl.pathname.startsWith("/terms") ||
         nextUrl.pathname.startsWith("/api/track/") ||
         nextUrl.pathname.startsWith("/api/debug/") ||
         nextUrl.pathname.startsWith("/api/webhooks/");

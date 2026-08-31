@@ -263,8 +263,8 @@ export default function HomePage() {
         </section>
 
         {/* CTA Bottom Section */}
-        <section className="py-24 relative overflow-hidden">
-          <div className="absolute inset-0 bg-blue-500/5 blur-[100px] -z-10" />
+        <section className="pt-0 pb-24 relative overflow-hidden">
+          <div className="absolute inset-x-0 top-12 bottom-0 bg-blue-500/5 blur-[100px] -z-10" />
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <Card
               className="bg-white border-zinc-200 p-12 md:p-20 shadow-2xl relative overflow-hidden"
@@ -289,14 +289,22 @@ export default function HomePage() {
                   </Button>
                 </Link>
                 <Link
-                  href="https://github.com/IgorFilippov3/senlo/blob/main/deploy/vps/README.md"
+                  href="https://github.com/IgorFilippov3/senlo#quick-start"
                   target="_blank"
                 >
                   <Button
                     variant="ghost"
                     className="text-zinc-500 hover:text-zinc-900 transition-colors h-14 px-10 text-lg"
                   >
-                    Read Documentation
+                    Self-host in 5 minutes
+                  </Button>
+                </Link>
+                <Link href="/api-docs">
+                  <Button
+                    variant="ghost"
+                    className="text-zinc-500 hover:text-zinc-900 transition-colors h-14 px-10 text-lg"
+                  >
+                    API Reference
                   </Button>
                 </Link>
               </div>
@@ -361,6 +369,11 @@ export default function HomePage() {
                     className="hover:text-zinc-900"
                   >
                     Issues
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/api-docs" className="hover:text-zinc-900">
+                    API Reference
                   </Link>
                 </li>
                 {/* <li>
