@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/*
+ * Tailwind v4 detects sources automatically, starting from this file's project
+ * root — it does not read `tailwind.config.ts` unless pointed at it, and it
+ * does not walk up into sibling workspace packages. Without these, any utility
+ * used ONLY inside a package (`h-[300px]` in the dashboard chart, for one)
+ * never makes it into the stylesheet, and the element silently has no styles.
+ */
+@source "../../../packages/ui/src";
+@source "../../../packages/features/src";
+@source "../../../packages/editor/src";
+@source "../../../packages/automation-builder/src";
+
 html {
   font-size: 112.5%; /* Increases base font size from 16px to 18px (everything in rem will scale) */
 }

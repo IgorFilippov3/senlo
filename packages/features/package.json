@@ -1,6 +1,6 @@
 {
   "name": "@senlo/features",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shared business features for Senlo",
   "type": "module",
   "main": "./src/index.ts",
@@ -33,7 +33,7 @@
     "@senlo/ui": "workspace:*",
     "lucide-react": "^0.561.0",
     "date-fns": "^4.1.0",
-    "recharts": "^2.15.1"
+    "recharts": "^3.8.1"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",

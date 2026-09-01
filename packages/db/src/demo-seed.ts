@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { eq } from "drizzle-orm";
 import { db } from "./client";
 import {
   apiKeys,
@@ -11,6 +12,7 @@ import {
   emailProviders,
   emailTemplates,
   projects,
+  suppressions,
   triggeredSendLogs,
   workflowEdges,
   workflowExecutions,
@@ -76,11 +78,17 @@ function daysAgo(days: number, hour?: number): Date {
   return date;
 }
 
+/**
+ * Deliberately NOT drawn from the seeded PRNG above. `api_keys.key` is unique
+ * across the whole table, so a deterministic value collides with the key left
+ * behind by any other seeded account — and a demo instance where everyone can
+ * predict the key is its own problem.
+ */
 function apiKeyValue(): string {
   const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
   let value = "";
   for (let i = 0; i < 32; i++) {
-    value += characters.charAt(Math.floor(random() * characters.length));
+    value += characters.charAt(Math.floor(Math.random() * characters.length));
   }
   return `snl_${value}`;
 }
@@ -117,6 +125,24 @@ const DEMO_CONTACTS: Array<{
   { email: "b.laurent@quaidorsay.fr", name: "Bastien Laurent", locale: "fr", plan: "starter", tags: [] },
   { email: "old.address@example.com", name: "Former Customer", locale: "en", plan: "churned", tags: [], unsubscribed: true },
   { email: "bounced@invalid-domain.test", name: "Unknown Recipient", locale: "en", plan: "trial", tags: [], unsubscribed: true },
+];
+
+/**
+ * Addresses the suppression list has blocked, and how long they have been on
+ * it. Sends to these are refused before they reach the provider — that is what
+ * the "Saved Sends" tile counts and what the red line on the activity chart is.
+ */
+const SUPPRESSED_RECIPIENTS: Array<{
+  email: string;
+  reason: string;
+  suppressedDaysAgo: number;
+}> = [
+  { email: "bounced@invalid-domain.test", reason: "BOUNCE", suppressedDaysAgo: 24 },
+  { email: "no-such-user@northwind.dev", reason: "BOUNCE", suppressedDaysAgo: 21 },
+  { email: "postmaster@retired-domain.test", reason: "BOUNCE", suppressedDaysAgo: 17 },
+  { email: "complaint@mailinator.test", reason: "SPAM", suppressedDaysAgo: 12 },
+  { email: "spamtrap@list-hygiene.test", reason: "SPAM", suppressedDaysAgo: 8 },
+  { email: "full-mailbox@bottega.it", reason: "BOUNCE", suppressedDaysAgo: 3 },
 ];
 
 const CLICK_TARGETS = [
@@ -262,6 +288,18 @@ export async function seedDemoData(userId: string) {
 
   const campaignByName = new Map(insertedCampaigns.map((c) => [c.name, c]));
 
+  // Backdate the triggers. Their `updatedAt` is what the dashboard event feed
+  // stamps a "Campaign Completed" row with — left at insert time, all four sit
+  // at the top of the feed with an identical timestamp and bury the real
+  // per-email events underneath.
+  for (const [index, campaign] of insertedCampaigns.entries()) {
+    const touchedAt = daysAgo(27 - index * 6);
+    await db
+      .update(campaigns)
+      .set({ createdAt: touchedAt, updatedAt: touchedAt })
+      .where(eq(campaigns.id, campaign.id));
+  }
+
   // 5. Contacts
   const insertedContacts = await db
     .insert(contacts)
@@ -285,7 +323,17 @@ export async function seedDemoData(userId: string) {
     )
     .returning();
 
-  // 6. API key
+  // 6. Suppression list — the addresses Senlo refuses to send to.
+  await db.insert(suppressions).values(
+    SUPPRESSED_RECIPIENTS.map((entry) => ({
+      projectId: project.id,
+      email: entry.email,
+      reason: entry.reason,
+      createdAt: daysAgo(entry.suppressedDaysAgo),
+    })),
+  );
+
+  // 7. API key
   const [apiKey] = await db
     .insert(apiKeys)
     .values({
@@ -296,12 +344,12 @@ export async function seedDemoData(userId: string) {
     })
     .returning();
 
-  // 7. Automations
+  // 8. Automations
   const onboarding = await seedOnboardingWorkflow(project.id, campaignByName);
   await seedWinbackWorkflow(project.id, campaignByName);
   await seedReceiptWorkflow(project.id, campaignByName);
 
-  // 8. History: node-level stats and dashboard analytics
+  // 9. History: node-level stats and dashboard analytics
   await seedWorkflowRuns(onboarding, insertedContacts);
   await seedDeliveryHistory(insertedCampaigns, insertedContacts);
 
@@ -391,7 +439,11 @@ async function seedOnboardingWorkflow(
         url: "https://api.acme.example/v1/activation-check",
         label: "Created a first report?",
       },
-      positionX: 400,
+      // Nudged left of the 400 column above it: React Flow anchors a node by
+      // its top-left corner, and this one is wider than its neighbours because
+      // of the URL field, so an identical x puts its centre off and kinks the
+      // incoming edge.
+      positionX: 390,
       positionY: 510,
     },
     {
@@ -620,6 +672,37 @@ async function seedDeliveryHistory(
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
     const growth = 1 + (29 - dayOffset) / 40;
     const sendCount = Math.round((isWeekend ? 9 : 24) * growth);
+
+    // Sends the suppression list refused, once the address was on it. These
+    // feed the "Saved Sends" tile and the red line on the activity chart.
+    const blockable = SUPPRESSED_RECIPIENTS.filter(
+      (entry) => entry.suppressedDaysAgo >= dayOffset,
+    );
+    const blockedCount = blockable.length === 0 ? 0 : Math.round(random() * 2);
+
+    for (let i = 0; i < blockedCount; i++) {
+      const campaign = pick(seededCampaigns);
+      const blocked = pick(blockable);
+      const occurredAt = daysAgo(dayOffset);
+      const error = `Recipient is suppressed (Reason: ${blocked.reason})`;
+
+      eventRows.push({
+        campaignId: campaign.id,
+        contactId: null,
+        email: blocked.email,
+        type: "FAILED",
+        metadata: { error },
+        occurredAt,
+      });
+
+      logRows.push({
+        campaignId: campaign.id,
+        email: blocked.email,
+        status: "FAILED",
+        error,
+        sentAt: occurredAt,
+      });
+    }
 
     for (let i = 0; i < sendCount; i++) {
       const campaign = pick(seededCampaigns);
