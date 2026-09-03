@@ -1,10 +1,11 @@
 "use server";
 
-import { db, users, seedUserData } from "@senlo/db";
+import { db, users, seedNewUser } from "@senlo/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { signIn, signOut } from "../../auth";
+import { logger } from "../../lib";
 import { AuthError } from "next-auth";
 
 const RegisterSchema = z.object({
@@ -51,9 +52,19 @@ export async function registerAction(formData: FormData) {
       })
       .returning();
 
-    // Seed data for demo mode
+    // Fill the account so the dashboard is not empty on arrival. A failed
+    // seed must not fail the registration — the user exists either way, and
+    // an empty workspace is recoverable where a dead sign-up form is not.
     if (user) {
-      await seedUserData(user.id);
+      try {
+        await seedNewUser(user.id);
+      } catch (seedError) {
+        logger.error("Failed to seed a new account", {
+          userId: user.id,
+          error:
+            seedError instanceof Error ? seedError.message : String(seedError),
+        });
+      }
     }
 
     // Sign in the user

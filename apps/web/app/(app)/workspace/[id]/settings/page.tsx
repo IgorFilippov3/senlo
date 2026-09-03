@@ -3,8 +3,18 @@
 import { PageHeader, Button, Card } from "@senlo/ui";
 import { LogOut, User, Shield, Bell } from "lucide-react";
 import { logoutAction } from "../../../../(auth)/actions";
+import { useWorkspaceStorage } from "apps/web/hooks/use-workspace-storage";
 
 export default function SettingsPage() {
+  const { setWorkspaceId } = useWorkspaceStorage();
+
+  // The remembered workspace is stored per browser. Left behind, it points the
+  // next person to sign in on this machine at a workspace that is not theirs.
+  async function handleSignOut() {
+    setWorkspaceId(null);
+    await logoutAction();
+  }
+
   return (
     <main className="max-w-7xl mx-auto py-10 px-8">
       <PageHeader
@@ -75,7 +85,7 @@ export default function SettingsPage() {
         </Card>
 
         <div className="pt-6 border-t border-zinc-100">
-          <form action={logoutAction}>
+          <form action={handleSignOut}>
             <Button
               variant="destructive"
               className="w-full sm:w-auto"

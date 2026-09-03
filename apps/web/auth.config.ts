@@ -15,6 +15,11 @@ export const authConfig = {
         nextUrl.pathname === "/api-docs" ||
         nextUrl.pathname.startsWith("/privacy") ||
         nextUrl.pathname.startsWith("/terms") ||
+        // Auth.js owns everything under /api/auth — its OAuth callback and
+        // error pages included. Guarding them here redirects the provider's
+        // callback to /login before the handler ever runs, which silently
+        // breaks OAuth sign-in.
+        nextUrl.pathname.startsWith("/api/auth/") ||
         nextUrl.pathname.startsWith("/api/track/") ||
         nextUrl.pathname.startsWith("/api/debug/") ||
         nextUrl.pathname.startsWith("/api/webhooks/");

@@ -14,6 +14,9 @@ export * from "./user-seed";
 // Demo Seeding (screenshots / public demo instance)
 export * from "./demo-seed";
 
+// Entry point used by both registration paths
+export * from "./seed-new-user";
+
 // Repositories
 export * from "./repositories/projectRepository";
 export * from "./repositories/emailTemplateRepository";

@@ -1,3 +1,4 @@
+import { generateApiKey } from "../api-key";
 import { IApiKeyRepository, IProjectRepository } from "../ports";
 import { ApiKey, Project } from "../domain";
 
@@ -13,21 +14,10 @@ export class SettingsService {
   }
 
   async createApiKey(projectId: number, name: string): Promise<ApiKey> {
-    // Generate a secure random key without external dependencies
-    // to avoid potential build issues in different environments
-    const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
-    let randomString = "";
-    for (let i = 0; i < 32; i++) {
-      randomString += characters.charAt(
-        Math.floor(Math.random() * characters.length),
-      );
-    }
-    const key = `snl_${randomString}`;
-
     return await this.apiKeyRepo.create({
       projectId,
       name,
-      key,
+      key: generateApiKey(),
     });
   }
 

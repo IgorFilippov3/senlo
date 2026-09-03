@@ -15,8 +15,21 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { ALLOW_REGISTRATION } from "apps/web/lib/constants";
 
 export default function HomePage() {
+  // Send first-time visitors straight at the sign-up form rather than at the
+  // login page they would be bounced to. When the operator has closed
+  // registration there is nothing to send them to but login.
+  const entryHref = ALLOW_REGISTRATION ? "/register" : "/login";
+
+  // Deliberately true on every instance. This page is statically prerendered,
+  // so anything phrased per-instance here would be frozen at build time; the
+  // demo instance says what is specific to it in the in-app banner instead.
+  const entryPromise = ALLOW_REGISTRATION
+    ? "Free, and instant — no email confirmation. Your account opens on a ready-made project, with templates you can edit and send from straight away."
+    : null;
+
   return (
     <div className="min-h-screen bg-white text-zinc-900 selection:bg-blue-100">
       {/* Navigation */}
@@ -106,7 +119,7 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/home">
+              <Link href={entryHref}>
                 <Button
                   size="lg"
                   variant="primary"
@@ -130,6 +143,12 @@ export default function HomePage() {
                 </Button>
               </Link>
             </div>
+
+            {entryPromise && (
+              <p className="mt-6 text-sm text-zinc-500 max-w-2xl mx-auto leading-relaxed">
+                {entryPromise}
+              </p>
+            )}
 
             {/* Value Props */}
             <div className="mt-20 pt-10 border-t border-zinc-100 flex flex-wrap justify-center gap-12 grayscale opacity-60 text-zinc-400">
@@ -279,7 +298,7 @@ export default function HomePage() {
                 sending emails without vendor lock-in.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link href="/home">
+                <Link href={entryHref}>
                   <Button
                     size="lg"
                     variant="primary"

@@ -2,22 +2,41 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useProjects } from "apps/web/queries/projects";
 import { useWorkspaceStorage } from "apps/web/hooks/use-workspace-storage";
 import { Loader2 } from "lucide-react";
 
 export default function AppHomePage() {
   const router = useRouter();
-  const { lastWorkspaceId, isLoaded } = useWorkspaceStorage();
+  const { lastWorkspaceId, isLoaded, setWorkspaceId } = useWorkspaceStorage();
+  const { data: projects, isLoading } = useProjects();
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || isLoading || !projects) return;
 
-    if (lastWorkspaceId) {
-      router.replace(`/workspace/${lastWorkspaceId}/dashboard`);
-    } else {
+    // The remembered workspace lives in localStorage, which belongs to the
+    // browser rather than to the account. It survives signing out, signing in
+    // as someone else, and deleting the workspace it points at — so following
+    // it blindly drops a fresh account into a workspace it cannot see and out
+    // to an error. Resolve it against what this account actually owns.
+    const remembered =
+      lastWorkspaceId === null
+        ? undefined
+        : projects.find((project) => project.id === lastWorkspaceId);
+    const target = remembered ?? projects[0];
+
+    if (!target) {
+      setWorkspaceId(null);
       router.replace("/workspaces");
+      return;
     }
-  }, [lastWorkspaceId, isLoaded, router]);
+
+    if (target.id !== lastWorkspaceId) {
+      setWorkspaceId(target.id);
+    }
+
+    router.replace(`/workspace/${target.id}/dashboard`);
+  }, [projects, isLoading, lastWorkspaceId, isLoaded, router, setWorkspaceId]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-50">

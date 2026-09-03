@@ -39,18 +39,22 @@ export default function WorkspaceLayout({
   }, []);
 
   useEffect(() => {
-    if (id) {
+    // Remember it only once the list confirms this account owns it. Writing the
+    // raw URL id would persist any workspace someone typed or followed a stale
+    // link to, and /home would then keep sending them back to it.
+    if (id && workspace) {
       setWorkspaceId(id);
     }
-  }, [id, setWorkspaceId]);
+  }, [id, workspace, setWorkspaceId]);
 
   useEffect(() => {
-    // Если загрузка завершена, а воркспейс не найден в списке — значит доступа нет или ID неверный
+    // Загрузка завершена, а воркспейс не найден в списке — нет доступа или ID
+    // неверный. Забываем его, иначе /home снова приведёт сюда же.
     if (mounted && !isLoading && !workspace && id) {
-      console.error("Workspace not found in list", id);
+      setWorkspaceId(null);
       router.push("/workspaces");
     }
-  }, [workspace, isLoading, id, router, mounted]);
+  }, [workspace, isLoading, id, router, mounted, setWorkspaceId]);
 
   if (!mounted || isLoading) {
     return (

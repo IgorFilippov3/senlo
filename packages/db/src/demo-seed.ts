@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { eq } from "drizzle-orm";
+import { generateApiKey } from "@senlo/core/src/api-key";
 import { db } from "./client";
 import {
   apiKeys,
@@ -78,21 +79,6 @@ function daysAgo(days: number, hour?: number): Date {
   return date;
 }
 
-/**
- * Deliberately NOT drawn from the seeded PRNG above. `api_keys.key` is unique
- * across the whole table, so a deterministic value collides with the key left
- * behind by any other seeded account — and a demo instance where everyone can
- * predict the key is its own problem.
- */
-function apiKeyValue(): string {
-  const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let value = "";
-  for (let i = 0; i < 32; i++) {
-    value += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return `snl_${value}`;
-}
-
 const DEMO_CONTACTS: Array<{
   email: string;
   name: string;
@@ -154,12 +140,13 @@ const CLICK_TARGETS = [
 
 /**
  * Fills a project with a believable working setup: templates, triggers,
- * contacts, two automations, and 30 days of delivery history.
+ * contacts, three automations, and 30 days of delivery history.
  *
- * This is NOT the seed new users get on registration (see `user-seed.ts`).
- * It exists for screenshots and for the public demo instance, and it invents
- * analytics that never happened — do not run it on an instance where someone
- * might read those numbers as their own.
+ * On a demo instance this is what every new registration gets, chosen by
+ * `seedNewUser`; anywhere else the plain `user-seed.ts` runs instead. It also
+ * backs `pnpm db:seed:demo` for screenshots. The analytics it writes never
+ * happened, which is why it must not reach an instance where someone could
+ * read those numbers as their own.
  */
 export async function seedDemoData(userId: string) {
   // 1. Provider — so the Providers page and the project both look configured.
@@ -339,7 +326,7 @@ export async function seedDemoData(userId: string) {
     .values({
       projectId: project.id,
       name: "Production backend",
-      key: apiKeyValue(),
+      key: generateApiKey(),
       lastUsedAt: daysAgo(0, 9),
     })
     .returning();
