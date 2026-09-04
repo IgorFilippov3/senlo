@@ -74,6 +74,12 @@ export default function EditProviderDialog({
               fieldErrors.serverToken?.[0]
             ) {
               errorMessage = fieldErrors.serverToken[0];
+            } else if ("host" in fieldErrors && fieldErrors.host?.[0]) {
+              errorMessage = fieldErrors.host[0];
+            } else if ("port" in fieldErrors && fieldErrors.port?.[0]) {
+              errorMessage = fieldErrors.port[0];
+            } else if ("password" in fieldErrors && fieldErrors.password?.[0]) {
+              errorMessage = fieldErrors.password[0];
             } else if ("general" in fieldErrors && fieldErrors.general?.[0]) {
               errorMessage = fieldErrors.general[0];
             }
@@ -127,6 +133,7 @@ export default function EditProviderDialog({
               {/* <SelectItem value="MAILGUN">Mailgun</SelectItem> */}
               {/* <SelectItem value="SES">Amazon SES</SelectItem> */}
               <SelectItem value="POSTMARK">Postmark</SelectItem>
+              <SelectItem value="SMTP">SMTP server</SelectItem>
             </SelectContent>
           </Select>
         </FormField>
@@ -248,6 +255,73 @@ export default function EditProviderDialog({
                 defaultValue={(provider.config.webhook_secret as string) || ""}
                 placeholder="my-secret-token"
               />
+            </FormField>
+          </>
+        )}
+
+        {type === "SMTP" && (
+          <>
+            <FormField label="Host" required hint="Hostname of your mail server">
+              <Input
+                name="host"
+                defaultValue={provider.config.host ?? ""}
+                placeholder="smtp.example.com"
+                required
+              />
+            </FormField>
+
+            <FormField
+              label="Port"
+              required
+              hint="587 with STARTTLS, or 465 with SSL/TLS"
+            >
+              <Input
+                name="port"
+                type="number"
+                defaultValue={String(provider.config.port ?? 587)}
+                required
+              />
+            </FormField>
+
+            <FormField
+              label="Encryption"
+              hint="Match this to the port. Sending unencrypted exposes both the message and the password to anything on the network."
+            >
+              <Select
+                name="encryption"
+                defaultValue={provider.config.encryption ?? "starttls"}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Encryption" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="starttls">
+                    STARTTLS — usually port 587
+                  </SelectItem>
+                  <SelectItem value="ssl">
+                    SSL/TLS — usually port 465
+                  </SelectItem>
+                  <SelectItem value="none">None — unencrypted</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField
+              label="Username"
+              hint="Leave empty if your relay accepts mail without authentication"
+            >
+              <Input
+                name="username"
+                defaultValue={provider.config.username ?? ""}
+                placeholder="you@example.com"
+              />
+            </FormField>
+
+            <FormField
+              label="Password"
+              hint="Leave empty to keep the password already saved"
+            >
+              <Input name="password" type="password" placeholder="••••••••" />
             </FormField>
           </>
         )}

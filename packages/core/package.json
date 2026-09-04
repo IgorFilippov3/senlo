@@ -1,6 +1,6 @@
 {
   "name": "@senlo/core",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "main": "src/index.ts",
   "private": true,
   "types": "src/index.ts",
@@ -12,9 +12,11 @@
   "dependencies": {
     "@aws-sdk/client-ses": "^3.978.0",
     "bullmq": "^5.66.4",
-    "ioredis": "^5.9.1"
+    "ioredis": "^5.9.1",
+    "nodemailer": "^6.9.0"
   },
   "devDependencies": {
+    "@types/nodemailer": "^6.4.0",
     "typescript": "^5.0.0"
   }
 }

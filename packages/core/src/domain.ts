@@ -150,7 +150,12 @@ export interface WorkflowNodeStats {
   failed: number;
 }
 
-export type EmailProviderType = "RESEND" | "MAILGUN" | "SES" | "POSTMARK";
+export type EmailProviderType =
+  | "RESEND"
+  | "MAILGUN"
+  | "SES"
+  | "POSTMARK"
+  | "SMTP";
 
 export interface EmailProvider {
   id: number;

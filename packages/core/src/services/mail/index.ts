@@ -4,6 +4,7 @@ import { ResendMailer } from "./resendMailer";
 import { MailgunMailer } from "./mailgunMailer";
 import { SesMailer } from "./sesMailer";
 import { PostmarkMailer } from "./postmarkMailer";
+import { SmtpMailer } from "./smtpMailer";
 
 export class MailerFactory {
   static create(provider: EmailProvider): IMailer {
@@ -46,6 +47,21 @@ export class MailerFactory {
         return new PostmarkMailer(serverToken);
       }
 
+      case "SMTP": {
+        const { host, port, encryption, username, password } =
+          provider.config || {};
+        if (!host || !port) {
+          throw new Error("SMTP host and port are required in provider config");
+        }
+        return new SmtpMailer({
+          host,
+          port: Number(port),
+          encryption,
+          username,
+          password,
+        });
+      }
+
       default:
         throw new Error(
           `Unsupported email provider type: ${(provider as any).type}`,
@@ -58,5 +74,7 @@ export { ResendMailer } from "./resendMailer";
 export { MailgunMailer } from "./mailgunMailer";
 export { SesMailer } from "./sesMailer";
 export { PostmarkMailer } from "./postmarkMailer";
+export { SmtpMailer } from "./smtpMailer";
 export type { MailgunConfig } from "./mailgunMailer";
 export type { SesConfig } from "./sesMailer";
+export type { SmtpConfig, SmtpEncryption } from "./smtpMailer";

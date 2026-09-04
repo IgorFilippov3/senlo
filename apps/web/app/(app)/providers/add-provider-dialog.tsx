@@ -105,7 +105,7 @@ export default function AddProviderDialog({
           <Input
             name="name"
             placeholder={
-              type === "MAILGUN" ? "My Mailgun Account" : "My Resend Account"
+              type === "SMTP" ? "My mail server" : "My Resend Account"
             }
             required
             autoFocus
@@ -126,6 +126,7 @@ export default function AddProviderDialog({
               {/* <SelectItem value="MAILGUN">Mailgun</SelectItem> */}
               {/* <SelectItem value="SES">Amazon SES</SelectItem> */}
               <SelectItem value="POSTMARK">Postmark</SelectItem>
+              <SelectItem value="SMTP">SMTP server</SelectItem>
             </SelectContent>
           </Select>
         </FormField>
@@ -254,6 +255,56 @@ export default function AddProviderDialog({
                 type="password"
                 placeholder="my-secret-token"
               />
+            </FormField>
+          </>
+        )}
+
+        {type === "SMTP" && (
+          <>
+            <FormField label="Host" required hint="Hostname of your mail server">
+              <Input name="host" placeholder="smtp.example.com" required />
+            </FormField>
+
+            <FormField
+              label="Port"
+              required
+              hint="587 with STARTTLS, or 465 with SSL/TLS"
+            >
+              <Input name="port" type="number" defaultValue="587" required />
+            </FormField>
+
+            <FormField
+              label="Encryption"
+              hint="Match this to the port. Sending unencrypted exposes both the message and the password to anything on the network."
+            >
+              <Select name="encryption" defaultValue="starttls">
+                <SelectTrigger>
+                  <SelectValue placeholder="Encryption" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="starttls">
+                    STARTTLS — usually port 587
+                  </SelectItem>
+                  <SelectItem value="ssl">
+                    SSL/TLS — usually port 465
+                  </SelectItem>
+                  <SelectItem value="none">None — unencrypted</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField
+              label="Username"
+              hint="Leave empty if your relay accepts mail without authentication"
+            >
+              <Input name="username" placeholder="you@example.com" />
+            </FormField>
+
+            <FormField
+              label="Password"
+              hint="Leave empty if the relay does not require authentication"
+            >
+              <Input name="password" type="password" placeholder="••••••••" />
             </FormField>
           </>
         )}

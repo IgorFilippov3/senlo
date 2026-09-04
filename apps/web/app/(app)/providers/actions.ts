@@ -23,6 +23,11 @@ export type CreateProviderError = {
       accessKeyId?: string[];
       secretAccessKey?: string[];
       serverToken?: string[];
+      host?: string[];
+      port?: string[];
+      encryption?: string[];
+      username?: string[];
+      password?: string[];
       general?: string[];
     };
   };
@@ -77,10 +82,15 @@ export async function createProviderAction(
     accessKeyId,
     secretAccessKey,
     serverToken,
+    host,
+    port,
+    encryption,
+    username,
+    password,
   } = parsed.data;
 
   try {
-    let config: Record<string, string> = {};
+    let config: Record<string, string | number> = {};
 
     if (type === "RESEND") {
       if (!apiKey) {
@@ -143,6 +153,40 @@ export async function createProviderAction(
         };
       }
       config = { serverToken, webhook_secret: webhookSecret || "" };
+    } else if (type === "SMTP") {
+      if (!host || !port) {
+        return {
+          error: {
+            formErrors: [],
+            fieldErrors: {
+              host: !host ? ["SMTP host is required"] : undefined,
+              port: !port ? ["SMTP port is required"] : undefined,
+            },
+          },
+        };
+      }
+
+      // Username and password are both optional: an internal relay on a
+      // private network commonly accepts mail from known hosts unauthenticated.
+      // A username without a password is a mistake worth catching, though.
+      if (username && !password) {
+        return {
+          error: {
+            formErrors: [],
+            fieldErrors: {
+              password: ["Password is required when a username is set"],
+            },
+          },
+        };
+      }
+
+      config = {
+        host,
+        port,
+        encryption: encryption || "starttls",
+        username: username || "",
+        password: password || "",
+      };
     }
 
     logger.info("Creating email provider", {
@@ -273,6 +317,11 @@ export async function updateProviderAction(
     accessKeyId,
     secretAccessKey,
     serverToken,
+    host,
+    port,
+    encryption,
+    username,
+    password,
   } = parsed.data;
 
   try {
@@ -297,6 +346,14 @@ export async function updateProviderAction(
       if (serverToken) updatedConfig.serverToken = serverToken;
       if (webhookSecret !== undefined)
         updatedConfig.webhook_secret = webhookSecret;
+    } else if (type === "SMTP" || provider.type === "SMTP") {
+      if (host) updatedConfig.host = host;
+      if (port) updatedConfig.port = port;
+      if (encryption) updatedConfig.encryption = encryption;
+      if (username !== undefined) updatedConfig.username = username;
+      // An empty password field means "leave the stored one alone", so that
+      // editing the host does not silently wipe the credential.
+      if (password) updatedConfig.password = password;
     }
 
     const updatedProvider = await providerRepo.update(id, {

@@ -10,6 +10,12 @@ export const CreateProviderSchema = z.object({
   accessKeyId: z.string().trim().optional(),
   secretAccessKey: z.string().trim().optional(),
   serverToken: z.string().trim().optional(),
+  host: z.string().trim().optional(),
+  port: z.coerce.number().int().min(1).max(65535).optional(),
+  encryption: z.enum(["ssl", "starttls", "none"]).optional().default("starttls"),
+  username: z.string().trim().optional(),
+  // Not trimmed: leading or trailing whitespace can be part of a password.
+  password: z.string().optional(),
 });
 
 export const UpdateProviderSchema = CreateProviderSchema.partial();
