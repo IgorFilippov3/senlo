@@ -39,7 +39,7 @@ export async function saveTemplateFromEditor(
   design: EmailDesignDocument,
   html: string,
   metadata?: { name: string; subject: string; locale?: string },
-): Promise<{ success: boolean }> {
+): Promise<{ success: boolean; error?: string }> {
   try {
     const { template } = await authorizeTemplate(id);
 
@@ -62,7 +62,12 @@ export async function saveTemplateFromEditor(
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return { success: false };
+    // The detail is in the log above; the client gets a generic message so
+    // driver output and internal paths do not reach the browser.
+    return {
+      success: false,
+      error: "Could not save the template. Please try again.",
+    };
   }
 }
 

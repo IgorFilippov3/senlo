@@ -67,26 +67,26 @@ export const BlockView = ({
   const previewMode = useEditorStore((s) => s.previewMode);
   const previewContact = useEditorStore((s) => s.previewContact);
 
-  // Evaluate condition in preview mode
-  if (previewMode && block.condition) {
-    const isVisible = evaluateCondition(block.condition, {
-      responsiveStyles: [],
-      localData,
-      options: {
-        data: {
-          contact: previewContact || {},
-          custom: previewContact || {},
-          workspace: { name: "Sample Workspace" },
-          trigger: { name: "Sample Trigger" },
-          unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
-        },
-      },
-    });
-
-    if (!isVisible) {
-      return null;
-    }
-  }
+  // Evaluate condition in preview mode.
+  // Only computed here - the early return has to happen after every hook call,
+  // otherwise flipping a block's visibility changes the number of hooks between
+  // renders and React tears the whole tree down.
+  const isHiddenByCondition =
+    previewMode && block.condition
+      ? !evaluateCondition(block.condition, {
+          responsiveStyles: [],
+          localData,
+          options: {
+            data: {
+              contact: previewContact || {},
+              custom: previewContact || {},
+              workspace: { name: "Sample Workspace" },
+              trigger: { name: "Sample Trigger" },
+              unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
+            },
+          },
+        })
+      : false;
 
   const renderText = (text: string) => {
     const processedText = previewMode
@@ -150,6 +150,11 @@ export const BlockView = ({
     e.stopPropagation();
     select({ kind: "block", id: block.id });
   };
+
+  // Safe from here on: every hook above has been called.
+  if (isHiddenByCondition) {
+    return null;
+  }
 
   const blockClassName = cn(
     styles.block,

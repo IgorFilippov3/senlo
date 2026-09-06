@@ -1,4 +1,5 @@
 import { resolveVariable } from "./renderer/conditions";
+import { escapeMergeValue } from "./renderer/escape";
 
 export interface MergeTag {
   label: string;
@@ -19,6 +20,15 @@ export const STANDARD_MERGE_TAGS: MergeTag[] = [
   },
 ];
 
+export interface ReplaceMergeTagsOptions {
+  /**
+   * Escape resolved values for HTML. Defaults to true: every caller that is
+   * building markup needs it, and recipient data is never trusted. Pass false
+   * only when substituting into plain text, such as a subject line.
+   */
+  escape?: boolean;
+}
+
 export function replaceMergeTags(
   text: string,
   data: {
@@ -31,21 +41,26 @@ export function replaceMergeTags(
     custom?: Record<string, any>;
   },
   localData?: Record<string, any>,
+  options?: ReplaceMergeTagsOptions,
 ): string {
   if (!text) return text;
+
+  const shouldEscape = options?.escape !== false;
+  const format = (value: unknown): string =>
+    shouldEscape ? escapeMergeValue(value) : String(value);
 
   return text.replace(/\{\{(.*?)\}\}/g, (match, tag) => {
     const rawTag = tag.trim();
 
     if (rawTag === "unsubscribe_url") {
-      return data.unsubscribeUrl || "[[Unsubscribe Link]]";
+      return format(data.unsubscribeUrl || "[[Unsubscribe Link]]");
     }
 
     const val = resolveVariable(rawTag, data, localData);
 
     if (val !== undefined && val !== null) {
       if (typeof val === "object") return match; // Don't stringify objects/arrays into HTML
-      return String(val);
+      return format(val);
     }
 
     return match;

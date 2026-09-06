@@ -49,6 +49,10 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
   const campaignId = searchParams.get("campaignId");
 
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Kept apart from saveError: the header banner sits behind the settings
+  // dialog, so a failure there has to be shown inside the dialog itself.
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -95,17 +99,30 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
     if (!onSave || !templateId) return;
 
     setIsSaving(true);
+    setSaveError(null);
     try {
       const options = { baseUrl: window.location.origin };
       const html = renderEmailDesign(design, options);
-      await onSave(templateId, design, html, {
+      // The server action reports failure by returning { success: false }
+      // instead of throwing, so the result has to be checked. Clearing isDirty
+      // on a failed save loses the work: it also disarms the unload guard.
+      const result = await onSave(templateId, design, html, {
         name: templateName,
         subject: templateSubject,
         locale: templateLocale,
       });
+
+      if (result && result.success === false) {
+        setSaveError(
+          result.error || "Could not save the template. Your changes are still here.",
+        );
+        return;
+      }
+
       setDirty(false);
     } catch (error) {
       console.error("Save failed:", error);
+      setSaveError("Could not save the template. Your changes are still here.");
     } finally {
       setIsSaving(false);
     }
@@ -116,19 +133,27 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
     if (!onSave || !templateId) return;
 
     setIsSaving(true);
+    setSettingsError(null);
     try {
       const options = { baseUrl: window.location.origin };
       const html = renderEmailDesign(design, options);
-      await onSave(templateId, design, html, {
+      const result = await onSave(templateId, design, html, {
         name: editName,
         subject: editSubject,
         locale: editLocale,
       });
+
+      if (result && result.success === false) {
+        setSettingsError("Could not save the template info. Please try again.");
+        return;
+      }
+
       setTemplateMetadata(editName, editSubject, editLocale);
       setIsSettingsOpen(false);
       // We don't need to setDirty(true) here since we just saved to server
     } catch (error) {
       console.error("Failed to update template info:", error);
+      setSettingsError("Could not save the template info. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -147,7 +172,18 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
 
         <h1 className={styles.title}>
           <strong>{templateName || "Untitled Template"}</strong>
+          {isDirty && (
+            <span className={styles.dirtyMarker} title="Unsaved changes">
+              *
+            </span>
+          )}
         </h1>
+
+        {saveError && (
+          <p className={styles.saveError} role="alert">
+            {saveError}
+          </p>
+        )}
 
         <div className={styles.actions}>
           <Button
@@ -244,12 +280,21 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
 
       <Dialog
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={() => {
+          setSettingsError(null);
+          setIsSettingsOpen(false);
+        }}
         disableAnimation={true}
         title="Template Info"
         description="Update the template name and email subject line."
       >
         <form onSubmit={handleSettingsSave} className="space-y-4">
+          {settingsError && (
+            <p className={styles.dialogError} role="alert">
+              {settingsError}
+            </p>
+          )}
+
           <FormField
             label="Template Name"
             required

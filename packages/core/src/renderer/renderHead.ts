@@ -1,9 +1,11 @@
 import { EmailDesignDocument } from "../emailDesign";
 import { RenderContext } from "./types";
+import { escapeCssValue } from "./escape";
 
 export function renderHead(design: EmailDesignDocument, context: RenderContext): string {
   const { responsiveStyles } = context;
-  const fontFamily = design.settings.fontFamily || "Arial, sans-serif";
+  const fontFamily =
+    escapeCssValue(design.settings.fontFamily) || "Arial, sans-serif";
 
   return `
   <!--[if mso]>
@@ -27,7 +29,7 @@ export function renderHead(design: EmailDesignDocument, context: RenderContext):
 
     ${responsiveStyles.join("\n")}
 
-    @media only screen and (max-width: ${design.settings.contentWidth || 600}px) {
+    @media only screen and (max-width: ${Number(design.settings.contentWidth) || 600}px) {
       .senlo-full-width {
         width: 100% !important;
       }

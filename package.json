@@ -14,10 +14,12 @@
     "dev": "pnpm --filter web dev",
     "worker": "pnpm --filter web worker",
     "build": "pnpm -r run build",
+    "test": "pnpm -r --if-present run test",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:provision": "tsx packages/db/src/provision.ts",
-    "db:seed:demo": "tsx packages/db/src/seed-demo.ts"
+    "db:seed:demo": "tsx packages/db/src/seed-demo.ts",
+    "test:core": "pnpm --filter @senlo/core test"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

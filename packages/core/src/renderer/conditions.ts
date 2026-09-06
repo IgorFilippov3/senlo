@@ -50,7 +50,7 @@ export function resolveVariable(
   const root = parts[0];
 
   // 1. Try local data (loops)
-  if (localData && root in localData) {
+  if (localData && Object.prototype.hasOwnProperty.call(localData, root)) {
     return getDeepValue(localData, parts);
   }
 
@@ -93,7 +93,13 @@ function getDeepValue(obj: any, parts: string[]): any {
   if (parts.length === 0) return obj;
   let current = obj;
   for (const part of parts) {
-    if (current && typeof current === "object" && part in current) {
+    // hasOwnProperty, not `in`: `in` walks the prototype chain, so
+    // {{contact.constructor}} would resolve and print a function body.
+    if (
+      current &&
+      typeof current === "object" &&
+      Object.prototype.hasOwnProperty.call(current, part)
+    ) {
       current = current[part];
     } else {
       return undefined;

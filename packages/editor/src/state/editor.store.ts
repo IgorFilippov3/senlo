@@ -153,7 +153,7 @@ export interface EditorState {
     design: EmailDesignDocument,
     html: string,
     metadata?: { name: string; subject: string; locale?: string },
-  ) => Promise<any>;
+  ) => Promise<{ success: boolean; error?: string } | void>;
   /** Callback function for sending test emails */
   onSendTest?: (
     id: number,
@@ -175,6 +175,8 @@ export interface EditorState {
   // Design Actions
   /** Load a new design document into the editor */
   setDesign: (design: EmailDesignDocument) => void;
+  /** Reset the store to its initial state (the store is a module singleton) */
+  resetEditor: () => void;
   /** Update design document from AI with history tracking */
   updateDesignFromAi: (design: EmailDesignDocument) => void;
   /** Set the template database ID */
@@ -307,8 +309,8 @@ export interface EditorState {
       id: number,
       design: EmailDesignDocument,
       html: string,
-      metadata?: { name: string; subject: string },
-    ) => Promise<any>,
+      metadata?: { name: string; subject: string; locale?: string },
+    ) => Promise<{ success: boolean; error?: string } | void>,
   ) => void;
   /** Set test email callback function */
   setOnSendTest: (
@@ -336,6 +338,21 @@ export interface EditorState {
 
 /** Maximum number of design states stored in history for undo/redo functionality */
 const MAX_HISTORY_SIZE = 50;
+
+/** Sample contact shown in preview mode before real data is supplied. */
+const DEFAULT_PREVIEW_CONTACT = {
+  first_name: "John",
+  last_name: "Doe",
+  email: "john.doe@example.com",
+};
+
+/** Fallback global settings for documents saved before a field existed. */
+const DEFAULT_GLOBAL_SETTINGS = {
+  backgroundColor: "#ffffff",
+  contentWidth: 600,
+  fontFamily: "Arial, sans-serif",
+  textColor: "#111827",
+} as const;
 
 /**
  * Helper function to save current design state to history.
@@ -382,11 +399,7 @@ export const useEditorStore = create<EditorState>()(
     templateLocale: "en",
 
     previewMode: false,
-    previewContact: {
-      first_name: "John",
-      last_name: "Doe",
-      email: "john.doe@example.com",
-    },
+    previewContact: { ...DEFAULT_PREVIEW_CONTACT },
     rowsSidebarMode: "empty",
     savedRows: [],
     isLoadingSavedRows: false,
@@ -412,18 +425,36 @@ export const useEditorStore = create<EditorState>()(
       });
     },
 
+    resetEditor: () => {
+      set((s) => {
+        s.design = EMPTY_EMAIL_DESIGN;
+        s.templateId = null;
+        s.selection = null;
+        s.historyPast = [];
+        s.historyFuture = [];
+        s.canUndo = false;
+        s.canRedo = false;
+        s.isDirty = false;
+        s.previewMode = false;
+        s.previewContact = { ...DEFAULT_PREVIEW_CONTACT };
+        s.isDragActive = false;
+        s.activeDragType = null;
+        s.hoveredRowId = null;
+        // Saved rows are scoped to a project: keeping them would show the
+        // previous project's library for a moment after navigating.
+        s.savedRows = [];
+        s.isLoadingSavedRows = false;
+        s.rowsSidebarMode = "empty";
+      });
+    },
+
     setDesign: (design) => {
       set((s) => {
         s.design = design;
         s.isDirty = false;
         // Initialize settings if missing in loaded design
         if (!s.design.settings) {
-          s.design.settings = {
-            backgroundColor: "#ffffff",
-            contentWidth: 600,
-            fontFamily: "Arial, sans-serif",
-            textColor: "#111827",
-          };
+          s.design.settings = { ...DEFAULT_GLOBAL_SETTINGS };
         }
       });
     },
@@ -435,12 +466,7 @@ export const useEditorStore = create<EditorState>()(
         s.isDirty = true;
         // Initialize settings if missing in loaded design
         if (!s.design.settings) {
-          s.design.settings = {
-            backgroundColor: "#ffffff",
-            contentWidth: 600,
-            fontFamily: "Arial, sans-serif",
-            textColor: "#111827",
-          };
+          s.design.settings = { ...DEFAULT_GLOBAL_SETTINGS };
         }
       });
     },
@@ -692,7 +718,6 @@ export const useEditorStore = create<EditorState>()(
         const columnResult = findColumn(s.design, columnId);
         if (columnResult) {
           const block = createBlock(type);
-          console.log(block, "block");
           if (
             position !== undefined &&
             position >= 0 &&
@@ -1023,6 +1048,10 @@ export const useEditorStore = create<EditorState>()(
           // Update block data with new values without saving to history
           Object.assign(blockResult.block.data, updates);
           blockResult.block.condition = condition;
+          // No history step, but the document did change: without this the
+          // unsaved-changes guard misses everything typed in the last 500ms
+          // before the form unmounts.
+          s.isDirty = true;
         }
       });
     },
@@ -1069,6 +1098,7 @@ export const useEditorStore = create<EditorState>()(
           Object.assign(row.settings, updates);
           row.condition = condition;
           row.loop = loop;
+          s.isDirty = true;
         }
       });
     },
@@ -1088,12 +1118,7 @@ export const useEditorStore = create<EditorState>()(
       set((s) => {
         saveToHistory(s);
         if (!s.design.settings) {
-          s.design.settings = {
-            backgroundColor: "#ffffff",
-            contentWidth: 600,
-            fontFamily: "Arial, sans-serif",
-            textColor: "#111827",
-          };
+          s.design.settings = { ...DEFAULT_GLOBAL_SETTINGS };
         }
         Object.assign(s.design.settings, updates);
       });
@@ -1102,9 +1127,10 @@ export const useEditorStore = create<EditorState>()(
     updateGlobalSettingsWithoutHistory: (updates) => {
       set((s) => {
         if (!s.design.settings) {
-          s.design.settings = {};
+          s.design.settings = { ...DEFAULT_GLOBAL_SETTINGS };
         }
         Object.assign(s.design.settings, updates);
+        s.isDirty = true;
       });
     },
 

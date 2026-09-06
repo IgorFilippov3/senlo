@@ -1,4 +1,5 @@
 .header {
+  position: relative;
   width: 100%;
   height: 52px;
   background-color: white;
@@ -83,4 +84,38 @@
 
 .actionButton:disabled:hover {
   background-color: transparent;
+}
+
+.dirtyMarker {
+  margin-left: 4px;
+  color: var(--sl-color-text-muted);
+  font-weight: 700;
+}
+
+/*
+ * Sits below the header instead of inside its flex row: the title takes the
+ * remaining width and the row is only 52px tall.
+ */
+.saveError {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #991b1b;
+  background-color: #fee2e2;
+  border-bottom: 1px solid #fca5a5;
+}
+
+.dialogError {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #991b1b;
+  background-color: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
 }

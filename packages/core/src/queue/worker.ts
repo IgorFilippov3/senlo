@@ -211,7 +211,7 @@ export class EmailWorkerProcessor {
             contactId: contact.id,
             campaignId: campaign.id,
           });
-          const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${unsubscribeToken}`;
+          const unsubscribeUrl = `${baseUrl}/unsubscribe/${unsubscribeToken}`;
 
           const openTrackingUrl = `${baseUrl}/api/track/open/${campaign.id}/${emailEncoded}`;
           const trackingPixel = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none !important;" alt="" />`;
@@ -231,6 +231,7 @@ export class EmailWorkerProcessor {
           personalizedHtml = wrapLinksWithTracking(
             personalizedHtml,
             clickTrackingBaseUrl,
+            { skipUrls: [unsubscribeUrl] },
           );
           personalizedHtml += trackingPixel;
 

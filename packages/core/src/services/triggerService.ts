@@ -99,11 +99,18 @@ export class TriggerService {
 
     // Prepare subject with merge tags support
     const rawSubject = subjectOverride || template.subject;
-    const personalizedSubject = replaceMergeTags(rawSubject, {
-      custom: data,
-      contact: { email: to, ...data },
-      project: { name: project.name },
-    });
+    // A subject line is plain text, so HTML escaping would show entities to
+    // the recipient.
+    const personalizedSubject = replaceMergeTags(
+      rawSubject,
+      {
+        custom: data,
+        contact: { email: to, ...data },
+        project: { name: project.name },
+      },
+      undefined,
+      { escape: false },
+    );
 
     const log = await this.logRepo.create({
       campaignId: campaign.id,

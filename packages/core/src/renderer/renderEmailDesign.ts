@@ -7,6 +7,7 @@ import { RenderContext, RenderOptions } from "./types";
 import { renderHead } from "./renderHead";
 import { renderBody } from "./renderBody";
 import { replaceMergeTags } from "../merge-tags";
+import { escapeAttr, sanitizeUrlsInHtml } from "./escape";
 
 export function renderEmailDesign(
   design: EmailDesignDocument,
@@ -33,8 +34,8 @@ export function renderEmailDesign(
   <title></title>
   ${headContent}
 </head>
-<body style="margin:0;padding:0;word-spacing:normal;background-color:${design.settings.backgroundColor || "#ffffff"};">
-  <div role="article" aria-roledescription="email" lang="en" style="-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;background-color:${design.settings.backgroundColor || "#ffffff"};">
+<body style="margin:0;padding:0;word-spacing:normal;background-color:${escapeAttr(design.settings.backgroundColor || "#ffffff")};">
+  <div role="article" aria-roledescription="email" lang="en" style="-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;background-color:${escapeAttr(design.settings.backgroundColor || "#ffffff")};">
     ${bodyContent}
   </div>
 </body>
@@ -45,7 +46,10 @@ export function renderEmailDesign(
     html = replaceMergeTags(html, options.data);
   }
 
-  return html;
+  // Last line of defence: a merge tag can put anything into an href or an src,
+  // and the substitution above happens after the document is assembled, so the
+  // scheme check has to run over the finished HTML.
+  return sanitizeUrlsInHtml(html);
 }
 
 

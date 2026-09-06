@@ -1,6 +1,7 @@
 import { ContentBlock } from "../emailDesign";
 import { RenderContext } from "./types";
 import { renderPadding, normalizeUrl } from "./utils";
+import { escapeAttr, sanitizeUrl } from "./escape";
 import { evaluateCondition } from "./conditions";
 
 export function renderBlock(
@@ -31,14 +32,14 @@ export function renderBlock(
     case "socials":
       return renderSocials(block, context);
     default:
-      return `<!-- Unknown block type: ${(block as any).type} -->`;
+      return `<!-- Unknown block type: ${String((block as any).type).replace(/[^a-z0-9_-]/gi, "")} -->`;
   }
 }
 
 function renderSocials(block: any, context: RenderContext): string {
   const { data } = block;
-  const iconSize = data.size || 32;
-  const spacing = data.spacing || 10;
+  const iconSize = Number(data.size) || 32;
+  const spacing = Number(data.spacing) || 10;
   const padding = renderPadding(data.padding);
 
   const containerStyle = [
@@ -48,21 +49,27 @@ function renderSocials(block: any, context: RenderContext): string {
 
   const linksHtml = (data.links || [])
     .map((link: any) => {
-      const iconSrc = normalizeUrl(link.icon, context.options?.baseUrl);
-      const imgHtml = `<img src="${iconSrc}" alt="${link.type}" width="${iconSize}" height="${iconSize}" style="display: inline-block; border-radius: 4px;" />`;
+      const iconSrc = escapeAttr(
+        sanitizeUrl(normalizeUrl(link.icon, context.options?.baseUrl), {
+          allowDataImage: true,
+        }),
+      );
+      const imgHtml = `<img src="${iconSrc}" alt="${escapeAttr(link.type)}" width="${iconSize}" height="${iconSize}" style="display: inline-block; border-radius: 4px;" />`;
       if (link.url) {
-        return `<a href="${link.url}" target="_blank" style="text-decoration: none; margin: 0 ${spacing / 2}px; display: inline-block;">${imgHtml}</a>`;
+        return `<a href="${escapeAttr(sanitizeUrl(link.url, { fallback: "#" }))}" target="_blank" style="text-decoration: none; margin: 0 ${spacing / 2}px; display: inline-block;">${imgHtml}</a>`;
       }
       return `<span style="margin: 0 ${spacing / 2}px; display: inline-block;">${imgHtml}</span>`;
     })
     .join("");
 
-  return `<div style="${containerStyle}">${linksHtml}</div>`;
+  return `<div style="${escapeAttr(containerStyle)}">${linksHtml}</div>`;
 }
 
 function renderHeading(block: any): string {
   const { data } = block;
-  const level = data.level || 2;
+  // The level becomes a tag name, so it can never be taken from the document
+  // as-is: designJson is JSON and carries no type guarantees.
+  const level = Math.min(6, Math.max(1, Math.trunc(Number(data.level)) || 2));
   const Tag = `h${level}`;
 
   const style = [
@@ -79,12 +86,13 @@ function renderHeading(block: any): string {
     `padding: ${renderPadding(data.padding)}`,
   ].join("; ");
 
+  // data.text is raw HTML on purpose - the editor lets the author write markup.
   let content = data.text;
   if (data.href) {
-    content = `<a href="${data.href}" target="_blank" style="color: inherit; text-decoration: none;">${content}</a>`;
+    content = `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }))}" target="_blank" style="color: inherit; text-decoration: none;">${content}</a>`;
   }
 
-  return `<${Tag} style="${style}">${content}</${Tag}>`;
+  return `<${Tag} style="${escapeAttr(style)}">${content}</${Tag}>`;
 }
 
 function renderParagraph(block: any): string {
@@ -106,10 +114,10 @@ function renderParagraph(block: any): string {
 
   let content = data.text;
   if (data.href) {
-    content = `<a href="${data.href}" target="_blank" style="color: inherit; text-decoration: none;">${content}</a>`;
+    content = `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }))}" target="_blank" style="color: inherit; text-decoration: none;">${content}</a>`;
   }
 
-  return `<p style="${style}">${content}</p>`;
+  return `<p style="${escapeAttr(style)}">${content}</p>`;
 }
 
 function renderImage(block: any, context: RenderContext): string {
@@ -141,16 +149,19 @@ function renderImage(block: any, context: RenderContext): string {
     `line-height: 0px`,
   ].join("; ");
 
-  const src = normalizeUrl(data.src, context.options?.baseUrl);
-  let html = `<img src="${src}" alt="${data.alt || ""}" width="${
-    data.width || ""
-  }" style="${imgStyle}" />`;
+  const src = escapeAttr(
+    sanitizeUrl(normalizeUrl(data.src, context.options?.baseUrl), {
+      allowDataImage: true,
+    }),
+  );
+  const widthAttr = Number(data.width) ? ` width="${Number(data.width)}"` : "";
+  let html = `<img src="${src}" alt="${escapeAttr(data.alt || "")}"${widthAttr} style="${escapeAttr(imgStyle)}" />`;
 
   if (data.href) {
-    html = `<a href="${data.href}" target="_blank" style="text-decoration: none; display: inline-block;">${html}</a>`;
+    html = `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }))}" target="_blank" style="text-decoration: none; display: inline-block;">${html}</a>`;
   }
 
-  return `<div style="${containerStyle}">${html}</div>`;
+  return `<div style="${escapeAttr(containerStyle)}">${html}</div>`;
 }
 
 function renderButton(block: any): string {
@@ -217,8 +228,8 @@ function renderButton(block: any): string {
   }
 
   return `
-    <div style="text-align: ${data.align || "center"}; padding: 10px 0;">
-      <a href="${data.href || "#"}" target="_blank" style="${styles.join("; ")}">
+    <div style="text-align: ${escapeAttr(data.align || "center")}; padding: 10px 0;">
+      <a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" target="_blank" style="${escapeAttr(styles.join("; "))}">
         ${data.text}
       </a>
     </div>
@@ -236,7 +247,7 @@ function renderSpacer(block: any): string {
   ].join("; ");
 
   return `
-    <div style="${style}">&nbsp;</div>
+    <div style="${escapeAttr(style)}">&nbsp;</div>
   `;
 }
 
@@ -260,8 +271,8 @@ function renderList(block: any): string {
     .join("");
 
   return `
-    <div style="${style}">
-      <${Tag} style="margin: 0; padding-left: 24px; list-style-type: ${listStyle};">
+    <div style="${escapeAttr(style)}">
+      <${Tag} style="margin: 0; padding-left: 24px; list-style-type: ${escapeAttr(listStyle)};">
         ${itemsHtml}
       </${Tag}>
     </div>
@@ -287,8 +298,8 @@ function renderDivider(block: any): string {
   ].join("; ");
 
   return `
-    <div style="${style}">
-      <div style="${hrStyle}">&nbsp;</div>
+    <div style="${escapeAttr(style)}">
+      <div style="${escapeAttr(hrStyle)}">&nbsp;</div>
     </div>
   `;
 }
@@ -331,14 +342,14 @@ function renderProductLine(block: any): string {
   ].join("; ");
 
   return `
-    <div style="${containerStyle}">
-      <table role="presentation" style="${tableStyle}">
+    <div style="${escapeAttr(containerStyle)}">
+      <table role="presentation" style="${escapeAttr(tableStyle)}">
         <tbody>
           <tr>
-            <td style="${leftCellStyle}">
+            <td style="${escapeAttr(leftCellStyle)}">
               ${data.leftText || ""}
             </td>
-            <td style="${rightCellStyle}">
+            <td style="${escapeAttr(rightCellStyle)}">
               ${data.rightText || ""}
             </td>
           </tr>

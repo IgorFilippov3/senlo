@@ -116,7 +116,11 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
     });
   };
 
-  const onDragEnd = (event: DragEndEvent) => {
+  // Shared by drag end and drag cancel. dnd-kit does not call onDragEnd when a
+  // drag is cancelled (Escape, or the pointer leaving the window), so without a
+  // cancel handler isDragActive stays true: drop zones and the overlay stay on
+  // screen and the block and row menus never come back.
+  const clearDragState = () => {
     setShowOverlay(false);
     setDragActive(false);
     setHoveredRowId(null);
@@ -125,7 +129,15 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
       setActiveId(null);
       setActiveData(null);
     }, 0);
+  };
+
+  const onDragEnd = (event: DragEndEvent) => {
+    clearDragState();
     handleDragEnd(event);
+  };
+
+  const onDragCancel = () => {
+    clearDragState();
   };
 
   return (
@@ -133,6 +145,7 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
       sensors={sensors}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onDragCancel={onDragCancel}
     >
       <div className="senlo-editor-container">
         <EditorHeader projectId={projectId} />

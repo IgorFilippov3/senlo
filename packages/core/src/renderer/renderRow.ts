@@ -2,6 +2,7 @@ import { RowBlock, ColumnBlock } from "../emailDesign";
 import { RenderContext } from "./types";
 import { renderBlock } from "./renderBlocks";
 import { evaluateCondition } from "./conditions";
+import { escapeAttr } from "./escape";
 
 export function renderRow(row: RowBlock, context: RenderContext): string {
   if (!evaluateCondition(row.condition, context)) {
@@ -21,7 +22,9 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
     `border-top-right-radius: ${borderRadius.top || 0}px`,
     `border-bottom-left-radius: ${borderRadius.bottom || 0}px`,
     `border-bottom-right-radius: ${borderRadius.bottom || 0}px`,
-  ].join("; ");
+  ]
+    .map(escapeAttr)
+    .join("; ");
 
   return `
     <!--[if mso]>
@@ -29,9 +32,9 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
       <tr>
         <td style="${rowStyle}">
     <![endif]-->
-    <div style="${rowStyle}; font-size: 0; text-align: ${
-      settings.align || "center"
-    };">
+    <div style="${rowStyle}; font-size: 0; text-align: ${escapeAttr(
+      settings.align || "center",
+    )};">
       <!--[if mso]>
       <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
         <tr>
@@ -51,7 +54,9 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
 }
 
 function renderColumn(column: ColumnBlock, context: RenderContext): string {
-  const width = column.width || 100;
+  // Width reaches both an attribute and two style declarations, so it is
+  // coerced rather than escaped.
+  const width = Number(column.width) || 100;
   const widthAttr = width === 100 ? "" : `width="${width}%"`;
 
   return `

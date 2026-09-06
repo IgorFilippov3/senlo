@@ -2,7 +2,7 @@
 
 import "./styles.css";
 
-import { useEffect, FC, useState } from "react";
+import { useEffect, useRef, FC, useState } from "react";
 import { EmailDesignDocument, MergeTag, SavedRow, RowBlock } from "@senlo/core";
 import { Sidebar } from "./components/sidebar/sidebar";
 import { EmailCanvas } from "./components/email-canvas/email-canvas";
@@ -26,7 +26,7 @@ interface EditorLayoutProps {
     design: EmailDesignDocument,
     html: string,
     metadata?: { name: string; subject: string; locale?: string },
-  ) => Promise<any>;
+  ) => Promise<{ success: boolean; error?: string } | void>;
   onSendTest?: (
     id: number,
     targetEmail: string,
@@ -65,14 +65,66 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   const setOnSave = useEditorStore((s) => s.setOnSave);
   const setOnSendTest = useEditorStore((s) => s.setOnSendTest);
   const setSavedRowCallbacks = useEditorStore((s) => s.setSavedRowCallbacks);
+  const resetEditor = useEditorStore((s) => s.resetEditor);
   const [isMounted, setIsMounted] = useState(false);
 
+  // The document is loaded from props exactly once per template. Server props
+  // get fresh identities on every render of the parent - `mergeTags` is rebuilt
+  // as a new array, and `revalidatePath` after a save re-renders the page - so
+  // a document effect that depended on them would replace the design (and clear
+  // isDirty) while the user is editing.
+  const initialDesignRef = useRef(initialDesign);
+  initialDesignRef.current = initialDesign;
+  const templateMetaRef = useRef({
+    templateName,
+    templateSubject,
+    templateLocale,
+    projectId,
+    hasAiProvider,
+  });
+  templateMetaRef.current = {
+    templateName,
+    templateSubject,
+    templateLocale,
+    projectId,
+    hasAiProvider,
+  };
+
   useEffect(() => {
-    setDesign(initialDesign);
+    const meta = templateMetaRef.current;
+
+    setDesign(initialDesignRef.current);
     setTemplateId(templateId);
-    setProjectInfo(projectId, hasAiProvider);
-    setTemplateMetadata(templateName, templateSubject, templateLocale);
+    setProjectInfo(meta.projectId, meta.hasAiProvider);
+    setTemplateMetadata(
+      meta.templateName,
+      meta.templateSubject,
+      meta.templateLocale,
+    );
+    setIsMounted(true);
+  }, [
+    templateId,
+    setDesign,
+    setTemplateId,
+    setProjectInfo,
+    setTemplateMetadata,
+  ]);
+
+  // The store is a module singleton, so it outlives this component. Without a
+  // reset, navigating to another template briefly shows the previous document.
+  useEffect(() => {
+    return () => {
+      resetEditor();
+    };
+  }, [resetEditor]);
+
+  // Callbacks and merge tags can be refreshed freely: none of them touch the
+  // document.
+  useEffect(() => {
     setCustomMergeTags(mergeTags);
+  }, [mergeTags, setCustomMergeTags]);
+
+  useEffect(() => {
     if (onSave) {
       setOnSave(onSave);
     }
@@ -85,20 +137,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
       onSave: onSaveRow,
       onDelete: onDeleteSavedRow,
     });
-
-    setIsMounted(true);
   }, [
-    initialDesign,
-    templateId,
-    templateName,
-    templateSubject,
-    templateLocale,
-    mergeTags,
-    setDesign,
-    setTemplateId,
-    setProjectInfo,
-    setTemplateMetadata,
-    setCustomMergeTags,
     onSave,
     setOnSave,
     onSendTest,

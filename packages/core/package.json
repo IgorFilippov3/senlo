@@ -1,13 +1,15 @@
 {
   "name": "@senlo/core",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "main": "src/index.ts",
   "private": true,
   "types": "src/index.ts",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit",
-    "dev": "tsc --noEmit --watch"
+    "dev": "tsc --noEmit --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.978.0",
@@ -17,6 +19,7 @@
   },
   "devDependencies": {
     "@types/nodemailer": "^6.4.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.0"
   }
 }
