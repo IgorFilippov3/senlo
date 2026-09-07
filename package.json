@@ -19,7 +19,8 @@
     "db:studio": "drizzle-kit studio",
     "db:provision": "tsx packages/db/src/provision.ts",
     "db:seed:demo": "tsx packages/db/src/seed-demo.ts",
-    "test:core": "pnpm --filter @senlo/core test"
+    "test:core": "pnpm --filter @senlo/core test",
+    "test:core:update": "pnpm --filter @senlo/core test:update"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
