@@ -16,16 +16,29 @@ import {
   buildUnsubscribeHeaders,
   unsubscribeUrls,
 } from "../unsubscribe-token";
+import { htmlToPlainText, EMAIL_CLIPPING_BYTES } from "../renderer/htmlToText";
 import {
-  htmlToPlainText,
-  injectBeforeBodyEnd,
-  EMAIL_CLIPPING_BYTES,
-} from "../renderer/htmlToText";
+  personalizeEmail,
+  isRecipientIndependent,
+} from "../renderer/personalize";
+import type { EmailTemplate } from "../emailTemplate";
 import { renderEmailDesign } from "../renderer/renderEmailDesign";
-import { wrapLinksWithTracking } from "../tracking";
-import { EmailDesignDocument } from "../emailDesign";
+import type { EmailDesignDocument } from "../emailDesign";
 import { AutomationService } from "../services/automationService";
 import { AUTOMATION_QUEUE_NAME } from "./queue";
+
+/**
+ * How long a rendered campaign template is reused inside one worker process.
+ * Short enough that editing a template mid-send is picked up quickly, long
+ * enough that a campaign of any size renders once rather than once per message.
+ */
+const RENDER_CACHE_TTL_MS = 5 * 60 * 1000;
+const RENDER_CACHE_MAX_ENTRIES = 20;
+
+interface CachedRender {
+  html: string;
+  expiresAt: number;
+}
 
 export class EmailWorkerProcessor {
   constructor(
@@ -39,6 +52,130 @@ export class EmailWorkerProcessor {
     private readonly suppressionRepo?: ISuppressionRepository,
   ) {}
 
+  /**
+   * Templates rendered without recipient data, keyed by campaign and template.
+   * Only documents that render the same way for everyone land here: a condition
+   * is evaluated against the recipient and a loop repeats a row from their
+   * data, so those are still rendered per message.
+   */
+  private readonly renderCache = new Map<string, CachedRender>();
+
+  private cachedRender(key: string): string | undefined {
+    const entry = this.renderCache.get(key);
+    if (!entry) return undefined;
+
+    if (entry.expiresAt < Date.now()) {
+      this.renderCache.delete(key);
+      return undefined;
+    }
+
+    return entry.html;
+  }
+
+  private cacheRender(key: string, html: string) {
+    if (this.renderCache.size >= RENDER_CACHE_MAX_ENTRIES) {
+      const oldest = this.renderCache.keys().next().value;
+      if (oldest !== undefined) this.renderCache.delete(oldest);
+    }
+
+    this.renderCache.set(key, {
+      html,
+      expiresAt: Date.now() + RENDER_CACHE_TTL_MS,
+    });
+  }
+
+  /**
+   * The document with merge tags still in place. Rendered once per campaign
+   * when the result does not depend on who receives it, and per message when
+   * it does.
+   */
+  private async renderTemplate(
+    templateId: number,
+    campaignId: number,
+    options: { baseUrl?: string; preheader?: string; title?: string },
+  ): Promise<{ html: string; recipientIndependent: boolean }> {
+    const cacheKey = `${campaignId}:${templateId}`;
+    const cached = this.cachedRender(cacheKey);
+    if (cached !== undefined) {
+      return { html: cached, recipientIndependent: true };
+    }
+
+    const template = (await this.templateRepo.findById(
+      templateId,
+    )) as EmailTemplate | null;
+    if (!template) throw new Error(`Template ${templateId} not found`);
+
+    if (!template.designJson) {
+      // Nothing to render: an imported template is already HTML.
+      return { html: template.html, recipientIndependent: true };
+    }
+
+    const design = template.designJson as EmailDesignDocument;
+    const html = renderEmailDesign(design, {
+      baseUrl: options.baseUrl,
+      preheader: options.preheader,
+      title: options.title,
+    });
+
+    const recipientIndependent = isRecipientIndependent(design);
+    if (recipientIndependent) {
+      this.cacheRender(cacheKey, html);
+    }
+
+    return { html, recipientIndependent };
+  }
+
+  /**
+   * The message for one recipient.
+   *
+   * Rendering happens here rather than when the job is queued. A campaign used
+   * to render the document once per contact and put the result into the job, so
+   * Redis held one full copy of the email per recipient; the job now carries an
+   * id and this recipient's values, and the shared part of the work is done
+   * once. A job queued the old way still carries `html` and is sent as-is.
+   */
+  private async buildMessageHtml(data: EmailJobData): Promise<string> {
+    if (data.html) return data.html;
+
+    if (!data.templateId) {
+      throw new Error("Job has neither rendered HTML nor a template to render");
+    }
+
+    const { html: templateHtml } = await this.renderTemplate(
+      data.templateId,
+      data.campaignId,
+      {
+        baseUrl: data.baseUrl,
+        preheader: data.preheader,
+        title: data.title,
+      },
+    );
+
+    const baseUrl = data.baseUrl;
+    const emailEncoded = encodeURIComponent(data.email);
+
+    const message = personalizeEmail(templateHtml, {
+      data: data.renderData,
+      clickTrackingBaseUrl: baseUrl
+        ? `${baseUrl}/api/track/click/${data.campaignId}/${emailEncoded}`
+        : undefined,
+      skipTrackingUrls: data.unsubscribePageUrl
+        ? [data.unsubscribePageUrl]
+        : undefined,
+      trackingPixelUrl: baseUrl
+        ? `${baseUrl}/api/track/open/${data.campaignId}/${emailEncoded}`
+        : undefined,
+    });
+
+    if (message.length > EMAIL_CLIPPING_BYTES) {
+      console.warn(
+        `[Worker] Message for ${data.email} is ${message.length} bytes; Gmail clips past ${EMAIL_CLIPPING_BYTES} and hides everything after the cut`,
+      );
+    }
+
+    return message;
+  }
+
   async processEmailJob(job: Job<EmailJobData>) {
     const {
       projectId,
@@ -48,7 +185,6 @@ export class EmailWorkerProcessor {
       email,
       from,
       subject,
-      html,
       providerId,
       replyTo,
       unsubscribeOneClickUrl,
@@ -89,6 +225,8 @@ export class EmailWorkerProcessor {
 
       const provider = await this.providerRepo.findById(providerId);
       if (!provider) throw new Error(`Provider ${providerId} not found`);
+
+      const html = await this.buildMessageHtml(job.data);
 
       const mailer = MailerFactory.create(provider);
 
@@ -213,6 +351,9 @@ export class EmailWorkerProcessor {
     });
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const fromAddress = campaign.fromName
+      ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
+      : campaign.fromEmail || "hello@senlo.io";
 
     // Queue jobs in chunks to avoid memory issues and BullMQ limits
     const CHUNK_SIZE = 100;
@@ -221,7 +362,6 @@ export class EmailWorkerProcessor {
 
       await Promise.all(
         chunk.map(async (contact) => {
-          const emailEncoded = encodeURIComponent(contact.email);
           const unsubscribeToken = encodeUnsubscribeToken({
             contactId: contact.id,
             projectId: project.id,
@@ -229,44 +369,6 @@ export class EmailWorkerProcessor {
             campaignId: campaign.id,
           });
           const unsubscribe = unsubscribeUrls(baseUrl, unsubscribeToken);
-          const unsubscribeUrl = unsubscribe.page;
-
-          const openTrackingUrl = `${baseUrl}/api/track/open/${campaign.id}/${emailEncoded}`;
-          const trackingPixel = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none !important;" alt="" />`;
-
-          const clickTrackingBaseUrl = `${baseUrl}/api/track/click/${campaign.id}/${emailEncoded}`;
-
-          let personalizedHtml = template.designJson
-            ? renderEmailDesign(template.designJson as EmailDesignDocument, {
-                baseUrl,
-                preheader: campaign.preheader || template.preheader || undefined,
-                title: campaign.subject || template.subject,
-                data: {
-                  contact,
-                  unsubscribeUrl,
-                },
-              })
-            : template.html;
-
-          personalizedHtml = wrapLinksWithTracking(
-            personalizedHtml,
-            clickTrackingBaseUrl,
-            { skipUrls: [unsubscribeUrl] },
-          );
-          personalizedHtml = injectBeforeBodyEnd(
-            personalizedHtml,
-            trackingPixel,
-          );
-
-          if (personalizedHtml.length > EMAIL_CLIPPING_BYTES) {
-            console.warn(
-              `[Worker] Message for ${contact.email} is ${personalizedHtml.length} bytes; Gmail clips past ${EMAIL_CLIPPING_BYTES} and hides everything after the cut`,
-            );
-          }
-
-          const fromAddress = campaign.fromName
-            ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
-            : campaign.fromEmail || "hello@senlo.io";
 
           return this.emailQueue.add(
             `campaign-${campaign.id}-${contact.id}-${Date.now()}`,
@@ -277,9 +379,23 @@ export class EmailWorkerProcessor {
               email: contact.email,
               from: fromAddress,
               subject: campaign.subject || template.subject,
-              html: personalizedHtml,
               providerId: project.providerId!,
+              // What to render, rather than the render itself. The document is
+              // rendered in the send worker: once for the whole campaign when
+              // it looks the same for everyone, and per message when a
+              // condition or a loop makes it depend on the recipient.
+              templateId: template.id,
+              baseUrl,
+              preheader: campaign.preheader || template.preheader || undefined,
+              title: campaign.subject || template.subject,
+              renderData: {
+                contact,
+                unsubscribeUrl: unsubscribe.page,
+              },
+              unsubscribePageUrl: unsubscribe.page,
               unsubscribeOneClickUrl: unsubscribe.oneClick,
+              // An imported template has no document to render from.
+              html: template.designJson ? undefined : template.html,
             },
           );
         }),

@@ -1,4 +1,4 @@
-import { EmailDesignDocument } from "../emailDesign";
+import type { EmailDesignDocument } from "../emailDesign";
 import { RenderContext } from "./types";
 import { escapeCssValue } from "./escape";
 

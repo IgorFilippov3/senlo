@@ -5,6 +5,7 @@
 
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
+import type { WritableDraft } from "immer";
 import { nanoid } from "nanoid";
 
 import type { DragEndEvent } from "@dnd-kit/core";
@@ -21,53 +22,28 @@ import type {
   SavedRow,
 } from "@senlo/core";
 
-import { EMPTY_EMAIL_DESIGN } from "@senlo/core";
+import { EMPTY_EMAIL_DESIGN, createBlockData } from "@senlo/core";
 import { LayoutPreset } from "../types/layout-preset";
 import { SidebarTab } from "../types/sidebar-tab";
 import { createColumns } from "./columns/create-columns";
 import { findBlock, findColumn } from "./helpers";
-import { DEFAULT_SPACER_HEIGHT } from "../components/props-manager/components/sections/defaults/spacer";
-import {
-  DEFAULT_LIST_ITEMS,
-  DEFAULT_LIST_TYPE,
-  DEFAULT_LIST_FONT_SIZE,
-  DEFAULT_LIST_LINE_HEIGHT,
-  DEFAULT_LIST_FONT_WEIGHT,
-  DEFAULT_LIST_ALIGN,
-  DEFAULT_LIST_PADDING,
-} from "../components/props-manager/components/sections/defaults/list";
-import {
-  DEFAULT_DIVIDER_COLOR,
-  DEFAULT_DIVIDER_WIDTH,
-  DEFAULT_DIVIDER_ALIGN,
-  DEFAULT_DIVIDER_BORDER_WIDTH,
-  DEFAULT_DIVIDER_BORDER_STYLE,
-  DEFAULT_DIVIDER_PADDING,
-} from "../components/props-manager/components/sections/defaults/divider";
-import {
-  DEFAULT_PRODUCT_LINE_LEFT_TEXT,
-  DEFAULT_PRODUCT_LINE_RIGHT_TEXT,
-  DEFAULT_PRODUCT_LINE_LEFT_STYLE,
-  DEFAULT_PRODUCT_LINE_RIGHT_STYLE,
-  DEFAULT_PRODUCT_LINE_RIGHT_WIDTH,
-  DEFAULT_PRODUCT_LINE_PADDING,
-} from "../components/props-manager/components/sections/defaults/product-line";
-import {
-  DEFAULT_SOCIALS_LINKS,
-  DEFAULT_SOCIALS_ALIGN,
-  DEFAULT_SOCIALS_SIZE,
-  DEFAULT_SOCIALS_SPACING,
-  DEFAULT_SOCIALS_PADDING,
-} from "../components/props-manager/components/sections/defaults/socials";
 
 /**
  * Represents the current selection state in the email editor.
  * Can be a row, column, block, or null if nothing is selected.
  */
+/**
+ * The selected element, together with the ids of whatever contains it.
+ *
+ * Storing only `{kind, id}` meant every consumer that needed the parent - the
+ * delete shortcut, the duplicate shortcut, the property panel, the drop zones -
+ * walked the whole document to find it. The parents are known at the moment of
+ * selection, so they are recorded then.
+ */
 export type Selection =
   | { kind: "row"; id: RowId }
-  | { kind: "column"; id: ColumnId }
-  | { kind: "block"; id: ContentBlockId }
+  | { kind: "column"; id: ColumnId; rowId: RowId }
+  | { kind: "block"; id: ContentBlockId; columnId: ColumnId; rowId: RowId }
   | null;
 
 /**
@@ -123,8 +99,6 @@ export interface EditorState {
   isDragActive: boolean;
   /** Type of element being dragged */
   activeDragType: "row" | "block" | "content" | "saved-row" | null;
-  /** ID of row currently being hovered during drag */
-  hoveredRowId: RowId | null;
   /** Whether preview mode is enabled */
   previewMode: boolean;
   /** Sample contact data for merge tag preview */
@@ -232,8 +206,6 @@ export interface EditorState {
     isActive: boolean,
     type?: "row" | "block" | "content" | "saved-row" | null,
   ) => void;
-  /** Set hovered row during drag operations */
-  setHoveredRowId: (rowId: RowId | null) => void;
   /** Toggle preview mode */
   setPreviewMode: (enabled: boolean) => void;
   /** Set sample contact for merge tag preview */
@@ -372,23 +344,55 @@ const DEFAULT_GLOBAL_SETTINGS = {
 } as const;
 
 /**
- * Helper function to save current design state to history.
- * Uses JSON serialization to clone the design state because structuredClone cannot clone Immer Proxies.
- * Also updates history navigation flags and marks the design as dirty.
+ * Applies a change and records the state that preceded it.
  *
- * @param s - The Zustand store state object
+ * The previous design is read outside the mutation, where it is a finished
+ * immutable object rather than an immer draft, so it can be kept as-is. The old
+ * code cloned it with `JSON.parse(JSON.stringify(...))` on every keystroke -
+ * fifty full copies of the document in memory, and any key whose value was
+ * `undefined` silently disappeared from the copy. Immer already shares
+ * structure between versions, so a history entry now costs only the nodes that
+ * actually changed.
  */
-const saveToHistory = (s: any) => {
-  // We use JSON.parse/stringify because structuredClone cannot clone Immer Proxies
-  s.historyPast = [...s.historyPast, JSON.parse(JSON.stringify(s.design))];
-  if (s.historyPast.length > MAX_HISTORY_SIZE) {
-    s.historyPast = s.historyPast.slice(-MAX_HISTORY_SIZE);
-  }
-  s.historyFuture = [];
+/**
+ * Selects a block and records its parents. The lookup happens once, when the
+ * selection changes, instead of in every consumer on every render.
+ */
+const selectBlock = (
+  s: WritableDraft<EditorState>,
+  blockId: ContentBlockId,
+) => {
+  const found = findBlock(s.design, blockId);
+  s.selection = found
+    ? {
+        kind: "block" as const,
+        id: blockId,
+        columnId: found.column.id,
+        rowId: found.row.id,
+      }
+    : null;
+};
 
-  s.canUndo = true;
-  s.canRedo = false;
-  s.isDirty = true;
+const commit = (
+  set: (fn: (s: WritableDraft<EditorState>) => void) => void,
+  get: () => EditorState,
+  recipe: (s: WritableDraft<EditorState>) => void,
+) => {
+  const previous = get().design;
+
+  set((s) => {
+    s.historyPast =
+      s.historyPast.length >= MAX_HISTORY_SIZE
+        ? [...s.historyPast.slice(-(MAX_HISTORY_SIZE - 1)), previous]
+        : [...s.historyPast, previous];
+    s.historyFuture = [];
+
+    s.canUndo = true;
+    s.canRedo = false;
+    s.isDirty = true;
+
+    recipe(s);
+  });
 };
 
 export const useEditorStore = create<EditorState>()(
@@ -401,7 +405,6 @@ export const useEditorStore = create<EditorState>()(
     activeSidebarTab: "rows",
     isDragActive: false,
     activeDragType: null,
-    hoveredRowId: null,
     isDirty: false,
     customMergeTags: [],
 
@@ -459,7 +462,6 @@ export const useEditorStore = create<EditorState>()(
         s.previewContact = { ...DEFAULT_PREVIEW_CONTACT };
         s.isDragActive = false;
         s.activeDragType = null;
-        s.hoveredRowId = null;
         // Saved rows are scoped to a project: keeping them would show the
         // previous project's library for a moment after navigating.
         s.savedRows = [];
@@ -480,8 +482,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     updateDesignFromAi: (design) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         s.design = design;
         s.isDirty = true;
         // Initialize settings if missing in loaded design
@@ -546,11 +547,6 @@ export const useEditorStore = create<EditorState>()(
       });
     },
 
-    setHoveredRowId: (rowId) => {
-      set((s) => {
-        s.hoveredRowId = rowId;
-      });
-    },
 
     setDirty: (isDirty) => {
       set((s) => {
@@ -619,8 +615,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     addRow: (preset) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const row = createRow(preset);
         s.design.rows.push(row);
         s.selection = { kind: "row", id: row.id };
@@ -628,8 +623,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     addBlock: (type) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         if (s.design.rows.length === 0) {
           const row = createRow("1col");
           s.design.rows.push(row);
@@ -646,7 +640,7 @@ export const useEditorStore = create<EditorState>()(
 
         targetColumn.blocks.push(block);
 
-        s.selection = { kind: "block", id: block.id };
+        selectBlock(s, block.id);
       });
     },
 
@@ -733,8 +727,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     addBlockToColumn: (type, columnId, position) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const columnResult = findColumn(s.design, columnId);
         if (columnResult) {
           const block = createBlock(type);
@@ -747,14 +740,13 @@ export const useEditorStore = create<EditorState>()(
           } else {
             columnResult.column.blocks.push(block);
           }
-          s.selection = { kind: "block", id: block.id };
+          selectBlock(s, block.id);
         }
       });
     },
 
     addRowAtPosition: (preset, position) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const row = createRow(preset);
         if (position !== undefined) {
           s.design.rows.splice(position, 0, row);
@@ -766,8 +758,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     removeRow: (rowId) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const index = s.design.rows.findIndex((row) => row.id === rowId);
         if (index !== -1) {
           s.design.rows.splice(index, 1);
@@ -780,8 +771,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     duplicateRow: (rowId) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const index = s.design.rows.findIndex((row) => row.id === rowId);
         if (index !== -1) {
           const originalRow = s.design.rows[index];
@@ -810,14 +800,14 @@ export const useEditorStore = create<EditorState>()(
     },
 
     moveRow: (rowId, direction) => {
-      set((s) => {
-        const index = s.design.rows.findIndex((row) => row.id === rowId);
-        if (index === -1) return;
+      const rows = get().design.rows;
+      const index = rows.findIndex((row) => row.id === rowId);
+      if (index === -1) return;
 
-        const targetIndex = direction === "up" ? index - 1 : index + 1;
-        if (targetIndex < 0 || targetIndex >= s.design.rows.length) return;
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= rows.length) return;
 
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const [row] = s.design.rows.splice(index, 1);
         s.design.rows.splice(targetIndex, 0, row);
 
@@ -832,10 +822,7 @@ export const useEditorStore = create<EditorState>()(
           if (s.design.rows.length > 0) {
             const firstRow = s.design.rows[0];
             if (firstRow.columns[0]?.blocks.length > 0) {
-              s.selection = {
-                kind: "block",
-                id: firstRow.columns[0].blocks[0].id,
-              };
+              selectBlock(s, firstRow.columns[0].blocks[0].id);
             } else {
               s.selection = { kind: "row", id: firstRow.id };
             }
@@ -865,7 +852,7 @@ export const useEditorStore = create<EditorState>()(
             (b) => b.id === s.selection?.id,
           );
           if (currentIndex !== -1 && currentIndex < allBlocks.length - 1) {
-            s.selection = { kind: "block", id: allBlocks[currentIndex + 1].id };
+            selectBlock(s, allBlocks[currentIndex + 1].id);
           }
         }
       });
@@ -896,15 +883,25 @@ export const useEditorStore = create<EditorState>()(
             (b) => b.id === s.selection?.id,
           );
           if (currentIndex > 0) {
-            s.selection = { kind: "block", id: allBlocks[currentIndex - 1].id };
+            selectBlock(s, allBlocks[currentIndex - 1].id);
           }
         }
       });
     },
 
     moveBlockWithinColumn: (blockId, columnId, newPosition) => {
-      set((s) => {
-        saveToHistory(s);
+      // Dropping a block back where it started is not an edit: it used to add
+      // an undo step and mark the document unsaved.
+      const current = findBlock(get().design, blockId);
+      if (
+        !current ||
+        newPosition === current.blockIndex ||
+        newPosition === current.blockIndex + 1
+      ) {
+        return;
+      }
+
+      commit(set, get, (s) => {
         const blockResult = findBlock(s.design, blockId);
         if (blockResult) {
           const [block] = blockResult.column.blocks.splice(
@@ -926,7 +923,7 @@ export const useEditorStore = create<EditorState>()(
             block,
           );
 
-          s.selection = { kind: "block", id: blockId };
+          selectBlock(s, blockId);
         }
       });
     },
@@ -937,8 +934,7 @@ export const useEditorStore = create<EditorState>()(
       targetColumnId,
       position,
     ) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         let sourceColumn = null;
         let targetColumn = null;
         let blockToMove = null;
@@ -981,14 +977,13 @@ export const useEditorStore = create<EditorState>()(
           );
           targetColumn.blocks.splice(safePosition, 0, blockToMove);
 
-          s.selection = { kind: "block", id: blockId };
+          selectBlock(s, blockId);
         }
       });
     },
 
     removeBlockFromColumn: (blockId, columnId) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const blockResult = findBlock(s.design, blockId);
         if (blockResult) {
           blockResult.column.blocks.splice(blockResult.blockIndex, 1);
@@ -1001,8 +996,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     duplicateBlock: (blockId, columnId) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const blockResult = findBlock(s.design, blockId);
         if (blockResult) {
           const duplicatedBlock = {
@@ -1018,7 +1012,7 @@ export const useEditorStore = create<EditorState>()(
           );
 
           // Select the newly created block
-          s.selection = { kind: "block", id: duplicatedBlock.id };
+          selectBlock(s, duplicatedBlock.id);
         }
       });
     },
@@ -1051,8 +1045,7 @@ export const useEditorStore = create<EditorState>()(
 
       if (!dataHasChanges && !conditionHasChanges) return;
 
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const blockResult = findBlock(s.design, blockId);
         if (blockResult) {
           Object.assign(blockResult.block.data, updates);
@@ -1100,8 +1093,7 @@ export const useEditorStore = create<EditorState>()(
       if (!settingsHasChanges && !conditionHasChanges && !loopHasChanges)
         return;
 
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const row = s.design.rows.find((r) => r.id === rowId);
         if (row) {
           Object.assign(row.settings, updates);
@@ -1135,8 +1127,7 @@ export const useEditorStore = create<EditorState>()(
 
       if (!hasChanges) return;
 
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         if (!s.design.settings) {
           s.design.settings = { ...DEFAULT_GLOBAL_SETTINGS };
         }
@@ -1248,8 +1239,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     addSavedRowToDesign: (savedRow, position) => {
-      set((s) => {
-        saveToHistory(s);
+      commit(set, get, (s) => {
         const originalData = savedRow.data as RowBlock;
         const newRow: RowBlock = {
           ...originalData,
@@ -1301,136 +1291,16 @@ function createRow(preset: LayoutPreset): RowBlock {
   };
 }
 
+
 /**
- * Factory function to create new content blocks with default data based on type.
- * Each block type has specific default properties and styling.
- *
- * @param type - The type of content block to create (heading, paragraph, image, button, spacer, list, divider)
- * @returns A new content block with generated ID and type-specific default data
+ * Wraps the registry's default data in a block envelope. The defaults
+ * themselves live with the block definition in `@senlo/core`, so the renderer,
+ * the property panel and this factory can never disagree about them.
  */
 function createBlock(type: ContentBlockType): ContentBlock {
-  const id = nanoid() as ContentBlockId;
-
-  switch (type) {
-    case "heading":
-      return {
-        id,
-        type: "heading",
-        data: {
-          text: "Heading",
-          level: 2,
-          align: "left",
-          padding: {
-            top: 16,
-            right: 0,
-            bottom: 16,
-            left: 0,
-          },
-        },
-      };
-
-    case "paragraph":
-      return {
-        id,
-        type: "paragraph",
-        data: {
-          text: "Your paragraph text here",
-          align: "left",
-          padding: {
-            top: 10,
-            right: 0,
-            bottom: 10,
-            left: 0,
-          },
-        },
-      };
-
-    case "image":
-      return {
-        id,
-        type: "image",
-        data: {
-          src: "",
-          alt: "Image",
-          align: "center",
-          width: 300,
-        },
-      };
-
-    case "button":
-      return {
-        id,
-        type: "button",
-        data: {
-          text: "Button",
-          href: "",
-          align: "center",
-        },
-      };
-
-    case "spacer":
-      return {
-        id,
-        type: "spacer",
-        data: {
-          height: DEFAULT_SPACER_HEIGHT,
-        },
-      };
-
-    case "list":
-      return {
-        id,
-        type: "list",
-        data: {
-          items: DEFAULT_LIST_ITEMS,
-          listType: DEFAULT_LIST_TYPE,
-          fontSize: DEFAULT_LIST_FONT_SIZE,
-          lineHeight: DEFAULT_LIST_LINE_HEIGHT,
-          fontWeight: DEFAULT_LIST_FONT_WEIGHT,
-          align: DEFAULT_LIST_ALIGN,
-          padding: DEFAULT_LIST_PADDING,
-        },
-      };
-
-    case "divider":
-      return {
-        id,
-        type: "divider",
-        data: {
-          color: DEFAULT_DIVIDER_COLOR,
-          width: DEFAULT_DIVIDER_WIDTH,
-          align: DEFAULT_DIVIDER_ALIGN,
-          borderWidth: DEFAULT_DIVIDER_BORDER_WIDTH,
-          borderStyle: DEFAULT_DIVIDER_BORDER_STYLE,
-          padding: DEFAULT_DIVIDER_PADDING,
-        },
-      };
-
-    case "product-line":
-      return {
-        id,
-        type: "product-line",
-        data: {
-          leftText: DEFAULT_PRODUCT_LINE_LEFT_TEXT,
-          rightText: DEFAULT_PRODUCT_LINE_RIGHT_TEXT,
-          leftStyle: DEFAULT_PRODUCT_LINE_LEFT_STYLE,
-          rightStyle: DEFAULT_PRODUCT_LINE_RIGHT_STYLE,
-          rightWidth: DEFAULT_PRODUCT_LINE_RIGHT_WIDTH,
-          padding: DEFAULT_PRODUCT_LINE_PADDING,
-        },
-      };
-
-    case "socials":
-      return {
-        id,
-        type: "socials",
-        data: {
-          links: DEFAULT_SOCIALS_LINKS,
-          align: DEFAULT_SOCIALS_ALIGN,
-          size: DEFAULT_SOCIALS_SIZE,
-          spacing: DEFAULT_SOCIALS_SPACING,
-          padding: DEFAULT_SOCIALS_PADDING,
-        },
-      };
-  }
+  return {
+    id: nanoid() as ContentBlockId,
+    type,
+    data: createBlockData(type),
+  } as ContentBlock;
 }

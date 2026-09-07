@@ -1,19 +1,17 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
-import { useEditorStore } from "../../../../state/editor.store";
 import { DropIndicator } from "../drop-indicator/drop-indicator";
 import { RowId } from "@senlo/core";
 import styles from "./row-drop-zones.module.css";
 
 interface RowDropZonesProps {
   rowId: RowId;
+  /** The row's position, passed down by the canvas. */
+  index: number;
 }
 
-export const RowDropZones = ({ rowId }: RowDropZonesProps) => {
-  const design = useEditorStore((s) => s.design);
-
-  const rowIndex = design.rows.findIndex((row) => row.id === rowId);
+export const RowDropZones = ({ rowId, index: rowIndex }: RowDropZonesProps) => {
 
   const { isOver: isOverTop, setNodeRef: setTopRef } = useDroppable({
     id: `row-drop-zone-before-${rowId}`,

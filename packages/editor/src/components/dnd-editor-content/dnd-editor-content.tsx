@@ -31,7 +31,6 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
 
   const handleDragEnd = useEditorStore((s) => s.handleDragEnd);
   const setDragActive = useEditorStore((s) => s.setDragActive);
-  const setHoveredRowId = useEditorStore((s) => s.setHoveredRowId);
   const clearSelection = useEditorStore((s) => s.clearSelection);
   const isAiGenerating = useEditorStore((s) => s.isAiGenerating);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -123,7 +122,6 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
   const clearDragState = () => {
     setShowOverlay(false);
     setDragActive(false);
-    setHoveredRowId(null);
 
     setTimeout(() => {
       setActiveId(null);

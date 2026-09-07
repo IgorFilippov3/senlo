@@ -1,7 +1,6 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
-import { useEditorStore } from "../../../../state/editor.store";
 import { DropIndicator } from "../drop-indicator/drop-indicator";
 import { ContentBlockId, ColumnId } from "@senlo/core";
 import styles from "./block-drop-zones.module.css";
@@ -9,20 +8,19 @@ import styles from "./block-drop-zones.module.css";
 interface BlockDropZonesProps {
   blockId: ContentBlockId;
   columnId: ColumnId;
+  /**
+   * The block's position, passed down by the column. One of these is mounted
+   * per block for the duration of a drag, and each used to subscribe to the
+   * whole document and scan it to work this out.
+   */
+  index: number;
 }
 
-export const BlockDropZones = ({ blockId, columnId }: BlockDropZonesProps) => {
-  const design = useEditorStore((s) => s.design);
-
-  // Find the block position within the column
-  let blockIndex = -1;
-  for (const row of design.rows) {
-    const column = row.columns.find((col) => col.id === columnId);
-    if (column) {
-      blockIndex = column.blocks.findIndex((block) => block.id === blockId);
-      break;
-    }
-  }
+export const BlockDropZones = ({
+  blockId,
+  columnId,
+  index: blockIndex,
+}: BlockDropZonesProps) => {
 
   const { isOver: isOverTop, setNodeRef: setTopRef } = useDroppable({
     id: `block-drop-zone-before-${blockId}`,

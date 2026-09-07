@@ -1,117 +1,105 @@
 "use client";
 
+import { memo } from "react";
 import styles from "./column-view.module.css";
-import { ColumnBlock } from "@senlo/core";
+import type { ColumnId, RowId } from "@senlo/core";
 import { PackagePlus } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
+import { useShallow } from "zustand/react/shallow";
 import { BlockView } from "../block-view/block-view";
 import { useEditorStore } from "../../../../state/editor.store";
 import { cn } from "@senlo/ui";
 
 interface ColumnViewProps {
-  column: ColumnBlock;
-  rowId: string;
+  columnId: ColumnId;
+  rowId: RowId;
   localData?: Record<string, any>;
 }
 
-export const ColumnView = ({ column, rowId, localData }: ColumnViewProps) => {
-  const selection = useEditorStore((s) => s.selection);
-  const select = useEditorStore((s) => s.select);
-  const isDragActive = useEditorStore((s) => s.isDragActive);
-  const activeDragType = useEditorStore((s) => s.activeDragType);
+/**
+ * Subscribes to its width and the ids of its blocks. Editing a block changes
+ * neither, so the column does not re-render while its content is being typed.
+ */
+export const ColumnView = memo(
+  ({ columnId, rowId, localData }: ColumnViewProps) => {
+    const column = useEditorStore(
+      useShallow((s) => {
+        const row = s.design.rows.find((r) => r.id === rowId);
+        const found = row?.columns.find((c) => c.id === columnId);
+        if (!found) return null;
 
-  const isEmpty = column.blocks.length === 0;
-  const isSelected =
-    !isEmpty && selection?.kind === "column" && selection.id === column.id;
+        return {
+          width: found.width,
+          blockIds: found.blocks.map((b) => b.id).join(" "),
+        };
+      }),
+    );
 
-  const { isOver, setNodeRef } = useDroppable({
-    id: column.id,
-    disabled:
-      !isDragActive ||
-      (activeDragType !== "block" && activeDragType !== "content"),
-    data: {
-      type: "column",
-      columnId: column.id,
-    },
-  });
+    const select = useEditorStore((s) => s.select);
+    const isDragActive = useEditorStore((s) => s.isDragActive);
+    const activeDragType = useEditorStore((s) => s.activeDragType);
+    const isSelected = useEditorStore(
+      (s) => s.selection?.kind === "column" && s.selection.id === columnId,
+    );
 
-  // Drop zone for end of column (when blocks exist)
-  const { isOver: isOverEnd, setNodeRef: setEndRef } = useDroppable({
-    id: `column-end-${column.id}`,
-    disabled:
-      !isDragActive ||
-      (activeDragType !== "block" && activeDragType !== "content"),
-    data: {
-      type: "block-drop-zone",
-      columnId: column.id,
-      position: column.blocks.length,
-    },
-  });
+    const { isOver, setNodeRef } = useDroppable({
+      id: columnId,
+      disabled:
+        !isDragActive ||
+        (activeDragType !== "block" && activeDragType !== "content"),
+      data: {
+        type: "column",
+        columnId,
+      },
+    });
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isEmpty) {
-      select({ kind: "column", id: column.id });
-    }
-  };
+    if (!column) return null;
 
-  const style: React.CSSProperties = {
-    flexBasis: `${column.width}%`,
-    maxWidth: `${column.width}%`,
-  };
+    const blockIds = column.blockIds ? column.blockIds.split(" ") : [];
+    const isEmpty = blockIds.length === 0;
 
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        styles.column,
-        isEmpty && styles.empty,
-        isSelected && styles.selected,
-        isOver && styles.dragOver,
-      )}
-      style={style}
-      onClick={handleClick}
-    >
-      {isEmpty ? (
-        <div className={styles.emptyPlaceholder}>
-          <PackagePlus className={styles.placeholderIcon} size={20} />
-          <span className={styles.placeholderText}>Drop content here</span>
-        </div>
-      ) : (
-        <>
-          {column.blocks.map((block) => (
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!isEmpty) {
+        select({ kind: "column", id: columnId, rowId });
+      }
+    };
+
+    return (
+      <div
+        ref={setNodeRef}
+        className={cn(
+          styles.column,
+          isEmpty && styles.empty,
+          !isEmpty && isSelected && styles.selected,
+          isOver && styles.dragOver,
+        )}
+        style={{
+          flexBasis: `${column.width}%`,
+          maxWidth: `${column.width}%`,
+        }}
+        onClick={handleClick}
+      >
+        {isEmpty ? (
+          <div className={styles.emptyPlaceholder}>
+            <PackagePlus className={styles.placeholderIcon} size={20} />
+            <span className={styles.placeholderText}>Drop content here</span>
+          </div>
+        ) : (
+          blockIds.map((blockId, index) => (
             <BlockView
-              key={block.id}
-              block={block}
-              columnId={column.id}
+              key={blockId}
+              blockId={blockId}
+              columnId={columnId}
               rowId={rowId}
+              index={index}
               localData={localData}
             />
-          ))}
-          {/* {isDragActive && (activeDragType === "block" || activeDragType === "content") && (
-            <div 
-              ref={setEndRef} 
-              style={{ 
-                height: "20px", 
-                width: "100%", 
-                position: "relative" 
-              }}
-            >
-              {isOverEnd && (
-                <div style={{ 
-                  position: "absolute", 
-                  bottom: 0, 
-                  left: 8, 
-                  right: 8, 
-                  height: 2 
-                }}>
-                  <DropIndicator isVisible={true} />
-                </div>
-              )}
-            </div>
-          )} */}
-        </>
-      )}
-    </div>
-  );
-};
+          ))
+        )}
+      </div>
+    );
+  },
+);
+
+ColumnView.displayName = "ColumnView";

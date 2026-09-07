@@ -1,4 +1,4 @@
-import { ContentCondition } from "../emailDesign";
+import type { ContentCondition } from "../emailDesign";
 import { RenderContext } from "./types";
 
 export function evaluateCondition(

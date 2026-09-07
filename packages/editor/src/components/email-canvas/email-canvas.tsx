@@ -42,7 +42,7 @@ export const EmailCanvas = () => {
       );
     }
 
-    return design.rows.flatMap((row) => {
+    return design.rows.flatMap((row, index) => {
       if (previewMode && row.loop) {
         const data = {
           contact: previewContact || {},
@@ -54,10 +54,11 @@ export const EmailCanvas = () => {
         const loopData = resolveVariable(row.loop.variable, data);
 
         if (Array.isArray(loopData)) {
-          return loopData.map((item, index) => (
+          return loopData.map((item, iteration) => (
             <RowView
-              key={`${row.id}-${index}`}
-              row={row}
+              key={`${row.id}-${iteration}`}
+              rowId={row.id}
+              index={index}
               localData={{ [row.loop!.alias]: item }}
               isLoopItem={true}
             />
@@ -65,7 +66,7 @@ export const EmailCanvas = () => {
         }
       }
 
-      return <RowView key={row.id} row={row} />;
+      return <RowView key={row.id} rowId={row.id} index={index} />;
     });
   };
 

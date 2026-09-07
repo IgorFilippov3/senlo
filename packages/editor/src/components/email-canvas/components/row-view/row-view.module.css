@@ -50,3 +50,27 @@
   flex-wrap: nowrap;
   gap: 0;
 }
+
+.badgeCondition,
+.badgeLoop {
+  position: absolute;
+  top: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 999px;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+}
+
+.badgeCondition {
+  right: 16px;
+  background-color: #2563eb;
+}
+
+.badgeLoop {
+  right: 40px;
+  background-color: #9333ea;
+}

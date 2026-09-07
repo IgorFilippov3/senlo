@@ -7,7 +7,6 @@ export const useKeyboardShortcuts = () => {
   const canUndo = useEditorStore((s) => s.canUndo);
   const canRedo = useEditorStore((s) => s.canRedo);
   const selection = useEditorStore((s) => s.selection);
-  const design = useEditorStore((s) => s.design);
   const removeRow = useEditorStore((s) => s.removeRow);
   const removeBlockFromColumn = useEditorStore((s) => s.removeBlockFromColumn);
   const duplicateRow = useEditorStore((s) => s.duplicateRow);
@@ -72,30 +71,24 @@ export const useKeyboardShortcuts = () => {
           event.preventDefault();
           removeRow(selection.id);
         } else if (selection.kind === "block") {
-          // Find columnId for the selected block
-          for (const row of design.rows) {
-            for (const column of row.columns) {
-              if (column.blocks.some(b => b.id === selection.id)) {
-                event.preventDefault();
-                removeBlockFromColumn(selection.id, column.id);
-                return;
-              }
-            }
-          }
+          // The selection carries its column, so there is nothing to look up.
+          event.preventDefault();
+          removeBlockFromColumn(selection.id, selection.columnId);
         }
         return;
       }
 
-      // Arrow Keys Navigation
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        selectNext();
-        return;
-      }
+      // Arrow keys move the selection. With nothing selected they must keep
+      // scrolling the canvas, which an unconditional preventDefault blocked.
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        if (!selection) return;
 
-      if (event.key === "ArrowUp") {
         event.preventDefault();
-        selectPrevious();
+        if (event.key === "ArrowDown") {
+          selectNext();
+        } else {
+          selectPrevious();
+        }
         return;
       }
 
@@ -107,16 +100,8 @@ export const useKeyboardShortcuts = () => {
           event.preventDefault();
           duplicateRow(selection.id);
         } else if (selection.kind === "block") {
-          // Find columnId for the selected block
-          for (const row of design.rows) {
-            for (const column of row.columns) {
-              if (column.blocks.some(b => b.id === selection.id)) {
-                event.preventDefault();
-                duplicateBlock(selection.id, column.id);
-                return;
-              }
-            }
-          }
+          event.preventDefault();
+          duplicateBlock(selection.id, selection.columnId);
         }
         return;
       }
@@ -130,7 +115,6 @@ export const useKeyboardShortcuts = () => {
     canUndo, 
     canRedo, 
     selection, 
-    design, 
     removeRow, 
     removeBlockFromColumn, 
     duplicateRow, 

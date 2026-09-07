@@ -5,19 +5,12 @@ import {
   IProjectRepository,
   ITriggeredSendLogRepository,
 } from "../ports";
-import { renderEmailDesign } from "../renderer/renderEmailDesign";
-import { wrapLinksWithTracking } from "../tracking";
-import { EmailDesignDocument } from "../emailDesign";
 import { replaceMergeTags } from "../merge-tags";
 import {
   encodeUnsubscribeToken,
   buildUnsubscribeHeaders,
   unsubscribeUrls,
 } from "../unsubscribe-token";
-import {
-  injectBeforeBodyEnd,
-  EMAIL_CLIPPING_BYTES,
-} from "../renderer/htmlToText";
 import { Queue } from "bullmq";
 
 export interface TriggeredEmailOptions {
@@ -79,11 +72,6 @@ export class TriggerService {
       throw new Error("Email provider not found");
     }
 
-    const emailEncoded = encodeURIComponent(to);
-    const openTrackingUrl = `${baseUrl}/api/track/open/${campaign.id}/${emailEncoded}`;
-    const trackingPixel = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none !important;" alt="" />`;
-    const clickTrackingBaseUrl = `${baseUrl}/api/track/click/${campaign.id}/${emailEncoded}`;
-
     // A triggered recipient may have no contact row, so the token carries the
     // project and the address. Without this the unsubscribe tag rendered as
     // "#" and the link did nothing.
@@ -93,33 +81,6 @@ export class TriggerService {
       campaignId: campaign.id,
     });
     const unsubscribe = unsubscribeUrls(baseUrl, unsubscribeToken);
-
-    let personalizedHtml = template.designJson
-      ? renderEmailDesign(template.designJson as EmailDesignDocument, {
-          baseUrl,
-          preheader: campaign.preheader || template.preheader || undefined,
-          title: subjectOverride || template.subject,
-          data: {
-            custom: data,
-            contact: { email: to, ...data },
-            unsubscribeUrl: unsubscribe.page,
-          },
-        })
-      : template.html;
-
-    personalizedHtml = wrapLinksWithTracking(
-      personalizedHtml,
-      clickTrackingBaseUrl,
-      { skipUrls: [unsubscribe.page] },
-    );
-
-    personalizedHtml = injectBeforeBodyEnd(personalizedHtml, trackingPixel);
-
-    if (personalizedHtml.length > EMAIL_CLIPPING_BYTES) {
-      console.warn(
-        `[TriggerService] Message for ${to} is ${personalizedHtml.length} bytes; Gmail clips past ${EMAIL_CLIPPING_BYTES}`,
-      );
-    }
 
     const fromAddress = campaign.fromName
       ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
@@ -158,10 +119,22 @@ export class TriggerService {
         email: to,
         from: fromAddress,
         subject: personalizedSubject,
-        html: personalizedHtml,
         providerId: project.providerId,
         replyTo: campaign.replyTo || undefined,
+        // Rendering happens in the send worker, the same as for a campaign, so
+        // the job carries what to render rather than the rendered message.
+        templateId: template.id,
+        baseUrl,
+        preheader: campaign.preheader || template.preheader || undefined,
+        title: subjectOverride || template.subject,
+        renderData: {
+          custom: data,
+          contact: { email: to, ...data },
+          unsubscribeUrl: unsubscribe.page,
+        },
+        unsubscribePageUrl: unsubscribe.page,
         unsubscribeOneClickUrl: unsubscribe.oneClick,
+        html: template.designJson ? undefined : template.html,
       },
     );
 

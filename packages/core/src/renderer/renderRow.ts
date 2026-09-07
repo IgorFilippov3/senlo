@@ -1,4 +1,4 @@
-import { RowBlock, ColumnBlock } from "../emailDesign";
+import type { RowBlock, ColumnBlock } from "../emailDesign";
 import { RenderContext } from "./types";
 import { renderBlock } from "./renderBlocks";
 import { evaluateCondition } from "./conditions";

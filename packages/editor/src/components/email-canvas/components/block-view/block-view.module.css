@@ -1,6 +1,12 @@
+/*
+ * Only the editor's own chrome lives here. A block's appearance comes from the
+ * renderer, inside a shadow root, so that the canvas and the sent email cannot
+ * drift apart. Adding a per-type rule to this file would start that drift over
+ * again.
+ */
+
 .block {
   box-sizing: border-box;
-  /* margin-bottom: 12px; */
   position: relative;
   cursor: pointer;
   padding: 2px;
@@ -22,160 +28,17 @@
   cursor: grabbing;
 }
 
-/* ===== HEADING ===== */
-
-.headingBlock {
-  color: inherit;
-}
-
-.heading {
-  margin: 0;
-  line-height: 1.3;
-  font-weight: 600;
-  color: inherit;
-  font-family: inherit;
-  padding: 10px;
-}
-
-.headingBlock h1.heading {
-  font-size: 32px;
-}
-
-.headingBlock h2.heading {
-  font-size: 24px;
-}
-
-.headingBlock h3.heading {
-  font-size: 20px;
-}
-
-/* ===== PARAGRAPH ===== */
-
-.paragraphBlock {
-  font-size: 16px;
-  line-height: 1.5;
-  color: inherit;
-}
-
-.paragraph {
-  margin: 0;
-  padding: 10px;
-  color: inherit;
-  font-family: inherit;
-}
-
-.paragraph a,
-.heading a {
-  color: var(--sl-color-primary-hover);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.paragraph a:hover,
-.heading a:hover {
-  text-decoration: none;
-}
-
-/* ===== IMAGE ===== */
-
-.imageBlock {
-  text-align: center;
-}
-
-.imageLink img {
-  display: inline-block;
-  border-radius: 6px;
-  max-width: 100%;
-  height: auto;
-}
-
-/* ===== BUTTON ===== */
-
-.buttonBlock {
-  text-align: center;
-  padding: 10px;
-}
-
-.button {
-  display: inline-block;
-  padding: 8px 18px;
+.conditionBadge {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
   border-radius: 999px;
-  background-color: var(--sl-color-text-primary);
-  color: var(--sl-color-bg-subtle);
-  font-size: 14px;
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.button:hover {
-  background-color: var(--sl-color-text);
-}
-
-/* ===== SPACER ===== */
-
-.spacerBlock {
-  width: 100%;
-}
-
-/* ===== LIST ===== */
-
-.listBlock {
-  color: inherit;
-}
-
-.list {
-  margin: 0;
-  padding: 10px 10px 10px 30px;
-  color: inherit;
-  font-family: inherit;
-}
-
-.list li {
-  margin-bottom: 4px;
-}
-
-.list li:last-child {
-  margin-bottom: 0;
-}
-
-/* ===== DIVIDER ===== */
-
-.dividerBlock {
-  width: 100%;
-}
-
-.divider {
-  display: inline-block;
-}
-
-/* ===== PRODUCT LINE ===== */
-
-.productLineBlock {
-  width: 100%;
-}
-
-.productLine {
-  width: 100%;
-}
-
-.productLine table {
-  width: 100%;
-  border-spacing: 0;
-  border-collapse: collapse;
-}
-
-.productLine td {
-  border: none;
-  padding: 0;
-  vertical-align: top;
-}
-
-/* ===== UNKNOWN ===== */
-
-.unknown {
-  font-size: 12px;
-  color: var(--sl-color-destructive-text);
-  background-color: var(--sl-color-destructive-foreground);
-  border-radius: 6px;
-  padding: 8px 12px;
+  background-color: var(--sl-color-primary);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
 }

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { EmailDesignDocument } from "../emailDesign";
+import type { EmailDesignDocument } from "../emailDesign";
 import { RenderContext, RenderOptions, resolveGlobals } from "./types";
 import { renderHead } from "./renderHead";
 import { renderBody } from "./renderBody";

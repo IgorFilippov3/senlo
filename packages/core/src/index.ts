@@ -4,10 +4,12 @@
 
 export * from "./domain";
 export * from "./emailDesign";
+export * from "./blocks";
 export * from "./emailTemplate";
 export * from "./renderer/conditions";
 export * from "./renderer/escape";
 export * from "./renderer/renderEmailDesign";
+export * from "./renderer/personalize";
 export * from "./renderer/renderRow";
 export * from "./renderer/renderMJML";
 export * from "./renderer/types";

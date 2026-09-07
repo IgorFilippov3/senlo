@@ -8,6 +8,8 @@ import { AiSection } from "./components/ai-section/ai-section";
 import { useEditorStore } from "../../state/editor.store";
 import { cn, Tooltip } from "@senlo/ui";
 import { ContentItem } from "./components/content-item/content-item";
+import { CONTENT_BLOCK_TYPES } from "@senlo/core";
+import { getBlockLabel } from "../../blocks/registry";
 
 export const Sidebar = () => {
   const activeTab = useEditorStore((s) => s.activeSidebarTab);
@@ -45,15 +47,9 @@ export const Sidebar = () => {
 
       {activeTab === "content" && (
         <SidebarSection title="Content" variant="content">
-          <ContentItem blockType="heading" label="Heading" />
-          <ContentItem blockType="paragraph" label="Paragraph" />
-          <ContentItem blockType="button" label="Button" />
-          <ContentItem blockType="image" label="Image" />
-          <ContentItem blockType="list" label="List" />
-          <ContentItem blockType="divider" label="Divider" />
-          <ContentItem blockType="spacer" label="Spacer" />
-          <ContentItem blockType="product-line" label="Product Line" />
-          <ContentItem blockType="socials" label="Socials" />
+          {CONTENT_BLOCK_TYPES.map((type) => (
+            <ContentItem key={type} blockType={type} label={getBlockLabel(type)} />
+          ))}
         </SidebarSection>
       )}
 

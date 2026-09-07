@@ -1,4 +1,4 @@
-import { EmailDesignDocument, RowBlock } from "../emailDesign";
+import type { EmailDesignDocument, RowBlock } from "../emailDesign";
 import { RenderContext, MAX_LOOP_ITERATIONS } from "./types";
 import { renderRow } from "./renderRow";
 import { replaceMergeTags } from "../merge-tags";

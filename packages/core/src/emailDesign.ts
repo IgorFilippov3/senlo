@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { contentBlockSchema } from "./blocks/registry";
+import { contentConditionSchema, paddingSchema } from "./blocks/shared";
 
 export const emailDesignVersion = 1;
 
@@ -334,237 +336,30 @@ export const globalSettingsSchema = z.object({
   textColor: z.string().optional(),
 });
 
-export const paddingSchema = z.object({
-  top: z.number().int().nonnegative().optional(),
-  right: z.number().int().nonnegative().optional(),
-  bottom: z.number().int().nonnegative().optional(),
-  left: z.number().int().nonnegative().optional(),
-});
+/*
+ * Block shapes are described once, in `src/blocks/<type>.ts`, and assembled
+ * into a schema by the registry. They are re-exported here because this module
+ * is the document's public surface, and because a lot of code already imports
+ * them from it.
+ */
+export {
+  paddingSchema,
+  borderSchema,
+  shadowSchema,
+  textStyleSchema,
+  alignSchema,
+  socialLinkSchema,
+  urlLikeSchema,
+  conditionOperatorSchema,
+  contentConditionSchema,
+} from "./blocks/shared";
 
-export const conditionOperatorSchema = z.enum([
-  "equals",
-  "not_equals",
-  "gt",
-  "lt",
-  "is_set",
-  "is_not_set",
-]);
-
-export const contentConditionSchema = z.object({
-  variable: z.string(),
-  operator: conditionOperatorSchema,
-  value: z.union([z.string(), z.number(), z.boolean()]).optional(),
-});
+export { contentBlockSchema } from "./blocks/registry";
 
 export const rowLoopSchema = z.object({
   variable: z.string(),
   alias: z.string(),
 });
-
-export const headingBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("heading"),
-  condition: contentConditionSchema.optional(),
-  data: z.object({
-    text: z.string(),
-    level: z
-      .union([
-        z.literal(1),
-        z.literal(2),
-        z.literal(3),
-        z.literal(4),
-        z.literal(5),
-        z.literal(6),
-      ])
-      .optional(),
-    align: z.enum(["left", "center", "right"]).optional(),
-    color: z.string().optional(),
-    fontSize: z.number().int().positive().optional(),
-    lineHeight: z.number().positive().optional(),
-    fontWeight: z.enum(["normal", "bold", "bolder"]).optional(),
-    href: z.string().optional(),
-    textTransform: z.enum(["none", "uppercase"]).optional(),
-    letterSpacing: z.number().optional(),
-    padding: paddingSchema.optional(),
-  }),
-});
-
-export const paragraphBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("paragraph"),
-  condition: contentConditionSchema.optional(),
-  data: z.object({
-    text: z.string(),
-    align: z.enum(["left", "center", "right"]).optional(),
-    color: z.string().optional(),
-    fontSize: z.number().int().positive().optional(),
-    lineHeight: z.number().positive().optional(),
-    fontWeight: z.enum(["normal", "bold", "bolder"]).optional(),
-    href: z.string().optional(),
-    textTransform: z.enum(["none", "uppercase"]).optional(),
-    letterSpacing: z.number().optional(),
-    padding: paddingSchema.optional(),
-  }),
-});
-
-export const borderSchema = z.object({
-  width: z.number().int().nonnegative().optional(),
-  top: z.number().int().nonnegative().optional(),
-  right: z.number().int().nonnegative().optional(),
-  bottom: z.number().int().nonnegative().optional(),
-  left: z.number().int().nonnegative().optional(),
-  style: z.enum(["solid", "dashed", "dotted"]).optional(),
-  color: z.string().optional(),
-});
-
-export const shadowSchema = z.object({
-  x: z.number().optional(),
-  y: z.number().optional(),
-  blur: z.number().optional(),
-  color: z.string().optional(),
-});
-
-export const imageBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("image"),
-  condition: contentConditionSchema.optional(),
-  data: z.object({
-    src: z.string(),
-    alt: z.string().optional(),
-    href: z.string().optional(),
-    width: z.number().int().positive().optional(),
-    align: z.enum(["left", "center", "right"]).optional(),
-    borderRadius: z.number().int().nonnegative().optional(),
-    padding: paddingSchema.optional(),
-    border: borderSchema.optional(),
-    fullWidth: z.boolean().optional(),
-  }),
-});
-
-export const buttonBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("button"),
-  condition: contentConditionSchema.optional(),
-  data: z.object({
-    text: z.string(),
-    href: z.string(),
-    align: z.enum(["left", "center", "right"]).optional(),
-    color: z.string().optional(),
-    backgroundColor: z.string().optional(),
-    fontSize: z.number().int().positive().optional(),
-    fontWeight: z.enum(["normal", "bold", "bolder"]).optional(),
-    borderRadius: z.number().int().nonnegative().optional(),
-    padding: paddingSchema.optional(),
-    border: borderSchema.optional(),
-    shadow: shadowSchema.optional(),
-    textTransform: z.enum(["none", "uppercase"]).optional(),
-    letterSpacing: z.number().optional(),
-    fullWidth: z.boolean().optional(),
-  }),
-});
-
-export const spacerBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("spacer"),
-  condition: contentConditionSchema.optional(),
-  data: z.object({
-    height: z.number().int().nonnegative(),
-    padding: paddingSchema.optional(),
-  }),
-});
-
-export const listBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("list"),
-  condition: contentConditionSchema.optional(),
-  data: z.object({
-    items: z.array(z.string()),
-    listType: z.enum(["ordered", "unordered"]),
-    align: z.enum(["left", "center", "right"]).optional(),
-    color: z.string().optional(),
-    fontSize: z.number().int().positive().optional(),
-    lineHeight: z.number().positive().optional(),
-    fontWeight: z.enum(["normal", "bold", "bolder"]).optional(),
-    padding: paddingSchema.optional(),
-  }),
-});
-
-export const dividerBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("divider"),
-  condition: contentConditionSchema.optional(),
-  data: z.object({
-    color: z.string().optional(),
-    width: z.number().int().min(1).max(100).optional(),
-    align: z.enum(["left", "center", "right"]).optional(),
-    borderWidth: z.number().int().nonnegative().optional(),
-    borderStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
-    padding: paddingSchema.optional(),
-  }),
-});
-
-const textStyleSchema = z.object({
-  color: z.string().optional(),
-  fontSize: z.number().int().positive().optional(),
-  lineHeight: z.number().positive().optional(),
-  fontWeight: z.enum(["normal", "bold", "bolder"]).optional(),
-  fontFamily: z.string().optional(),
-});
-
-export const productLineBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("product-line"),
-  condition: contentConditionSchema.optional(),
-  data: z.object({
-    leftText: z.string(),
-    rightText: z.string(),
-    leftStyle: textStyleSchema.optional(),
-    rightStyle: textStyleSchema.optional(),
-    rightWidth: z.number().int().positive().optional(),
-    padding: paddingSchema.optional(),
-  }),
-});
-
-const socialLinkSchema = z.object({
-  type: z.enum([
-    "facebook",
-    "twitter",
-    "instagram",
-    "youtube",
-    "discord",
-    "github",
-    "reddit",
-  ]),
-  url: z.string(),
-  icon: z.string(),
-});
-
-export const socialsBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("socials"),
-  condition: contentConditionSchema.optional(),
-  data: z.object({
-    links: z
-      .array(socialLinkSchema)
-      .min(1, "At least one social link is required"),
-    align: z.enum(["left", "center", "right"]).optional(),
-    size: z.number().int().min(16).max(64).optional(),
-    spacing: z.number().int().min(0).max(50).optional(),
-    padding: paddingSchema.optional(),
-  }),
-});
-
-export const contentBlockSchema = z.discriminatedUnion("type", [
-  headingBlockSchema,
-  paragraphBlockSchema,
-  imageBlockSchema,
-  buttonBlockSchema,
-  spacerBlockSchema,
-  listBlockSchema,
-  dividerBlockSchema,
-  productLineBlockSchema,
-  socialsBlockSchema,
-]);
 
 export const columnBlockSchema = z.object({
   id: z.string(),

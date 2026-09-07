@@ -1,4 +1,4 @@
-import { EmailDesignDocument, GlobalSettings } from "../emailDesign";
+import type { EmailDesignDocument, GlobalSettings } from "../emailDesign";
 
 export interface EmailRenderer {
   render(design: EmailDesignDocument): string;
