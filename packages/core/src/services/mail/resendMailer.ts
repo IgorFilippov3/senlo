@@ -16,7 +16,9 @@ export class ResendMailer implements IMailer {
           to: [options.to],
           subject: options.subject,
           html: options.html,
+          text: options.text,
           reply_to: options.replyTo,
+          headers: options.headers,
           tags: options.tags
             ? Object.entries(options.tags).map(([name, value]) => ({
                 name,

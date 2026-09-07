@@ -25,8 +25,17 @@ export class MailgunMailer implements IMailer {
       formData.append("subject", options.subject);
       formData.append("html", options.html);
 
+      if (options.text) {
+        formData.append("text", options.text);
+      }
+
       if (options.replyTo) {
         formData.append("h:Reply-To", options.replyTo);
+      }
+
+      // Mailgun carries custom headers as h:-prefixed form fields.
+      for (const [name, value] of Object.entries(options.headers ?? {})) {
+        formData.append(`h:${name}`, value);
       }
 
       const res = await fetch(this.baseUrl, {

@@ -20,12 +20,18 @@ interface EditorLayoutProps {
   templateName: string;
   templateSubject: string;
   templateLocale?: string;
+  templatePreheader?: string | null;
   mergeTags?: MergeTag[];
   onSave?: (
     id: number,
     design: EmailDesignDocument,
     html: string,
-    metadata?: { name: string; subject: string; locale?: string },
+    metadata?: {
+      name: string;
+      subject: string;
+      locale?: string;
+      preheader?: string | null;
+    },
   ) => Promise<{ success: boolean; error?: string } | void>;
   onSendTest?: (
     id: number,
@@ -50,6 +56,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   templateName,
   templateSubject,
   templateLocale = "en",
+  templatePreheader = "",
   mergeTags = [],
   onSave,
   onSendTest,
@@ -79,6 +86,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
     templateName,
     templateSubject,
     templateLocale,
+    templatePreheader,
     projectId,
     hasAiProvider,
   });
@@ -86,6 +94,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
     templateName,
     templateSubject,
     templateLocale,
+    templatePreheader,
     projectId,
     hasAiProvider,
   };
@@ -100,6 +109,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
       meta.templateName,
       meta.templateSubject,
       meta.templateLocale,
+      meta.templatePreheader ?? "",
     );
     setIsMounted(true);
   }, [

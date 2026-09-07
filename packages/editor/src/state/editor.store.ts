@@ -103,6 +103,8 @@ export interface EditorState {
   templateName: string;
   /** Email subject line for the template */
   templateSubject: string;
+  /** Hidden preview text shown by inboxes next to the subject */
+  templatePreheader: string;
   /** Locale of the template (e.g. 'en', 'ru') */
   templateLocale: string;
   /** Custom merge tags available in the template */
@@ -152,7 +154,12 @@ export interface EditorState {
     id: number,
     design: EmailDesignDocument,
     html: string,
-    metadata?: { name: string; subject: string; locale?: string },
+    metadata?: {
+      name: string;
+      subject: string;
+      locale?: string;
+      preheader?: string | null;
+    },
   ) => Promise<{ success: boolean; error?: string } | void>;
   /** Callback function for sending test emails */
   onSendTest?: (
@@ -184,7 +191,12 @@ export interface EditorState {
   /** Set the project database ID and AI provider status */
   setProjectInfo: (projectId: number, hasAiProvider: boolean) => void;
   /** Update template name and subject line */
-  setTemplateMetadata: (name: string, subject: string, locale?: string) => void;
+  setTemplateMetadata: (
+    name: string,
+    subject: string,
+    locale?: string,
+    preheader?: string,
+  ) => void;
   /** Update available custom merge tags */
   setCustomMergeTags: (tags: MergeTag[]) => void;
   /** Reset design to empty state */
@@ -309,7 +321,12 @@ export interface EditorState {
       id: number,
       design: EmailDesignDocument,
       html: string,
-      metadata?: { name: string; subject: string; locale?: string },
+      metadata?: {
+        name: string;
+        subject: string;
+        locale?: string;
+        preheader?: string | null;
+      },
     ) => Promise<{ success: boolean; error?: string } | void>,
   ) => void;
   /** Set test email callback function */
@@ -397,6 +414,7 @@ export const useEditorStore = create<EditorState>()(
     templateName: "",
     templateSubject: "",
     templateLocale: "en",
+    templatePreheader: "",
 
     previewMode: false,
     previewContact: { ...DEFAULT_PREVIEW_CONTACT },
@@ -417,11 +435,12 @@ export const useEditorStore = create<EditorState>()(
       });
     },
 
-    setTemplateMetadata: (name, subject, locale) => {
+    setTemplateMetadata: (name, subject, locale, preheader) => {
       set((s) => {
         s.templateName = name;
         s.templateSubject = subject;
         if (locale) s.templateLocale = locale;
+        if (preheader !== undefined) s.templatePreheader = preheader;
       });
     },
 
@@ -436,6 +455,7 @@ export const useEditorStore = create<EditorState>()(
         s.canRedo = false;
         s.isDirty = false;
         s.previewMode = false;
+        s.templatePreheader = "";
         s.previewContact = { ...DEFAULT_PREVIEW_CONTACT };
         s.isDragActive = false;
         s.activeDragType = null;

@@ -221,7 +221,7 @@ export interface Suppression {
   id: number;
   projectId: number;
   email: string;
-  reason: "SPAM" | "BOUNCE";
+  reason: "SPAM" | "BOUNCE" | "UNSUBSCRIBE";
   createdAt: Date;
 }
 

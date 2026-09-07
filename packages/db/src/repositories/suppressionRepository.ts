@@ -25,7 +25,7 @@ export class SuppressionRepository
       id: row.id,
       projectId: row.projectId,
       email: row.email,
-      reason: row.reason as "SPAM" | "BOUNCE",
+      reason: row.reason as Suppression["reason"],
       createdAt: row.createdAt,
     };
   }

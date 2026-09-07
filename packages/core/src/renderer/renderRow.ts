@@ -12,6 +12,7 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
   const { settings } = row;
   const padding = settings.padding || { top: 0, right: 0, bottom: 0, left: 0 };
   const borderRadius = settings.borderRadius || { top: 0, bottom: 0 };
+  const align = escapeAttr(settings.align || "center");
 
   const rowStyle = [
     `background-color: ${settings.backgroundColor || "transparent"}`,
@@ -26,30 +27,28 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
     .map(escapeAttr)
     .join("; ");
 
+  // The row lives in a real table rather than an Outlook-only one. The previous
+  // shape put the same style on a conditional <td> AND on the inner <div>,
+  // which meant Outlook applied the padding twice. A <td> is the one element
+  // every client, Outlook included, pads correctly, so the style belongs there
+  // and nowhere else. The conditional table below is only for the columns:
+  // Outlook does not lay out inline-block divs side by side.
   return `
-    <!--[if mso]>
-    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
       <tr>
-        <td style="${rowStyle}">
-    <![endif]-->
-    <div style="${rowStyle}; font-size: 0; text-align: ${escapeAttr(
-      settings.align || "center",
-    )};">
-      <!--[if mso]>
-      <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-        <tr>
-      <![endif]-->
-      ${row.columns.map((col) => renderColumn(col, context)).join("")}
-      <!--[if mso]>
-        </tr>
-      </table>
-      <![endif]-->
-    </div>
-    <!--[if mso]>
+        <td align="${align}" style="${rowStyle}; font-size: 0; text-align: ${align};">
+          <!--[if mso]>
+          <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+            <tr>
+          <![endif]-->
+          ${row.columns.map((col) => renderColumn(col, context)).join("")}
+          <!--[if mso]>
+            </tr>
+          </table>
+          <![endif]-->
         </td>
       </tr>
     </table>
-    <![endif]-->
   `;
 }
 

@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { EmailDesignDocument } from "../emailDesign";
-import { RenderContext, RenderOptions } from "./types";
+import { RenderContext, RenderOptions, resolveGlobals } from "./types";
 import { renderHead } from "./renderHead";
 import { renderBody } from "./renderBody";
 import { replaceMergeTags } from "../merge-tags";
-import { escapeAttr, sanitizeUrlsInHtml } from "./escape";
+import { escapeAttr, escapeHtml, sanitizeUrlsInHtml } from "./escape";
+import { renderPreheader } from "./renderPreheader";
 
 export function renderEmailDesign(
   design: EmailDesignDocument,
@@ -16,6 +17,8 @@ export function renderEmailDesign(
   const context: RenderContext = {
     responsiveStyles: [],
     options,
+    // Resolved once so every block can write the font and colour inline.
+    globals: resolveGlobals(design.settings),
   };
 
   const headContent = renderHead(design, context);
@@ -31,11 +34,12 @@ export function renderEmailDesign(
   <!--[if !mso]><!-->
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <!--<![endif]-->
-  <title></title>
+  <title>${escapeHtml(options?.title || "")}</title>
   ${headContent}
 </head>
 <body style="margin:0;padding:0;word-spacing:normal;background-color:${escapeAttr(design.settings.backgroundColor || "#ffffff")};">
   <div role="article" aria-roledescription="email" lang="en" style="-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;background-color:${escapeAttr(design.settings.backgroundColor || "#ffffff")};">
+    ${renderPreheader(options?.preheader)}
     ${bodyContent}
   </div>
 </body>

@@ -39,6 +39,7 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
   const templateName = useEditorStore((s) => s.templateName);
   const templateSubject = useEditorStore((s) => s.templateSubject);
   const templateLocale = useEditorStore((s) => s.templateLocale);
+  const templatePreheader = useEditorStore((s) => s.templatePreheader);
   const setTemplateMetadata = useEditorStore((s) => s.setTemplateMetadata);
 
   const previewMode = useEditorStore((s) => s.previewMode);
@@ -61,12 +62,14 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
   const [editName, setEditName] = useState(templateName);
   const [editSubject, setEditSubject] = useState(templateSubject);
   const [editLocale, setEditLocale] = useState(templateLocale);
+  const [editPreheader, setEditPreheader] = useState(templatePreheader);
 
   useEffect(() => {
     setEditName(templateName);
     setEditSubject(templateSubject);
     setEditLocale(templateLocale);
-  }, [templateName, templateSubject, templateLocale]);
+    setEditPreheader(templatePreheader);
+  }, [templateName, templateSubject, templateLocale, templatePreheader]);
 
   // Compute canUndo/canRedo directly from history arrays
   const canUndo = historyPast.length > 0;
@@ -101,7 +104,11 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
     setIsSaving(true);
     setSaveError(null);
     try {
-      const options = { baseUrl: window.location.origin };
+      const options = {
+        baseUrl: window.location.origin,
+        preheader: templatePreheader,
+        title: templateSubject,
+      };
       const html = renderEmailDesign(design, options);
       // The server action reports failure by returning { success: false }
       // instead of throwing, so the result has to be checked. Clearing isDirty
@@ -110,6 +117,7 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
         name: templateName,
         subject: templateSubject,
         locale: templateLocale,
+        preheader: templatePreheader,
       });
 
       if (result && result.success === false) {
@@ -135,12 +143,17 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
     setIsSaving(true);
     setSettingsError(null);
     try {
-      const options = { baseUrl: window.location.origin };
+      const options = {
+        baseUrl: window.location.origin,
+        preheader: editPreheader,
+        title: editSubject,
+      };
       const html = renderEmailDesign(design, options);
       const result = await onSave(templateId, design, html, {
         name: editName,
         subject: editSubject,
         locale: editLocale,
+        preheader: editPreheader,
       });
 
       if (result && result.success === false) {
@@ -148,7 +161,7 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
         return;
       }
 
-      setTemplateMetadata(editName, editSubject, editLocale);
+      setTemplateMetadata(editName, editSubject, editLocale, editPreheader);
       setIsSettingsOpen(false);
       // We don't need to setDirty(true) here since we just saved to server
     } catch (error) {
@@ -318,6 +331,18 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
               onChange={(e) => setEditSubject(e.target.value)}
               placeholder="e.g. Welcome to our community!"
               required
+            />
+          </FormField>
+
+          <FormField
+            label="Preview Text"
+            hint="Shown next to the subject line in the inbox. Without it, clients fall back to the first words of the email."
+          >
+            <Input
+              value={editPreheader}
+              onChange={(e) => setEditPreheader(e.target.value)}
+              placeholder="e.g. Your order is on its way"
+              maxLength={150}
             />
           </FormField>
 

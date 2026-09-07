@@ -30,8 +30,19 @@ export interface SendMailOptions {
   to: string;
   subject: string;
   html: string;
+  /**
+   * text/plain alternative. Sending HTML only costs deliverability and leaves
+   * text-only readers with nothing.
+   */
+  text?: string;
   replyTo?: string;
   tags?: Record<string, string>;
+  /**
+   * Extra RFC 5322 headers, currently List-Unsubscribe and
+   * List-Unsubscribe-Post. Not every provider API can carry them - the SES
+   * adapter drops them, since SendEmail has no field for custom headers.
+   */
+  headers?: Record<string, string>;
 }
 
 export interface SendMailResult {

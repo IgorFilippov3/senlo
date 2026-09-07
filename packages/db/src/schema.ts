@@ -148,6 +148,8 @@ export const emailTemplates = pgTable("email_templates", {
     .references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   subject: text("subject").notNull(),
+  // Hidden preview text an inbox shows next to the subject line.
+  preheader: text("preheader"),
   html: text("html").notNull(),
   designJson: jsonb("design_json"),
   status: text("status").notNull().default("draft"),

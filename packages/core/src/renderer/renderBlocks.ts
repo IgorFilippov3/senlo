@@ -1,7 +1,8 @@
 import { ContentBlock } from "../emailDesign";
-import { RenderContext } from "./types";
+import { RenderContext, globalsOf } from "./types";
 import { renderPadding, normalizeUrl } from "./utils";
 import { escapeAttr, sanitizeUrl } from "./escape";
+import { stripTags } from "./htmlToText";
 import { evaluateCondition } from "./conditions";
 
 export function renderBlock(
@@ -14,21 +15,21 @@ export function renderBlock(
 
   switch (block.type) {
     case "heading":
-      return renderHeading(block);
+      return renderHeading(block, context);
     case "paragraph":
-      return renderParagraph(block);
+      return renderParagraph(block, context);
     case "image":
       return renderImage(block, context);
     case "button":
-      return renderButton(block);
+      return renderButton(block, context);
     case "spacer":
       return renderSpacer(block);
     case "list":
-      return renderList(block);
+      return renderList(block, context);
     case "divider":
       return renderDivider(block);
     case "product-line":
-      return renderProductLine(block);
+      return renderProductLine(block, context);
     case "socials":
       return renderSocials(block, context);
     default:
@@ -65,8 +66,9 @@ function renderSocials(block: any, context: RenderContext): string {
   return `<div style="${escapeAttr(containerStyle)}">${linksHtml}</div>`;
 }
 
-function renderHeading(block: any): string {
+function renderHeading(block: any, context: RenderContext): string {
   const { data } = block;
+  const globals = globalsOf(context);
   // The level becomes a tag name, so it can never be taken from the document
   // as-is: designJson is JSON and carries no type guarantees.
   const level = Math.min(6, Math.max(1, Math.trunc(Number(data.level)) || 2));
@@ -74,8 +76,12 @@ function renderHeading(block: any): string {
 
   const style = [
     `margin: 0`,
+    // Outlook's Word engine ignores the `*` selector in the head, so the font
+    // has to be written on the element itself or the message falls back to
+    // Times New Roman.
+    `font-family: ${globals.fontFamily}`,
     `text-align: ${data.align || "left"}`,
-    `color: ${data.color || "inherit"}`,
+    `color: ${data.color || globals.textColor || "inherit"}`,
     `font-size: ${data.fontSize ? data.fontSize + "px" : "inherit"}`,
     `line-height: ${data.lineHeight || 1.3}`,
     `font-weight: ${data.fontWeight || "bold"}`,
@@ -95,13 +101,15 @@ function renderHeading(block: any): string {
   return `<${Tag} style="${escapeAttr(style)}">${content}</${Tag}>`;
 }
 
-function renderParagraph(block: any): string {
+function renderParagraph(block: any, context: RenderContext): string {
   const { data } = block;
+  const globals = globalsOf(context);
 
   const style = [
     `margin: 0`,
+    `font-family: ${globals.fontFamily}`,
     `text-align: ${data.align || "left"}`,
-    `color: ${data.color || "inherit"}`,
+    `color: ${data.color || globals.textColor || "inherit"}`,
     `font-size: ${data.fontSize ? data.fontSize + "px" : "16px"}`,
     `line-height: ${data.lineHeight || 1.5}`,
     `font-weight: ${data.fontWeight || "normal"}`,
@@ -164,15 +172,23 @@ function renderImage(block: any, context: RenderContext): string {
   return `<div style="${escapeAttr(containerStyle)}">${html}</div>`;
 }
 
-function renderButton(block: any): string {
+function renderButton(block: any, context: RenderContext): string {
   const { data } = block;
+  const globals = globalsOf(context);
 
-  const padding = data.padding || { top: 12, right: 24, bottom: 12, left: 24 };
+  const rawPadding = data.padding || { top: 12, right: 24, bottom: 12, left: 24 };
+  const padding = {
+    top: Number(rawPadding.top) || 0,
+    right: Number(rawPadding.right) || 0,
+    bottom: Number(rawPadding.bottom) || 0,
+    left: Number(rawPadding.left) || 0,
+  };
   const border = data.border || { width: 0, style: "solid", color: "#000000" };
 
   const styles = [
     `background-color: ${data.backgroundColor || "#3b82f6"}`,
     `color: ${data.color || "#ffffff"}`,
+    `font-family: ${globals.fontFamily}`,
     `display: ${data.fullWidth ? "block" : "inline-block"}`,
     `padding: ${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px`,
     `text-decoration: none`,
@@ -227,13 +243,69 @@ function renderButton(block: any): string {
     }
   }
 
+  const href = escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#");
+  const anchor = `<a href="${href}" target="_blank" style="${escapeAttr(styles.join("; "))}">${data.text}</a>`;
+
   return `
     <div style="text-align: ${escapeAttr(data.align || "center")}; padding: 10px 0;">
-      <a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" target="_blank" style="${escapeAttr(styles.join("; "))}">
-        ${data.text}
-      </a>
+      ${renderButtonVml(data, border, padding, href, globals.fontFamily)}
+      <!--[if !mso]><!-->
+      ${anchor}
+      <!--<![endif]-->
     </div>
   `;
+}
+
+/**
+ * Outlook 2007-2019 runs on the Word engine, which drops padding and
+ * border-radius on an inline element. Without this the button degrades into a
+ * coloured text link with no body. VML draws the shape instead, so the
+ * dimensions have to be given explicitly - Word will not measure the text.
+ */
+function renderButtonVml(
+  data: any,
+  border: any,
+  padding: { top: number; right: number; bottom: number; left: number },
+  href: string,
+  fontFamily: string,
+): string {
+  const label = stripTags(data.text) || "";
+  const fontSize = Number(data.fontSize) || 16;
+  const borderWidth = Number(border.width) || 0;
+
+  const height = Math.round(
+    fontSize * 1.5 + padding.top + padding.bottom + borderWidth * 2,
+  );
+  // Rough average character width for the web-safe families in the picker.
+  const width = Math.round(
+    label.length * fontSize * 0.6 + padding.left + padding.right,
+  );
+  const radius = Number(data.borderRadius ?? 4);
+  const arcsize = Math.min(50, Math.round((radius / Math.max(height, 1)) * 100));
+
+  const sizeStyle = data.fullWidth
+    ? "mso-width-percent: 1000;"
+    : `width: ${Math.max(width, 1)}px;`;
+
+  const stroke =
+    borderWidth > 0
+      ? `stroke="t" strokecolor="${escapeAttr(border.color || "#000000")}" strokeweight="${borderWidth}px"`
+      : 'stroke="f"';
+
+  const centerStyle = [
+    `color: ${data.color || "#ffffff"}`,
+    `font-family: ${fontFamily}`,
+    `font-size: ${fontSize}px`,
+    `font-weight: ${data.fontWeight || "bold"}`,
+    `text-transform: ${data.textTransform || "none"}`,
+  ].join("; ");
+
+  return `<!--[if mso]>
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height: ${height}px; v-text-anchor: middle; ${sizeStyle}" arcsize="${arcsize}%" ${stroke} fillcolor="${escapeAttr(data.backgroundColor || "#3b82f6")}">
+        <w:anchorlock/>
+        <center style="${escapeAttr(centerStyle)}">${escapeAttr(label)}</center>
+      </v:roundrect>
+      <![endif]-->`;
 }
 
 function renderSpacer(block: any): string {
@@ -251,19 +323,21 @@ function renderSpacer(block: any): string {
   `;
 }
 
-function renderList(block: any): string {
+function renderList(block: any, context: RenderContext): string {
   const { data } = block;
+  const globals = globalsOf(context);
   const Tag = data.listType === "ordered" ? "ol" : "ul";
   const listStyle = data.listType === "ordered" ? "decimal" : "disc";
 
   const style = [
     `margin: 0`,
+    `font-family: ${globals.fontFamily}`,
     `text-align: ${data.align || "left"}`,
-    `color: ${data.color || "inherit"}`,
+    `color: ${data.color || globals.textColor || "inherit"}`,
     `font-size: ${data.fontSize ? data.fontSize + "px" : "16px"}`,
     `line-height: ${data.lineHeight || 1.5}`,
     `font-weight: ${data.fontWeight || "normal"}`,
-    // `padding: ${renderPadding(data.padding)}`,
+    `padding: ${renderPadding(data.padding)}`,
   ].join("; ");
 
   const itemsHtml = (data.items || [])
@@ -304,8 +378,9 @@ function renderDivider(block: any): string {
   `;
 }
 
-function renderProductLine(block: any): string {
+function renderProductLine(block: any, context: RenderContext): string {
   const { data } = block;
+  const globals = globalsOf(context);
   const leftStyle = data.leftStyle || {};
   const rightStyle = data.rightStyle || {};
 
@@ -319,10 +394,10 @@ function renderProductLine(block: any): string {
 
   const leftCellStyle = [
     `text-align: left`,
-    `font-family: ${leftStyle.fontFamily || "Arial, sans-serif"}`,
+    `font-family: ${leftStyle.fontFamily || globals.fontFamily}`,
     `font-size: ${leftStyle.fontSize || 14}px`,
     `line-height: ${leftStyle.lineHeight || 1.4}`,
-    `color: ${leftStyle.color || "#000000"}`,
+    `color: ${leftStyle.color || globals.textColor || "#000000"}`,
     `font-weight: ${leftStyle.fontWeight || "normal"}`,
     `vertical-align: top`,
     `padding: 0`,
@@ -331,10 +406,10 @@ function renderProductLine(block: any): string {
   const rightCellStyle = [
     `text-align: right`,
     `width: ${data.rightWidth || 120}px`,
-    `font-family: ${rightStyle.fontFamily || "Arial, sans-serif"}`,
+    `font-family: ${rightStyle.fontFamily || globals.fontFamily}`,
     `font-size: ${rightStyle.fontSize || 14}px`,
     `line-height: ${rightStyle.lineHeight || 1.4}`,
-    `color: ${rightStyle.color || "#000000"}`,
+    `color: ${rightStyle.color || globals.textColor || "#000000"}`,
     `font-weight: ${rightStyle.fontWeight || "normal"}`,
     `white-space: nowrap`,
     `vertical-align: top`,

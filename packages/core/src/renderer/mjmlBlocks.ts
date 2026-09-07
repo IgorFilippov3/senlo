@@ -2,12 +2,23 @@ import { ContentBlock } from "../emailDesign";
 import { renderPadding, normalizeUrl } from "./utils";
 import { RenderOptions } from "./types";
 import { replaceMergeTags } from "../merge-tags";
+import { escapeAttr, sanitizeUrl } from "./escape";
+import { evaluateCondition } from "./conditions";
 
 export function renderMJMLBlock(
   block: ContentBlock,
   options?: RenderOptions,
   localData?: Record<string, any>,
 ): string {
+  // The HTML path drops a block whose condition is false; without the same
+  // check here the exported MJML shows blocks the recipient never sees.
+  const visible = evaluateCondition(block.condition, {
+    responsiveStyles: [],
+    options,
+    localData,
+  });
+  if (!visible) return "";
+
   const content = renderMJMLBlockContent(block, options);
 
   if (localData && options?.data) {
@@ -41,7 +52,7 @@ function renderMJMLBlockContent(
     case "socials":
       return renderMJMLSocials(block, options);
     default:
-      return `<!-- Unknown MJML block type: ${(block as any).type} -->`;
+      return `<!-- Unknown MJML block type: ${String((block as any).type).replace(/[^a-z0-9_-]/gi, "")} -->`;
   }
 }
 
@@ -52,8 +63,12 @@ function renderMJMLSocials(block: any, options?: RenderOptions): string {
   const padding = renderPadding(data.padding);
 
   const elements = (data.links || []).map((link: any) => {
-    const iconSrc = normalizeUrl(link.icon, options?.baseUrl);
-    return `<mj-social-element name="${link.type}-noshare" src="${iconSrc}" href="${link.url || "#"}" />`;
+    const iconSrc = escapeAttr(
+      sanitizeUrl(normalizeUrl(link.icon, options?.baseUrl), {
+        allowDataImage: true,
+      }),
+    );
+    return `<mj-social-element name="${escapeAttr(link.type)}-noshare" src="${iconSrc}" href="${escapeAttr(sanitizeUrl(link.url, { fallback: "#" }) || "#")}" />`;
   });
 
   return `
@@ -82,7 +97,7 @@ function renderMJMLHeading(block: any): string {
           letter-spacing="${data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"}"
           padding="${renderPadding(data.padding)}"
         >
-          ${data.href ? `<a href="${data.href}" style="color: inherit; text-decoration: none;">${data.text}</a>` : data.text}
+          ${data.href ? `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" style="color: inherit; text-decoration: none;">${data.text}</a>` : data.text}
         </mj-text>`;
 }
 
@@ -99,13 +114,17 @@ function renderMJMLParagraph(block: any): string {
           letter-spacing="${data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"}"
           padding="${renderPadding(data.padding)}"
         >
-          ${data.href ? `<a href="${data.href}" style="color: inherit; text-decoration: none;">${data.text}</a>` : data.text}
+          ${data.href ? `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" style="color: inherit; text-decoration: none;">${data.text}</a>` : data.text}
         </mj-text>`;
 }
 
 function renderMJMLImage(block: any, options?: RenderOptions): string {
   const { data } = block;
-  const src = normalizeUrl(data.src, options?.baseUrl);
+  const src = escapeAttr(
+    sanitizeUrl(normalizeUrl(data.src, options?.baseUrl), {
+      allowDataImage: true,
+    }),
+  );
   return `
         <mj-image
           src="${src}"
@@ -116,7 +135,7 @@ function renderMJMLImage(block: any, options?: RenderOptions): string {
           border-radius="${data.borderRadius || 0}px"
           border="${data.border?.width ? `${data.border.width}px ${data.border.style} ${data.border.color}` : "none"}"
           padding="${renderPadding(data.padding)}"
-          ${data.href ? `href="${data.href}"` : ""}
+          ${data.href ? `href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}"` : ""}
         />`;
 }
 
@@ -173,7 +192,7 @@ function renderMJMLButton(block: any): string {
           text-transform="${data.textTransform || "none"}"
           letter-spacing="${data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"}"
           ${data.fullWidth ? 'width="100%"' : ""}
-          ${data.href ? `href="${data.href}"` : ""}
+          ${data.href ? `href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}"` : ""}
         >
           ${data.text}
         </mj-button>`;

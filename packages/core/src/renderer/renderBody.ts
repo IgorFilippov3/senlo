@@ -1,5 +1,5 @@
 import { EmailDesignDocument, RowBlock } from "../emailDesign";
-import { RenderContext } from "./types";
+import { RenderContext, MAX_LOOP_ITERATIONS } from "./types";
 import { renderRow } from "./renderRow";
 import { replaceMergeTags } from "../merge-tags";
 import { resolveVariable } from "./conditions";
@@ -20,7 +20,19 @@ export function renderBody(
       const loopData = resolveVariable(row.loop.variable, data);
 
       if (Array.isArray(loopData)) {
-        return loopData
+        // Loop data can arrive through the public trigger API, where an
+        // unbounded array would render an unbounded email.
+        const limit = context.options?.maxLoopIterations ?? MAX_LOOP_ITERATIONS;
+        const items =
+          loopData.length > limit ? loopData.slice(0, limit) : loopData;
+
+        if (loopData.length > limit) {
+          console.warn(
+            `[renderer] Loop on "${row.loop.variable}" truncated: ${loopData.length} items, limit ${limit}`,
+          );
+        }
+
+        return items
           .map((item) => {
             const localContext = {
               ...context,

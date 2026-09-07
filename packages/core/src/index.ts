@@ -15,6 +15,8 @@ export * from "./ports";
 export * from "./constants";
 export * from "./merge-tags";
 export * from "./tracking";
+export * from "./unsubscribe-token";
+export * from "./renderer/htmlToText";
 export * from "./html-validator";
 export * from "./services/automationService";
 export * from "./services/audienceService";

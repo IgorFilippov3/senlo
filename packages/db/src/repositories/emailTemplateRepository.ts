@@ -37,6 +37,7 @@ export class EmailTemplateRepository extends BaseRepository<
       projectId: row.projectId,
       name: row.name,
       subject: row.subject,
+      preheader: row.preheader,
       html: row.html,
       designJson: (row.designJson as EmailTemplate["designJson"]) ?? null,
       createdAt: row.createdAt,
@@ -75,6 +76,7 @@ export class EmailTemplateRepository extends BaseRepository<
         projectId: input.projectId,
         name: input.name,
         subject: input.subject,
+        preheader: input.preheader ?? null,
         html: input.html,
         designJson: input.designJson ?? null,
         status: "draft",
@@ -99,6 +101,7 @@ export class EmailTemplateRepository extends BaseRepository<
 
     if (typeof input.name !== "undefined") set.name = input.name;
     if (typeof input.subject !== "undefined") set.subject = input.subject;
+    if (typeof input.preheader !== "undefined") set.preheader = input.preheader;
     if (typeof input.html !== "undefined") set.html = input.html;
     if (typeof input.designJson !== "undefined") {
       set.designJson = input.designJson;

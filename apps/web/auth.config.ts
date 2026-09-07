@@ -21,6 +21,11 @@ export const authConfig = {
         // breaks OAuth sign-in.
         nextUrl.pathname.startsWith("/api/auth/") ||
         nextUrl.pathname.startsWith("/api/track/") ||
+        // The unsubscribe page and the one-click endpoint are opened by
+        // recipients, who are not signed in. Guarding them sent every
+        // unsubscribe attempt to /login.
+        nextUrl.pathname.startsWith("/unsubscribe/") ||
+        nextUrl.pathname.startsWith("/api/unsubscribe/") ||
         nextUrl.pathname.startsWith("/api/debug/") ||
         nextUrl.pathname.startsWith("/api/webhooks/");
 

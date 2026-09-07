@@ -80,17 +80,19 @@ export class SmtpMailer implements IMailer {
         to: options.to,
         subject: options.subject,
         html: options.html,
+        text: options.text,
         replyTo: options.replyTo,
         // SMTP has no notion of tags. Carrying them as headers costs nothing
         // and makes a message traceable in the receiving server's logs.
-        headers: options.tags
-          ? Object.fromEntries(
-              Object.entries(options.tags).map(([name, value]) => [
-                `X-Senlo-${name}`,
-                value,
-              ]),
-            )
-          : undefined,
+        headers: {
+          ...Object.fromEntries(
+            Object.entries(options.tags ?? {}).map(([name, value]) => [
+              `X-Senlo-${name}`,
+              value,
+            ]),
+          ),
+          ...(options.headers ?? {}),
+        },
       });
 
       return {

@@ -83,6 +83,7 @@ export default async function EditorIdPage({
       templateName={template.name}
       templateSubject={template.subject}
       templateLocale={template.locale}
+      templatePreheader={template.preheader}
       mergeTags={mergeTags}
       onSave={saveTemplateFromEditor}
       onSendTest={sendTestEmailAction}

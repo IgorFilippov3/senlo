@@ -17,7 +17,14 @@ export class PostmarkMailer implements IMailer {
           To: options.to,
           Subject: options.subject,
           HtmlBody: options.html,
+          TextBody: options.text,
           ReplyTo: options.replyTo,
+          Headers: options.headers
+            ? Object.entries(options.headers).map(([Name, Value]) => ({
+                Name,
+                Value,
+              }))
+            : undefined,
           Metadata: options.tags,
           TrackOpens: true,
           TrackLinks: "HtmlAndText",

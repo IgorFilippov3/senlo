@@ -35,10 +35,15 @@ export class SesMailer implements IMailer {
             Html: {
               Data: options.html,
             },
+            Text: options.text ? { Data: options.text } : undefined,
           },
         },
         ReplyToAddresses: options.replyTo ? [options.replyTo] : undefined,
       });
+
+      // SendEmail has no field for custom headers, so List-Unsubscribe cannot
+      // be attached here. Carrying it would mean switching this adapter to
+      // SendRawEmail and building the MIME message ourselves.
 
       const response = await this.client.send(command);
 

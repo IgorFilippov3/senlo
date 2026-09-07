@@ -2,6 +2,8 @@ import { EmailDesignDocument, RowBlock, ColumnBlock } from "../emailDesign";
 import { renderMJMLBlock } from "./mjmlBlocks";
 import { renderPadding } from "./utils";
 import { replaceMergeTags } from "../merge-tags";
+import { escapeAttr, escapeCssValue } from "./escape";
+import { evaluateCondition } from "./conditions";
 import { RenderOptions, RenderContext } from "./types";
 import { resolveVariable } from "./conditions";
 
@@ -54,14 +56,14 @@ export function renderEmailDesignMJML(
 <mjml>
   <mj-head>
     <mj-attributes>
-      <mj-all font-family="${design.settings.fontFamily || "Arial, sans-serif"}" />
-      <mj-text color="${design.settings.textColor || "#111827"}" />
+      <mj-all font-family="${escapeCssValue(design.settings.fontFamily) || "Arial, Helvetica, sans-serif"}" />
+      <mj-text color="${escapeAttr(design.settings.textColor || "#111827")}" />
     </mj-attributes>
     <mj-style>
       /* You can add custom styles here */
     </mj-style>
   </mj-head>
-  <mj-body background-color="${design.settings.backgroundColor || "#ffffff"}" width="${design.settings.contentWidth || 600}px">
+  <mj-body background-color="${escapeAttr(design.settings.backgroundColor || "#ffffff")}" width="${Number(design.settings.contentWidth) || 600}px">
     ${sections}
   </mj-body>
 </mjml>
@@ -75,6 +77,10 @@ export function renderEmailDesignMJML(
 }
 
 function renderMJMLSection(row: RowBlock, context: RenderContext): string {
+  // Same rule as the HTML path: a row whose condition is false is not part of
+  // the message, so it is not part of the export either.
+  if (!evaluateCondition(row.condition, context)) return "";
+
   const { settings } = row;
   const columns = row.columns
     .map((col) => renderMJMLColumn(col, context))
@@ -84,10 +90,10 @@ function renderMJMLSection(row: RowBlock, context: RenderContext): string {
 
   return `
     <mj-section
-      background-color="${settings.backgroundColor || "transparent"}"
+      background-color="${escapeAttr(settings.backgroundColor || "transparent")}"
       full-width="${settings.fullWidth ? "full-width" : "none"}"
       padding="${renderPadding(settings.padding)}"
-      text-align="${settings.align || "center"}"
+      text-align="${escapeAttr(settings.align || "center")}"
       border-radius="${borderRadiusStr}"
     >
       ${columns}

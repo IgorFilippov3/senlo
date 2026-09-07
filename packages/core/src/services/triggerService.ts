@@ -9,6 +9,15 @@ import { renderEmailDesign } from "../renderer/renderEmailDesign";
 import { wrapLinksWithTracking } from "../tracking";
 import { EmailDesignDocument } from "../emailDesign";
 import { replaceMergeTags } from "../merge-tags";
+import {
+  encodeUnsubscribeToken,
+  buildUnsubscribeHeaders,
+  unsubscribeUrls,
+} from "../unsubscribe-token";
+import {
+  injectBeforeBodyEnd,
+  EMAIL_CLIPPING_BYTES,
+} from "../renderer/htmlToText";
 import { Queue } from "bullmq";
 
 export interface TriggeredEmailOptions {
@@ -75,13 +84,25 @@ export class TriggerService {
     const trackingPixel = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none !important;" alt="" />`;
     const clickTrackingBaseUrl = `${baseUrl}/api/track/click/${campaign.id}/${emailEncoded}`;
 
+    // A triggered recipient may have no contact row, so the token carries the
+    // project and the address. Without this the unsubscribe tag rendered as
+    // "#" and the link did nothing.
+    const unsubscribeToken = encodeUnsubscribeToken({
+      projectId: project.id,
+      email: to,
+      campaignId: campaign.id,
+    });
+    const unsubscribe = unsubscribeUrls(baseUrl, unsubscribeToken);
+
     let personalizedHtml = template.designJson
       ? renderEmailDesign(template.designJson as EmailDesignDocument, {
           baseUrl,
+          preheader: campaign.preheader || template.preheader || undefined,
+          title: subjectOverride || template.subject,
           data: {
             custom: data,
             contact: { email: to, ...data },
-            unsubscribeUrl: "#",
+            unsubscribeUrl: unsubscribe.page,
           },
         })
       : template.html;
@@ -89,9 +110,16 @@ export class TriggerService {
     personalizedHtml = wrapLinksWithTracking(
       personalizedHtml,
       clickTrackingBaseUrl,
+      { skipUrls: [unsubscribe.page] },
     );
 
-    personalizedHtml += trackingPixel;
+    personalizedHtml = injectBeforeBodyEnd(personalizedHtml, trackingPixel);
+
+    if (personalizedHtml.length > EMAIL_CLIPPING_BYTES) {
+      console.warn(
+        `[TriggerService] Message for ${to} is ${personalizedHtml.length} bytes; Gmail clips past ${EMAIL_CLIPPING_BYTES}`,
+      );
+    }
 
     const fromAddress = campaign.fromName
       ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
@@ -133,6 +161,7 @@ export class TriggerService {
         html: personalizedHtml,
         providerId: project.providerId,
         replyTo: campaign.replyTo || undefined,
+        unsubscribeOneClickUrl: unsubscribe.oneClick,
       },
     );
 

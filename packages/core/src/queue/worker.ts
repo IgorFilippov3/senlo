@@ -11,7 +11,16 @@ import {
   RecipientListRepository,
 } from "../ports";
 import { MailerFactory } from "../services/mail/index";
-import { encodeUnsubscribeToken } from "../unsubscribe-token";
+import {
+  encodeUnsubscribeToken,
+  buildUnsubscribeHeaders,
+  unsubscribeUrls,
+} from "../unsubscribe-token";
+import {
+  htmlToPlainText,
+  injectBeforeBodyEnd,
+  EMAIL_CLIPPING_BYTES,
+} from "../renderer/htmlToText";
 import { renderEmailDesign } from "../renderer/renderEmailDesign";
 import { wrapLinksWithTracking } from "../tracking";
 import { EmailDesignDocument } from "../emailDesign";
@@ -42,6 +51,7 @@ export class EmailWorkerProcessor {
       html,
       providerId,
       replyTo,
+      unsubscribeOneClickUrl,
     } = job.data;
 
     try {
@@ -87,7 +97,12 @@ export class EmailWorkerProcessor {
         to: email,
         subject,
         html,
+        // Built here rather than at queue time: deriving it from the HTML in
+        // the job keeps the job payload from carrying a second copy of the
+        // message body.
+        text: htmlToPlainText(html),
         replyTo,
+        headers: buildUnsubscribeHeaders(unsubscribeOneClickUrl),
         tags: {
           project_id: String(projectId),
           campaign_id: String(campaignId),
@@ -209,9 +224,12 @@ export class EmailWorkerProcessor {
           const emailEncoded = encodeURIComponent(contact.email);
           const unsubscribeToken = encodeUnsubscribeToken({
             contactId: contact.id,
+            projectId: project.id,
+            email: contact.email,
             campaignId: campaign.id,
           });
-          const unsubscribeUrl = `${baseUrl}/unsubscribe/${unsubscribeToken}`;
+          const unsubscribe = unsubscribeUrls(baseUrl, unsubscribeToken);
+          const unsubscribeUrl = unsubscribe.page;
 
           const openTrackingUrl = `${baseUrl}/api/track/open/${campaign.id}/${emailEncoded}`;
           const trackingPixel = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none !important;" alt="" />`;
@@ -221,6 +239,8 @@ export class EmailWorkerProcessor {
           let personalizedHtml = template.designJson
             ? renderEmailDesign(template.designJson as EmailDesignDocument, {
                 baseUrl,
+                preheader: campaign.preheader || template.preheader || undefined,
+                title: campaign.subject || template.subject,
                 data: {
                   contact,
                   unsubscribeUrl,
@@ -233,7 +253,16 @@ export class EmailWorkerProcessor {
             clickTrackingBaseUrl,
             { skipUrls: [unsubscribeUrl] },
           );
-          personalizedHtml += trackingPixel;
+          personalizedHtml = injectBeforeBodyEnd(
+            personalizedHtml,
+            trackingPixel,
+          );
+
+          if (personalizedHtml.length > EMAIL_CLIPPING_BYTES) {
+            console.warn(
+              `[Worker] Message for ${contact.email} is ${personalizedHtml.length} bytes; Gmail clips past ${EMAIL_CLIPPING_BYTES} and hides everything after the cut`,
+            );
+          }
 
           const fromAddress = campaign.fromName
             ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
@@ -250,6 +279,7 @@ export class EmailWorkerProcessor {
               subject: campaign.subject || template.subject,
               html: personalizedHtml,
               providerId: project.providerId!,
+              unsubscribeOneClickUrl: unsubscribe.oneClick,
             },
           );
         }),
