@@ -37,7 +37,8 @@ import {
   DEFAULT_PARAGRAPH_FONT_WEIGHT,
   DEFAULT_PARAGRAPH_LETTER_SPACING,
 } from "./defaults/paragraph";
-import { DEFAULT_PADDING, DEFAULT_COLOR } from "./defaults/common";
+import { DEFAULT_PADDING, resolveColor } from "./defaults/common";
+import { useEditorStore } from "../../../../state/editor.store";
 import {
   TextareaExpandedModal,
   ExpandButton,
@@ -49,6 +50,7 @@ interface ParagraphSectionProps {
 }
 
 export const ParagraphSection = ({ block }: ParagraphSectionProps) => {
+  const globalTextColor = useEditorStore((st) => st.design.settings?.textColor);
   const [isExpanded, setIsExpanded] = useState(false);
   const { register, control, errors, setValue, getValues } = useBlockForm({
     block,
@@ -121,7 +123,7 @@ export const ParagraphSection = ({ block }: ParagraphSectionProps) => {
               <ColorPicker
                 value={field.value}
                 onChange={field.onChange}
-                defaultValue={DEFAULT_COLOR}
+                defaultValue={resolveColor(undefined, globalTextColor)}
               />
             )}
           />

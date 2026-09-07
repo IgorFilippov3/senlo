@@ -41,6 +41,17 @@ export const listBlockFormSchema = listBlockDataSchema.extend({
   condition: contentConditionSchema.optional(),
 });
 
+export const listBlockFallbacks = {
+  listType: "unordered" as const,
+  align: "left" as const,
+  /** null means the document's text colour. */
+  color: null,
+  fontSize: 16,
+  lineHeight: 1.5,
+  fontWeight: "normal" as const,
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+};
+
 function renderList(block: any, context: RenderContext): string {
   const { data } = block;
   const globals = globalsOf(context);
@@ -50,11 +61,11 @@ function renderList(block: any, context: RenderContext): string {
   const style = [
     `margin: 0`,
     `font-family: ${globals.fontFamily}`,
-    `text-align: ${data.align || "left"}`,
+    `text-align: ${data.align || listBlockFallbacks.align}`,
     `color: ${data.color || globals.textColor || "inherit"}`,
-    `font-size: ${data.fontSize ? data.fontSize + "px" : "16px"}`,
-    `line-height: ${data.lineHeight || 1.5}`,
-    `font-weight: ${data.fontWeight || "normal"}`,
+    `font-size: ${data.fontSize || listBlockFallbacks.fontSize}px`,
+    `line-height: ${data.lineHeight || listBlockFallbacks.lineHeight}`,
+    `font-weight: ${data.fontWeight || listBlockFallbacks.fontWeight}`,
     `padding: ${renderPadding(data.padding)}`,
   ].join("; ");
 
@@ -97,6 +108,7 @@ function renderMJMLList(block: any): string {
 export const listBlock: BlockDefinition = {
   type: "list",
   label: "List",
+  fallbacks: listBlockFallbacks,
   createDefaults: () => copy({
     items: ["List item 1", "List item 2", "List item 3"],
     listType: "unordered" as const,

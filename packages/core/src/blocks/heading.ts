@@ -52,12 +52,46 @@ export const headingBlockFormSchema = headingBlockDataSchema.extend({
   condition: contentConditionSchema.optional(),
 });
 
+/**
+ * Size per heading level.
+ *
+ * The renderer used to emit `font-size: inherit` for a heading with no size of
+ * its own, and a column sets 16px, so such a heading arrived at body size - a
+ * document from the AI or an import had headings that were not headings. The
+ * editor always writes a size, so this only affects documents that never had
+ * one, where the old output was wrong rather than intentional.
+ */
+export const HEADING_FONT_SIZES: Record<number, number> = {
+  1: 32,
+  2: 24,
+  3: 20,
+  4: 18,
+  5: 16,
+  6: 14,
+};
+
+export const headingBlockFallbacks = {
+  level: 2,
+  align: "left" as const,
+  /** null means the document's text colour. */
+  color: null,
+  fontSize: HEADING_FONT_SIZES,
+  lineHeight: 1.3,
+  fontWeight: "bold" as const,
+  textTransform: "none" as const,
+  letterSpacing: 0,
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+};
+
 function renderHeading(block: any, context: RenderContext): string {
   const { data } = block;
   const globals = globalsOf(context);
   // The level becomes a tag name, so it can never be taken from the document
   // as-is: designJson is JSON and carries no type guarantees.
-  const level = Math.min(6, Math.max(1, Math.trunc(Number(data.level)) || 2));
+  const level = Math.min(
+    6,
+    Math.max(1, Math.trunc(Number(data.level)) || headingBlockFallbacks.level),
+  );
   const Tag = `h${level}`;
 
   const style = [
@@ -66,12 +100,12 @@ function renderHeading(block: any, context: RenderContext): string {
     // has to be written on the element itself or the message falls back to
     // Times New Roman.
     `font-family: ${globals.fontFamily}`,
-    `text-align: ${data.align || "left"}`,
+    `text-align: ${data.align || headingBlockFallbacks.align}`,
     `color: ${data.color || globals.textColor || "inherit"}`,
-    `font-size: ${data.fontSize ? data.fontSize + "px" : "inherit"}`,
-    `line-height: ${data.lineHeight || 1.3}`,
-    `font-weight: ${data.fontWeight || "bold"}`,
-    `text-transform: ${data.textTransform || "none"}`,
+    `font-size: ${data.fontSize || HEADING_FONT_SIZES[level]}px`,
+    `line-height: ${data.lineHeight || headingBlockFallbacks.lineHeight}`,
+    `font-weight: ${data.fontWeight || headingBlockFallbacks.fontWeight}`,
+    `text-transform: ${data.textTransform || headingBlockFallbacks.textTransform}`,
     `letter-spacing: ${
       data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"
     }`,
@@ -91,12 +125,12 @@ function renderMJMLHeading(block: any): string {
   const { data } = block;
   return `
         <mj-text
-          align="${data.align || "left"}"
+          align="${data.align || headingBlockFallbacks.align}"
           color="${data.color || "#000000"}"
-          font-size="${data.fontSize || 24}px"
-          line-height="${data.lineHeight || 1.3}"
-          font-weight="${data.fontWeight || "bold"}"
-          text-transform="${data.textTransform || "none"}"
+          font-size="${data.fontSize || HEADING_FONT_SIZES[Number(data.level) || headingBlockFallbacks.level] || 24}px"
+          line-height="${data.lineHeight || headingBlockFallbacks.lineHeight}"
+          font-weight="${data.fontWeight || headingBlockFallbacks.fontWeight}"
+          text-transform="${data.textTransform || headingBlockFallbacks.textTransform}"
           letter-spacing="${data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"}"
           padding="${renderPadding(data.padding)}"
         >
@@ -107,6 +141,7 @@ function renderMJMLHeading(block: any): string {
 export const headingBlock: BlockDefinition = {
   type: "heading",
   label: "Heading",
+  fallbacks: headingBlockFallbacks,
   createDefaults: () => copy({
     text: "Heading",
     level: 2 as const,

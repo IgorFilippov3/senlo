@@ -1,20 +1,20 @@
-export const DEFAULT_SOCIALS_ALIGN = "center";
-export const DEFAULT_SOCIALS_SIZE = 32;
-export const DEFAULT_SOCIALS_SPACING = 10;
+import { fallbacksFor } from "./common";
 
-export const DEFAULT_SOCIALS_PADDING = {
-  top: 10,
-  right: 0,
-  bottom: 10,
-  left: 0,
-};
+const fallbacks = fallbacksFor("socials");
 
+export const DEFAULT_SOCIALS_ALIGN = fallbacks.align;
+export const DEFAULT_SOCIALS_SIZE = fallbacks.size;
+export const DEFAULT_SOCIALS_SPACING = fallbacks.spacing;
+export const DEFAULT_SOCIALS_PADDING = fallbacks.padding;
+
+/** Links only exist for a new block, so this is a default, not a fallback. */
 export const DEFAULT_SOCIALS_LINKS = [
   { type: "facebook" as const, url: "", icon: "/facebook.png" },
   { type: "twitter" as const, url: "", icon: "/twitter.png" },
   { type: "instagram" as const, url: "", icon: "/instagram.png" },
 ];
 
+/** Editor-only: what the network picker offers and which icon it assigns. */
 export const SOCIAL_LABELS: Record<string, string> = {
   facebook: "Facebook",
   twitter: "Twitter",
@@ -23,7 +23,7 @@ export const SOCIAL_LABELS: Record<string, string> = {
   discord: "Discord",
   github: "GitHub",
   reddit: "Reddit",
-} as const;
+};
 
 export const SOCIAL_ICONS: Record<string, string> = {
   facebook: "/facebook.png",
@@ -33,4 +33,4 @@ export const SOCIAL_ICONS: Record<string, string> = {
   discord: "/discord.png",
   github: "/github.png",
   reddit: "/reddit.png",
-} as const;
+};

@@ -42,6 +42,18 @@ export const paragraphBlockFormSchema = paragraphBlockDataSchema.extend({
   condition: contentConditionSchema.optional(),
 });
 
+export const paragraphBlockFallbacks = {
+  align: "left" as const,
+  /** null means the document's text colour. */
+  color: null,
+  fontSize: 16,
+  lineHeight: 1.5,
+  fontWeight: "normal" as const,
+  textTransform: "none" as const,
+  letterSpacing: 0,
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+};
+
 function renderParagraph(block: any, context: RenderContext): string {
   const { data } = block;
   const globals = globalsOf(context);
@@ -49,12 +61,12 @@ function renderParagraph(block: any, context: RenderContext): string {
   const style = [
     `margin: 0`,
     `font-family: ${globals.fontFamily}`,
-    `text-align: ${data.align || "left"}`,
+    `text-align: ${data.align || paragraphBlockFallbacks.align}`,
     `color: ${data.color || globals.textColor || "inherit"}`,
-    `font-size: ${data.fontSize ? data.fontSize + "px" : "16px"}`,
-    `line-height: ${data.lineHeight || 1.5}`,
-    `font-weight: ${data.fontWeight || "normal"}`,
-    `text-transform: ${data.textTransform || "none"}`,
+    `font-size: ${data.fontSize || paragraphBlockFallbacks.fontSize}px`,
+    `line-height: ${data.lineHeight || paragraphBlockFallbacks.lineHeight}`,
+    `font-weight: ${data.fontWeight || paragraphBlockFallbacks.fontWeight}`,
+    `text-transform: ${data.textTransform || paragraphBlockFallbacks.textTransform}`,
     `letter-spacing: ${
       data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"
     }`,
@@ -89,6 +101,7 @@ function renderMJMLParagraph(block: any): string {
 export const paragraphBlock: BlockDefinition = {
   type: "paragraph",
   label: "Paragraph",
+  fallbacks: paragraphBlockFallbacks,
   createDefaults: () => copy({
     text: "Your paragraph text here",
     align: "left" as const,

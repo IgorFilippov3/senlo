@@ -38,15 +38,22 @@ export const socialsBlockFormSchema = socialsBlockDataSchema.extend({
   condition: contentConditionSchema.optional(),
 });
 
+export const socialsBlockFallbacks = {
+  align: "center" as const,
+  size: 32,
+  spacing: 10,
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+};
+
 function renderSocials(block: any, context: RenderContext): string {
   const { data } = block;
-  const iconSize = Number(data.size) || 32;
-  const spacing = Number(data.spacing) || 10;
+  const iconSize = Number(data.size) || socialsBlockFallbacks.size;
+  const spacing = Number(data.spacing) || socialsBlockFallbacks.spacing;
   const padding = renderPadding(data.padding);
 
   const containerStyle = [
     `padding: ${padding}`,
-    `text-align: ${data.align || "center"}`,
+    `text-align: ${data.align || socialsBlockFallbacks.align}`,
   ].join("; ");
 
   const linksHtml = (data.links || [])
@@ -98,6 +105,7 @@ function renderMJMLSocials(block: any, options?: RenderOptions): string {
 export const socialsBlock: BlockDefinition = {
   type: "socials",
   label: "Socials",
+  fallbacks: socialsBlockFallbacks,
   createDefaults: () => copy({
     links: [
       { type: "facebook" as const, url: "", icon: "/facebook.png" },

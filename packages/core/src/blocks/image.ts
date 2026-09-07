@@ -41,6 +41,14 @@ export const imageBlockFormSchema = imageBlockDataSchema.extend({
   condition: contentConditionSchema.optional(),
 });
 
+export const imageBlockFallbacks = {
+  align: "center" as const,
+  alt: "",
+  borderRadius: 0,
+  border: { width: 0, style: "solid" as const, color: "#000000" },
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+};
+
 function renderImage(block: any, context: RenderContext): string {
   const { data } = block;
 
@@ -54,7 +62,7 @@ function renderImage(block: any, context: RenderContext): string {
     }`,
     `max-width: 100%`,
     `height: auto`,
-    `border-radius: ${data.borderRadius || 0}px`,
+    `border-radius: ${data.borderRadius || imageBlockFallbacks.borderRadius}px`,
     `border: ${
       data.border?.width
         ? `${data.border.width}px ${data.border.style} ${data.border.color}`
@@ -64,7 +72,7 @@ function renderImage(block: any, context: RenderContext): string {
   ].join("; ");
 
   const containerStyle = [
-    `text-align: ${data.align || "center"}`,
+    `text-align: ${data.align || imageBlockFallbacks.align}`,
     `padding: ${renderPadding(data.padding)}`,
     `font-size: 0px`, // To remove line-height gaps around inline-block image
     `line-height: 0px`,
@@ -76,7 +84,7 @@ function renderImage(block: any, context: RenderContext): string {
     }),
   );
   const widthAttr = Number(data.width) ? ` width="${Number(data.width)}"` : "";
-  let html = `<img src="${src}" alt="${escapeAttr(data.alt || "")}"${widthAttr} style="${escapeAttr(imgStyle)}" />`;
+  let html = `<img src="${src}" alt="${escapeAttr(data.alt || imageBlockFallbacks.alt)}"${widthAttr} style="${escapeAttr(imgStyle)}" />`;
 
   if (data.href) {
     html = `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }))}" target="_blank" style="text-decoration: none; display: inline-block;">${html}</a>`;
@@ -109,6 +117,7 @@ function renderMJMLImage(block: any, options?: RenderOptions): string {
 export const imageBlock: BlockDefinition = {
   type: "image",
   label: "Image",
+  fallbacks: imageBlockFallbacks,
   createDefaults: () => copy({
     src: "",
     alt: "Image",

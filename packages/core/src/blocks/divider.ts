@@ -35,21 +35,30 @@ export const dividerBlockFormSchema = dividerBlockDataSchema.extend({
   condition: contentConditionSchema.optional(),
 });
 
+export const dividerBlockFallbacks = {
+  color: "#cccccc",
+  width: 100,
+  align: "center" as const,
+  borderWidth: 1,
+  borderStyle: "solid" as const,
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+};
+
 function renderDivider(block: any): string {
   const { data } = block;
   const style = [
     `padding: ${renderPadding(data.padding)}`,
-    `text-align: ${data.align || "center"}`,
+    `text-align: ${data.align || dividerBlockFallbacks.align}`,
     `font-size: 0px`,
     `line-height: 0px`,
   ].join("; ");
 
   const hrStyle = [
     `display: inline-block`,
-    `width: ${data.width || 100}%`,
-    `border-top: ${data.borderWidth || 1}px ${data.borderStyle || "solid"} ${
-      data.color || "#cccccc"
-    }`,
+    `width: ${data.width || dividerBlockFallbacks.width}%`,
+    `border-top: ${data.borderWidth || dividerBlockFallbacks.borderWidth}px ${
+      data.borderStyle || dividerBlockFallbacks.borderStyle
+    } ${data.color || dividerBlockFallbacks.color}`,
     `margin: 0`,
   ].join("; ");
 
@@ -76,6 +85,7 @@ function renderMJMLDivider(block: any): string {
 export const dividerBlock: BlockDefinition = {
   type: "divider",
   label: "Divider",
+  fallbacks: dividerBlockFallbacks,
   createDefaults: () => copy({
     color: "#cccccc",
     width: 100,

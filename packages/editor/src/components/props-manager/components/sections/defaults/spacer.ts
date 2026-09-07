@@ -1,21 +1,10 @@
-import { DEFAULT_PADDING } from "./common";
+import { fallbacksFor } from "./common";
 
-/**
- * Default values specific to Spacer blocks
- */
-export const DEFAULT_SPACER_HEIGHT = 20;
+const fallbacks = fallbacksFor("spacer");
+
+export const DEFAULT_SPACER_HEIGHT = fallbacks.height;
+export const DEFAULT_SPACER_PADDING = fallbacks.padding;
+
+/** Range of the slider. A control's limits are not the document's. */
 export const MIN_SPACER_HEIGHT = 0;
 export const MAX_SPACER_HEIGHT = 200;
-export const DEFAULT_SPACER_PADDING = DEFAULT_PADDING;
-
-
-
-
-
-
-
-
-
-
-
-

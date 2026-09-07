@@ -31,6 +31,25 @@ export interface BlockDefinition<TData = any> {
   createDefaults: () => TData;
 
   /**
+   * What rendering assumes when a field is absent.
+   *
+   * Distinct from `createDefaults`, and the distinction matters. Defaults are
+   * an opinion about a new block and can be as opinionated as we like.
+   * Fallbacks describe documents that already exist - an older template, an
+   * import, AI output - so changing one changes mail that is already being
+   * sent. Keep them conservative.
+   *
+   * The property panel reads the same values, so a control shows what would
+   * actually be sent rather than a second opinion. Those two sets used to
+   * disagree: the panel offered a list 10/0/10/24 padding where the renderer
+   * fell back to zero, so the editor promised an indent the recipient never
+   * saw.
+   *
+   * `null` for a colour means "the document's text colour".
+   */
+  fallbacks: Record<string, any>;
+
+  /**
    * The single schema for this block's `data`. Used to validate a stored
    * document, to validate AI output, and by the editor's property form.
    *

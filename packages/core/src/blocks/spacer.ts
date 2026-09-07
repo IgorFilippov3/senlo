@@ -30,9 +30,14 @@ export const spacerBlockFormSchema = spacerBlockDataSchema.extend({
   condition: contentConditionSchema.optional(),
 });
 
+export const spacerBlockFallbacks = {
+  height: 20,
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+};
+
 function renderSpacer(block: any): string {
   const { data } = block;
-  const height = data.height || 20;
+  const height = data.height || spacerBlockFallbacks.height;
   const style = [
     `height: ${height}px`,
     `line-height: ${height}px`,
@@ -54,6 +59,7 @@ function renderMJMLSpacer(block: any): string {
 export const spacerBlock: BlockDefinition = {
   type: "spacer",
   label: "Spacer",
+  fallbacks: spacerBlockFallbacks,
   createDefaults: () => copy({
     height: 20,
   }),

@@ -1,29 +1,17 @@
-/**
- * Default values specific to Button blocks
- */
-export const DEFAULT_BUTTON_FONT_SIZE = 16;
-export const DEFAULT_BUTTON_FONT_WEIGHT = "bold";
-export const DEFAULT_BUTTON_COLOR = "#ffffff";
-export const DEFAULT_BUTTON_BG_COLOR = "#3b82f6"; // blue-500
-export const DEFAULT_BUTTON_BORDER_RADIUS = 4;
-export const DEFAULT_BUTTON_PADDING = {
-  top: 12,
-  right: 24,
-  bottom: 12,
-  left: 24,
-};
-export const DEFAULT_BUTTON_LETTER_SPACING = 0;
+import { fallbacksFor } from "./common";
 
-export const DEFAULT_BUTTON_BORDER = {
-  width: 0,
-  top: undefined as number | undefined,
-  right: undefined as number | undefined,
-  bottom: undefined as number | undefined,
-  left: undefined as number | undefined,
-  style: "solid" as const,
-  color: "#000000",
-};
+const fallbacks = fallbacksFor("button");
 
+export const DEFAULT_BUTTON_FONT_SIZE = fallbacks.fontSize;
+export const DEFAULT_BUTTON_FONT_WEIGHT = fallbacks.fontWeight;
+export const DEFAULT_BUTTON_COLOR = fallbacks.color;
+export const DEFAULT_BUTTON_BG_COLOR = fallbacks.backgroundColor;
+export const DEFAULT_BUTTON_BORDER_RADIUS = fallbacks.borderRadius;
+export const DEFAULT_BUTTON_PADDING = fallbacks.padding;
+export const DEFAULT_BUTTON_LETTER_SPACING = fallbacks.letterSpacing;
+export const DEFAULT_BUTTON_BORDER = fallbacks.border;
+
+/** Presets offered by the shadow control. Editor-only: the renderer has none. */
 export const SHADOW_PRESETS = {
   none: { x: 0, y: 0, blur: 0, color: "#000000" },
   s: { x: 0, y: 4, blur: 8, color: "#00000033" },

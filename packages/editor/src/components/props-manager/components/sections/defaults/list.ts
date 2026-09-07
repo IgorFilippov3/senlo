@@ -1,14 +1,13 @@
-import { DEFAULT_PADDING, DEFAULT_COLOR } from "./common";
+import { fallbacksFor } from "./common";
 
+const fallbacks = fallbacksFor("list");
+
+export const DEFAULT_LIST_TYPE = fallbacks.listType;
+export const DEFAULT_LIST_FONT_SIZE = fallbacks.fontSize;
+export const DEFAULT_LIST_LINE_HEIGHT = fallbacks.lineHeight;
+export const DEFAULT_LIST_FONT_WEIGHT = fallbacks.fontWeight;
+export const DEFAULT_LIST_ALIGN = fallbacks.align;
+export const DEFAULT_LIST_PADDING = fallbacks.padding;
+
+/** Items only exist for a new block, so this one is a default, not a fallback. */
 export const DEFAULT_LIST_ITEMS = ["List item 1", "List item 2", "List item 3"];
-export const DEFAULT_LIST_TYPE = "unordered" as const;
-export const DEFAULT_LIST_FONT_SIZE = 16;
-export const DEFAULT_LIST_LINE_HEIGHT = 1.5;
-export const DEFAULT_LIST_FONT_WEIGHT = "normal" as const;
-export const DEFAULT_LIST_ALIGN = "left" as const;
-export const DEFAULT_LIST_PADDING = DEFAULT_PADDING;
-export const DEFAULT_LIST_COLOR = DEFAULT_COLOR;
-
-
-
-

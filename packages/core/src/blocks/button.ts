@@ -48,30 +48,43 @@ export const buttonBlockFormSchema = buttonBlockDataSchema.extend({
   condition: contentConditionSchema.optional(),
 });
 
+export const buttonBlockFallbacks = {
+  align: "center" as const,
+  backgroundColor: "#3b82f6",
+  color: "#ffffff",
+  fontSize: 16,
+  fontWeight: "bold" as const,
+  textTransform: "none" as const,
+  letterSpacing: 0,
+  borderRadius: 4,
+  padding: { top: 12, right: 24, bottom: 12, left: 24 },
+  border: { width: 0, style: "solid" as const, color: "#000000" },
+};
+
 function renderButton(block: any, context: RenderContext): string {
   const { data } = block;
   const globals = globalsOf(context);
 
-  const rawPadding = data.padding || { top: 12, right: 24, bottom: 12, left: 24 };
+  const rawPadding = data.padding || buttonBlockFallbacks.padding;
   const padding = {
     top: Number(rawPadding.top) || 0,
     right: Number(rawPadding.right) || 0,
     bottom: Number(rawPadding.bottom) || 0,
     left: Number(rawPadding.left) || 0,
   };
-  const border = data.border || { width: 0, style: "solid", color: "#000000" };
+  const border = data.border || buttonBlockFallbacks.border;
 
   const styles = [
-    `background-color: ${data.backgroundColor || "#3b82f6"}`,
-    `color: ${data.color || "#ffffff"}`,
+    `background-color: ${data.backgroundColor || buttonBlockFallbacks.backgroundColor}`,
+    `color: ${data.color || buttonBlockFallbacks.color}`,
     `font-family: ${globals.fontFamily}`,
     `display: ${data.fullWidth ? "block" : "inline-block"}`,
     `padding: ${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px`,
     `text-decoration: none`,
-    `border-radius: ${data.borderRadius || 4}px`,
-    `font-size: ${data.fontSize || 16}px`,
-    `font-weight: ${data.fontWeight || "bold"}`,
-    `text-transform: ${data.textTransform || "none"}`,
+    `border-radius: ${data.borderRadius || buttonBlockFallbacks.borderRadius}px`,
+    `font-size: ${data.fontSize || buttonBlockFallbacks.fontSize}px`,
+    `font-weight: ${data.fontWeight || buttonBlockFallbacks.fontWeight}`,
+    `text-transform: ${data.textTransform || buttonBlockFallbacks.textTransform}`,
     `letter-spacing: ${
       data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"
     }`,
@@ -123,7 +136,7 @@ function renderButton(block: any, context: RenderContext): string {
   const anchor = `<a href="${href}" target="_blank" style="${escapeAttr(styles.join("; "))}">${data.text}</a>`;
 
   return `
-    <div style="text-align: ${escapeAttr(data.align || "center")}; padding: 10px 0;">
+    <div style="text-align: ${escapeAttr(data.align || buttonBlockFallbacks.align)}; padding: 10px 0;">
       ${renderButtonVml(data, border, padding, href, globals.fontFamily)}
       <!--[if !mso]><!-->
       ${anchor}
@@ -240,6 +253,7 @@ function renderMJMLButton(block: any): string {
 export const buttonBlock: BlockDefinition = {
   type: "button",
   label: "Button",
+  fallbacks: buttonBlockFallbacks,
   createDefaults: () => copy({
     text: "Button",
     href: "",

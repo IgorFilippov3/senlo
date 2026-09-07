@@ -37,6 +37,14 @@ export const productLineBlockFormSchema = productLineBlockDataSchema.extend({
   condition: contentConditionSchema.optional(),
 });
 
+export const productLineBlockFallbacks = {
+  rightWidth: 120,
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+  /** null for a colour means the document's text colour. */
+  leftStyle: { fontSize: 14, lineHeight: 1.4, fontWeight: "normal" as const, color: null },
+  rightStyle: { fontSize: 14, lineHeight: 1.4, fontWeight: "normal" as const, color: null },
+};
+
 function renderProductLine(block: any, context: RenderContext): string {
   const { data } = block;
   const globals = globalsOf(context);
@@ -54,22 +62,22 @@ function renderProductLine(block: any, context: RenderContext): string {
   const leftCellStyle = [
     `text-align: left`,
     `font-family: ${leftStyle.fontFamily || globals.fontFamily}`,
-    `font-size: ${leftStyle.fontSize || 14}px`,
-    `line-height: ${leftStyle.lineHeight || 1.4}`,
+    `font-size: ${leftStyle.fontSize || productLineBlockFallbacks.leftStyle.fontSize}px`,
+    `line-height: ${leftStyle.lineHeight || productLineBlockFallbacks.leftStyle.lineHeight}`,
     `color: ${leftStyle.color || globals.textColor || "#000000"}`,
-    `font-weight: ${leftStyle.fontWeight || "normal"}`,
+    `font-weight: ${leftStyle.fontWeight || productLineBlockFallbacks.leftStyle.fontWeight}`,
     `vertical-align: top`,
     `padding: 0`,
   ].join("; ");
 
   const rightCellStyle = [
     `text-align: right`,
-    `width: ${data.rightWidth || 120}px`,
+    `width: ${data.rightWidth || productLineBlockFallbacks.rightWidth}px`,
     `font-family: ${rightStyle.fontFamily || globals.fontFamily}`,
-    `font-size: ${rightStyle.fontSize || 14}px`,
-    `line-height: ${rightStyle.lineHeight || 1.4}`,
+    `font-size: ${rightStyle.fontSize || productLineBlockFallbacks.rightStyle.fontSize}px`,
+    `line-height: ${rightStyle.lineHeight || productLineBlockFallbacks.rightStyle.lineHeight}`,
     `color: ${rightStyle.color || globals.textColor || "#000000"}`,
-    `font-weight: ${rightStyle.fontWeight || "normal"}`,
+    `font-weight: ${rightStyle.fontWeight || productLineBlockFallbacks.rightStyle.fontWeight}`,
     `white-space: nowrap`,
     `vertical-align: top`,
     `padding: 0`,
@@ -116,6 +124,7 @@ function renderMJMLProductLine(block: any): string {
 export const productLineBlock: BlockDefinition = {
   type: "product-line",
   label: "Product Line",
+  fallbacks: productLineBlockFallbacks,
   createDefaults: () => copy({
     leftText: "Product name",
     rightText: "$99.99",

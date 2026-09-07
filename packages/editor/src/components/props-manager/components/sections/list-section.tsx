@@ -20,7 +20,8 @@ import {
 import { ListBlock } from "@senlo/core";
 import { AlignLeft, AlignCenter, AlignRight, Plus, Trash2 } from "lucide-react";
 import { Controller, useFieldArray } from "react-hook-form";
-import { DEFAULT_PADDING, DEFAULT_COLOR } from "./defaults/common";
+import { DEFAULT_PADDING, resolveColor } from "./defaults/common";
+import { useEditorStore } from "../../../../state/editor.store";
 import {
   DEFAULT_LIST_FONT_SIZE,
   DEFAULT_LIST_LINE_HEIGHT,
@@ -39,6 +40,7 @@ interface ListSectionProps {
 }
 
 export const ListSection = memo(({ block }: ListSectionProps) => {
+  const globalTextColor = useEditorStore((st) => st.design.settings?.textColor);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const { register, control, errors, setValue, getValues } = useBlockForm({
     block,
@@ -142,7 +144,7 @@ export const ListSection = memo(({ block }: ListSectionProps) => {
               <ColorPicker
                 value={field.value}
                 onChange={field.onChange}
-                defaultValue={DEFAULT_COLOR}
+                defaultValue={resolveColor(undefined, globalTextColor)}
               />
             )}
           />

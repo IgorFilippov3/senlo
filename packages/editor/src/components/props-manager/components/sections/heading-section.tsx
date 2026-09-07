@@ -36,8 +36,10 @@ import {
   DEFAULT_HEADING_FONT_WEIGHT,
   DEFAULT_HEADING_LINE_HEIGHT,
   DEFAULT_HEADING_LETTER_SPACING,
+  DEFAULT_HEADING_PADDING,
 } from "./defaults/heading";
-import { DEFAULT_PADDING, DEFAULT_COLOR } from "./defaults/common";
+import { DEFAULT_PADDING, resolveColor } from "./defaults/common";
+import { useEditorStore } from "../../../../state/editor.store";
 import {
   TextareaExpandedModal,
   ExpandButton,
@@ -49,6 +51,7 @@ interface HeadingSectionProps {
 }
 
 export const HeadingSection = ({ block }: HeadingSectionProps) => {
+  const globalTextColor = useEditorStore((st) => st.design.settings?.textColor);
   const [isExpanded, setIsExpanded] = useState(false);
   const { register, control, errors, setValue, getValues } = useBlockForm({
     block,
@@ -85,7 +88,7 @@ export const HeadingSection = ({ block }: HeadingSectionProps) => {
   const defaultFontWeight = DEFAULT_HEADING_FONT_WEIGHT;
   const defaultLineHeight = DEFAULT_HEADING_LINE_HEIGHT;
   const defaultLetterSpacing = DEFAULT_HEADING_LETTER_SPACING;
-  const defaultPadding = DEFAULT_PADDING;
+  const defaultPadding = DEFAULT_HEADING_PADDING;
 
   return (
     <FormSection title="Heading Settings">
@@ -127,7 +130,7 @@ export const HeadingSection = ({ block }: HeadingSectionProps) => {
               <ColorPicker
                 value={field.value}
                 onChange={field.onChange}
-                defaultValue={DEFAULT_COLOR}
+                defaultValue={resolveColor(undefined, globalTextColor)}
               />
             )}
           />

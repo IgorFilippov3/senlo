@@ -184,3 +184,85 @@ describe("rendering from a definition", () => {
     }
   });
 });
+
+describe("fallbacks", () => {
+  const bareContext = { responsiveStyles: [] } as any;
+
+  it("is declared for every block type", () => {
+    for (const type of CONTENT_BLOCK_TYPES) {
+      expect(BLOCK_REGISTRY[type].fallbacks, type).toBeTruthy();
+    }
+  });
+
+  it("is what the renderer actually uses when a field is missing", () => {
+    // The property panel shows these same values, so if this drifts the editor
+    // starts promising something the recipient will not get.
+    const render = (type: keyof typeof BLOCK_REGISTRY, data: any) =>
+      BLOCK_REGISTRY[type].renderHTML({ id: "b1", type, data }, bareContext);
+
+    const button = BLOCK_REGISTRY.button.fallbacks;
+    const buttonHtml = render("button", { text: "Go", href: "" });
+    expect(buttonHtml).toContain(`background-color: ${button.backgroundColor}`);
+    expect(buttonHtml).toContain(`border-radius: ${button.borderRadius}px`);
+    expect(buttonHtml).toContain(`font-size: ${button.fontSize}px`);
+
+    const divider = BLOCK_REGISTRY.divider.fallbacks;
+    const dividerHtml = render("divider", {});
+    expect(dividerHtml).toContain(`width: ${divider.width}%`);
+    expect(dividerHtml).toContain(
+      `border-top: ${divider.borderWidth}px ${divider.borderStyle} ${divider.color}`,
+    );
+
+    const spacer = BLOCK_REGISTRY.spacer.fallbacks;
+    expect(render("spacer", {})).toContain(`height: ${spacer.height}px`);
+
+    const paragraph = BLOCK_REGISTRY.paragraph.fallbacks;
+    const paragraphHtml = render("paragraph", { text: "Hi" });
+    expect(paragraphHtml).toContain(`font-size: ${paragraph.fontSize}px`);
+    expect(paragraphHtml).toContain(`line-height: ${paragraph.lineHeight}`);
+  });
+
+  it("pads a block with no padding by the amount it advertises", () => {
+    // The panel used to offer a list 10/0/10/24 where the renderer used zero,
+    // so the editor showed an indent the email never had. The value itself is
+    // per block - a button's inner padding is what makes it look like a button
+    // - so what matters is that the advertised value is the rendered one.
+    for (const type of CONTENT_BLOCK_TYPES) {
+      const padding = BLOCK_REGISTRY[type].fallbacks.padding;
+      if (!padding) continue;
+
+      const html = BLOCK_REGISTRY[type].renderHTML(
+        { id: "b1", type, data: createBlockData(type), padding: undefined },
+        bareContext,
+      );
+      const withoutPadding = BLOCK_REGISTRY[type].renderHTML(
+        {
+          id: "b1",
+          type,
+          data: { ...createBlockData(type), padding: undefined },
+        },
+        bareContext,
+      );
+
+      expect(html, type).toBeTruthy();
+      expect(withoutPadding, type).toContain(
+        `padding: ${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px`,
+      );
+    }
+  });
+
+  it("sizes a heading by its level rather than leaving it at body size", () => {
+    // font-size: inherit inside a column that sets 16px made a heading look
+    // like body text whenever the document carried no explicit size.
+    const heading = (level: number) =>
+      BLOCK_REGISTRY.heading.renderHTML(
+        { id: "b1", type: "heading", data: { text: "Hi", level } },
+        bareContext,
+      );
+
+    expect(heading(1)).toContain("font-size: 32px");
+    expect(heading(2)).toContain("font-size: 24px");
+    expect(heading(3)).toContain("font-size: 20px");
+    expect(heading(1)).not.toContain("font-size: inherit");
+  });
+});
