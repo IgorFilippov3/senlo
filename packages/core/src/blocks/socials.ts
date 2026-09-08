@@ -4,10 +4,12 @@
 
 import { z } from "zod";
 import { escapeAttr, sanitizeUrl } from "../renderer/escape";
-import { normalizeUrl, renderPadding } from "../renderer/utils";
+import { normalizeUrl, renderBox, renderPadding } from "../renderer/utils";
 import type { RenderContext, RenderOptions } from "../renderer/types";
 import {
   alignSchema,
+  boxFallbacks,
+  boxFields,
   contentConditionSchema,
   copy,
   paddingSchema,
@@ -23,6 +25,7 @@ export const socialsBlockDataSchema = z.object({
   size: z.number().positive().optional(),
   spacing: z.number().nonnegative().optional(),
   padding: paddingSchema.optional(),
+  ...boxFields,
 });
 
 export type SocialsBlockData = z.infer<
@@ -39,6 +42,7 @@ export const socialsBlockFormSchema = socialsBlockDataSchema.extend({
 });
 
 export const socialsBlockFallbacks = {
+  ...boxFallbacks,
   align: "center" as const,
   size: 32,
   spacing: 10,
@@ -71,14 +75,26 @@ function renderSocials(block: any, context: RenderContext): string {
     })
     .join("");
 
-  return `<div style="${escapeAttr(containerStyle)}">${linksHtml}</div>`;
+  return renderBox(
+    `<div style="${escapeAttr(containerStyle)}">${linksHtml}</div>`,
+    data,
+  );
 }
 
 function renderMJMLSocials(block: any, options?: RenderOptions): string {
   const { data } = block;
   const iconSize = data.size || 32;
   const spacing = data.spacing || 10;
-  const padding = renderPadding(data.padding);
+  // With no cell of its own to paint, the gap outside this block and the space
+  // inside it are the same space, so they are added together.
+  const margin = data.margin || {};
+  const inner = data.padding || {};
+  const padding = renderPadding({
+    top: (margin.top || 0) + (inner.top || 0),
+    right: (margin.right || 0) + (inner.right || 0),
+    bottom: (margin.bottom || 0) + (inner.bottom || 0),
+    left: (margin.left || 0) + (inner.left || 0),
+  });
 
   const elements = (data.links || []).map((link: any) => {
     const iconSrc = escapeAttr(
@@ -89,8 +105,15 @@ function renderMJMLSocials(block: any, options?: RenderOptions): string {
     return `<mj-social-element name="${escapeAttr(link.type)}-noshare" src="${iconSrc}" href="${escapeAttr(sanitizeUrl(link.url, { fallback: "#" }) || "#")}" />`;
   });
 
+  // `mj-social` is a component, not markup, so it cannot be wrapped in a
+  // styled cell the way the text blocks are. MJML carries the background it
+  // does support; a border on this block survives only in the HTML output.
+  const containerBackground = data.backgroundColor
+    ? `container-background-color="${escapeAttr(data.backgroundColor)}"`
+    : "";
+
   return `
-        <mj-social 
+        <mj-social ${containerBackground} 
           align="${data.align || "center"}" 
           font-size="12px" 
           icon-size="${iconSize}px" 

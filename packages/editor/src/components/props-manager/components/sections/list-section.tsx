@@ -33,6 +33,7 @@ import {
   ExpandButton,
 } from "../textarea-expanded-modal";
 import { useState } from "react";
+import { BoxSection } from "./box-section";
 import { ConditionSection } from "./condition-section";
 
 interface ListSectionProps {
@@ -231,6 +232,8 @@ export const ListSection = memo(({ block }: ListSectionProps) => {
           )}
         />
       </FormSection>
+
+      <BoxSection control={control} />
 
       <ConditionSection control={control} setValue={setValue} />
     </FormSection>

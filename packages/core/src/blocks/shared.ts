@@ -21,6 +21,34 @@ export const borderSchema = z.object({
   color: z.string().optional(),
 });
 
+/**
+ * Card-like styling a content block can carry: a background, a border, rounded
+ * corners and a gap from its neighbours.
+ *
+ * These are spread into a block's own schema rather than nested under a key, so
+ * the property panel edits them as plain fields and documents saved before they
+ * existed stay valid. `margin` is the gap outside the background; the block's
+ * own `padding` is what sits inside it.
+ */
+export const boxFields = {
+  backgroundColor: z.string().optional(),
+  border: borderSchema.optional(),
+  borderRadius: z.number().int().nonnegative().optional(),
+  margin: paddingSchema.optional(),
+};
+
+/**
+ * What the property panel shows for a block that has no box styling of its
+ * own - which is every block until an author gives it some.
+ */
+export const boxFallbacks = {
+  /** null means no background at all, not a white one. */
+  backgroundColor: null,
+  border: { width: 0, style: "solid" as const, color: "#e5e7eb" },
+  borderRadius: 0,
+  margin: { top: 0, right: 0, bottom: 0, left: 0 },
+};
+
 export const shadowSchema = z.object({
   x: z.number().optional(),
   y: z.number().optional(),

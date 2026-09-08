@@ -5,7 +5,6 @@ import { productLineSchema } from "../../../../schemas/block-schemas";
 import {
   FormSection,
   FormField,
-  Textarea,
   ColorPicker,
   PaddingControl,
   FormGrid,
@@ -15,17 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
   Slider,
+  ToggleGroup,
 } from "@senlo/ui";
 import { ProductLineBlock } from "@senlo/core";
-import { Controller, useWatch } from "react-hook-form";
-import { MergeTagSelector } from "../merge-tag-selector";
-import { validateHTML } from "@senlo/core";
-import { HTMLValidationMessage } from "./html-validation-message";
-import {
-  TextareaExpandedModal,
-  ExpandButton,
-} from "../textarea-expanded-modal";
-import { useMemo, useState } from "react";
+import { Controller } from "react-hook-form";
+import { Minus, MoreHorizontal, Square } from "lucide-react";
+import { ProductLineItems } from "./product-line-items";
+import { BoxSection } from "./box-section";
 import { ConditionSection } from "./condition-section";
 import {
   DEFAULT_PRODUCT_LINE_LEFT_TEXT,
@@ -34,6 +29,8 @@ import {
   DEFAULT_PRODUCT_LINE_RIGHT_STYLE,
   DEFAULT_PRODUCT_LINE_RIGHT_WIDTH,
   DEFAULT_PRODUCT_LINE_PADDING,
+  DEFAULT_PRODUCT_LINE_ROW_PADDING,
+  DEFAULT_PRODUCT_LINE_DIVIDER,
 } from "./defaults/product-line";
 
 interface ProductLineSectionProps {
@@ -41,60 +38,32 @@ interface ProductLineSectionProps {
 }
 
 export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
-  const [isLeftExpanded, setIsLeftExpanded] = useState(false);
-  const [isRightExpanded, setIsRightExpanded] = useState(false);
-
-  const { register, control, errors, setValue, getValues } = useBlockForm({
+  const { control, errors, setValue } = useBlockForm({
     block,
     schema: productLineSchema,
   });
 
-  const leftTextValue = useWatch({ control, name: "leftText" });
-  const rightTextValue = useWatch({ control, name: "rightText" });
-  const leftHtmlErrors = useMemo(
-    () => validateHTML(leftTextValue || ""),
-    [leftTextValue],
-  );
-  const rightHtmlErrors = useMemo(
-    () => validateHTML(rightTextValue || ""),
-    [rightTextValue],
-  );
+  const items = block.data.items ?? [];
 
-  const handleInsertTag = (
-    tag: string,
-    fieldName: "leftText" | "rightText" = "leftText",
-  ) => {
-    const currentVal = getValues(fieldName) || "";
-    setValue(fieldName, currentVal + tag);
-  };
+  const dividerStyleOptions = [
+    {
+      value: "solid",
+      icon: <Square size={16} fill="currentColor" fillOpacity={0.2} />,
+      label: "Solid",
+    },
+    { value: "dashed", icon: <MoreHorizontal size={16} />, label: "Dashed" },
+    {
+      value: "dotted",
+      icon: <Minus size={16} style={{ transform: "rotate(90deg)" }} />,
+      label: "Dotted",
+    },
+  ];
 
   return (
     <FormSection title="Product Line Settings">
-      <FormField
-        label="Left Text"
-        error={errors.leftText?.message as string}
-        headerAction={
-          <MergeTagSelector
-            onSelect={(tag) => handleInsertTag(tag, "leftText")}
-          />
-        }
-      >
-        <Textarea
-          {...register("leftText")}
-          placeholder={DEFAULT_PRODUCT_LINE_LEFT_TEXT}
-          minRows={1}
-        />
-        <ExpandButton onClick={() => setIsLeftExpanded(true)} />
-        <HTMLValidationMessage errors={leftHtmlErrors} />
-      </FormField>
-
-      <TextareaExpandedModal
-        isOpen={isLeftExpanded}
-        onClose={() => setIsLeftExpanded(false)}
-        value={leftTextValue || ""}
-        onChange={(val) => setValue("leftText", val)}
-        onInsertTag={(tag) => handleInsertTag(tag, "leftText")}
-        title="Edit Left Text"
+      <ProductLineItems
+        items={items}
+        onChange={(next) => setValue("items", next)}
       />
 
       <FormSection title="Left Text Styling">
@@ -173,33 +142,6 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
           )}
         />
       </FormSection>
-
-      <FormField
-        label="Right Text"
-        error={errors.rightText?.message as string}
-        headerAction={
-          <MergeTagSelector
-            onSelect={(tag) => handleInsertTag(tag, "rightText")}
-          />
-        }
-      >
-        <Textarea
-          {...register("rightText")}
-          placeholder={DEFAULT_PRODUCT_LINE_RIGHT_TEXT}
-          minRows={1}
-        />
-        <ExpandButton onClick={() => setIsRightExpanded(true)} />
-        <HTMLValidationMessage errors={rightHtmlErrors} />
-      </FormField>
-
-      <TextareaExpandedModal
-        isOpen={isRightExpanded}
-        onClose={() => setIsRightExpanded(false)}
-        value={rightTextValue || ""}
-        onChange={(val) => setValue("rightText", val)}
-        onInsertTag={(tag) => handleInsertTag(tag, "rightText")}
-        title="Edit Right Text"
-      />
 
       <FormSection title="Right Text Styling">
         <FormGrid cols={2}>
@@ -295,6 +237,66 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
         />
       </FormSection>
 
+      <FormSection title="Lines">
+        <Controller
+          name="divider.width"
+          control={control}
+          render={({ field }) => (
+            <Slider
+              label="Divider"
+              unit="px"
+              min={0}
+              max={4}
+              value={field.value ?? DEFAULT_PRODUCT_LINE_DIVIDER.width}
+              onChange={field.onChange}
+            />
+          )}
+        />
+
+        <FormGrid cols={2}>
+          <FormField label="Divider Style">
+            <Controller
+              name="divider.style"
+              control={control}
+              render={({ field }) => (
+                <ToggleGroup
+                  value={field.value || DEFAULT_PRODUCT_LINE_DIVIDER.style}
+                  options={dividerStyleOptions}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </FormField>
+          <FormField label="Divider Color">
+            <Controller
+              name="divider.color"
+              control={control}
+              render={({ field }) => (
+                <ColorPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  defaultValue={DEFAULT_PRODUCT_LINE_DIVIDER.color}
+                />
+              )}
+            />
+          </FormField>
+        </FormGrid>
+
+        <FormField hint="The space inside each line, which is also what the divider clears.">
+          <Controller
+            name="rowPadding"
+            control={control}
+            render={({ field }) => (
+              <PaddingControl
+                title="Line padding"
+                value={field.value ?? DEFAULT_PRODUCT_LINE_ROW_PADDING}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </FormField>
+      </FormSection>
+
       <FormSection title="Spacing">
         <Controller
           name="padding"
@@ -307,6 +309,8 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
           )}
         />
       </FormSection>
+
+      <BoxSection control={control} />
 
       <ConditionSection control={control} setValue={setValue} />
     </FormSection>

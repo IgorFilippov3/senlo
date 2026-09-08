@@ -4,6 +4,7 @@
 
 export * from "./domain";
 export * from "./emailDesign";
+export * from "./migrations";
 export * from "./blocks";
 export * from "./emailTemplate";
 export * from "./renderer/conditions";

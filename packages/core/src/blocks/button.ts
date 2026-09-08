@@ -6,6 +6,7 @@ import { z } from "zod";
 import { escapeAttr, sanitizeUrl } from "../renderer/escape";
 import { stripTags } from "../renderer/htmlToText";
 import { globalsOf } from "../renderer/types";
+import { borderDeclarations } from "../renderer/utils";
 import type { RenderContext } from "../renderer/types";
 import {
   alignSchema,
@@ -91,30 +92,7 @@ function renderButton(block: any, context: RenderContext): string {
     `text-align: center`,
   ];
 
-  // Handle borders
-  if (border.width !== undefined && border.width > 0) {
-    styles.push(
-      `border: ${border.width}px ${border.style || "solid"} ${border.color || "#000000"}`,
-    );
-  } else {
-    // Individual borders
-    if (border.top)
-      styles.push(
-        `border-top: ${border.top}px ${border.style || "solid"} ${border.color || "#000000"}`,
-      );
-    if (border.right)
-      styles.push(
-        `border-right: ${border.right}px ${border.style || "solid"} ${border.color || "#000000"}`,
-      );
-    if (border.bottom)
-      styles.push(
-        `border-bottom: ${border.bottom}px ${border.style || "solid"} ${border.color || "#000000"}`,
-      );
-    if (border.left)
-      styles.push(
-        `border-left: ${border.left}px ${border.style || "solid"} ${border.color || "#000000"}`,
-      );
-  }
+  styles.push(...borderDeclarations(border));
 
   // Handle shadow with fallback for hard shadows (blur: 0)
   if (data.shadow) {

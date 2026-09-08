@@ -6,11 +6,14 @@ import { escapeAttr, escapeCssValue } from "./escape";
 import { evaluateCondition } from "./conditions";
 import { RenderOptions, RenderContext } from "./types";
 import { resolveVariable } from "./conditions";
+import { migrateEmailDesign } from "../migrations";
 
 export function renderEmailDesignMJML(
-  design: EmailDesignDocument,
+  rawDesign: EmailDesignDocument,
   options?: RenderOptions,
 ): string {
+  const design = migrateEmailDesign(rawDesign);
+
   const context: RenderContext = {
     responsiveStyles: [],
     options,

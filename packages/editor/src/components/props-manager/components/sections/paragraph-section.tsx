@@ -43,6 +43,7 @@ import {
   TextareaExpandedModal,
   ExpandButton,
 } from "../textarea-expanded-modal";
+import { BoxSection } from "./box-section";
 import { ConditionSection } from "./condition-section";
 
 interface ParagraphSectionProps {
@@ -242,6 +243,8 @@ export const ParagraphSection = ({ block }: ParagraphSectionProps) => {
           )}
         />
       </FormSection>
+
+      <BoxSection control={control} />
 
       <ConditionSection control={control} setValue={setValue} />
     </FormSection>

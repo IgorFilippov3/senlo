@@ -5,10 +5,12 @@
 import { z } from "zod";
 import { escapeAttr } from "../renderer/escape";
 import { globalsOf } from "../renderer/types";
-import { renderPadding } from "../renderer/utils";
+import { renderBox, renderMJMLBox, renderPadding } from "../renderer/utils";
 import type { RenderContext } from "../renderer/types";
 import {
   alignSchema,
+  boxFallbacks,
+  boxFields,
   contentConditionSchema,
   copy,
   paddingSchema,
@@ -26,6 +28,7 @@ export const listBlockDataSchema = z.object({
   lineHeight: z.number().positive().optional(),
   fontWeight: z.enum(["normal", "bold", "bolder"]).optional(),
   padding: paddingSchema.optional(),
+  ...boxFields,
 });
 
 export type ListBlockData = z.infer<
@@ -42,6 +45,7 @@ export const listBlockFormSchema = listBlockDataSchema.extend({
 });
 
 export const listBlockFallbacks = {
+  ...boxFallbacks,
   listType: "unordered" as const,
   align: "left" as const,
   /** null means the document's text colour. */
@@ -73,13 +77,16 @@ function renderList(block: any, context: RenderContext): string {
     .map((item: string) => `<li style="margin-bottom: 4px;">${item}</li>`)
     .join("");
 
-  return `
+  return renderBox(
+    `
     <div style="${escapeAttr(style)}">
       <${Tag} style="margin: 0; padding-left: 24px; list-style-type: ${escapeAttr(listStyle)};">
         ${itemsHtml}
       </${Tag}>
     </div>
-  `;
+  `,
+    data,
+  );
 }
 
 function renderMJMLList(block: any): string {
@@ -89,6 +96,12 @@ function renderMJMLList(block: any): string {
   const itemsHtml = (data.items || [])
     .map((item: string) => `<li>${item}</li>`)
     .join("");
+  const box = renderMJMLBox(
+    `<${Tag} style="margin: 0; padding-left: 20px; list-style-type: ${listStyle};">
+            ${itemsHtml}
+          </${Tag}>`,
+    data,
+  );
 
   return `
         <mj-text
@@ -97,11 +110,9 @@ function renderMJMLList(block: any): string {
           font-size="${data.fontSize || 16}px"
           line-height="${data.lineHeight || 1.5}"
           font-weight="${data.fontWeight || "normal"}"
-          padding="${renderPadding(data.padding)}"
+          padding="${box.padding}"
         >
-          <${Tag} style="margin: 0; padding-left: 20px; list-style-type: ${listStyle};">
-            ${itemsHtml}
-          </${Tag}>
+          ${box.content}
         </mj-text>`;
 }
 

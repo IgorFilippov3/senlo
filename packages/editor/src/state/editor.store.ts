@@ -22,7 +22,12 @@ import type {
   SavedRow,
 } from "@senlo/core";
 
-import { EMPTY_EMAIL_DESIGN, createBlockData } from "@senlo/core";
+import {
+  EMPTY_EMAIL_DESIGN,
+  createBlockData,
+  migrateEmailDesign,
+  migrateRow,
+} from "@senlo/core";
 import { LayoutPreset } from "../types/layout-preset";
 import { SidebarTab } from "../types/sidebar-tab";
 import { createColumns } from "./columns/create-columns";
@@ -472,7 +477,9 @@ export const useEditorStore = create<EditorState>()(
 
     setDesign: (design) => {
       set((s) => {
-        s.design = design;
+        // A document saved by an older editor is reshaped once, here, so every
+        // component below works with the current format only.
+        s.design = migrateEmailDesign(design);
         s.isDirty = false;
         // Initialize settings if missing in loaded design
         if (!s.design.settings) {
@@ -483,7 +490,7 @@ export const useEditorStore = create<EditorState>()(
 
     updateDesignFromAi: (design) => {
       commit(set, get, (s) => {
-        s.design = design;
+        s.design = migrateEmailDesign(design);
         s.isDirty = true;
         // Initialize settings if missing in loaded design
         if (!s.design.settings) {
@@ -1186,7 +1193,12 @@ export const useEditorStore = create<EditorState>()(
       try {
         const rows = await onList();
         set((s) => {
-          s.savedRows = rows;
+          // A saved row carries no version, so every migration runs and each
+          // decides for itself whether it applies.
+          s.savedRows = rows.map((row) => ({
+            ...row,
+            data: migrateRow(row.data),
+          }));
         });
       } catch (error) {
         console.error("Failed to load saved rows:", error);

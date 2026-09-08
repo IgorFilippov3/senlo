@@ -5,10 +5,12 @@
 import { z } from "zod";
 import { escapeAttr, sanitizeUrl } from "../renderer/escape";
 import { globalsOf } from "../renderer/types";
-import { renderPadding } from "../renderer/utils";
+import { renderBox, renderMJMLBox, renderPadding } from "../renderer/utils";
 import type { RenderContext } from "../renderer/types";
 import {
   alignSchema,
+  boxFallbacks,
+  boxFields,
   contentConditionSchema,
   copy,
   paddingSchema,
@@ -37,6 +39,7 @@ export const headingBlockDataSchema = z.object({
   textTransform: z.enum(["none", "uppercase"]).optional(),
   letterSpacing: z.number().optional(),
   padding: paddingSchema.optional(),
+  ...boxFields,
 });
 
 export type HeadingBlockData = z.infer<
@@ -71,6 +74,7 @@ export const HEADING_FONT_SIZES: Record<number, number> = {
 };
 
 export const headingBlockFallbacks = {
+  ...boxFallbacks,
   level: 2,
   align: "left" as const,
   /** null means the document's text colour. */
@@ -118,11 +122,21 @@ function renderHeading(block: any, context: RenderContext): string {
     content = `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }))}" target="_blank" style="color: inherit; text-decoration: none;">${content}</a>`;
   }
 
-  return `<${Tag} style="${escapeAttr(style)}">${content}</${Tag}>`;
+  return renderBox(
+    `<${Tag} style="${escapeAttr(style)}">${content}</${Tag}>`,
+    data,
+  );
 }
 
 function renderMJMLHeading(block: any): string {
   const { data } = block;
+  const box = renderMJMLBox(
+    data.href
+      ? `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" style="color: inherit; text-decoration: none;">${data.text}</a>`
+      : data.text,
+    data,
+  );
+
   return `
         <mj-text
           align="${data.align || headingBlockFallbacks.align}"
@@ -132,9 +146,9 @@ function renderMJMLHeading(block: any): string {
           font-weight="${data.fontWeight || headingBlockFallbacks.fontWeight}"
           text-transform="${data.textTransform || headingBlockFallbacks.textTransform}"
           letter-spacing="${data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"}"
-          padding="${renderPadding(data.padding)}"
+          padding="${box.padding}"
         >
-          ${data.href ? `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" style="color: inherit; text-decoration: none;">${data.text}</a>` : data.text}
+          ${box.content}
         </mj-text>`;
 }
 

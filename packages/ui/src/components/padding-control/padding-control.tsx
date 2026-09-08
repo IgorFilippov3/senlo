@@ -25,6 +25,12 @@ export interface PaddingValue {
 export interface PaddingControlProps {
   /** Current padding values */
   value?: PaddingValue;
+  /**
+   * Heading shown above the inputs. It says "Padding" unless told otherwise,
+   * because a panel can hold two of these - the space inside a block and the
+   * gap around it - and two controls under the same word are indistinguishable.
+   */
+  title?: string;
   /** Callback when padding changes */
   onChange: (value: PaddingValue) => void;
   /** Additional CSS class */
@@ -47,6 +53,7 @@ const PaddingControlComponent = ({
   value = {},
   onChange,
   className,
+  title = "Padding",
 }: PaddingControlProps) => {
   const [isLinked, setIsLinked] = useState(true);
 
@@ -73,7 +80,7 @@ const PaddingControlComponent = ({
   return (
     <div className={cn(styles.container, className)}>
       <div className={styles.header}>
-        <span className={styles.title}>Padding</span>
+        <span className={styles.title}>{title}</span>
         <button
           type="button"
           className={cn(styles.toggleBtn, isLinked && styles.toggleBtnActive)}

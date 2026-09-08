@@ -102,10 +102,10 @@ exports[`renderEmailDesign > renders every block type (snapshot) 1`] = `
       <table role="presentation" style="width: 100%; border-collapse: collapse; border-spacing: 0">
         <tbody>
           <tr>
-            <td style="text-align: left; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.4; color: #111827; font-weight: normal; vertical-align: top; padding: 0">
+            <td style="text-align: left; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.4; color: #111827; font-weight: normal; vertical-align: top; padding: 0px 0px 0px 0px">
               Mug
             </td>
-            <td style="text-align: right; width: 120px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.4; color: #111827; font-weight: normal; white-space: nowrap; vertical-align: top; padding: 0">
+            <td style="text-align: right; width: 120px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.4; color: #111827; font-weight: normal; white-space: nowrap; vertical-align: top; padding: 0px 0px 0px 0px">
               $12.00
             </td>
           </tr>

@@ -1,4 +1,8 @@
-import { BLOCK_REGISTRY, type ContentBlockType } from "@senlo/core";
+import {
+  BLOCK_REGISTRY,
+  boxFallbacks,
+  type ContentBlockType,
+} from "@senlo/core";
 
 /**
  * What a control shows when the block has no value of its own.
@@ -26,6 +30,13 @@ export function resolveColor(
 ): string {
   return value || globalTextColor || "#000000";
 }
+
+/**
+ * What the box controls show for a block that has no background, border or
+ * outer gap of its own. Taken from the block definitions, like every other
+ * fallback in this folder.
+ */
+export const DEFAULT_BOX = boxFallbacks;
 
 /**
  * Common alignment options used across multiple block types

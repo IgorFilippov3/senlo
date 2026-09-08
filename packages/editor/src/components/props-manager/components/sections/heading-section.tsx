@@ -44,6 +44,7 @@ import {
   TextareaExpandedModal,
   ExpandButton,
 } from "../textarea-expanded-modal";
+import { BoxSection } from "./box-section";
 import { ConditionSection } from "./condition-section";
 
 interface HeadingSectionProps {
@@ -273,6 +274,8 @@ export const HeadingSection = ({ block }: HeadingSectionProps) => {
           )}
         />
       </FormSection>
+
+      <BoxSection control={control} />
 
       <ConditionSection control={control} setValue={setValue} />
     </FormSection>

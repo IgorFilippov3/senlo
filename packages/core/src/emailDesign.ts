@@ -2,7 +2,13 @@ import { z } from "zod";
 import { contentBlockSchema } from "./blocks/registry";
 import { contentConditionSchema, paddingSchema } from "./blocks/shared";
 
-export const emailDesignVersion = 1;
+/**
+ * The document format. Bumped when a saved document has to be reshaped;
+ * `migrations.ts` holds the step for each bump and runs them on the way in.
+ *
+ * 2 - a product line became a list of label/value pairs instead of one pair.
+ */
+export const emailDesignVersion = 2;
 
 export type RowId = string;
 export type ColumnId = string;
@@ -33,6 +39,31 @@ export interface ContentCondition {
   value?: string | number | boolean;
 }
 
+/**
+ * Card-like styling a content block can carry. Kept as its own interface
+ * because the blocks that support it all support the same four fields; the zod
+ * half is `boxFields` in `blocks/shared.ts`.
+ */
+export interface BoxStyles {
+  backgroundColor?: string;
+  border?: {
+    width?: number;
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+    style?: "solid" | "dashed" | "dotted";
+    color?: string;
+  };
+  borderRadius?: number;
+  margin?: {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  };
+}
+
 export interface BaseContentBlock {
   id: ContentBlockId;
   type: ContentBlockType;
@@ -58,7 +89,7 @@ export interface HeadingBlock extends BaseContentBlock {
       bottom?: number;
       left?: number;
     };
-  };
+  } & BoxStyles;
 }
 
 export interface ParagraphBlock extends BaseContentBlock {
@@ -79,7 +110,7 @@ export interface ParagraphBlock extends BaseContentBlock {
       bottom?: number;
       left?: number;
     };
-  };
+  } & BoxStyles;
 }
 
 export interface ImageBlock extends BaseContentBlock {
@@ -177,7 +208,7 @@ export interface ListBlock extends BaseContentBlock {
       bottom?: number;
       left?: number;
     };
-  };
+  } & BoxStyles;
 }
 
 export interface DividerBlock extends BaseContentBlock {
@@ -197,11 +228,16 @@ export interface DividerBlock extends BaseContentBlock {
   };
 }
 
+export interface ProductLineItem {
+  left: string;
+  right: string;
+}
+
 export interface ProductLineBlock extends BaseContentBlock {
   type: "product-line";
   data: {
-    leftText: string;
-    rightText: string;
+    /** The lines of the list, each a label and its value. */
+    items: ProductLineItem[];
     leftStyle?: {
       color?: string;
       fontSize?: number;
@@ -217,13 +253,26 @@ export interface ProductLineBlock extends BaseContentBlock {
       fontFamily?: string;
     };
     rightWidth?: number; // px
+    /** Space inside each line. */
+    rowPadding?: {
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
+    };
+    /** A rule between the lines; absent means none. */
+    divider?: {
+      width?: number;
+      style?: "solid" | "dashed" | "dotted";
+      color?: string;
+    };
     padding?: {
       top?: number;
       right?: number;
       bottom?: number;
       left?: number;
     };
-  };
+  } & BoxStyles;
 }
 
 export interface SocialLink {
@@ -252,7 +301,7 @@ export interface SocialsBlock extends BaseContentBlock {
       bottom?: number;
       left?: number;
     };
-  };
+  } & BoxStyles;
 }
 
 export type ContentBlock =

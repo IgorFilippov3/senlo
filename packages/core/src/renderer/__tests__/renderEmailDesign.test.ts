@@ -53,7 +53,7 @@ const allBlocksDocument: EmailDesignDocument = doc([
     {
       id: "b8",
       type: "product-line",
-      data: { leftText: "Mug", rightText: "$12.00" },
+      data: { items: [{ left: "Mug", right: "$12.00" }] },
     },
     {
       id: "b9",

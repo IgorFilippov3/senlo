@@ -9,11 +9,18 @@ import { renderBody } from "./renderBody";
 import { replaceMergeTags } from "../merge-tags";
 import { escapeAttr, escapeHtml, sanitizeUrlsInHtml } from "./escape";
 import { renderPreheader } from "./renderPreheader";
+import { migrateEmailDesign } from "../migrations";
 
 export function renderEmailDesign(
-  design: EmailDesignDocument,
+  rawDesign: EmailDesignDocument,
   options?: RenderOptions
 ): string {
+  // A document saved by an older editor is reshaped here rather than in every
+  // caller: this and the MJML export are the two ways a stored document becomes
+  // an email, so a message can never be built from a shape the blocks no longer
+  // understand.
+  const design = migrateEmailDesign(rawDesign);
+
   const context: RenderContext = {
     responsiveStyles: [],
     options,
