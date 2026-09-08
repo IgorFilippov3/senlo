@@ -1,44 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { EMPTY_EMAIL_DESIGN, type EmailDesignDocument } from "@senlo/core";
-import { useEditorStore } from "../editor.store";
 
-const store = () => useEditorStore.getState();
-
-/** Two rows, each with a single column, so edits can be isolated to one. */
-function twoRowDesign(): EmailDesignDocument {
-  return {
-    ...EMPTY_EMAIL_DESIGN,
-    rows: [
-      {
-        id: "row-1",
-        type: "row",
-        settings: {},
-        columns: [
-          {
-            id: "col-1",
-            width: 100,
-            blocks: [
-              { id: "b1", type: "paragraph", data: { text: "First" } },
-              { id: "b2", type: "paragraph", data: { text: "Second" } },
-            ],
-          },
-        ],
-      },
-      {
-        id: "row-2",
-        type: "row",
-        settings: {},
-        columns: [
-          {
-            id: "col-2",
-            width: 100,
-            blocks: [{ id: "b3", type: "paragraph", data: { text: "Third" } }],
-          },
-        ],
-      },
-    ],
-  };
-}
+import { store, twoRowDesign } from "./fixtures";
 
 beforeEach(() => {
   store().resetEditor();
