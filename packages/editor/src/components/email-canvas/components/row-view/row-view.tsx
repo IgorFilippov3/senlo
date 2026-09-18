@@ -72,7 +72,8 @@ export const RowView = memo(
     }
 
     const showAsSelected = isSelected && !isLoopItem;
-    const { backgroundColor, padding, borderRadius, margin } = row.settings;
+    const { backgroundColor, padding, borderRadius, margin, fullWidth } =
+      row.settings;
     const columnIds = row.columnIds ? row.columnIds.split(" ") : [];
 
     const handleClick = (e: React.MouseEvent) => {
@@ -80,11 +81,15 @@ export const RowView = memo(
       select({ kind: "row", id: rowId });
     };
 
-    const contentStyle: React.CSSProperties = {
-      maxWidth: contentWidth ? `${contentWidth}px` : "600px",
-      margin: "0 auto",
-      width: "100%",
-      backgroundColor: backgroundColor || "transparent",
+    // The document's width is the row's default and its ceiling, the same rule
+    // `renderRow` applies when it builds the message.
+    const documentWidth = contentWidth || 600;
+    const rowWidth = Math.min(
+      Number(row.settings.width) || documentWidth,
+      documentWidth,
+    );
+
+    const radii: React.CSSProperties = {
       borderTopLeftRadius:
         borderRadius?.top !== undefined ? `${borderRadius.top}px` : "0px",
       borderTopRightRadius:
@@ -93,6 +98,22 @@ export const RowView = memo(
         borderRadius?.bottom !== undefined ? `${borderRadius.bottom}px` : "0px",
       borderBottomRightRadius:
         borderRadius?.bottom !== undefined ? `${borderRadius.bottom}px` : "0px",
+    };
+
+    // A full-width row paints its background across the whole message while its
+    // content stays at `rowWidth`, so the background belongs to the band and
+    // not to the row - exactly the split `renderRow` makes.
+    const bandStyle: React.CSSProperties = fullWidth
+      ? { backgroundColor: backgroundColor || "transparent", ...radii }
+      : {};
+
+    const contentStyle: React.CSSProperties = {
+      maxWidth: `${rowWidth}px`,
+      margin: "0 auto",
+      width: "100%",
+      ...(fullWidth
+        ? {}
+        : { backgroundColor: backgroundColor || "transparent", ...radii }),
       // These have to match renderRow exactly: a row with no horizontal padding
       // was shown inset by 16px here and sent flush to the edge.
       paddingTop: padding?.top || 0,
@@ -138,16 +159,18 @@ export const RowView = memo(
               <Repeat size={12} />
             </div>
           )}
-          <div className={styles.row} style={contentStyle}>
-            <div className={styles.inner}>
-              {columnIds.map((columnId) => (
-                <ColumnView
-                  key={columnId}
-                  columnId={columnId}
-                  rowId={rowId}
-                  localData={localData}
-                />
-              ))}
+          <div className={styles.band} style={bandStyle}>
+            <div className={styles.row} style={contentStyle}>
+              <div className={styles.inner}>
+                {columnIds.map((columnId) => (
+                  <ColumnView
+                    key={columnId}
+                    columnId={columnId}
+                    rowId={rowId}
+                    localData={localData}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>

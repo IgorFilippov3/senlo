@@ -363,6 +363,14 @@ export interface RowBlock {
       bottom?: number;
       left?: number;
     };
+    /**
+     * How wide the row's content is, in pixels. Unset means the document's
+     * `contentWidth`, which is what every row was before this field existed.
+     *
+     * Clamped to `contentWidth` when the message is built, so a row saved in a
+     * wider template can never overflow a narrower one.
+     */
+    width?: number;
   };
 }
 
@@ -448,6 +456,7 @@ export const rowBlockSchema = z.object({
         })
         .optional(),
       margin: paddingSchema.optional(),
+      width: z.number().int().positive().optional(),
     })
     .optional()
     .default({}),

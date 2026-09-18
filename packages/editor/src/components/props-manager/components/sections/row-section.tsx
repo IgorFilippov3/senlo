@@ -19,9 +19,12 @@ import {
   Minimize2,
   Link,
   Link2Off,
+  Square,
+  StretchHorizontal,
 } from "lucide-react";
 import { Controller, useWatch } from "react-hook-form";
 import { RowBlock } from "@senlo/core";
+import { useEditorStore } from "../../../../state/editor.store";
 import { ConditionSection } from "./condition-section";
 import { LoopSection } from "./loop-section";
 
@@ -46,7 +49,16 @@ export const RowSection = ({ row }: RowSectionProps) => {
 
   const widthOptions = [
     { value: "auto", icon: <Minimize2 size={16} />, label: "Content Width" },
-    { value: "full", icon: <Maximize2 size={16} />, label: "Full Width" },
+    { value: "custom", icon: <Maximize2 size={16} />, label: "Custom" },
+  ];
+
+  const bandOptions = [
+    { value: "contained", icon: <Square size={16} />, label: "Contained" },
+    {
+      value: "band",
+      icon: <StretchHorizontal size={16} />,
+      label: "Full-width",
+    },
   ];
 
   const handleRadiusChange = (val: number, type: "top" | "bottom" | "all") => {
@@ -67,6 +79,14 @@ export const RowSection = ({ row }: RowSectionProps) => {
     top: 0,
     bottom: 0,
   };
+
+  // The document's width is the row's default and its ceiling, exactly as the
+  // renderer treats it, so the slider cannot offer a width the message would
+  // then clamp away.
+  const contentWidth =
+    useEditorStore((s) => s.design.settings?.contentWidth) || 600;
+  const width = useWatch({ control, name: "width" });
+  const MIN_WIDTH = 200;
 
   return (
     <FormSection title="Row Settings">
@@ -104,18 +124,57 @@ export const RowSection = ({ row }: RowSectionProps) => {
 
         <FormField label="Width">
           <Controller
-            name="fullWidth"
+            name="width"
             control={control}
             render={({ field }) => (
               <ToggleGroup
-                value={field.value ? "full" : "auto"}
+                value={field.value ? "custom" : "auto"}
                 options={widthOptions}
-                onChange={(val) => field.onChange(val === "full")}
+                onChange={(val) =>
+                  // Unset means "whatever the template is", which is what every
+                  // row was before this field existed - not a number that has
+                  // to be kept in step with the template's own width.
+                  field.onChange(val === "custom" ? contentWidth : undefined)
+                }
               />
             )}
           />
         </FormField>
       </FormGrid>
+
+      {width !== undefined && (
+        <Controller
+          name="width"
+          control={control}
+          render={({ field }) => (
+            <Slider
+              label="Row Width"
+              unit="px"
+              min={MIN_WIDTH}
+              max={contentWidth}
+              value={Math.min(field.value ?? contentWidth, contentWidth)}
+              onChange={field.onChange}
+            />
+          )}
+        />
+      )}
+
+      <FormField
+        label="Background"
+        hint="A full-width background runs the row's colour across the whole message while its content stays at the width above - the band behind a header or a footer."
+      >
+        <Controller
+          name="fullWidth"
+          control={control}
+          render={({ field }) => (
+            <ToggleGroup
+              value={field.value ? "band" : "contained"}
+              options={bandOptions}
+              onChange={(val) => field.onChange(val === "band")}
+            />
+          )}
+        />
+      </FormField>
 
       <FormSection
         title="Corner Radius"

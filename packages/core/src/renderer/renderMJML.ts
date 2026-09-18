@@ -4,7 +4,7 @@ import { hasMargin, renderPadding } from "./utils";
 import { replaceMergeTags } from "../merge-tags";
 import { escapeAttr, escapeCssValue } from "./escape";
 import { evaluateCondition } from "./conditions";
-import { RenderOptions, RenderContext } from "./types";
+import { RenderOptions, RenderContext, globalsOf, resolveGlobals } from "./types";
 import { resolveVariable } from "./conditions";
 import { migrateEmailDesign } from "../migrations";
 
@@ -17,6 +17,7 @@ export function renderEmailDesignMJML(
   const context: RenderContext = {
     responsiveStyles: [],
     options,
+    globals: resolveGlobals(design.settings),
   };
 
   const sections = design.rows
@@ -91,11 +92,26 @@ function renderMJMLSection(row: RowBlock, context: RenderContext): string {
   const borderRadius = settings.borderRadius || { top: 0, bottom: 0 };
   const borderRadiusStr = `${borderRadius.top || 0}px ${borderRadius.top || 0}px ${borderRadius.bottom || 0}px ${borderRadius.bottom || 0}px`;
 
+  // MJML takes a section's width from `mj-body`: there is no per-section width
+  // to set. A narrow row is therefore approximated by insetting it, which puts
+  // the content where the HTML path puts it but paints the inset in the row's
+  // background rather than leaving it transparent. The HTML path is what gets
+  // sent; this export is a convenience, and this is where the two differ.
+  const contentWidth = globalsOf(context).contentWidth;
+  const width = Math.min(Number(settings.width) || contentWidth, contentWidth);
+  const inset = Math.max(0, Math.round((contentWidth - width) / 2));
+  const padding = settings.padding || {};
+  const paddingStr = renderPadding({
+    ...padding,
+    left: (padding.left || 0) + inset,
+    right: (padding.right || 0) + inset,
+  });
+
   const section = `
     <mj-section
       background-color="${escapeAttr(settings.backgroundColor || "transparent")}"
       full-width="${settings.fullWidth ? "full-width" : "none"}"
-      padding="${renderPadding(settings.padding)}"
+      padding="${paddingStr}"
       text-align="${escapeAttr(settings.align || "center")}"
       border-radius="${borderRadiusStr}"
     >

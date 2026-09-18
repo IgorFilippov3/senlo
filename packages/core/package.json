@@ -1,6 +1,6 @@
 {
   "name": "@senlo/core",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "main": "src/index.ts",
   "private": true,
   "types": "src/index.ts",

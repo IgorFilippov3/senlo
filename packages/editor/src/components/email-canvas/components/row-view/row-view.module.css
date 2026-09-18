@@ -47,9 +47,17 @@
   background-color: var(--sl-color-primary-hover);
 }
 
+/* The full-width background band. It is always in the markup and only carries
+   a colour when the row asks for one, so the row's structure does not change
+   with the setting. */
+.band {
+  width: 100%;
+}
+
 .row {
   width: 100%;
-  max-width: 600px;
+  /* The width comes from the row's own setting, falling back to the
+     document's - never from a number hardcoded here. */
   margin: 0 auto;
   box-sizing: border-box;
 }

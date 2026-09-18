@@ -10,10 +10,6 @@ export function renderBody(
   design: EmailDesignDocument,
   context: RenderContext,
 ): string {
-  // Numeric coercion, not escaping: this value also lands inside a media
-  // query in the head, where entities would not be decoded.
-  const contentWidth = Number(design.settings.contentWidth) || 600;
-
   const renderedRows = rows.map((row) => {
     if (row.loop) {
       const data = context.options?.data || {};
@@ -60,17 +56,16 @@ export function renderBody(
     return renderRow(row, context);
   });
 
+  // The body is the page background and a cell that centres whatever is in it.
+  // The document's width used to be a table here, wrapped around every row at
+  // once, which is exactly why a single row could not be narrower than the
+  // template. Each row carries its own width now - `renderRow` defaults it to
+  // the document's - so the two are no longer the same decision.
   return `
     <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color:${escapeAttr(design.settings.backgroundColor || "#ffffff")};">
       <tr>
-        <td align="center">
-          <table class="senlo-full-width" width="${contentWidth}" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:${contentWidth}px; margin: 0 auto; max-width: 100%;">
-            <tr>
-              <td align="left" style="font-size: 0;">
-                ${renderedRows.join("")}
-              </td>
-            </tr>
-          </table>
+        <td align="center" style="font-size: 0;">
+          ${renderedRows.join("")}
         </td>
       </tr>
     </table>

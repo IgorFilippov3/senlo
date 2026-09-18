@@ -382,6 +382,87 @@ describe("email client correctness", () => {
     });
   });
 
+  describe("row width", () => {
+    function rowWith(
+      settings: RowBlock["settings"],
+      contentWidth = 600,
+    ): EmailDesignDocument {
+      const d = doc([
+        {
+          id: "row-1",
+          type: "row",
+          columns: [{ id: "col-1", width: 100, blocks: [] }],
+          settings,
+        },
+      ]);
+      d.settings.contentWidth = contentWidth;
+      return d;
+    }
+
+    it("gives a row the document's width when it has none of its own", () => {
+      const html = renderEmailDesign(rowWith({}, 640));
+
+      expect(html).toContain('width="640"');
+      expect(html).toContain("width: 640px");
+    });
+
+    it("lets a row be narrower than the document", () => {
+      const html = renderEmailDesign(rowWith({ width: 420 }, 600));
+
+      expect(html).toContain('width="420"');
+      // The document's width is no longer a table around every row, so nothing
+      // holds the row at 600.
+      expect(html).not.toContain('width="600"');
+    });
+
+    it("clamps a row wider than the document", () => {
+      // A row saved in a wide template and dropped into a narrow one. A table
+      // wider than its parent is the one thing every client renders
+      // differently, so the row narrows instead.
+      const html = renderEmailDesign(rowWith({ width: 900 }, 600));
+
+      expect(html).toContain('width="600"');
+      expect(html).not.toContain('width="900"');
+    });
+
+    it("lets a narrow row fill a phone screen", () => {
+      const html = renderEmailDesign(rowWith({ width: 420 }, 600));
+
+      // The media query widens this class to 100%; without it on the row's own
+      // table a narrow row would stay narrow on a 360px screen.
+      expect(html).toContain('class="senlo-full-width"');
+      expect(html).toContain("max-width: 100%");
+    });
+
+    it("runs a full-width row's background past its content", () => {
+      const html = renderEmailDesign(
+        rowWith({ backgroundColor: "#111827", fullWidth: true, width: 420 }),
+      );
+
+      // The background sits on the band, which is the full-width table, and the
+      // content keeps its own width inside it.
+      const band = html.indexOf('width="100%"');
+      const background = html.indexOf("background-color: #111827");
+      const content = html.indexOf('width="420"');
+
+      expect(band).toBeLessThan(content);
+      expect(background).toBeLessThan(content);
+    });
+
+    it("keeps a contained row's background at its own width", () => {
+      const html = renderEmailDesign(
+        rowWith({ backgroundColor: "#111827", width: 420 }),
+      );
+
+      // Without full width the colour belongs to the row's own cell, so it
+      // stops where the row stops.
+      const content = html.indexOf('width="420"');
+      const background = html.indexOf("background-color: #111827");
+
+      expect(background).toBeGreaterThan(content);
+    });
+  });
+
   it("gives the button a VML fallback for Outlook", () => {
     const html = renderEmailDesign(
       doc([
