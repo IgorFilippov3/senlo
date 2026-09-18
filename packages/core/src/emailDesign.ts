@@ -350,6 +350,19 @@ export interface RowBlock {
       top?: number;
       bottom?: number;
     };
+    /**
+     * The gap outside the row's background, so two rows with a background of
+     * their own can be separated. `padding` is the space inside it.
+     *
+     * Table layout does not collapse margins: a `bottom` on one row and a
+     * `top` on the next add up.
+     */
+    margin?: {
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
+    };
   };
 }
 
@@ -434,6 +447,7 @@ export const rowBlockSchema = z.object({
           bottom: z.number().int().nonnegative().optional(),
         })
         .optional(),
+      margin: paddingSchema.optional(),
     })
     .optional()
     .default({}),

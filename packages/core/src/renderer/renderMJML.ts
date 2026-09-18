@@ -1,6 +1,6 @@
 import { EmailDesignDocument, RowBlock, ColumnBlock } from "../emailDesign";
 import { renderMJMLBlock } from "./mjmlBlocks";
-import { renderPadding } from "./utils";
+import { hasMargin, renderPadding } from "./utils";
 import { replaceMergeTags } from "../merge-tags";
 import { escapeAttr, escapeCssValue } from "./escape";
 import { evaluateCondition } from "./conditions";
@@ -91,7 +91,7 @@ function renderMJMLSection(row: RowBlock, context: RenderContext): string {
   const borderRadius = settings.borderRadius || { top: 0, bottom: 0 };
   const borderRadiusStr = `${borderRadius.top || 0}px ${borderRadius.top || 0}px ${borderRadius.bottom || 0}px ${borderRadius.bottom || 0}px`;
 
-  return `
+  const section = `
     <mj-section
       background-color="${escapeAttr(settings.backgroundColor || "transparent")}"
       full-width="${settings.fullWidth ? "full-width" : "none"}"
@@ -101,6 +101,18 @@ function renderMJMLSection(row: RowBlock, context: RenderContext): string {
     >
       ${columns}
     </mj-section>`;
+
+  // The gap outside the row's background. It cannot be folded into the
+  // section's own padding the way `renderMJMLBox` folds a block's, because a
+  // section with a background would paint the gap in its own colour. A wrapper
+  // is the MJML element that pads from the outside, so a row with a margin
+  // gets one and a row without one is left alone.
+  if (!hasMargin(settings.margin)) return section;
+
+  return `
+    <mj-wrapper padding="${renderPadding(settings.margin)}">
+      ${section}
+    </mj-wrapper>`;
 }
 
 function renderMJMLColumn(column: ColumnBlock, context: RenderContext): string {

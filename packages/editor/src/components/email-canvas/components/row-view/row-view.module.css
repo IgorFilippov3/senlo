@@ -2,6 +2,15 @@
   width: 100%;
   position: relative;
   cursor: pointer;
+  /* The row's outer spacing is padding here, so it has to stay inside the
+     100% rather than adding to it. */
+  box-sizing: border-box;
+}
+
+/* Positioning context for the row menu and the badges. Without it they would
+   anchor to the container's padding box and drift into the outer spacing. */
+.anchor {
+  position: relative;
 }
 
 .rowContainer:hover {

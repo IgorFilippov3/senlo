@@ -320,6 +320,68 @@ describe("email client correctness", () => {
     expect(occurrences).toHaveLength(1);
   });
 
+  describe("row outer spacing", () => {
+    function rowWith(settings: RowBlock["settings"]): EmailDesignDocument {
+      return doc([
+        {
+          id: "row-1",
+          type: "row",
+          columns: [{ id: "col-1", width: 100, blocks: [] }],
+          settings,
+        },
+      ]);
+    }
+
+    it("adds nothing when the row has no outer spacing", () => {
+      const withField = renderEmailDesign(
+        rowWith({
+          backgroundColor: "#ffffff",
+          padding: { top: 20, right: 20, bottom: 20, left: 20 },
+          margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        }),
+      );
+      const without = renderEmailDesign(
+        rowWith({
+          backgroundColor: "#ffffff",
+          padding: { top: 20, right: 20, bottom: 20, left: 20 },
+        }),
+      );
+
+      // A zero margin is the same document as no margin at all, which is what
+      // keeps every template built before this field renderable byte for byte.
+      expect(withField).toBe(without);
+    });
+
+    it("puts the gap in a cell of its own, outside the background", () => {
+      const html = renderEmailDesign(
+        rowWith({
+          backgroundColor: "#ffffff",
+          margin: { top: 0, right: 0, bottom: 24, left: 0 },
+        }),
+      );
+
+      // The gap has to come before the background in the markup: one cell
+      // cannot both paint a background and keep it out of the space below.
+      const gap = html.indexOf("padding: 0px 0px 24px 0px");
+      const background = html.indexOf("background-color: #ffffff");
+
+      expect(gap).toBeGreaterThan(-1);
+      expect(background).toBeGreaterThan(gap);
+    });
+
+    it("keeps the row's own padding separate from its outer spacing", () => {
+      const html = renderEmailDesign(
+        rowWith({
+          padding: { top: 12, right: 12, bottom: 12, left: 12 },
+          margin: { top: 32, right: 0, bottom: 32, left: 0 },
+        }),
+      );
+
+      expect(html).toContain("padding: 12px 12px 12px 12px");
+      expect(html).toContain("padding: 32px 0px 32px 0px");
+    });
+  });
+
   it("gives the button a VML fallback for Outlook", () => {
     const html = renderEmailDesign(
       doc([

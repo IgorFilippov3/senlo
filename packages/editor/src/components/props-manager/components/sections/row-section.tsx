@@ -177,6 +177,20 @@ export const RowSection = ({ row }: RowSectionProps) => {
             />
           )}
         />
+
+        <FormField hint="The gap around the row, outside its background - the space that separates it from the rows above and below. Adjacent gaps add up: 16 below this row and 16 above the next one make 32.">
+          <Controller
+            name="margin"
+            control={control}
+            render={({ field }) => (
+              <PaddingControl
+                title="Outer spacing"
+                value={field.value || { top: 0, right: 0, bottom: 0, left: 0 }}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </FormField>
       </FormSection>
 
       <ConditionSection control={control} setValue={setValue} />

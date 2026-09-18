@@ -193,6 +193,21 @@ describe("updateRow", () => {
     expect(store().historyPast).toHaveLength(1);
   });
 
+  it("stores the outer spacing without touching the row's own padding", () => {
+    store().updateRow("row-1", {
+      padding: { top: 8, right: 8, bottom: 8, left: 8 },
+      margin: { top: 0, right: 0, bottom: 24, left: 0 },
+    });
+
+    const settings = store().design.rows[0].settings;
+
+    // Two separate spaces: `padding` is inside the row's background, `margin`
+    // is the gap outside it. Merging them would paint the gap in the row's
+    // colour.
+    expect(settings.padding).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+    expect(settings.margin).toEqual({ top: 0, right: 0, bottom: 24, left: 0 });
+  });
+
   it("stores the condition and the loop it is given", () => {
     store().updateRow(
       "row-1",

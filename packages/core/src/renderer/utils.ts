@@ -52,14 +52,15 @@ export function hasBoxStyles(data?: any): boolean {
   );
 }
 
-function hasMargin(margin?: any): boolean {
+/** Whether a `margin` carries a gap on any side. */
+export function hasMargin(margin?: any): boolean {
   return Boolean(
     margin && (margin.top || margin.right || margin.bottom || margin.left),
   );
 }
 
 /** One table cell, which is the only element every client - Outlook included - backgrounds, borders and pads correctly. */
-function cell(style: string, inner: string): string {
+export function cell(style: string, inner: string): string {
   return `
     <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; border-spacing: 0;">
       <tr>

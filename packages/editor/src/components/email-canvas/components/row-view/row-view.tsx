@@ -72,7 +72,7 @@ export const RowView = memo(
     }
 
     const showAsSelected = isSelected && !isLoopItem;
-    const { backgroundColor, padding, borderRadius } = row.settings;
+    const { backgroundColor, padding, borderRadius, margin } = row.settings;
     const columnIds = row.columnIds ? row.columnIds.split(" ") : [];
 
     const handleClick = (e: React.MouseEvent) => {
@@ -101,39 +101,54 @@ export const RowView = memo(
       paddingLeft: padding?.left || 0,
     };
 
+    // The gap outside the background, which `renderRow` emits as a cell around
+    // the row. Here it is padding on the container, so the space belongs to
+    // this row - hovering it still selects this row, and the gap moves with it.
+    const containerStyle: React.CSSProperties = {
+      position: "relative",
+      paddingTop: margin?.top || 0,
+      paddingRight: margin?.right || 0,
+      paddingBottom: margin?.bottom || 0,
+      paddingLeft: margin?.left || 0,
+    };
+
     return (
       <div
         className={cn(styles.rowContainer, showAsSelected && styles.selected)}
         onClick={handleClick}
-        style={{ position: "relative" }}
+        style={containerStyle}
       >
-        {showAsSelected && !isDragActive && <RowViewMenu rowId={rowId} />}
-        {row.condition && (
-          <div
-            className={styles.badgeCondition}
-            title={`Row Condition: ${row.condition.variable} ${row.condition.operator} ${row.condition.value ?? ""}`}
-          >
-            <GitBranch size={12} />
-          </div>
-        )}
-        {!previewMode && row.loop && (
-          <div
-            className={styles.badgeLoop}
-            title={`Row Loop: ${row.loop.variable} as ${row.loop.alias}`}
-          >
-            <Repeat size={12} />
-          </div>
-        )}
-        <div className={styles.row} style={contentStyle}>
-          <div className={styles.inner}>
-            {columnIds.map((columnId) => (
-              <ColumnView
-                key={columnId}
-                columnId={columnId}
-                rowId={rowId}
-                localData={localData}
-              />
-            ))}
+        {/* The menu and the badges anchor to the row, not to the container,
+            so an outer gap does not leave them floating in it. */}
+        <div className={styles.anchor}>
+          {showAsSelected && !isDragActive && <RowViewMenu rowId={rowId} />}
+          {row.condition && (
+            <div
+              className={styles.badgeCondition}
+              title={`Row Condition: ${row.condition.variable} ${row.condition.operator} ${row.condition.value ?? ""}`}
+            >
+              <GitBranch size={12} />
+            </div>
+          )}
+          {!previewMode && row.loop && (
+            <div
+              className={styles.badgeLoop}
+              title={`Row Loop: ${row.loop.variable} as ${row.loop.alias}`}
+            >
+              <Repeat size={12} />
+            </div>
+          )}
+          <div className={styles.row} style={contentStyle}>
+            <div className={styles.inner}>
+              {columnIds.map((columnId) => (
+                <ColumnView
+                  key={columnId}
+                  columnId={columnId}
+                  rowId={rowId}
+                  localData={localData}
+                />
+              ))}
+            </div>
           </div>
         </div>
 

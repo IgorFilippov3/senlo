@@ -3,6 +3,7 @@ import { RenderContext } from "./types";
 import { renderBlock } from "./renderBlocks";
 import { evaluateCondition } from "./conditions";
 import { escapeAttr } from "./escape";
+import { cell, hasMargin, renderPadding } from "./utils";
 
 export function renderRow(row: RowBlock, context: RenderContext): string {
   if (!evaluateCondition(row.condition, context)) {
@@ -33,7 +34,7 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
   // every client, Outlook included, pads correctly, so the style belongs there
   // and nowhere else. The conditional table below is only for the columns:
   // Outlook does not lay out inline-block divs side by side.
-  return `
+  const html = `
     <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
       <tr>
         <td align="${align}" style="${rowStyle}; font-size: 0; text-align: ${align};">
@@ -50,6 +51,17 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
       </tr>
     </table>
   `;
+
+  // The gap outside the background needs a cell of its own: the row's own cell
+  // already paints the background, and one cell cannot both paint a background
+  // and keep it out of the space next to it. This is the same shape `renderBox`
+  // gives a block's margin, one level up.
+  //
+  // A row whose author set no margin comes back untouched, so every message
+  // built before this field existed renders byte for byte as it did.
+  if (!hasMargin(settings.margin)) return html;
+
+  return cell(`padding: ${renderPadding(settings.margin)}`, html);
 }
 
 function renderColumn(column: ColumnBlock, context: RenderContext): string {
