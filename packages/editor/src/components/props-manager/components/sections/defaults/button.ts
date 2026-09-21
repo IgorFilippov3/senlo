@@ -10,6 +10,7 @@ export const DEFAULT_BUTTON_BORDER_RADIUS = fallbacks.borderRadius;
 export const DEFAULT_BUTTON_PADDING = fallbacks.padding;
 export const DEFAULT_BUTTON_LETTER_SPACING = fallbacks.letterSpacing;
 export const DEFAULT_BUTTON_BORDER = fallbacks.border;
+export const DEFAULT_BUTTON_MARGIN = fallbacks.margin;
 
 /** Presets offered by the shadow control. Editor-only: the renderer has none. */
 export const SHADOW_PRESETS = {

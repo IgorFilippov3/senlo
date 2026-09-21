@@ -27,6 +27,7 @@ type BlockMigration = (block: any) => any;
  */
 const BLOCK_MIGRATIONS: Record<number, BlockMigration> = {
   1: migrateProductLineToItems,
+  2: migrateBolderToBold,
 };
 
 /**
@@ -49,6 +50,52 @@ function migrateProductLineToItems(block: any): any {
       items: [{ left: leftText ?? "", right: rightText ?? "" }],
     },
   };
+}
+
+/**
+ * `bolder` used to be a third font weight. No control ever offered it - every
+ * panel listed Regular and Bold - and the five web-safe families the product
+ * ships have exactly two faces, so a client asked for `bolder` drew the same
+ * glyphs as `bold`. It could still reach a document through the AI endpoint,
+ * which validates the model's output against the same schema, and a document
+ * carrying it would then show an empty weight in the panel.
+ *
+ * Idempotent: a block with any other weight, or none, is returned untouched.
+ */
+function migrateBolderToBold(block: any): any {
+  const data = block?.data;
+  if (!data) return block;
+
+  const fix = (weight: any) => (weight === "bolder" ? "bold" : weight);
+  const fixStyle = (style: any) =>
+    style && style.fontWeight === "bolder"
+      ? { ...style, fontWeight: "bold" }
+      : style;
+
+  const next = {
+    ...data,
+    fontWeight: fix(data.fontWeight),
+    // The product line carries a weight per column rather than one per block.
+    leftStyle: fixStyle(data.leftStyle),
+    rightStyle: fixStyle(data.rightStyle),
+  };
+
+  // `fontWeight` is optional, so writing it back unconditionally would add the
+  // key to every block that never had one. Only a block that actually changed
+  // gets a new object.
+  if (
+    next.fontWeight === data.fontWeight &&
+    next.leftStyle === data.leftStyle &&
+    next.rightStyle === data.rightStyle
+  ) {
+    return block;
+  }
+
+  if (data.fontWeight === undefined) delete next.fontWeight;
+  if (data.leftStyle === undefined) delete next.leftStyle;
+  if (data.rightStyle === undefined) delete next.rightStyle;
+
+  return { ...block, data: next };
 }
 
 /** Applies a block migration to every block of a row, keeping the row's shape. */

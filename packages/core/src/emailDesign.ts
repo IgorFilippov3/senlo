@@ -7,8 +7,10 @@ import { contentConditionSchema, paddingSchema } from "./blocks/shared";
  * `migrations.ts` holds the step for each bump and runs them on the way in.
  *
  * 2 - a product line became a list of label/value pairs instead of one pair.
+ * 3 - `fontWeight` lost `bolder`, which no control could produce and which no
+ *     web-safe font renders differently from `bold`.
  */
-export const emailDesignVersion = 2;
+export const emailDesignVersion = 3;
 
 export type RowId = string;
 export type ColumnId = string;
@@ -79,7 +81,7 @@ export interface HeadingBlock extends BaseContentBlock {
     color?: string;
     fontSize?: number;
     lineHeight?: number;
-    fontWeight?: "normal" | "bold" | "bolder";
+    fontWeight?: "normal" | "bold";
     href?: string;
     textTransform?: "none" | "uppercase";
     letterSpacing?: number;
@@ -100,7 +102,7 @@ export interface ParagraphBlock extends BaseContentBlock {
     color?: string;
     fontSize?: number;
     lineHeight?: number;
-    fontWeight?: "normal" | "bold" | "bolder";
+    fontWeight?: "normal" | "bold";
     href?: string;
     textTransform?: "none" | "uppercase";
     letterSpacing?: number;
@@ -150,7 +152,7 @@ export interface ButtonBlock extends BaseContentBlock {
     color?: string;
     backgroundColor?: string;
     fontSize?: number;
-    fontWeight?: "normal" | "bold" | "bolder";
+    fontWeight?: "normal" | "bold";
     borderRadius?: number;
     padding?: {
       top?: number;
@@ -176,6 +178,13 @@ export interface ButtonBlock extends BaseContentBlock {
     textTransform?: "none" | "uppercase";
     letterSpacing?: number;
     fullWidth?: boolean;
+    /** The gap around the button; its `padding` is the space inside it. */
+    margin?: {
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
+    };
   };
 }
 
@@ -201,7 +210,7 @@ export interface ListBlock extends BaseContentBlock {
     color?: string;
     fontSize?: number;
     lineHeight?: number;
-    fontWeight?: "normal" | "bold" | "bolder";
+    fontWeight?: "normal" | "bold";
     padding?: {
       top?: number;
       right?: number;
@@ -242,14 +251,14 @@ export interface ProductLineBlock extends BaseContentBlock {
       color?: string;
       fontSize?: number;
       lineHeight?: number;
-      fontWeight?: "normal" | "bold" | "bolder";
+      fontWeight?: "normal" | "bold";
       fontFamily?: string;
     };
     rightStyle?: {
       color?: string;
       fontSize?: number;
       lineHeight?: number;
-      fontWeight?: "normal" | "bold" | "bolder";
+      fontWeight?: "normal" | "bold";
       fontFamily?: string;
     };
     rightWidth?: number; // px

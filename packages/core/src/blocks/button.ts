@@ -6,7 +6,7 @@ import { z } from "zod";
 import { escapeAttr, sanitizeUrl } from "../renderer/escape";
 import { stripTags } from "../renderer/htmlToText";
 import { globalsOf } from "../renderer/types";
-import { borderDeclarations } from "../renderer/utils";
+import { borderDeclarations, cell, renderPadding } from "../renderer/utils";
 import type { RenderContext } from "../renderer/types";
 import {
   alignSchema,
@@ -26,7 +26,7 @@ export const buttonBlockDataSchema = z.object({
   color: z.string().optional(),
   backgroundColor: z.string().optional(),
   fontSize: z.number().positive().optional(),
-  fontWeight: z.enum(["normal", "bold", "bolder"]).optional(),
+  fontWeight: z.enum(["normal", "bold"]).optional(),
   borderRadius: z.number().nonnegative().optional(),
   padding: paddingSchema.optional(),
   border: borderSchema.optional(),
@@ -34,6 +34,13 @@ export const buttonBlockDataSchema = z.object({
   textTransform: z.enum(["none", "uppercase"]).optional(),
   letterSpacing: z.number().optional(),
   fullWidth: z.boolean().optional(),
+  /**
+   * The gap around the button. Not part of `boxFields` like the text blocks'
+   * margin, because the other three fields that spread carries -
+   * `backgroundColor`, `border`, `borderRadius` - already exist here and mean
+   * the button itself rather than a card around it.
+   */
+  margin: paddingSchema.optional(),
 });
 
 export type ButtonBlockData = z.infer<
@@ -60,6 +67,12 @@ export const buttonBlockFallbacks = {
   borderRadius: 4,
   padding: { top: 12, right: 24, bottom: 12, left: 24 },
   border: { width: 0, style: "solid" as const, color: "#000000" },
+  /**
+   * Not zero, unlike the text blocks': this is the gap the button's wrapper
+   * used to hardcode, so a button nobody has touched renders exactly as it
+   * always did and the panel shows the value it actually has.
+   */
+  margin: { top: 10, right: 0, bottom: 10, left: 0 },
 };
 
 function renderButton(block: any, context: RenderContext): string {
@@ -113,14 +126,27 @@ function renderButton(block: any, context: RenderContext): string {
   const href = escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#");
   const anchor = `<a href="${href}" target="_blank" style="${escapeAttr(styles.join("; "))}">${data.text}</a>`;
 
-  return `
-    <div style="text-align: ${escapeAttr(data.align || buttonBlockFallbacks.align)}; padding: 10px 0;">
+  const inner = `
+    <div style="text-align: ${escapeAttr(data.align || buttonBlockFallbacks.align)};">
       ${renderButtonVml(data, border, padding, href, globals.fontFamily)}
       <!--[if !mso]><!-->
       ${anchor}
       <!--<![endif]-->
     </div>
   `;
+
+  // The gap around the button. It used to be `padding: 10px 0` written into the
+  // wrapper div above, which meant no author could change it - not even to
+  // zero - and that a horizontal gap was not expressible at all. A <td> is the
+  // one element every client, Outlook included, pads correctly, so the gap goes
+  // on a cell here exactly as it does for a row and for a text block's margin;
+  // a div would drop the left and right sides in Outlook's Word engine.
+  //
+  // The fallback is the 10px the div used to carry, so a button saved before
+  // this field existed sits in the same space it always did.
+  const margin = data.margin || buttonBlockFallbacks.margin;
+
+  return cell(`padding: ${renderPadding(margin)}`, inner);
 }
 
 function renderButtonVml(
@@ -217,7 +243,7 @@ function renderMJMLButton(block: any): string {
           font-weight="${data.fontWeight || "bold"}"
           border-radius="${data.borderRadius || 4}px"
           ${borderAttrs.join("\n          ")}
-          padding="10px 0"
+          padding="${renderPadding(data.margin || buttonBlockFallbacks.margin)}"
           inner-padding="${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px"
           text-transform="${data.textTransform || "none"}"
           letter-spacing="${data.letterSpacing !== undefined ? data.letterSpacing + "px" : "normal"}"

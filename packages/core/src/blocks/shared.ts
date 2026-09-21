@@ -60,7 +60,7 @@ export const textStyleSchema = z.object({
   color: z.string().optional(),
   fontSize: z.number().positive().optional(),
   lineHeight: z.number().positive().optional(),
-  fontWeight: z.enum(["normal", "bold", "bolder"]).optional(),
+  fontWeight: z.enum(["normal", "bold"]).optional(),
   fontFamily: z.string().optional(),
 });
 

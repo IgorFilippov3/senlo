@@ -44,6 +44,7 @@ import {
   DEFAULT_BUTTON_PADDING,
   DEFAULT_BUTTON_LETTER_SPACING,
   DEFAULT_BUTTON_BORDER,
+  DEFAULT_BUTTON_MARGIN,
   SHADOW_PRESETS,
   ShadowPresetKey,
 } from "./defaults/button";
@@ -419,16 +420,32 @@ export const ButtonSection = ({ block }: ButtonSectionProps) => {
       />
 
       <FormSection title="Spacing">
-        <Controller
-          name="padding"
-          control={control}
-          render={({ field }) => (
-            <PaddingControl
-              value={field.value ?? DEFAULT_BUTTON_PADDING}
-              onChange={field.onChange}
-            />
-          )}
-        />
+        <FormField hint="The space inside the button, between its label and its edge.">
+          <Controller
+            name="padding"
+            control={control}
+            render={({ field }) => (
+              <PaddingControl
+                value={field.value ?? DEFAULT_BUTTON_PADDING}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </FormField>
+
+        <FormField hint="The gap around the button, outside it. It starts at 10px above and below - the space a button has always sat in - and can now be changed, including to nothing.">
+          <Controller
+            name="margin"
+            control={control}
+            render={({ field }) => (
+              <PaddingControl
+                title="Outer spacing"
+                value={field.value ?? DEFAULT_BUTTON_MARGIN}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </FormField>
       </FormSection>
 
       <ConditionSection control={control} setValue={setValue} />

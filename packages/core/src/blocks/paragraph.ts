@@ -24,7 +24,7 @@ export const paragraphBlockDataSchema = z.object({
   color: z.string().optional(),
   fontSize: z.number().positive().optional(),
   lineHeight: z.number().positive().optional(),
-  fontWeight: z.enum(["normal", "bold", "bolder"]).optional(),
+  fontWeight: z.enum(["normal", "bold"]).optional(),
   href: urlLikeSchema.optional(),
   textTransform: z.enum(["none", "uppercase"]).optional(),
   letterSpacing: z.number().optional(),

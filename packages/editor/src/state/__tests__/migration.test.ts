@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { emailDesignVersion } from "@senlo/core";
+
 import { savedRow, store } from "./fixtures";
 
 /**
@@ -49,7 +51,10 @@ describe("loading an older document", () => {
   it("stamps the current version", () => {
     store().setDesign(legacyDesign() as any);
 
-    expect(store().design.version).toBe(2);
+    // Against the constant, not a literal: this asserts that the editor stamps
+    // whatever the current version is, which is the actual contract. A literal
+    // here just breaks on every bump.
+    expect(store().design.version).toBe(emailDesignVersion);
   });
 
   it("is not an edit: the template is not marked unsaved", () => {

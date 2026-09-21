@@ -78,7 +78,7 @@ describe("migrateEmailDesign", () => {
     const migrated: any = migrateEmailDesign(legacyDocument());
 
     expect(migrated.version).toBe(emailDesignVersion);
-    expect(emailDesignVersion).toBe(2);
+    expect(emailDesignVersion).toBe(3);
   });
 
   it("does not touch a document that is already current", () => {
@@ -132,6 +132,88 @@ describe("migrateEmailDesign", () => {
     const migrated: any = migrateEmailDesign(noVersion);
 
     expect(migrated.rows[0].columns[0].blocks[1].data.items).toHaveLength(1);
+  });
+});
+
+describe("the bolder weight", () => {
+  /** A version 2 document, which is where `bolder` was still a legal value. */
+  const withBolder = (data: any, type = "paragraph") => ({
+    version: 2,
+    settings: {},
+    rows: [
+      {
+        id: "row-1",
+        type: "row",
+        settings: {},
+        columns: [{ id: "col-1", width: 100, blocks: [{ id: "b1", type, data }] }],
+      },
+    ],
+  });
+
+  const blockOf = (doc: any) => doc.rows[0].columns[0].blocks[0];
+
+  it("becomes bold", () => {
+    const migrated: any = migrateEmailDesign(
+      withBolder({ text: "Hello", fontWeight: "bolder" }),
+    );
+
+    expect(blockOf(migrated).data.fontWeight).toBe("bold");
+  });
+
+  it("becomes bold on each column of a product line", () => {
+    const migrated: any = migrateEmailDesign(
+      withBolder(
+        {
+          items: [{ left: "Mug", right: "$12.00" }],
+          leftStyle: { fontSize: 14, fontWeight: "bolder" },
+          rightStyle: { fontSize: 14, fontWeight: "bolder" },
+        },
+        "product-line",
+      ),
+    );
+
+    const { data } = blockOf(migrated);
+    expect(data.leftStyle).toEqual({ fontSize: 14, fontWeight: "bold" });
+    expect(data.rightStyle).toEqual({ fontSize: 14, fontWeight: "bold" });
+  });
+
+  it("leaves a weight the panel can show alone", () => {
+    const migrated: any = migrateEmailDesign(
+      withBolder({ text: "Hello", fontWeight: "normal" }),
+    );
+
+    expect(blockOf(migrated).data.fontWeight).toBe("normal");
+  });
+
+  it("does not give a block a weight it never had", () => {
+    const migrated: any = migrateEmailDesign(withBolder({ text: "Hello" }));
+
+    // Writing the field back unconditionally would put an explicit weight on
+    // every block in every document the step passes over.
+    expect("fontWeight" in blockOf(migrated).data).toBe(false);
+  });
+
+  it("is idempotent, which is what a saved row relies on", () => {
+    // `migrateRow` has no version to read, so every step runs over it each
+    // time and has to decide for itself whether it applies.
+    const once: any = migrateRow({
+      id: "row-1",
+      type: "row",
+      settings: {},
+      columns: [
+        {
+          id: "col-1",
+          width: 100,
+          blocks: [
+            { id: "b1", type: "heading", data: { text: "Hi", fontWeight: "bolder" } },
+          ],
+        },
+      ],
+    });
+    const twice: any = migrateRow(once);
+
+    expect(once.columns[0].blocks[0].data.fontWeight).toBe("bold");
+    expect(twice).toEqual(once);
   });
 });
 

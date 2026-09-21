@@ -41,7 +41,10 @@ function renderMJML(type: ContentBlockType, data: Record<string, any>): string {
   return definition.renderMJML({ id: "b1", type, data }, undefined);
 }
 
-/** The wrapper cell the box adds, and nothing else in the codebase, uses this. */
+/**
+ * The wrapper cell a gap is drawn on. `renderBox` uses it for the boxed types
+ * below, and the button uses it directly for its own gap.
+ */
 const WRAPPER = "border-collapse: separate";
 
 describe("a block with no box styling", () => {
@@ -200,5 +203,80 @@ describe("the MJML export", () => {
     });
 
     expect(mjml).toContain('container-background-color="#f3f4f6"');
+  });
+});
+
+/**
+ * The button is not one of the boxed types: `backgroundColor`, `border` and
+ * `borderRadius` already exist on it and style the button itself, so it takes
+ * the gap alone rather than the shared spread.
+ */
+describe("the button's outer gap", () => {
+  const BUTTON = { text: "Track it", href: "https://senlo.io/track" };
+
+  it("keeps the 10px a button has always sat in", () => {
+    const html = render("button", BUTTON);
+
+    // This was `padding: 10px 0` hardcoded in the wrapper div. Moving it to a
+    // field must not move the button.
+    expect(html).toContain("padding: 10px 0px 10px 0px");
+  });
+
+  it("puts the gap on a cell rather than the div", () => {
+    const html = render("button", BUTTON);
+
+    // A div drops left and right padding in Outlook's Word engine, which is
+    // exactly the pair this control adds.
+    expect(html).toContain(WRAPPER);
+    expect(html).not.toContain("padding: 10px 0;");
+  });
+
+  it("lets an author close the gap entirely", () => {
+    const html = render("button", {
+      ...BUTTON,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    });
+
+    expect(html).toContain("padding: 0px 0px 0px 0px");
+    expect(html).not.toContain("padding: 10px 0px 10px 0px");
+  });
+
+  it("takes a gap on all four sides", () => {
+    const html = render("button", {
+      ...BUTTON,
+      margin: { top: 4, right: 32, bottom: 24, left: 32 },
+    });
+
+    expect(html).toContain("padding: 4px 32px 24px 32px");
+  });
+
+  it("keeps the gap out of the button's own colour", () => {
+    const html = render("button", {
+      ...BUTTON,
+      backgroundColor: "#111827",
+      margin: { top: 0, right: 0, bottom: 24, left: 0 },
+    });
+
+    // One background, on the anchor, and the gap outside it - not a second
+    // card around a button that is already a coloured box.
+    const gap = html.indexOf("padding: 0px 0px 24px 0px");
+    const background = html.indexOf("background-color: #111827");
+
+    expect(gap).toBeGreaterThan(-1);
+    expect(background).toBeGreaterThan(gap);
+    expect(html.match(/background-color: #111827/g)).toHaveLength(1);
+  });
+
+  it("carries the gap on the MJML component, not its inner padding", () => {
+    const mjml = renderMJML("button", {
+      ...BUTTON,
+      padding: { top: 12, right: 24, bottom: 12, left: 24 },
+      margin: { top: 0, right: 0, bottom: 24, left: 0 },
+    });
+
+    // `mj-button` separates the two spaces itself, so unlike the row's margin
+    // this needs no wrapper and no approximation.
+    expect(mjml).toContain('padding="0px 0px 24px 0px"');
+    expect(mjml).toContain('inner-padding="12px 24px 12px 24px"');
   });
 });
