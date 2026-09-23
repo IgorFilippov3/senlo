@@ -1,4 +1,6 @@
 import { escapeAttr } from "./escape";
+import { ZERO_CORNER_RADIUS } from "../blocks/shared";
+import type { CornerRadius } from "../blocks/shared";
 
 /**
  * An opening `<a>` tag. The lookahead is what keeps `<abbr>`, `<address>` and
@@ -63,6 +65,61 @@ export function renderPadding(padding?: any): string {
   return `${padding.top || 0}px ${padding.right || 0}px ${padding.bottom || 0}px ${padding.left || 0}px`;
 }
 
+/**
+ * The four corners of a radius, whichever of its two shapes it was stored in.
+ *
+ * A number means every corner, which is how the radius was stored before the
+ * corners existed and is still what a document handed straight to the renderer
+ * can carry: `migrateEmailDesign` only reshapes a document whose version is
+ * behind, so a caller that stamps the current version on a payload of its own -
+ * the AI endpoint and the public API both can - gets here unreshaped. Reading
+ * the raw field anywhere else is how that case turns into `NaN`.
+ */
+export function resolveCornerRadius(
+  value?: number | CornerRadius,
+): Required<CornerRadius> {
+  if (typeof value === "number") {
+    const all = Number.isFinite(value) && value > 0 ? value : 0;
+    return { topLeft: all, topRight: all, bottomRight: all, bottomLeft: all };
+  }
+
+  if (!value || typeof value !== "object") return { ...ZERO_CORNER_RADIUS };
+
+  return {
+    topLeft: Number(value.topLeft) || 0,
+    topRight: Number(value.topRight) || 0,
+    bottomRight: Number(value.bottomRight) || 0,
+    bottomLeft: Number(value.bottomLeft) || 0,
+  };
+}
+
+/**
+ * The corners as CSS writes them: one value when they are all the same - which
+ * includes all zero, and is what keeps the output of every document written
+ * before this feature byte for byte what it was - and otherwise the four-value
+ * form, clockwise from the top left.
+ */
+export function formatCornerRadius(corners: Required<CornerRadius>): string {
+  const { topLeft, topRight, bottomRight, bottomLeft } = corners;
+
+  if (
+    topLeft === topRight &&
+    topRight === bottomRight &&
+    bottomRight === bottomLeft
+  ) {
+    return `${topLeft}px`;
+  }
+
+  return `${topLeft}px ${topRight}px ${bottomRight}px ${bottomLeft}px`;
+}
+
+/** Whether a radius, in either shape, rounds anything at all. */
+export function hasCornerRadius(value?: number | CornerRadius): boolean {
+  const { topLeft, topRight, bottomRight, bottomLeft } =
+    resolveCornerRadius(value);
+  return topLeft > 0 || topRight > 0 || bottomRight > 0 || bottomLeft > 0;
+}
+
 export function normalizeUrl(url: string, baseUrl?: string): string {
   if (!url || !baseUrl) return url || "";
   if (url.startsWith("/") && baseUrl) {
@@ -106,7 +163,7 @@ export function hasBoxStyles(data?: any): boolean {
   return (
     Boolean(data?.backgroundColor) ||
     borderDeclarations(data?.border).length > 0 ||
-    Number(data?.borderRadius) > 0
+    hasCornerRadius(data?.borderRadius)
   );
 }
 
@@ -152,8 +209,10 @@ export function renderBox(html: string, data?: any): string {
     if (data.backgroundColor)
       styles.push(`background-color: ${data.backgroundColor}`);
     styles.push(...borderDeclarations(data.border));
-    if (Number(data.borderRadius) > 0)
-      styles.push(`border-radius: ${Number(data.borderRadius)}px`);
+    if (hasCornerRadius(data.borderRadius))
+      styles.push(
+        `border-radius: ${formatCornerRadius(resolveCornerRadius(data.borderRadius))}`,
+      );
 
     out = cell(styles.join("; "), out);
   }
@@ -183,8 +242,10 @@ export function renderMJMLBox(
   if (data.backgroundColor)
     styles.push(`background-color: ${data.backgroundColor}`);
   styles.push(...borderDeclarations(data.border));
-  if (Number(data.borderRadius) > 0)
-    styles.push(`border-radius: ${Number(data.borderRadius)}px`);
+  if (hasCornerRadius(data.borderRadius))
+    styles.push(
+      `border-radius: ${formatCornerRadius(resolveCornerRadius(data.borderRadius))}`,
+    );
 
   return {
     padding: renderPadding(data.margin),

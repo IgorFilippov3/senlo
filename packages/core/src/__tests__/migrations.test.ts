@@ -78,7 +78,7 @@ describe("migrateEmailDesign", () => {
     const migrated: any = migrateEmailDesign(legacyDocument());
 
     expect(migrated.version).toBe(emailDesignVersion);
-    expect(emailDesignVersion).toBe(3);
+    expect(emailDesignVersion).toBe(4);
   });
 
   it("does not touch a document that is already current", () => {
@@ -213,6 +213,115 @@ describe("the bolder weight", () => {
     const twice: any = migrateRow(once);
 
     expect(once.columns[0].blocks[0].data.fontWeight).toBe("bold");
+    expect(twice).toEqual(once);
+  });
+});
+
+describe("an image's corner radius", () => {
+  /** A version 3 document, which is where the radius was still one number. */
+  const withRadius = (data: any) => ({
+    version: 3,
+    settings: {},
+    rows: [
+      {
+        id: "row-1",
+        type: "row",
+        settings: {},
+        columns: [
+          { id: "col-1", width: 100, blocks: [{ id: "b1", type: "image", data }] },
+        ],
+      },
+    ],
+  });
+
+  const blockOf = (doc: any) => doc.rows[0].columns[0].blocks[0];
+
+  it("becomes four equal corners", () => {
+    const migrated: any = migrateEmailDesign(
+      withRadius({ src: "https://example.com/a.png", borderRadius: 12 }),
+    );
+
+    expect(blockOf(migrated).data.borderRadius).toEqual({
+      topLeft: 12,
+      topRight: 12,
+      bottomRight: 12,
+      bottomLeft: 12,
+    });
+  });
+
+  it("keeps the rest of the image", () => {
+    const migrated: any = migrateEmailDesign(
+      withRadius({
+        src: "https://example.com/a.png",
+        alt: "A picture",
+        width: 320,
+        borderRadius: 8,
+      }),
+    );
+
+    const { data } = blockOf(migrated);
+    expect(data.src).toBe("https://example.com/a.png");
+    expect(data.alt).toBe("A picture");
+    expect(data.width).toBe(320);
+  });
+
+  it("does not give an image a radius it never had", () => {
+    const migrated: any = migrateEmailDesign(
+      withRadius({ src: "https://example.com/a.png" }),
+    );
+
+    expect("borderRadius" in blockOf(migrated).data).toBe(false);
+  });
+
+  it("drops a radius of zero rather than storing four zeroes", () => {
+    const migrated: any = migrateEmailDesign(
+      withRadius({ src: "https://example.com/a.png", borderRadius: 0 }),
+    );
+
+    expect("borderRadius" in blockOf(migrated).data).toBe(false);
+  });
+
+  it("leaves corners that are already corners alone", () => {
+    const corners = {
+      topLeft: 16,
+      topRight: 0,
+      bottomRight: 16,
+      bottomLeft: 0,
+    };
+    const migrated: any = migrateEmailDesign(
+      withRadius({ src: "https://example.com/a.png", borderRadius: corners }),
+    );
+
+    expect(blockOf(migrated).data.borderRadius).toEqual(corners);
+  });
+
+  it("is idempotent, which is what a saved row relies on", () => {
+    const once: any = migrateRow({
+      id: "row-1",
+      type: "row",
+      settings: {},
+      columns: [
+        {
+          id: "col-1",
+          width: 100,
+          blocks: [
+            {
+              id: "b1",
+              type: "image",
+              data: { src: "https://example.com/a.png", borderRadius: 10 },
+            },
+          ],
+        },
+      ],
+    });
+    const twice: any = migrateRow(once);
+
+    expect(once.columns[0].blocks[0].data.borderRadius).toEqual({
+      topLeft: 10,
+      topRight: 10,
+      bottomRight: 10,
+      bottomLeft: 10,
+    });
     expect(twice).toEqual(once);
   });
 });

@@ -22,6 +22,41 @@ export const borderSchema = z.object({
 });
 
 /**
+ * The four corners of a rounded box, named in the order CSS writes them.
+ *
+ * The order is not cosmetic: `formatCornerRadius` is a join over these fields,
+ * so a field list in reading order (top-left, top-right, bottom-left,
+ * bottom-right) would need a reorder at every call site, and a missed reorder
+ * is invisible in any preview where the corners happen to be equal.
+ *
+ * A block may still store a single number instead - that is what every
+ * document written before this shape existed carries, and what the AI endpoint
+ * and the public API can still send. `resolveCornerRadius` is the one place
+ * that difference is resolved.
+ */
+export const cornerRadiusSchema = z.object({
+  topLeft: z.number().int().nonnegative().optional(),
+  topRight: z.number().int().nonnegative().optional(),
+  bottomRight: z.number().int().nonnegative().optional(),
+  bottomLeft: z.number().int().nonnegative().optional(),
+});
+
+export type CornerRadius = z.infer<typeof cornerRadiusSchema>;
+
+/** What a block's radius can be on the way in: the old number or the new corners. */
+export const cornerRadiusValueSchema = z.union([
+  z.number().nonnegative(),
+  cornerRadiusSchema,
+]);
+
+export const ZERO_CORNER_RADIUS: Required<CornerRadius> = {
+  topLeft: 0,
+  topRight: 0,
+  bottomRight: 0,
+  bottomLeft: 0,
+};
+
+/**
  * Card-like styling a content block can carry: a background, a border, rounded
  * corners and a gap from its neighbours.
  *

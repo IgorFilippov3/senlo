@@ -28,6 +28,7 @@ type BlockMigration = (block: any) => any;
 const BLOCK_MIGRATIONS: Record<number, BlockMigration> = {
   1: migrateProductLineToItems,
   2: migrateBolderToBold,
+  3: migrateImageRadiusToCorners,
 };
 
 /**
@@ -96,6 +97,46 @@ function migrateBolderToBold(block: any): any {
   if (data.rightStyle === undefined) delete next.rightStyle;
 
   return { ...block, data: next };
+}
+
+/**
+ * An image's corner radius used to be one number for all four corners. It is a
+ * corner object now, so the number becomes four equal corners.
+ *
+ * An image that never had a radius keeps not having one: writing four zeroes
+ * into every image in every existing template would add a key to blocks that
+ * never carried it, which is the same thing `migrateBolderToBold` goes out of
+ * its way not to do.
+ *
+ * Idempotent: a block that is not an image, has no radius, or already carries
+ * the object is returned untouched - which is what lets this run over a saved
+ * row that has no version to say whether it has been here before.
+ */
+function migrateImageRadiusToCorners(block: any): any {
+  if (block?.type !== "image") return block;
+
+  const radius = block.data?.borderRadius;
+  if (typeof radius !== "number") return block;
+
+  const all = Number.isFinite(radius) && radius > 0 ? Math.round(radius) : 0;
+
+  if (all === 0) {
+    const { borderRadius, ...rest } = block.data;
+    return { ...block, data: rest };
+  }
+
+  return {
+    ...block,
+    data: {
+      ...block.data,
+      borderRadius: {
+        topLeft: all,
+        topRight: all,
+        bottomRight: all,
+        bottomLeft: all,
+      },
+    },
+  };
 }
 
 /** Applies a block migration to every block of a row, keeping the row's shape. */

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { contentBlockSchema } from "./blocks/registry";
 import { contentConditionSchema, paddingSchema } from "./blocks/shared";
+import type { CornerRadius } from "./blocks/shared";
 
 /**
  * The document format. Bumped when a saved document has to be reshaped;
@@ -9,8 +10,9 @@ import { contentConditionSchema, paddingSchema } from "./blocks/shared";
  * 2 - a product line became a list of label/value pairs instead of one pair.
  * 3 - `fontWeight` lost `bolder`, which no control could produce and which no
  *     web-safe font renders differently from `bold`.
+ * 4 - an image's `borderRadius` became four corners instead of one number.
  */
-export const emailDesignVersion = 3;
+export const emailDesignVersion = 4;
 
 export type RowId = string;
 export type ColumnId = string;
@@ -123,7 +125,12 @@ export interface ImageBlock extends BaseContentBlock {
     href?: string;
     width?: number; // px
     align?: "left" | "center" | "right";
-    borderRadius?: number;
+    /**
+     * Four corners since version 4. A number is still accepted on the way in -
+     * see `resolveCornerRadius` - so a document the renderer is handed without
+     * a migration pass still reads.
+     */
+    borderRadius?: number | CornerRadius;
     padding?: {
       top?: number;
       right?: number;

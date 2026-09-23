@@ -11,6 +11,7 @@ import {
   ToggleGroup,
   Slider,
   PaddingControl,
+  CornerRadiusControl,
   ColorPicker,
   Button,
 } from "@senlo/ui";
@@ -196,20 +197,19 @@ export const ImageSection = ({ block }: ImageSectionProps) => {
         )}
       />
 
-      <Controller
-        name="borderRadius"
-        control={control}
-        render={({ field }) => (
-          <Slider
-            label="Corner Radius"
-            unit="px"
-            min={0}
-            max={100}
-            value={field.value ?? DEFAULT_IMAGE_BORDER_RADIUS}
-            onChange={field.onChange}
-          />
-        )}
-      />
+      <FormField hint="Rounded corners do not render in Outlook on Windows, where the image stays square.">
+        <Controller
+          name="borderRadius"
+          control={control}
+          render={({ field }) => (
+            <CornerRadiusControl
+              title="Corner Radius"
+              value={field.value ?? DEFAULT_IMAGE_BORDER_RADIUS}
+              onChange={field.onChange}
+            />
+          )}
+        />
+      </FormField>
 
       <FormSection title="Border">
         <FormGrid cols={2}>

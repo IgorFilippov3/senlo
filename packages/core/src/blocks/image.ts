@@ -4,13 +4,21 @@
 
 import { z } from "zod";
 import { escapeAttr, sanitizeUrl } from "../renderer/escape";
-import { normalizeUrl, renderPadding } from "../renderer/utils";
+import {
+  formatCornerRadius,
+  normalizeUrl,
+  renderPadding,
+  resolveCornerRadius,
+} from "../renderer/utils";
 import type { RenderContext, RenderOptions } from "../renderer/types";
 import {
+  ZERO_CORNER_RADIUS,
   alignSchema,
   borderSchema,
   contentConditionSchema,
   copy,
+  cornerRadiusSchema,
+  cornerRadiusValueSchema,
   paddingSchema,
   urlLikeSchema,
 } from "./shared";
@@ -22,7 +30,7 @@ export const imageBlockDataSchema = z.object({
   href: urlLikeSchema.optional(),
   width: z.number().nonnegative().optional(),
   align: alignSchema.optional(),
-  borderRadius: z.number().nonnegative().optional(),
+  borderRadius: cornerRadiusValueSchema.optional(),
   padding: paddingSchema.optional(),
   border: borderSchema.optional(),
   fullWidth: z.boolean().optional(),
@@ -38,13 +46,20 @@ export type ImageBlockData = z.infer<
  * field types survive for `formState.errors`.
  */
 export const imageBlockFormSchema = imageBlockDataSchema.extend({
+  /**
+   * The panel only ever edits a document that has already been through
+   * `migrateEmailDesign`, so the corners are an object by the time a form sees
+   * them. Narrowing the union here is what lets the section bind four named
+   * fields and keeps `formState.errors` typed.
+   */
+  borderRadius: cornerRadiusSchema.optional(),
   condition: contentConditionSchema.optional(),
 });
 
 export const imageBlockFallbacks = {
   align: "center" as const,
   alt: "",
-  borderRadius: 0,
+  borderRadius: { ...ZERO_CORNER_RADIUS },
   border: { width: 0, style: "solid" as const, color: "#000000" },
   padding: { top: 0, right: 0, bottom: 0, left: 0 },
 };
@@ -62,7 +77,7 @@ function renderImage(block: any, context: RenderContext): string {
     }`,
     `max-width: 100%`,
     `height: auto`,
-    `border-radius: ${data.borderRadius || imageBlockFallbacks.borderRadius}px`,
+    `border-radius: ${formatCornerRadius(resolveCornerRadius(data.borderRadius))}`,
     `border: ${
       data.border?.width
         ? `${data.border.width}px ${data.border.style} ${data.border.color}`
@@ -107,7 +122,7 @@ function renderMJMLImage(block: any, options?: RenderOptions): string {
           width="${data.fullWidth ? "" : data.width ? data.width + "px" : ""}"
           fluid-on-mobile="${data.fullWidth ? "true" : "false"}"
           align="${data.align || "center"}"
-          border-radius="${data.borderRadius || 0}px"
+          border-radius="${formatCornerRadius(resolveCornerRadius(data.borderRadius))}"
           border="${data.border?.width ? `${data.border.width}px ${data.border.style} ${data.border.color}` : "none"}"
           padding="${renderPadding(data.padding)}"
           ${data.href ? `href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}"` : ""}

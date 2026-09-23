@@ -57,6 +57,28 @@ describe("loading an older document", () => {
     expect(store().design.version).toBe(emailDesignVersion);
   });
 
+  it("turns an image's single radius into four corners", () => {
+    const withRadius: any = legacyDesign();
+    withRadius.version = 3;
+    withRadius.rows[0].columns[0].blocks = [
+      {
+        id: "img-1",
+        type: "image" as const,
+        data: { src: "https://example.com/a.png", borderRadius: 12 },
+      },
+    ];
+
+    store().setDesign(withRadius);
+
+    const block: any = store().design.rows[0].columns[0].blocks[0];
+    expect(block.data.borderRadius).toEqual({
+      topLeft: 12,
+      topRight: 12,
+      bottomRight: 12,
+      bottomLeft: 12,
+    });
+  });
+
   it("is not an edit: the template is not marked unsaved", () => {
     store().setDesign(legacyDesign() as any);
 
