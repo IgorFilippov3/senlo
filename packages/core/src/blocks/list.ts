@@ -5,7 +5,12 @@
 import { z } from "zod";
 import { escapeAttr } from "../renderer/escape";
 import { globalsOf } from "../renderer/types";
-import { renderBox, renderMJMLBox, renderPadding } from "../renderer/utils";
+import {
+  colorInlineLinks,
+  renderBox,
+  renderMJMLBox,
+  renderPadding,
+} from "../renderer/utils";
 import type { RenderContext } from "../renderer/types";
 import {
   alignSchema,
@@ -62,11 +67,15 @@ function renderList(block: any, context: RenderContext): string {
   const Tag = data.listType === "ordered" ? "ol" : "ul";
   const listStyle = data.listType === "ordered" ? "decimal" : "disc";
 
+  // Resolved once: the list writes it on itself, and any link the author typed
+  // inside an item gets the same value, so the two cannot drift.
+  const color = data.color || globals.textColor || "inherit";
+
   const style = [
     `margin: 0`,
     `font-family: ${globals.fontFamily}`,
     `text-align: ${data.align || listBlockFallbacks.align}`,
-    `color: ${data.color || globals.textColor || "inherit"}`,
+    `color: ${color}`,
     `font-size: ${data.fontSize || listBlockFallbacks.fontSize}px`,
     `line-height: ${data.lineHeight || listBlockFallbacks.lineHeight}`,
     `font-weight: ${data.fontWeight || listBlockFallbacks.fontWeight}`,
@@ -74,7 +83,10 @@ function renderList(block: any, context: RenderContext): string {
   ].join("; ");
 
   const itemsHtml = (data.items || [])
-    .map((item: string) => `<li style="margin-bottom: 4px;">${item}</li>`)
+    .map(
+      (item: string) =>
+        `<li style="margin-bottom: 4px;">${colorInlineLinks(item, color)}</li>`,
+    )
     .join("");
 
   return renderBox(
@@ -93,8 +105,9 @@ function renderMJMLList(block: any): string {
   const { data } = block;
   const Tag = data.listType === "ordered" ? "ol" : "ul";
   const listStyle = data.listType === "ordered" ? "decimal" : "disc";
+  const color = data.color || "#000000";
   const itemsHtml = (data.items || [])
-    .map((item: string) => `<li>${item}</li>`)
+    .map((item: string) => `<li>${colorInlineLinks(item, color)}</li>`)
     .join("");
   const box = renderMJMLBox(
     `<${Tag} style="margin: 0; padding-left: 20px; list-style-type: ${listStyle};">
@@ -106,7 +119,7 @@ function renderMJMLList(block: any): string {
   return `
         <mj-text
           align="${data.align || "left"}"
-          color="${data.color || "#000000"}"
+          color="${color}"
           font-size="${data.fontSize || 16}px"
           line-height="${data.lineHeight || 1.5}"
           font-weight="${data.fontWeight || "normal"}"

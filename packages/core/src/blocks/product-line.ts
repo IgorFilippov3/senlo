@@ -5,7 +5,12 @@
 import { z } from "zod";
 import { escapeAttr } from "../renderer/escape";
 import { globalsOf } from "../renderer/types";
-import { renderBox, renderMJMLBox, renderPadding } from "../renderer/utils";
+import {
+  colorInlineLinks,
+  renderBox,
+  renderMJMLBox,
+  renderPadding,
+} from "../renderer/utils";
 import type { RenderContext } from "../renderer/types";
 import {
   boxFallbacks,
@@ -134,12 +139,17 @@ function renderProductLine(block: any, context: RenderContext): string {
     }`;
   };
 
+  // A colour per column, because the two sides are styled separately. Each one
+  // is written on its cell and on any link the author typed into that cell.
+  const leftColor = leftStyle.color || globals.textColor || "#000000";
+  const rightColor = rightStyle.color || globals.textColor || "#000000";
+
   const leftCellStyle = [
     `text-align: left`,
     `font-family: ${leftStyle.fontFamily || globals.fontFamily}`,
     `font-size: ${leftStyle.fontSize || productLineBlockFallbacks.leftStyle.fontSize}px`,
     `line-height: ${leftStyle.lineHeight || productLineBlockFallbacks.leftStyle.lineHeight}`,
-    `color: ${leftStyle.color || globals.textColor || "#000000"}`,
+    `color: ${leftColor}`,
     `font-weight: ${leftStyle.fontWeight || productLineBlockFallbacks.leftStyle.fontWeight}`,
     `vertical-align: top`,
     `padding: ${rowPadding}`,
@@ -151,7 +161,7 @@ function renderProductLine(block: any, context: RenderContext): string {
     `font-family: ${rightStyle.fontFamily || globals.fontFamily}`,
     `font-size: ${rightStyle.fontSize || productLineBlockFallbacks.rightStyle.fontSize}px`,
     `line-height: ${rightStyle.lineHeight || productLineBlockFallbacks.rightStyle.lineHeight}`,
-    `color: ${rightStyle.color || globals.textColor || "#000000"}`,
+    `color: ${rightColor}`,
     `font-weight: ${rightStyle.fontWeight || productLineBlockFallbacks.rightStyle.fontWeight}`,
     `white-space: nowrap`,
     `vertical-align: top`,
@@ -165,10 +175,10 @@ function renderProductLine(block: any, context: RenderContext): string {
       return `
           <tr>
             <td style="${escapeAttr(leftCellStyle + rule(isLast))}">
-              ${item.left || ""}
+              ${colorInlineLinks(item.left, leftColor)}
             </td>
             <td style="${escapeAttr(rightCellStyle + rule(isLast))}">
-              ${item.right || ""}
+              ${colorInlineLinks(item.right, rightColor)}
             </td>
           </tr>`;
     })
@@ -204,17 +214,20 @@ function renderMJMLProductLine(block: any): string {
     return ` border-bottom: ${width}px ${divider.style || "solid"} ${divider.color || "#e5e7eb"};`;
   };
 
+  const leftColor = leftStyle.color || "#000000";
+  const rightColor = rightStyle.color || "#000000";
+
   const rows = items
     .map((item, index) => {
       const isLast = index === items.length - 1;
 
       return `
             <tr>
-              <td align="left" style="font-family: ${leftStyle.fontFamily || "Arial, sans-serif"}; font-size: ${leftStyle.fontSize || 14}px; line-height: ${leftStyle.lineHeight || 1.4}; color: ${leftStyle.color || "#000000"}; font-weight: ${leftStyle.fontWeight || "normal"}; padding: ${rowPadding};${rule(isLast)}">
-                ${item.left || ""}
+              <td align="left" style="font-family: ${leftStyle.fontFamily || "Arial, sans-serif"}; font-size: ${leftStyle.fontSize || 14}px; line-height: ${leftStyle.lineHeight || 1.4}; color: ${leftColor}; font-weight: ${leftStyle.fontWeight || "normal"}; padding: ${rowPadding};${rule(isLast)}">
+                ${colorInlineLinks(item.left, leftColor)}
               </td>
-              <td align="right" width="${data.rightWidth || 120}" style="width: ${data.rightWidth || 120}px; font-family: ${rightStyle.fontFamily || "Arial, sans-serif"}; font-size: ${rightStyle.fontSize || 14}px; line-height: ${rightStyle.lineHeight || 1.4}; color: ${rightStyle.color || "#000000"}; font-weight: ${rightStyle.fontWeight || "normal"}; white-space: nowrap; padding: ${rowPadding};${rule(isLast)}">
-                ${item.right || ""}
+              <td align="right" width="${data.rightWidth || 120}" style="width: ${data.rightWidth || 120}px; font-family: ${rightStyle.fontFamily || "Arial, sans-serif"}; font-size: ${rightStyle.fontSize || 14}px; line-height: ${rightStyle.lineHeight || 1.4}; color: ${rightColor}; font-weight: ${rightStyle.fontWeight || "normal"}; white-space: nowrap; padding: ${rowPadding};${rule(isLast)}">
+                ${colorInlineLinks(item.right, rightColor)}
               </td>
             </tr>`;
     })

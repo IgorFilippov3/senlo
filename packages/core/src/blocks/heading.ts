@@ -5,7 +5,12 @@
 import { z } from "zod";
 import { escapeAttr, sanitizeUrl } from "../renderer/escape";
 import { globalsOf } from "../renderer/types";
-import { renderBox, renderMJMLBox, renderPadding } from "../renderer/utils";
+import {
+  colorInlineLinks,
+  renderBox,
+  renderMJMLBox,
+  renderPadding,
+} from "../renderer/utils";
 import type { RenderContext } from "../renderer/types";
 import {
   alignSchema,
@@ -98,6 +103,10 @@ function renderHeading(block: any, context: RenderContext): string {
   );
   const Tag = `h${level}`;
 
+  // Resolved once: the heading writes it on itself, and any link the author
+  // typed inside the text gets the same value, so the two cannot drift.
+  const color = data.color || globals.textColor || "inherit";
+
   const style = [
     `margin: 0`,
     // Outlook's Word engine ignores the `*` selector in the head, so the font
@@ -105,7 +114,7 @@ function renderHeading(block: any, context: RenderContext): string {
     // Times New Roman.
     `font-family: ${globals.fontFamily}`,
     `text-align: ${data.align || headingBlockFallbacks.align}`,
-    `color: ${data.color || globals.textColor || "inherit"}`,
+    `color: ${color}`,
     `font-size: ${data.fontSize || HEADING_FONT_SIZES[level]}px`,
     `line-height: ${data.lineHeight || headingBlockFallbacks.lineHeight}`,
     `font-weight: ${data.fontWeight || headingBlockFallbacks.fontWeight}`,
@@ -117,7 +126,7 @@ function renderHeading(block: any, context: RenderContext): string {
   ].join("; ");
 
   // data.text is raw HTML on purpose - the editor lets the author write markup.
-  let content = data.text;
+  let content = colorInlineLinks(data.text, color);
   if (data.href) {
     content = `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }))}" target="_blank" style="color: inherit; text-decoration: none;">${content}</a>`;
   }
@@ -130,17 +139,19 @@ function renderHeading(block: any, context: RenderContext): string {
 
 function renderMJMLHeading(block: any): string {
   const { data } = block;
+  const color = data.color || "#000000";
+  const text = colorInlineLinks(data.text, color);
   const box = renderMJMLBox(
     data.href
-      ? `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" style="color: inherit; text-decoration: none;">${data.text}</a>`
-      : data.text,
+      ? `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" style="color: inherit; text-decoration: none;">${text}</a>`
+      : text,
     data,
   );
 
   return `
         <mj-text
           align="${data.align || headingBlockFallbacks.align}"
-          color="${data.color || "#000000"}"
+          color="${color}"
           font-size="${data.fontSize || HEADING_FONT_SIZES[Number(data.level) || headingBlockFallbacks.level] || 24}px"
           line-height="${data.lineHeight || headingBlockFallbacks.lineHeight}"
           font-weight="${data.fontWeight || headingBlockFallbacks.fontWeight}"

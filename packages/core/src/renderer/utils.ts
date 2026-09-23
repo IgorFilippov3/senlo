@@ -1,5 +1,63 @@
 import { escapeAttr } from "./escape";
 
+/**
+ * An opening `<a>` tag. The lookahead is what keeps `<abbr>`, `<address>` and
+ * `<area>` out of it.
+ */
+const ANCHOR_OPEN = /<a(?=[\s>])[^>]*>/gi;
+
+/** The tag's own `style`, with whichever quote character it was written with. */
+const STYLE_ATTR = /\sstyle\s*=\s*(["'])([\s\S]*?)\1/i;
+
+/**
+ * A `color` declaration, and not `background-color` or `border-color`: those
+ * only ever appear after a `-`, which neither branch here allows.
+ */
+const COLOR_DECLARATION = /(?:^|;)\s*color\s*:/i;
+
+/**
+ * Gives every link the author wrote inside a block's text the colour of that
+ * text.
+ *
+ * The text fields hold raw HTML on purpose - an author can type
+ * `<a href="...">terms</a>` in the middle of a paragraph - and a bare anchor
+ * is styled by the mail client, which means the reader gets whatever blue that
+ * client likes rather than the colour the block is set to. The colour has to
+ * be written onto the anchor itself: `inherit` is not reliably honoured on a
+ * link, and clients apply their own colour before any inheritance.
+ *
+ * The underline is left alone. A link the same colour as the text around it
+ * and with nothing else to mark it is a link nobody clicks.
+ *
+ * An anchor whose author gave it a colour of its own is returned untouched -
+ * that is a decision already made, and this is only here to supply one where
+ * none exists.
+ */
+export function colorInlineLinks(html: unknown, color?: string): string {
+  const source = html === undefined || html === null ? "" : String(html);
+
+  // `inherit` is what a block falls back to when neither it nor the document
+  // names a colour. Writing it onto the anchor would be the unreliable half of
+  // the problem rather than the fix, so such a block is left as it was.
+  if (!source || !color || color === "inherit") return source;
+  if (!/<a[\s>]/i.test(source)) return source;
+
+  const declaration = `color: ${escapeAttr(color)}`;
+
+  return source.replace(ANCHOR_OPEN, (tag) => {
+    const style = tag.match(STYLE_ATTR);
+
+    if (!style) return tag.replace(/^<a/i, `<a style="${declaration}"`);
+    if (COLOR_DECLARATION.test(style[2])) return tag;
+
+    const quote = style[1];
+    const existing = style[2].trim().replace(/;\s*$/, "");
+    const merged = existing ? `${existing}; ${declaration}` : declaration;
+
+    return tag.replace(STYLE_ATTR, ` style=${quote}${merged}${quote}`);
+  });
+}
+
 export function renderPadding(padding?: any): string {
   if (!padding) return "0px 0px 0px 0px";
   return `${padding.top || 0}px ${padding.right || 0}px ${padding.bottom || 0}px ${padding.left || 0}px`;

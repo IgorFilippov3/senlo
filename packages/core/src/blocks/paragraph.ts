@@ -5,7 +5,12 @@
 import { z } from "zod";
 import { escapeAttr, sanitizeUrl } from "../renderer/escape";
 import { globalsOf } from "../renderer/types";
-import { renderBox, renderMJMLBox, renderPadding } from "../renderer/utils";
+import {
+  colorInlineLinks,
+  renderBox,
+  renderMJMLBox,
+  renderPadding,
+} from "../renderer/utils";
 import type { RenderContext } from "../renderer/types";
 import {
   alignSchema,
@@ -62,11 +67,15 @@ function renderParagraph(block: any, context: RenderContext): string {
   const { data } = block;
   const globals = globalsOf(context);
 
+  // Resolved once: the paragraph writes it on itself, and any link the author
+  // typed inside the text gets the same value, so the two cannot drift.
+  const color = data.color || globals.textColor || "inherit";
+
   const style = [
     `margin: 0`,
     `font-family: ${globals.fontFamily}`,
     `text-align: ${data.align || paragraphBlockFallbacks.align}`,
-    `color: ${data.color || globals.textColor || "inherit"}`,
+    `color: ${color}`,
     `font-size: ${data.fontSize || paragraphBlockFallbacks.fontSize}px`,
     `line-height: ${data.lineHeight || paragraphBlockFallbacks.lineHeight}`,
     `font-weight: ${data.fontWeight || paragraphBlockFallbacks.fontWeight}`,
@@ -77,7 +86,7 @@ function renderParagraph(block: any, context: RenderContext): string {
     `padding: ${renderPadding(data.padding)}`,
   ].join("; ");
 
-  let content = data.text;
+  let content = colorInlineLinks(data.text, color);
   if (data.href) {
     content = `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }))}" target="_blank" style="color: inherit; text-decoration: none;">${content}</a>`;
   }
@@ -87,17 +96,19 @@ function renderParagraph(block: any, context: RenderContext): string {
 
 function renderMJMLParagraph(block: any): string {
   const { data } = block;
+  const color = data.color || "#000000";
+  const text = colorInlineLinks(data.text, color);
   const box = renderMJMLBox(
     data.href
-      ? `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" style="color: inherit; text-decoration: none;">${data.text}</a>`
-      : data.text,
+      ? `<a href="${escapeAttr(sanitizeUrl(data.href, { fallback: "#" }) || "#")}" style="color: inherit; text-decoration: none;">${text}</a>`
+      : text,
     data,
   );
 
   return `
         <mj-text
           align="${data.align || "left"}"
-          color="${data.color || "#000000"}"
+          color="${color}"
           font-size="${data.fontSize || 16}px"
           line-height="${data.lineHeight || 1.5}"
           font-weight="${data.fontWeight || "normal"}"
