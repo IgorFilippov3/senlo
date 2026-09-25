@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { contentBlockSchema } from "./blocks/registry";
-import { contentConditionSchema, paddingSchema } from "./blocks/shared";
-import type { CornerRadius } from "./blocks/shared";
+import {
+  contentConditionSchema,
+  linearGradientSchema,
+  paddingSchema,
+} from "./blocks/shared";
+import type { CornerRadius, LinearGradient } from "./blocks/shared";
 
 /**
  * The document format. Bumped when a saved document has to be reshaped;
@@ -387,6 +391,12 @@ export interface RowBlock {
      * wider template can never overflow a narrower one.
      */
     width?: number;
+    /**
+     * A gradient painted over `backgroundColor`, never instead of it. Roughly
+     * two recipients in five - Outlook on Windows, Yahoo, AOL - see only the
+     * colour, so the colour is the design and this is what the rest get on top.
+     */
+    backgroundGradient?: LinearGradient;
   };
 }
 
@@ -473,6 +483,7 @@ export const rowBlockSchema = z.object({
         .optional(),
       margin: paddingSchema.optional(),
       width: z.number().int().positive().optional(),
+      backgroundGradient: linearGradientSchema.optional(),
     })
     .optional()
     .default({}),

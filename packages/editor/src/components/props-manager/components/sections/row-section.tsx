@@ -21,6 +21,10 @@ import {
   Link2Off,
   Square,
   StretchHorizontal,
+  ArrowDown,
+  ArrowUp,
+  ArrowRight,
+  MoveDownRight,
 } from "lucide-react";
 import { Controller, useWatch } from "react-hook-form";
 import { RowBlock } from "@senlo/core";
@@ -88,11 +92,63 @@ export const RowSection = ({ row }: RowSectionProps) => {
   const width = useWatch({ control, name: "width" });
   const MIN_WIDTH = 200;
 
+  const backgroundColor = useWatch({ control, name: "backgroundColor" });
+  const gradient = useWatch({ control, name: "backgroundGradient" });
+
+  const fillOptions = [
+    { value: "solid", icon: <Square size={16} />, label: "Solid" },
+    { value: "gradient", icon: <MoveDownRight size={16} />, label: "Gradient" },
+  ];
+
+  // CSS degrees. Four directions rather than a free 0-360 slider: these are the
+  // ones authors ask for, and the middle values of such a slider are ones
+  // nobody can picture before dragging to them.
+  const directionOptions = [
+    { value: "180", icon: <ArrowDown size={16} />, label: "Down" },
+    { value: "0", icon: <ArrowUp size={16} />, label: "Up" },
+    { value: "90", icon: <ArrowRight size={16} />, label: "Right" },
+    { value: "135", icon: <MoveDownRight size={16} />, label: "Diagonal" },
+  ];
+
+  /**
+   * Turning the gradient on seeds it from the colour the row already has, so
+   * the first thing the author sees is their own row rather than someone
+   * else's palette - and writes the first stop back into `backgroundColor` if
+   * the row had none, because that colour is what two recipients in five will
+   * actually see.
+   */
+  const handleFillChange = (value: string) => {
+    if (value === "solid") {
+      setValue("backgroundGradient", undefined, { shouldDirty: true });
+      return;
+    }
+
+    const base =
+      backgroundColor && backgroundColor !== "transparent"
+        ? backgroundColor
+        : "#eef0fb";
+
+    setValue(
+      "backgroundGradient",
+      { from: base, to: base, angle: 180 },
+      { shouldDirty: true },
+    );
+
+    if (!backgroundColor || backgroundColor === "transparent") {
+      setValue("backgroundColor", base, { shouldDirty: true });
+    }
+  };
+
   return (
     <FormSection title="Row Settings">
       <FormField
         label="Background Color"
         error={errors.backgroundColor?.message}
+        hint={
+          gradient
+            ? "The colour on its own is what Outlook on Windows, Yahoo and AOL show - they do not render gradients. Pick one the design survives."
+            : undefined
+        }
       >
         <Controller
           name="backgroundColor"
@@ -106,6 +162,67 @@ export const RowSection = ({ row }: RowSectionProps) => {
           )}
         />
       </FormField>
+
+      <FormField label="Fill">
+        <ToggleGroup
+          value={gradient ? "gradient" : "solid"}
+          options={fillOptions}
+          onChange={handleFillChange}
+        />
+      </FormField>
+
+      {gradient && (
+        <FormSection title="Gradient">
+          <FormGrid cols={2}>
+            <FormField
+              label="From"
+              error={errors.backgroundGradient?.from?.message}
+            >
+              <Controller
+                name="backgroundGradient.from"
+                control={control}
+                render={({ field }) => (
+                  <ColorPicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    defaultValue="#eef0fb"
+                  />
+                )}
+              />
+            </FormField>
+            <FormField
+              label="To"
+              error={errors.backgroundGradient?.to?.message}
+            >
+              <Controller
+                name="backgroundGradient.to"
+                control={control}
+                render={({ field }) => (
+                  <ColorPicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    defaultValue="#eef0fb"
+                  />
+                )}
+              />
+            </FormField>
+          </FormGrid>
+
+          <FormField label="Direction">
+            <Controller
+              name="backgroundGradient.angle"
+              control={control}
+              render={({ field }) => (
+                <ToggleGroup
+                  value={String(field.value ?? 180)}
+                  options={directionOptions}
+                  onChange={(val) => field.onChange(Number(val))}
+                />
+              )}
+            />
+          </FormField>
+        </FormSection>
+      )}
 
       <FormGrid cols={2}>
         <FormField label="Alignment">

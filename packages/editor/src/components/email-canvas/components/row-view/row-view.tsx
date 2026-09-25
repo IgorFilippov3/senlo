@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import styles from "./row-view.module.css";
-import { evaluateCondition, type RowId } from "@senlo/core";
+import { evaluateCondition, rowBackground, type RowId } from "@senlo/core";
 import { useShallow } from "zustand/react/shallow";
 import { ColumnView } from "../column-view/column-view";
 import { RowDropZones } from "../row-drop-zones/row-drop-zones";
@@ -72,8 +72,14 @@ export const RowView = memo(
     }
 
     const showAsSelected = isSelected && !isLoopItem;
-    const { backgroundColor, padding, borderRadius, margin, fullWidth } =
-      row.settings;
+    const { padding, borderRadius, margin, fullWidth } = row.settings;
+
+    // What paints behind the row comes from the renderer's own module rather
+    // than being derived here a second time. A row, unlike a block, does not
+    // reach this canvas through the renderer, and the two descriptions of its
+    // chrome have drifted apart before - see the padding comment below, which
+    // is what that cost last time.
+    const background = rowBackground(row.settings);
     const columnIds = row.columnIds ? row.columnIds.split(" ") : [];
 
     const handleClick = (e: React.MouseEvent) => {
@@ -104,7 +110,7 @@ export const RowView = memo(
     // content stays at `rowWidth`, so the background belongs to the band and
     // not to the row - exactly the split `renderRow` makes.
     const bandStyle: React.CSSProperties = fullWidth
-      ? { backgroundColor: backgroundColor || "transparent", ...radii }
+      ? { ...background, ...radii }
       : {};
 
     const contentStyle: React.CSSProperties = {
@@ -113,7 +119,7 @@ export const RowView = memo(
       width: "100%",
       ...(fullWidth
         ? {}
-        : { backgroundColor: backgroundColor || "transparent", ...radii }),
+        : { ...background, ...radii }),
       // These have to match renderRow exactly: a row with no horizontal padding
       // was shown inset by 16px here and sent flush to the edge.
       paddingTop: padding?.top || 0,

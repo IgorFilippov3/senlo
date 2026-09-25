@@ -84,6 +84,47 @@ export const boxFallbacks = {
   margin: { top: 0, right: 0, bottom: 0, left: 0 },
 };
 
+/**
+ * A colour the renderer is willing to write into a CSS declaration.
+ *
+ * Not a free string. Everything a block stores ends up inside a `style`
+ * attribute, and `escapeAttr` - which is what every style string goes through -
+ * does not touch `;`, so an unvalidated colour is a way to append declarations
+ * of one's own. A document does not have to come from the editor to get here:
+ * the AI endpoint and the public API both build one from outside.
+ *
+ * Three shapes, each pinned end to end:
+ *   #rgb / #rgba / #rrggbb / #rrggbbaa
+ *   rgb(…) / rgba(…) with numeric or percentage channels
+ *   a bare word - `white`, `transparent`. Not checked against the CSS list:
+ *   letters alone cannot carry a declaration separator, and a misspelt colour
+ *   is the author's problem rather than anyone's exposure.
+ */
+export const cssColorSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^(#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|rgba?\(\s*\d{1,3}%?\s*,\s*\d{1,3}%?\s*,\s*\d{1,3}%?\s*(?:,\s*(?:0|1|0?\.\d{1,3})\s*)?\)|[a-zA-Z]{3,20})$/,
+    "Must be a hex colour, an rgb()/rgba() colour, or a colour name",
+  );
+
+/**
+ * A two-stop linear gradient painted over a background colour.
+ *
+ * Two stops rather than a list: a stop editor is a component larger than the
+ * feature it serves, the email cases that need one round to zero, and two is
+ * also all a VML fallback could ever express if Outlook is ever revisited.
+ *
+ * `angle` is CSS degrees, where 180 runs top to bottom.
+ */
+export const linearGradientSchema = z.object({
+  from: cssColorSchema,
+  to: cssColorSchema,
+  angle: z.number().int().min(0).max(360).optional(),
+});
+
+export type LinearGradient = z.infer<typeof linearGradientSchema>;
+
 export const shadowSchema = z.object({
   x: z.number().optional(),
   y: z.number().optional(),

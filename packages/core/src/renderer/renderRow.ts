@@ -4,6 +4,11 @@ import { renderBlock } from "./renderBlocks";
 import { evaluateCondition } from "./conditions";
 import { escapeAttr } from "./escape";
 import { cell, hasMargin, renderPadding } from "./utils";
+import {
+  registerRowBackground,
+  rowBackground,
+  rowBackgroundDeclarations,
+} from "./rowBackground";
 
 export function renderRow(row: RowBlock, context: RenderContext): string {
   if (!evaluateCondition(row.condition, context)) {
@@ -29,8 +34,14 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
   // around the band.
   const fullWidth = Boolean(settings.fullWidth);
 
+  // What paints behind the row - the colour, and the gradient over it when the
+  // row has one - is decided in `rowBackground`, which the canvas calls too.
+  // The declarations come back colour first: a client that drops the image has
+  // to keep the colour, and roughly two in five drop the image.
+  const background = rowBackground(settings);
+
   const backgroundStyle = [
-    `background-color: ${settings.backgroundColor || "transparent"}`,
+    ...rowBackgroundDeclarations(settings),
     `border-top-left-radius: ${borderRadius.top || 0}px`,
     `border-top-right-radius: ${borderRadius.top || 0}px`,
     `border-bottom-left-radius: ${borderRadius.bottom || 0}px`,
@@ -38,6 +49,13 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
   ]
     .map(escapeAttr)
     .join("; ");
+
+  // Gmail on Android reads a gradient only from the stylesheet, so a row that
+  // has one also gets a class. It goes on whichever element the background
+  // went on, which for a full-width row is the band rather than the row.
+  const backgroundClass = background.backgroundImage
+    ? ` class="${registerRowBackground(context, background.backgroundImage)}"`
+    : "";
 
   const paddingStyle = escapeAttr(`padding: ${renderPadding(padding)}`);
 
@@ -57,7 +75,7 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
   let html = `
     <table class="senlo-full-width" role="presentation" width="${width}" border="0" cellpadding="0" cellspacing="0" align="center" style="width: ${width}px; max-width: 100%; margin: 0 auto; border-collapse: collapse;">
       <tr>
-        <td align="${align}" style="${rowStyle}; font-size: 0; text-align: ${align};">
+        <td align="${align}"${fullWidth ? "" : backgroundClass} style="${rowStyle}; font-size: 0; text-align: ${align};">
           <!--[if mso]>
           <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
             <tr>
@@ -76,7 +94,7 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
     html = `
     <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
       <tr>
-        <td align="center" style="${backgroundStyle}; font-size: 0;">
+        <td align="center"${backgroundClass} style="${backgroundStyle}; font-size: 0;">
           ${html}
         </td>
       </tr>

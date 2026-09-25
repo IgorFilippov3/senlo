@@ -7,6 +7,7 @@ import { evaluateCondition } from "./conditions";
 import { RenderOptions, RenderContext, globalsOf, resolveGlobals } from "./types";
 import { resolveVariable } from "./conditions";
 import { migrateEmailDesign } from "../migrations";
+import { registerRowBackground, rowBackground } from "./rowBackground";
 
 export function renderEmailDesignMJML(
   rawDesign: EmailDesignDocument,
@@ -64,7 +65,14 @@ export function renderEmailDesignMJML(
       <mj-text color="${escapeAttr(design.settings.textColor || "#111827")}" />
     </mj-attributes>
     <mj-style>
-      /* You can add custom styles here */
+      /* You can add custom styles here */${
+        // Every gradient a section registered, in the block the sections were
+        // rendered before. Nothing is added when there are none, so an export
+        // of a document without gradients is byte for byte what it always was.
+        context.responsiveStyles.length
+          ? "\n      " + context.responsiveStyles.join("\n      ")
+          : ""
+      }
     </mj-style>
   </mj-head>
   <mj-body background-color="${escapeAttr(design.settings.backgroundColor || "#ffffff")}" width="${Number(design.settings.contentWidth) || 600}px">
@@ -107,13 +115,24 @@ function renderMJMLSection(row: RowBlock, context: RenderContext): string {
     right: (padding.right || 0) + inset,
   });
 
+  // MJML has no gradient attribute, so the section takes the colour and the
+  // gradient arrives as a class - the same class the HTML path writes, from the
+  // same registry, landing in the `mj-style` block this function's caller
+  // builds after every section has run. Dropping the gradient here instead
+  // would make the export quietly disagree with the message about a decision
+  // the author can see.
+  const background = rowBackground(settings);
+  const cssClass = background.backgroundImage
+    ? `\n      css-class="${registerRowBackground(context, background.backgroundImage)}"`
+    : "";
+
   const section = `
     <mj-section
-      background-color="${escapeAttr(settings.backgroundColor || "transparent")}"
+      background-color="${escapeAttr(background.backgroundColor)}"
       full-width="${settings.fullWidth ? "full-width" : "none"}"
       padding="${paddingStr}"
       text-align="${escapeAttr(settings.align || "center")}"
-      border-radius="${borderRadiusStr}"
+      border-radius="${borderRadiusStr}"${cssClass}
     >
       ${columns}
     </mj-section>`;

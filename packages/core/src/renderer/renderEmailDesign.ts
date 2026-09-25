@@ -28,8 +28,14 @@ export function renderEmailDesign(
     globals: resolveGlobals(design.settings),
   };
 
-  const headContent = renderHead(design, context);
+  // Body first, head second, and the order is the point. `renderHead`
+  // interpolates `context.responsiveStyles` at the moment it is called, so a
+  // rule the body collects - a gradient class, a media query - can only land in
+  // the stylesheet if the body has already run. Built the other way round, that
+  // field could never carry anything, which is what it did for as long as it
+  // existed. `renderHead` reads nothing else the body writes.
   const bodyContent = renderBody(design.rows, design, context);
+  const headContent = renderHead(design, context);
 
   let html = `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
