@@ -1,8 +1,5 @@
-export type LayoutPreset =
-  | "1col"
-  | "2col-25-75"
-  | "2col-75-25"
-  | "2col-50-50"
-  | "2col-33-67"
-  | "2col-67-33"
-  | "3col";
+/**
+ * The layout names, derived from the widths table rather than repeated beside
+ * it. Kept at this path because several modules already import it from here.
+ */
+export type { LayoutPreset } from "../state/columns/presets";

@@ -1,6 +1,7 @@
 "use client";
 
 import styles from "../sidebar/components/palette-item/palette-item.module.css";
+import { LayoutPreview } from "../sidebar/components/palette-item/layout-preview";
 import { LayoutPreset } from "../../types/layout-preset";
 import { ContentBlockType } from "@senlo/core";
 import { GripVertical } from "lucide-react";
@@ -22,103 +23,6 @@ export const DragOverlayItem = ({
   isBlock = false,
   isSavedRow = false,
 }: DragOverlayItemProps) => {
-  const renderPreview = () => {
-    if (!preset) return null;
-
-    switch (preset) {
-      case "1col":
-        return <div className={styles.previewCol} style={{ width: "100%" }} />;
-
-      case "2col-25-75":
-        return (
-          <>
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(25% - 1px)" }}
-            />
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(75% - 1px)" }}
-            />
-          </>
-        );
-
-      case "2col-75-25":
-        return (
-          <>
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(75% - 1px)" }}
-            />
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(25% - 1px)" }}
-            />
-          </>
-        );
-
-      case "2col-50-50":
-        return (
-          <>
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(50% - 1px)" }}
-            />
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(50% - 1px)" }}
-            />
-          </>
-        );
-
-      case "2col-33-67":
-        return (
-          <>
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(33.33% - 1px)" }}
-            />
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(66.67% - 1px)" }}
-            />
-          </>
-        );
-
-      case "2col-67-33":
-        return (
-          <>
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(66.67% - 1px)" }}
-            />
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(33.33% - 1px)" }}
-            />
-          </>
-        );
-
-      case "3col":
-        return (
-          <>
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(33.33% - 1.33px)" }}
-            />
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(33.33% - 1.33px)" }}
-            />
-            <div
-              className={styles.previewCol}
-              style={{ flex: "0 0 calc(33.34% - 1.33px)" }}
-            />
-          </>
-        );
-    }
-  };
-
   const renderContentOverlay = () => {
     if (!isBlock && !blockType) return null;
 
@@ -199,7 +103,7 @@ export const DragOverlayItem = ({
         ? renderContentOverlay()
         : isSavedRow
           ? renderSavedRowOverlay()
-          : preset && <div className={styles.preview}>{renderPreview()}</div>}
+          : preset && <LayoutPreview preset={preset} />}
     </div>
   );
 };

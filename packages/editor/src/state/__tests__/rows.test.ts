@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { design, store, twoRowDesign } from "./fixtures";
+import { column, design, row, store, twoRowDesign } from "./fixtures";
 
 beforeEach(() => {
   store().resetEditor();
@@ -264,5 +264,78 @@ describe("an empty document", () => {
 
     expect(store().design.rows).toHaveLength(1);
     expect(store().design.rows[0].columns).toHaveLength(3);
+  });
+});
+
+describe("setColumnWidths", () => {
+  const threeColumns = () =>
+    design([
+      row("row-1", [
+        column("col-1", [], 33.33),
+        column("col-2", [], 33.33),
+        column("col-3", [], 33.34),
+      ]),
+    ]);
+
+  beforeEach(() => {
+    store().resetEditor();
+    store().setDesign(threeColumns());
+  });
+
+  it("writes the widths onto the row's columns", () => {
+    store().setColumnWidths("row-1", [50, 20, 30]);
+
+    expect(store().design.rows[0].columns.map((c) => c.width)).toEqual([
+      50, 20, 30,
+    ]);
+  });
+
+  it("records one history step, so the change can be undone", () => {
+    store().setColumnWidths("row-1", [50, 20, 30]);
+
+    expect(store().historyPast).toHaveLength(1);
+    expect(store().isDirty).toBe(true);
+
+    store().undo();
+    expect(store().design.rows[0].columns.map((c) => c.width)).toEqual([
+      33.33, 33.33, 33.34,
+    ]);
+  });
+
+  it("does nothing when the widths are the ones already there", () => {
+    store().setColumnWidths("row-1", [33.33, 33.33, 33.34]);
+
+    expect(store().historyPast).toHaveLength(0);
+    expect(store().isDirty).toBe(false);
+  });
+
+  it("refuses a list that does not match the row's columns", () => {
+    // A short list would leave the last column with an undefined width, which
+    // renders as a full-width column and is very hard to trace back here.
+    store().setColumnWidths("row-1", [50, 50]);
+    store().setColumnWidths("row-1", [25, 25, 25, 25]);
+    store().setColumnWidths("row-1", [50, NaN, 20]);
+
+    expect(store().design.rows[0].columns.map((c) => c.width)).toEqual([
+      33.33, 33.33, 33.34,
+    ]);
+    expect(store().historyPast).toHaveLength(0);
+  });
+
+  it("ignores a row that is not there", () => {
+    store().setColumnWidths("nope", [50, 20, 30]);
+
+    expect(store().historyPast).toHaveLength(0);
+  });
+
+  it("has a no-history variant for a value still being dragged", () => {
+    store().setColumnWidthsWithoutHistory("row-1", [50, 20, 30]);
+
+    expect(store().design.rows[0].columns.map((c) => c.width)).toEqual([
+      50, 20, 30,
+    ]);
+    expect(store().historyPast).toHaveLength(0);
+    // Still an edit, though: the unsaved-changes guard has to see it.
+    expect(store().isDirty).toBe(true);
   });
 });

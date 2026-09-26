@@ -30,13 +30,19 @@ import { Controller, useWatch } from "react-hook-form";
 import { RowBlock } from "@senlo/core";
 import { useEditorStore } from "../../../../state/editor.store";
 import { ConditionSection } from "./condition-section";
+import { ColumnWidths } from "./column-widths";
 import { LoopSection } from "./loop-section";
 
 interface RowSectionProps {
   row: RowBlock;
+  /**
+   * Set when the author reached this panel by clicking a column on the canvas,
+   * so the widths control can say which one they meant.
+   */
+  focusedColumnId?: string;
 }
 
-export const RowSection = ({ row }: RowSectionProps) => {
+export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
   const { control, errors, setValue, getValues } = useRowForm({ row });
 
   // Инициализируем состояние линковки на основе текущих значений
@@ -141,6 +147,8 @@ export const RowSection = ({ row }: RowSectionProps) => {
 
   return (
     <FormSection title="Row Settings">
+      <ColumnWidths row={row} focusedColumnId={focusedColumnId} />
+
       <FormField
         label="Background Color"
         error={errors.backgroundColor?.message}

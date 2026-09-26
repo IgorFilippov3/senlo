@@ -13,6 +13,7 @@ import {
 } from "@senlo/ui";
 import { Loader2 } from "lucide-react";
 import { SavedRowCard } from "./saved-row-card";
+import { LAYOUT_PRESET_ORDER } from "../../../../state/columns/presets";
 
 export const RowsSection = () => {
   const mode = useEditorStore((s) => s.rowsSidebarMode);
@@ -42,13 +43,9 @@ export const RowsSection = () => {
       <div className={styles.content}>
         {mode === "empty" ? (
           <SidebarSection title="Standard Layouts" variant="rows">
-            <PaletteItem preset="1col" />
-            <PaletteItem preset="2col-25-75" />
-            <PaletteItem preset="2col-75-25" />
-            <PaletteItem preset="2col-50-50" />
-            <PaletteItem preset="2col-33-67" />
-            <PaletteItem preset="2col-67-33" />
-            <PaletteItem preset="3col" />
+            {LAYOUT_PRESET_ORDER.map((preset) => (
+              <PaletteItem key={preset} preset={preset} />
+            ))}
           </SidebarSection>
         ) : (
           <div className={styles.savedRowsList}>

@@ -22,6 +22,16 @@ export const PropsManager = () => {
         return row ? { kind: selection.kind, id: selection.id, type: "row" } : null;
       }
 
+      // A column has no settings of its own, but it is part of a row that does.
+      // Falling through to `null` here sent the author to the document's global
+      // settings, which is not a missing panel but a wrong one.
+      if (selection.kind === "column") {
+        const row = s.design.rows.find((r) => r.id === selection.rowId);
+        return row
+          ? { kind: selection.kind, id: selection.id, type: "column" }
+          : null;
+      }
+
       if (selection.kind === "block") {
         // The selection knows its row and column, so this is two lookups by id
         // rather than a walk over every block in the document.
@@ -72,6 +82,11 @@ const SectionRenderer = memo(({ kind, id, type }: SectionRendererProps) => {
     if (kind === "row") {
       return s.design.rows.find((r) => r.id === id) || null;
     }
+    if (kind === "column") {
+      const selection = s.selection;
+      if (selection?.kind !== "column") return null;
+      return s.design.rows.find((r) => r.id === selection.rowId) || null;
+    }
     if (kind === "block") {
       const selection = s.selection;
       if (selection?.kind !== "block") return null;
@@ -87,6 +102,12 @@ const SectionRenderer = memo(({ kind, id, type }: SectionRendererProps) => {
 
   if (kind === "row") {
     return <RowSection row={element as any} />;
+  }
+
+  // Selecting a column opens its row, with that column called out in the widths
+  // control - the one setting a column actually has.
+  if (kind === "column") {
+    return <RowSection row={element as any} focusedColumnId={id} />;
   }
 
   const block = element as any;

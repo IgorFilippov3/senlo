@@ -244,6 +244,17 @@ export interface EditorState {
     condition?: RowBlock["condition"],
     loop?: RowBlock["loop"],
   ) => void;
+  /**
+   * Replace every column width of a row at once.
+   *
+   * The whole array rather than one column, because a width is a property of
+   * how the row is divided: setting one in isolation leaves the question of
+   * where the rest went, and every answer to that is wrong. `resizeColumns`
+   * turns an author's single edit into the array this takes.
+   */
+  setColumnWidths: (rowId: RowId, widths: number[]) => void;
+  /** The same, while a value is still being dragged or typed. */
+  setColumnWidthsWithoutHistory: (rowId: RowId, widths: number[]) => void;
   /** Update row settings without history tracking */
   updateRowWithoutHistory: (
     rowId: RowId,
@@ -377,6 +388,21 @@ const selectBlock = (
       }
     : null;
 };
+
+/**
+ * Whether a set of widths belongs to this row and would actually change it.
+ *
+ * One entry per column, all of them real numbers, and at least one different
+ * from what the row already has. A mismatched length would leave columns with
+ * an undefined width, and an identical array would put a history step on the
+ * stack that undoes to the same thing.
+ */
+function applies(row: RowBlock, widths: number[]): boolean {
+  if (widths.length !== row.columns.length) return false;
+  if (!widths.every((w) => Number.isFinite(w) && w > 0)) return false;
+
+  return row.columns.some((column, i) => column.width !== widths[i]);
+}
 
 const commit = (
   set: (fn: (s: WritableDraft<EditorState>) => void) => void,
@@ -1117,6 +1143,35 @@ export const useEditorStore = create<EditorState>()(
           Object.assign(row.settings, updates);
           row.condition = condition;
           row.loop = loop;
+          s.isDirty = true;
+        }
+      });
+    },
+
+    setColumnWidths: (rowId, widths) => {
+      const row = get().design.rows.find((r) => r.id === rowId);
+      if (!row || !applies(row, widths)) return;
+
+      commit(set, get, (s) => {
+        const target = s.design.rows.find((r) => r.id === rowId);
+        if (target) {
+          target.columns.forEach((column, i) => {
+            column.width = widths[i];
+          });
+        }
+      });
+    },
+
+    setColumnWidthsWithoutHistory: (rowId, widths) => {
+      const row = get().design.rows.find((r) => r.id === rowId);
+      if (!row || !applies(row, widths)) return;
+
+      set((s) => {
+        const target = s.design.rows.find((r) => r.id === rowId);
+        if (target) {
+          target.columns.forEach((column, i) => {
+            column.width = widths[i];
+          });
           s.isDirty = true;
         }
       });
