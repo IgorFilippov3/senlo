@@ -125,6 +125,31 @@ export const linearGradientSchema = z.object({
 
 export type LinearGradient = z.infer<typeof linearGradientSchema>;
 
+/**
+ * A rule above or below a row.
+ *
+ * Deliberately not `borderSchema`, which the blocks use: that one carries
+ * `width`, `left` and `right` as well, and a row renders none of them. A schema
+ * that permits what nothing draws is how a field ends up half-working - a
+ * document could ask for a left border and never be told it was dropped. This
+ * one describes exactly what is drawn, and widening it later is a small,
+ * deliberate change.
+ *
+ * A row's rule exists because a block's cannot always be used: four cells each
+ * drawing their own `border-bottom` make one line until one of them also has a
+ * horizontal outer gap, at which point the line breaks into four inset
+ * segments. A rule that belongs to the row is drawn once and no per-cell
+ * setting can cut it.
+ */
+export const rowBorderSchema = z.object({
+  top: z.number().int().nonnegative().optional(),
+  bottom: z.number().int().nonnegative().optional(),
+  style: z.enum(["solid", "dashed", "dotted"]).optional(),
+  color: cssColorSchema.optional(),
+});
+
+export type RowBorder = z.infer<typeof rowBorderSchema>;
+
 export const shadowSchema = z.object({
   x: z.number().optional(),
   y: z.number().optional(),

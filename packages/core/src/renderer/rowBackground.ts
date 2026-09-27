@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { cssColorSchema } from "../blocks/shared";
-import type { LinearGradient } from "../blocks/shared";
+import type { LinearGradient, RowBorder } from "../blocks/shared";
 import type { RowBlock } from "../emailDesign";
 import type { RenderContext } from "./types";
 
@@ -104,6 +104,64 @@ export function rowBackgroundDeclarations(
 
   const declarations = [`background-color: ${backgroundColor}`];
   if (backgroundImage) declarations.push(`background-image: ${backgroundImage}`);
+
+  return declarations;
+}
+
+/** The rule above and below a row, as CSS, or nothing where nothing was set. */
+export interface RowBorders {
+  borderTop?: string;
+  borderBottom?: string;
+}
+
+/** What a rule is drawn in when the author named neither. */
+const DEFAULT_BORDER_STYLE = "solid";
+const DEFAULT_BORDER_COLOR = "#e5e7eb";
+
+/**
+ * The row's rule, on the two edges it has.
+ *
+ * Assembled from checked parts, like the gradient beside it: a colour that
+ * would not pass the schema falls back to the default rather than being written
+ * into a style attribute, because a document can reach the renderer from the AI
+ * endpoint or the public API without a form ever having seen it.
+ *
+ * An edge with no width gets no declaration at all - not `0`, which would be a
+ * line nobody asked for in every client that rounds it up.
+ */
+export function rowBorder(settings?: RowBlock["settings"]): RowBorders {
+  const border: RowBorder | undefined = settings?.border;
+  if (!border) return {};
+
+  const style = border.style ?? DEFAULT_BORDER_STYLE;
+  const color = safeColor(border.color) ?? DEFAULT_BORDER_COLOR;
+
+  const edge = (value: unknown): string | undefined => {
+    const width = Number(value);
+    if (!Number.isFinite(width) || width <= 0) return undefined;
+    return `${Math.round(width)}px ${style} ${color}`;
+  };
+
+  const borders: RowBorders = {};
+
+  const top = edge(border.top);
+  if (top) borders.borderTop = top;
+
+  const bottom = edge(border.bottom);
+  if (bottom) borders.borderBottom = bottom;
+
+  return borders;
+}
+
+/** The same as declarations, for the element that carries the background. */
+export function rowBorderDeclarations(
+  settings?: RowBlock["settings"],
+): string[] {
+  const { borderTop, borderBottom } = rowBorder(settings);
+
+  const declarations: string[] = [];
+  if (borderTop) declarations.push(`border-top: ${borderTop}`);
+  if (borderBottom) declarations.push(`border-bottom: ${borderBottom}`);
 
   return declarations;
 }

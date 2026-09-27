@@ -4,8 +4,13 @@ import {
   contentConditionSchema,
   linearGradientSchema,
   paddingSchema,
+  rowBorderSchema,
 } from "./blocks/shared";
-import type { CornerRadius, LinearGradient } from "./blocks/shared";
+import type {
+  CornerRadius,
+  LinearGradient,
+  RowBorder,
+} from "./blocks/shared";
 
 /**
  * The document format. Bumped when a saved document has to be reshaped;
@@ -397,6 +402,13 @@ export interface RowBlock {
      * colour, so the colour is the design and this is what the rest get on top.
      */
     backgroundGradient?: LinearGradient;
+    /**
+     * A rule above or below the row, drawn on whichever element carries its
+     * background - its own cell, or the band when the row is full-width.
+     *
+     * Rules on two neighbouring rows add up, the way their gaps do.
+     */
+    border?: RowBorder;
   };
 }
 
@@ -484,6 +496,7 @@ export const rowBlockSchema = z.object({
       margin: paddingSchema.optional(),
       width: z.number().int().positive().optional(),
       backgroundGradient: linearGradientSchema.optional(),
+      border: rowBorderSchema.optional(),
     })
     .optional()
     .default({}),

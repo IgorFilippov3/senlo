@@ -369,6 +369,65 @@ describe("email client correctness", () => {
       expect(background).toBeGreaterThan(gap);
     });
 
+    it("takes a side gap out of the row's own width", () => {
+      // The gap used to be padding on the wrapping cell and nothing else. That
+      // cell is as wide as the message while the row inside it is a fixed
+      // number of pixels, so at any desktop width the padding ate empty space
+      // and the row did not move - the setting only did anything on a phone.
+      const html = renderEmailDesign(
+        rowWith({
+          width: 600,
+          backgroundColor: "#ffffff",
+          margin: { top: 0, right: 12, bottom: 0, left: 12 },
+        }),
+      );
+
+      expect(html).toContain('width="576"');
+      expect(html).toContain("width: 576px");
+      // And the cell still carries the gap, which is what narrows the row on a
+      // screen too small for it.
+      expect(html).toContain("padding: 0px 12px 0px 12px");
+    });
+
+    it("leaves the width alone for a gap that is only above and below", () => {
+      const html = renderEmailDesign(
+        rowWith({
+          width: 600,
+          margin: { top: 20, right: 0, bottom: 20, left: 0 },
+        }),
+      );
+
+      expect(html).toContain('width="600"');
+    });
+
+    it("leaves a full-width row's content alone, because its band takes the gap", () => {
+      // The band is `width="100%"`, so the cell's padding already narrows it.
+      // Taking the gap off the content as well would inset it twice.
+      const html = renderEmailDesign(
+        rowWith({
+          width: 600,
+          fullWidth: true,
+          backgroundColor: "#ffffff",
+          margin: { top: 0, right: 40, bottom: 0, left: 40 },
+        }),
+      );
+
+      expect(html).toContain('width="600"');
+      expect(html).toContain("padding: 0px 40px 0px 40px");
+    });
+
+    it("clamps a gap wider than the row rather than emitting a negative width", () => {
+      const html = renderEmailDesign(
+        rowWith({
+          width: 300,
+          margin: { top: 0, right: 400, bottom: 0, left: 400 },
+        }),
+      );
+
+      expect(html).toContain('width="1"');
+      expect(html).not.toContain('width="-');
+    });
+
     it("keeps the row's own padding separate from its outer spacing", () => {
       const html = renderEmailDesign(
         rowWith({

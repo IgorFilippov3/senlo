@@ -25,6 +25,8 @@ import {
   ArrowUp,
   ArrowRight,
   MoveDownRight,
+  Minus,
+  MoreHorizontal,
 } from "lucide-react";
 import { Controller, useWatch } from "react-hook-form";
 import { RowBlock } from "@senlo/core";
@@ -100,6 +102,20 @@ export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
 
   const backgroundColor = useWatch({ control, name: "backgroundColor" });
   const gradient = useWatch({ control, name: "backgroundGradient" });
+
+  const borderStyleOptions = [
+    {
+      value: "solid",
+      icon: <Square size={16} fill="currentColor" fillOpacity={0.2} />,
+      label: "Solid",
+    },
+    { value: "dashed", icon: <MoreHorizontal size={16} />, label: "Dashed" },
+    {
+      value: "dotted",
+      icon: <Minus size={16} style={{ transform: "rotate(90deg)" }} />,
+      label: "Dotted",
+    },
+  ];
 
   const fillOptions = [
     { value: "solid", icon: <Square size={16} />, label: "Solid" },
@@ -300,6 +316,70 @@ export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
           )}
         />
       </FormField>
+
+      <FormSection title="Border">
+        <FormGrid cols={2}>
+          <FormField label="Style">
+            <Controller
+              name="border.style"
+              control={control}
+              render={({ field }) => (
+                <ToggleGroup
+                  value={field.value || "solid"}
+                  options={borderStyleOptions}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </FormField>
+          <FormField label="Color">
+            <Controller
+              name="border.color"
+              control={control}
+              render={({ field }) => (
+                <ColorPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  defaultValue="#e5e7eb"
+                />
+              )}
+            />
+          </FormField>
+        </FormGrid>
+
+        <FormField hint="Rules on two rows that touch add up: 1 below this row and 1 above the next one draw a 2px line.">
+          <FormGrid cols={2}>
+            <Controller
+              name="border.top"
+              control={control}
+              render={({ field }) => (
+                <Slider
+                  label="Top"
+                  unit="px"
+                  min={0}
+                  max={12}
+                  value={field.value ?? 0}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <Controller
+              name="border.bottom"
+              control={control}
+              render={({ field }) => (
+                <Slider
+                  label="Bottom"
+                  unit="px"
+                  min={0}
+                  max={12}
+                  value={field.value ?? 0}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </FormGrid>
+        </FormField>
+      </FormSection>
 
       <FormSection
         title="Corner Radius"

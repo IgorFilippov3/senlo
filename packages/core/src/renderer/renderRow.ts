@@ -8,6 +8,7 @@ import {
   registerRowBackground,
   rowBackground,
   rowBackgroundDeclarations,
+  rowBorderDeclarations,
 } from "./rowBackground";
 
 export function renderRow(row: RowBlock, context: RenderContext): string {
@@ -34,14 +35,52 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
   // around the band.
   const fullWidth = Boolean(settings.fullWidth);
 
+  // A side gap has to come out of the row's own width, not only off the cell
+  // around it.
+  //
+  // The cell below carries the gap as padding, and that is all it used to be.
+  // But the cell is as wide as the message, while the row inside it is a table
+  // of a fixed number of pixels: at any desktop width there is room to spare on
+  // both sides, so the padding ate empty space and the row never moved. It only
+  // did anything once the viewport fell below the row's own width - which is to
+  // say, on a phone and nowhere else.
+  //
+  // This is the half of the gap that went missing when rows stopped living
+  // inside one document-wide table and started carrying a width each: until
+  // then the cell was 600px too, so the padding had something to take from.
+  //
+  // A full-width row is left alone: its band is `width="100%"`, so the cell's
+  // padding already narrows it, and taking the gap off the content as well
+  // would inset it twice.
+  const sideGap = fullWidth
+    ? 0
+    : (Number(settings.margin?.left) || 0) + (Number(settings.margin?.right) || 0);
+
+  // A gap wider than the row itself is not a layout; clamping keeps the width
+  // attribute a legal number and leaves the author looking at something plainly
+  // wrong rather than at nothing at all.
+  const renderedWidth = Math.max(width - sideGap, 1);
+
   // What paints behind the row - the colour, and the gradient over it when the
   // row has one - is decided in `rowBackground`, which the canvas calls too.
   // The declarations come back colour first: a client that drops the image has
   // to keep the colour, and roughly two in five drop the image.
   const background = rowBackground(settings);
 
+  // The rule goes on the same element as the background, which for a
+  // full-width row is the band rather than the row. Turning that toggle on says
+  // the band is the visual object - a hairline above a footer band that stopped
+  // at the content width would read as a mistake - and tying the two together
+  // is one decision instead of two that can disagree.
+  //
+  // It lands on the cell that carries the padding too, so the padding pushes
+  // the content away from the rule and the rule marks the row's edge rather
+  // than the text's. The outer gap is a cell further out, so a row with both
+  // gets its rule inside its gap, which is what "outside the background" has
+  // always meant here.
   const backgroundStyle = [
     ...rowBackgroundDeclarations(settings),
+    ...rowBorderDeclarations(settings),
     `border-top-left-radius: ${borderRadius.top || 0}px`,
     `border-top-right-radius: ${borderRadius.top || 0}px`,
     `border-bottom-left-radius: ${borderRadius.bottom || 0}px`,
@@ -73,7 +112,7 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
   // `senlo-full-width` is what the media query in the head widens to 100% on a
   // phone, so a row narrower than the document still fills a small screen.
   let html = `
-    <table class="senlo-full-width" role="presentation" width="${width}" border="0" cellpadding="0" cellspacing="0" align="center" style="width: ${width}px; max-width: 100%; margin: 0 auto; border-collapse: collapse;">
+    <table class="senlo-full-width" role="presentation" width="${renderedWidth}" border="0" cellpadding="0" cellspacing="0" align="center" style="width: ${renderedWidth}px; max-width: 100%; margin: 0 auto; border-collapse: collapse;">
       <tr>
         <td align="${align}"${fullWidth ? "" : backgroundClass} style="${rowStyle}; font-size: 0; text-align: ${align};">
           <!--[if mso]>

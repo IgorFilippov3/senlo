@@ -7,7 +7,11 @@ import { evaluateCondition } from "./conditions";
 import { RenderOptions, RenderContext, globalsOf, resolveGlobals } from "./types";
 import { resolveVariable } from "./conditions";
 import { migrateEmailDesign } from "../migrations";
-import { registerRowBackground, rowBackground } from "./rowBackground";
+import {
+  registerRowBackground,
+  rowBackground,
+  rowBorder,
+} from "./rowBackground";
 
 export function renderEmailDesignMJML(
   rawDesign: EmailDesignDocument,
@@ -126,13 +130,22 @@ function renderMJMLSection(row: RowBlock, context: RenderContext): string {
     ? `\n      css-class="${registerRowBackground(context, background.backgroundImage)}"`
     : "";
 
+  // `mj-section` takes these directly, so the rule needs no wrapper here. Only
+  // the edges that were set are emitted, which keeps the export of a document
+  // without a rule byte for byte what it was.
+  const { borderTop, borderBottom } = rowBorder(settings);
+  const borderAttrs = [
+    borderTop ? `\n      border-top="${escapeAttr(borderTop)}"` : "",
+    borderBottom ? `\n      border-bottom="${escapeAttr(borderBottom)}"` : "",
+  ].join("");
+
   const section = `
     <mj-section
       background-color="${escapeAttr(background.backgroundColor)}"
       full-width="${settings.fullWidth ? "full-width" : "none"}"
       padding="${paddingStr}"
       text-align="${escapeAttr(settings.align || "center")}"
-      border-radius="${borderRadiusStr}"${cssClass}
+      border-radius="${borderRadiusStr}"${borderAttrs}${cssClass}
     >
       ${columns}
     </mj-section>`;

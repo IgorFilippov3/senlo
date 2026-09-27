@@ -2,7 +2,12 @@
 
 import { memo } from "react";
 import styles from "./row-view.module.css";
-import { evaluateCondition, rowBackground, type RowId } from "@senlo/core";
+import {
+  evaluateCondition,
+  rowBackground,
+  rowBorder,
+  type RowId,
+} from "@senlo/core";
 import { useShallow } from "zustand/react/shallow";
 import { ColumnView } from "../column-view/column-view";
 import { RowDropZones } from "../row-drop-zones/row-drop-zones";
@@ -80,6 +85,10 @@ export const RowView = memo(
     // chrome have drifted apart before - see the padding comment below, which
     // is what that cost last time.
     const background = rowBackground(row.settings);
+
+    // The rule comes from the same module and goes on the same element as the
+    // background - the band for a full-width row, the row's own box otherwise.
+    const border = rowBorder(row.settings);
     const columnIds = row.columnIds ? row.columnIds.split(" ") : [];
 
     const handleClick = (e: React.MouseEvent) => {
@@ -94,6 +103,14 @@ export const RowView = memo(
       Number(row.settings.width) || documentWidth,
       documentWidth,
     );
+
+    // And the side gap comes out of that width, exactly as it does in
+    // `renderRow` - see the comment there for why the padding alone is not
+    // enough. A full-width row is left alone: its band takes the gap instead.
+    const sideGap = fullWidth
+      ? 0
+      : (Number(margin?.left) || 0) + (Number(margin?.right) || 0);
+    const renderedWidth = Math.max(rowWidth - sideGap, 1);
 
     const radii: React.CSSProperties = {
       borderTopLeftRadius:
@@ -110,16 +127,16 @@ export const RowView = memo(
     // content stays at `rowWidth`, so the background belongs to the band and
     // not to the row - exactly the split `renderRow` makes.
     const bandStyle: React.CSSProperties = fullWidth
-      ? { ...background, ...radii }
+      ? { ...background, ...border, ...radii }
       : {};
 
     const contentStyle: React.CSSProperties = {
-      maxWidth: `${rowWidth}px`,
+      maxWidth: `${renderedWidth}px`,
       margin: "0 auto",
       width: "100%",
       ...(fullWidth
         ? {}
-        : { ...background, ...radii }),
+        : { ...background, ...border, ...radii }),
       // These have to match renderRow exactly: a row with no horizontal padding
       // was shown inset by 16px here and sent flush to the edge.
       paddingTop: padding?.top || 0,
