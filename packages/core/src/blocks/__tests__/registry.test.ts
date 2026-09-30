@@ -20,6 +20,7 @@ describe("block registry", () => {
       "divider",
       "product-line",
       "socials",
+      "table",
     ]);
   });
 
@@ -174,6 +175,7 @@ describe("rendering from a definition", () => {
         divider: {},
         "product-line": { leftText: "A", rightText: "B" },
         socials: { links: [{ type: "github", url: "", icon: "" }] },
+        table: { columns: [{ key: "value" }] },
       };
 
       const block = { id: "b1", type, data: minimal[type] };

@@ -209,9 +209,21 @@ describe("a row with a gradient, rendered", () => {
     expect(html).toContain(
       "background-color: #eef0fb; background-image: linear-gradient(180deg, #fdfdff, #e3e6fa)",
     );
-    expect(rulesOf(html)).toEqual([
-      ".senlo-bg-h2t3m5 { background-image: linear-gradient(180deg, #fdfdff, #e3e6fa) !important; }",
-    ]);
+
+    // The class name is a hash of the rule and is nobody's business but the
+    // renderer's; what matters is that exactly one rule exists and that the
+    // element points at it.
+    const rules = rulesOf(html);
+    expect(rules).toHaveLength(1);
+    expect(rules.join("")).toContain(
+      "background-image: linear-gradient(180deg, #fdfdff, #e3e6fa) !important;",
+    );
+
+    // The class name is a hash of the rule and is nobody's business but the
+    // renderer's; what matters is that the element points at the rule.
+    const named = /\.(senlo-bg-[a-z0-9]+)/.exec(rules.join(""))?.[1] ?? "";
+    expect(named).not.toBe("");
+    expect(html).toContain(`class="${named}"`);
   });
 
   it("puts the class on the one element that carries the background", () => {
@@ -423,9 +435,12 @@ describe("the MJML export", () => {
     );
 
     expect(mjml).toContain('background-color="#eef0fb"');
-    expect(mjml).toContain('css-class="senlo-bg-h2t3m5"');
+
+    const named = /\.(senlo-bg-[a-z0-9]+)/.exec(mjml)?.[1] ?? "";
+    expect(named).not.toBe("");
+    expect(mjml).toContain(`css-class="${named}"`);
     expect(mjml).toContain(
-      ".senlo-bg-h2t3m5 { background-image: linear-gradient(180deg, #fdfdff, #e3e6fa) !important; }",
+      `.${named} { background-image: linear-gradient(180deg, #fdfdff, #e3e6fa) !important; }`,
     );
   });
 

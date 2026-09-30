@@ -11,6 +11,7 @@ import {
   Package,
   Share2,
   SquareSplitVertical,
+  Table2,
 } from "lucide-react";
 import { BLOCK_REGISTRY, type ContentBlockType } from "@senlo/core";
 
@@ -23,6 +24,7 @@ import { ListSection } from "../components/props-manager/components/sections/lis
 import { DividerSection } from "../components/props-manager/components/sections/divider-section";
 import { ProductLineSection } from "../components/props-manager/components/sections/product-line-section";
 import { SocialsSection } from "../components/props-manager/components/sections/socials-section";
+import { TableSection } from "../components/props-manager/components/sections/table-section";
 
 /**
  * The editor's half of the block registry: the parts that need React, and so
@@ -48,6 +50,7 @@ export const EDITOR_BLOCK_REGISTRY: Record<
   divider: { icon: SquareSplitVertical, PropsSection: DividerSection },
   "product-line": { icon: Package, PropsSection: ProductLineSection },
   socials: { icon: Share2, PropsSection: SocialsSection },
+  table: { icon: Table2, PropsSection: TableSection },
 };
 
 export function getEditorBlockDefinition(

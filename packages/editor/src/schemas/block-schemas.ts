@@ -24,6 +24,7 @@ export {
   dividerBlockFormSchema as dividerSchema,
   productLineBlockFormSchema as productLineSchema,
   socialsBlockFormSchema as socialsSchema,
+  tableBlockFormSchema as tableSchema,
 } from "@senlo/core";
 
 import type {
@@ -36,6 +37,7 @@ import type {
   dividerBlockFormSchema,
   productLineBlockFormSchema,
   socialsBlockFormSchema,
+  tableBlockFormSchema,
 } from "@senlo/core";
 
 export type BlockSchemas = {
@@ -48,4 +50,5 @@ export type BlockSchemas = {
   divider: typeof dividerBlockFormSchema;
   "product-line": typeof productLineBlockFormSchema;
   socials: typeof socialsBlockFormSchema;
+  table: typeof tableBlockFormSchema;
 };

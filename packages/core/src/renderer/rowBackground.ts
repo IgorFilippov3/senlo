@@ -6,6 +6,7 @@ import { cssColorSchema } from "../blocks/shared";
 import type { LinearGradient, RowBorder } from "../blocks/shared";
 import type { RowBlock } from "../emailDesign";
 import type { RenderContext } from "./types";
+import { registerStyleRule } from "./responsive";
 
 /**
  * @fileoverview What paints behind a row, decided once.
@@ -166,15 +167,6 @@ export function rowBorderDeclarations(
   return declarations;
 }
 
-/** djb2, base36. Short, stable, and it needs no state carried between rows. */
-function hash(value: string): string {
-  let h = 5381;
-  for (let i = 0; i < value.length; i += 1) {
-    h = ((h << 5) + h + value.charCodeAt(i)) >>> 0;
-  }
-  return h.toString(36);
-}
-
 /**
  * Puts a row's gradient in the document's stylesheet and returns the class that
  * reads it.
@@ -187,26 +179,17 @@ function hash(value: string): string {
  * broken inline declaration would otherwise win on specificity in exactly the
  * client this is for.
  *
- * The class is named after the gradient rather than the row, so two rows with
- * the same gradient share one rule and the names do not depend on the order
- * rows happen to render in. Row ids cannot be used: they are arbitrary strings
- * and would have to be sanitised into a selector.
- *
- * Nothing needs escaping. The value was assembled in `linearGradientCss` from
+ * Nothing needs escaping: the value was assembled in `linearGradientCss` from
  * schema-checked colours and a bounded integer, so it cannot carry `<`, `}` or
- * `;` - which is the property `renderHead` depends on when it drops the rule
- * into the stylesheet.
+ * `;`.
  */
 export function registerRowBackground(
   context: RenderContext,
   backgroundImage: string,
 ): string {
-  const className = `senlo-bg-${hash(backgroundImage)}`;
-  const rule = `.${className} { background-image: ${backgroundImage} !important; }`;
-
-  if (!context.responsiveStyles.includes(rule)) {
-    context.responsiveStyles.push(rule);
-  }
-
-  return className;
+  return registerStyleRule(
+    context,
+    "bg",
+    `background-image: ${backgroundImage} !important;`,
+  );
 }

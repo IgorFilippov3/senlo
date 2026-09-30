@@ -36,7 +36,8 @@ export type ContentBlockType =
   | "list"
   | "divider"
   | "product-line"
-  | "socials";
+  | "socials"
+  | "table";
 
 export type ConditionOperator =
   | "equals"
@@ -329,6 +330,73 @@ export interface SocialsBlock extends BaseContentBlock {
   } & BoxStyles;
 }
 
+export interface TableColumn {
+  /** Which field of a data row this column shows. Ignored for typed rows. */
+  key: string;
+  label?: string;
+  /** Percent of the table; the columns of a table add up to 100. */
+  width?: number;
+  align?: "left" | "center" | "right";
+}
+
+export interface TableBlock extends BaseContentBlock {
+  type: "table";
+  data: {
+    columns: TableColumn[];
+    /**
+     * Where the rows come from when they come from data - a path resolved the
+     * way a merge tag is, so an alias from an enclosing loop works too.
+     */
+    source?: string;
+    /** Rows typed in the panel, each positional to the columns. */
+    rows?: string[][];
+    showHeader?: boolean;
+    headerBackgroundColor?: string;
+    headerStyle?: {
+      color?: string;
+      fontSize?: number;
+      lineHeight?: number;
+      fontWeight?: "normal" | "bold";
+      fontFamily?: string;
+    };
+    textStyle?: {
+      color?: string;
+      fontSize?: number;
+      lineHeight?: number;
+      fontWeight?: "normal" | "bold";
+      fontFamily?: string;
+    };
+    /** The rule under the header, and the one between body rows. */
+    headerDivider?: {
+      width?: number;
+      style?: "solid" | "dashed" | "dotted";
+      color?: string;
+    };
+    rowDivider?: {
+      width?: number;
+      style?: "solid" | "dashed" | "dotted";
+      color?: string;
+    };
+    cellPadding?: {
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
+    };
+    /**
+     * Type size below the document's width. The table keeps its columns on a
+     * phone and narrows; this is the lever for when narrowing is not enough.
+     */
+    mobileFontSize?: number;
+    padding?: {
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
+    };
+  } & BoxStyles;
+}
+
 export type ContentBlock =
   | HeadingBlock
   | ParagraphBlock
@@ -338,7 +406,8 @@ export type ContentBlock =
   | ListBlock
   | DividerBlock
   | ProductLineBlock
-  | SocialsBlock;
+  | SocialsBlock
+  | TableBlock;
 
 /*
  * ===== LAYOUT: ROW / COLUMN =====
