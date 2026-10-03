@@ -45,30 +45,28 @@ export const SocialLinksList = ({
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
                     onClick={() => onMoveUp(index)}
                     disabled={index === 0}
-                    className="p-1 h-7 w-7"
                   >
                     <ArrowUp size={14} />
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
                     onClick={() => onMoveDown(index)}
                     disabled={index === links.length - 1}
-                    className="p-1 h-7 w-7"
                   >
                     <ArrowDown size={14} />
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
                     onClick={() => onDelete(index)}
                     disabled={links.length <= 1}
-                    className="p-1 h-7 w-7 text-red-600 hover:text-red-700"
+                    className="text-red-600 hover:text-red-700"
                   >
                     <Trash2 size={14} />
                   </Button>

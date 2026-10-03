@@ -54,10 +54,9 @@ export const TableRows = ({ columns, rows, onChange }: TableRowsProps) => {
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 onClick={() => move(rowIndex, -1)}
                 disabled={rowIndex === 0}
-                className="p-1 h-7 w-7"
                 title="Move up"
               >
                 <ArrowUp size={14} />
@@ -65,10 +64,9 @@ export const TableRows = ({ columns, rows, onChange }: TableRowsProps) => {
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 onClick={() => move(rowIndex, 1)}
                 disabled={rowIndex === rows.length - 1}
-                className="p-1 h-7 w-7"
                 title="Move down"
               >
                 <ArrowDown size={14} />
@@ -76,9 +74,9 @@ export const TableRows = ({ columns, rows, onChange }: TableRowsProps) => {
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 onClick={() => onChange(rows.filter((_, i) => i !== rowIndex))}
-                className="p-1 h-7 w-7 text-red-600"
+                className="text-red-600"
                 title="Remove row"
               >
                 <Trash2 size={14} />

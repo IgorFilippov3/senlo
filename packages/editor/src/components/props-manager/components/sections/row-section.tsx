@@ -386,8 +386,8 @@ export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
         headerAction={
           <Button
             variant="ghost"
-            size="sm"
-            className={`h-7 w-7 p-0 flex items-center justify-center rounded transition-all ${
+            size="icon-sm"
+            className={`transition-all ${
               isLinked
                 ? "bg-zinc-100 text-blue-600 border border-zinc-200"
                 : "bg-transparent text-zinc-500 hover:bg-zinc-100"

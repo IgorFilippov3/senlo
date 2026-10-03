@@ -52,6 +52,16 @@ export const tableColumnSchema = z.object({
   /** Percent of the table. The columns of a table add up to 100. */
   width: z.number().positive().max(100).optional(),
   align: alignSchema.optional(),
+  /**
+   * Type for this column's body cells, over the table's own. Only what is set
+   * is overridden - a column that names a colour and nothing else keeps the
+   * table's size and weight.
+   *
+   * Body cells only. The header is styled as a band, by `headerStyle`, and a
+   * per-column header is a different thing that nobody has asked for; letting
+   * this reach it would make the two settings fight over the same cell.
+   */
+  style: textStyleSchema.optional(),
 });
 
 /** Kept local: the document's own `TableColumn` is the exported name. */
@@ -218,7 +228,6 @@ function renderTable(block: any, context: RenderContext): string {
   const headerStyle = { ...fallbacks.headerStyle, ...(data.headerStyle || {}) };
   const cellPadding = renderPadding(data.cellPadding ?? fallbacks.cellPadding);
 
-  const bodyColor = textStyle.color || globals.textColor || "#000000";
   const headerColor = headerStyle.color || globals.textColor || "#000000";
 
   const { rows, placeholder } = bodyRows(data, columns, context);
@@ -248,20 +257,31 @@ function renderTable(block: any, context: RenderContext): string {
         )}"`
       : "";
 
+  /** The table's type with the column's own laid over it, for a body cell. */
+  const styleFor = (column: Column, isHeader: boolean) =>
+    isHeader ? headerStyle : { ...textStyle, ...(column.style || {}) };
+
+  const colorFor = (column: Column, isHeader: boolean) =>
+    isHeader
+      ? headerColor
+      : column.style?.color || textStyle.color || globals.textColor || "#000000";
+
   const cell = (
     content: string,
     column: Column,
     isHeader: boolean,
     rule: string,
   ) => {
+    const type = styleFor(column, isHeader);
+
     const style = [
       `text-align: ${column.align || "left"}`,
       `vertical-align: top`,
-      `font-family: ${(isHeader ? headerStyle : textStyle).fontFamily || globals.fontFamily}`,
-      `font-size: ${(isHeader ? headerStyle : textStyle).fontSize}px`,
-      `line-height: ${(isHeader ? headerStyle : textStyle).lineHeight}`,
-      `font-weight: ${(isHeader ? headerStyle : textStyle).fontWeight}`,
-      `color: ${isHeader ? headerColor : bodyColor}`,
+      `font-family: ${type.fontFamily || globals.fontFamily}`,
+      `font-size: ${type.fontSize}px`,
+      `line-height: ${type.lineHeight}`,
+      `font-weight: ${type.fontWeight}`,
+      `color: ${colorFor(column, isHeader)}`,
       `padding: ${cellPadding}`,
       // A long unbroken string in a narrow column would otherwise push the
       // table past its width rather than wrapping.
@@ -303,7 +323,7 @@ function renderTable(block: any, context: RenderContext): string {
           cell(
             placeholder || data.source
               ? cells[i]
-              : colorInlineLinks(cells[i], bodyColor),
+              : colorInlineLinks(cells[i], colorFor(column, false)),
             column,
             false,
             rule,
@@ -353,12 +373,17 @@ function renderMJMLTable(block: any, _options?: RenderOptions): string {
   );
 
   const cell = (content: string, column: Column, isHeader: boolean, rule: string) => {
+    const type = isHeader
+      ? headerStyle
+      : { ...textStyle, ...(column.style || {}) };
+
     const style = [
       `text-align: ${column.align || "left"}`,
-      `font-size: ${(isHeader ? headerStyle : textStyle).fontSize}px`,
-      `font-weight: ${(isHeader ? headerStyle : textStyle).fontWeight}`,
+      `font-size: ${type.fontSize}px`,
+      `font-weight: ${type.fontWeight}`,
       `padding: ${cellPadding}`,
     ];
+    if (!isHeader && type.color) style.push(`color: ${type.color}`);
     if (isHeader && data.headerBackgroundColor) {
       style.push(`background-color: ${data.headerBackgroundColor}`);
     }

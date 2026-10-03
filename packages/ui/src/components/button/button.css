@@ -23,6 +23,20 @@
     transform var(--sl-transition-fast);
 }
 
+/*
+ * An icon keeps its size.
+ *
+ * The button is a flex container, so a bare <svg> in it is a flex item with an
+ * automatic minimum size of zero - it shrinks to whatever room the padding
+ * leaves rather than pushing the button wider. A 14px icon in a 28px button
+ * with this file's default 12px side padding came out 2.5px wide: mounted,
+ * clickable, invisible. Sizes belong to the size prop below, and an icon that
+ * does not fit overflows visibly instead of vanishing.
+ */
+.sl-btn > svg {
+  flex-shrink: 0;
+}
+
 .sl-btn:focus-visible {
   outline: 2px solid var(--sl-color-primary);
   outline-offset: 2px;
@@ -128,4 +142,11 @@
   width: 2.25rem;
   height: 2.25rem;
   padding: 0;
+}
+
+.sl-btn--icon-sm {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border-radius: var(--sl-radius-sm);
 }

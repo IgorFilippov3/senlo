@@ -13,8 +13,16 @@ export type ButtonVariant =
   | "destructive"
   | "link";
 
-/** Available button sizes */
-export type ButtonSize = "default" | "sm" | "lg" | "icon";
+/**
+ * Available button sizes.
+ *
+ * This is the only way to size a button. The package ships plain, unlayered
+ * CSS and Tailwind's utilities live in `@layer utilities`, so unlayered rules
+ * win: `className="h-7 w-7 p-1"` silently loses its padding to `.sl-btn` and
+ * the icon inside gets squeezed to nothing. `icon` and `icon-sm` are square
+ * buttons for a single icon.
+ */
+export type ButtonSize = "default" | "sm" | "lg" | "icon" | "icon-sm";
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {

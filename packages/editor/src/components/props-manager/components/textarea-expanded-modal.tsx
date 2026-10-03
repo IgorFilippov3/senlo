@@ -54,8 +54,8 @@ export const ExpandButton = ({ onClick }: { onClick: () => void }) => (
   <div className="flex justify-end -mt-1">
     <Button
       variant="ghost"
-      size="icon"
-      className="h-6 w-6 text-muted-foreground hover:text-foreground"
+      size="icon-sm"
+      className="text-muted-foreground hover:text-foreground"
       onClick={(e) => {
         e.preventDefault();
         onClick();

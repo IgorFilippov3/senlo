@@ -103,8 +103,7 @@ export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
                 </span>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
+                  size="icon-sm"
                   onClick={() => setShowMockData(false)}
                 >
                   <X size={14} />

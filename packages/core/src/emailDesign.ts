@@ -337,6 +337,18 @@ export interface TableColumn {
   /** Percent of the table; the columns of a table add up to 100. */
   width?: number;
   align?: "left" | "center" | "right";
+  /**
+   * Type for this column's body cells, over the table's own. Only what is set
+   * is overridden, and the header is not affected - it is styled as a band by
+   * `headerStyle`.
+   */
+  style?: {
+    color?: string;
+    fontSize?: number;
+    lineHeight?: number;
+    fontWeight?: "normal" | "bold";
+    fontFamily?: string;
+  };
 }
 
 export interface TableBlock extends BaseContentBlock {

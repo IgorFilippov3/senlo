@@ -1,7 +1,24 @@
 "use client";
 
-import { Button, FormField, FormGrid, Input, ToggleGroup } from "@senlo/ui";
-import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import {
+  Button,
+  ColorPicker,
+  FormField,
+  FormGrid,
+  Input,
+  ToggleGroup,
+} from "@senlo/ui";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  ArrowDown,
+  ArrowUp,
+  Bold,
+  Plus,
+  Trash2,
+  Type,
+} from "lucide-react";
 
 import {
   MIN_COLUMN_WIDTH,
@@ -14,6 +31,13 @@ export interface TableColumn {
   label?: string;
   width?: number;
   align?: "left" | "center" | "right";
+  style?: {
+    color?: string;
+    fontSize?: number;
+    lineHeight?: number;
+    fontWeight?: "normal" | "bold";
+    fontFamily?: string;
+  };
 }
 
 interface TableColumnsProps {
@@ -22,6 +46,11 @@ interface TableColumnsProps {
   showKeys: boolean;
   onChange: (columns: TableColumn[]) => void;
 }
+
+const weightOptions = [
+  { value: "normal", icon: <Type size={14} />, label: "Regular" },
+  { value: "bold", icon: <Bold size={14} />, label: "Bold" },
+];
 
 const alignOptions = [
   { value: "left", icon: <AlignLeft size={14} />, label: "Left" },
@@ -93,32 +122,30 @@ export const TableColumns = ({ columns, showKeys, onChange }: TableColumnsProps)
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 onClick={() => move(index, -1)}
                 disabled={index === 0}
-                className="p-1 h-7 w-7"
-                title="Move left"
+                title="Move up"
               >
                 <ArrowUp size={14} />
               </Button>
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 onClick={() => move(index, 1)}
                 disabled={index === columns.length - 1}
-                className="p-1 h-7 w-7"
-                title="Move right"
+                title="Move down"
               >
                 <ArrowDown size={14} />
               </Button>
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 onClick={() => remove(index)}
                 disabled={columns.length <= 1}
-                className="p-1 h-7 w-7 text-red-600"
+                className="text-red-600"
                 title="Remove column"
               >
                 <Trash2 size={14} />
@@ -167,6 +194,29 @@ export const TableColumns = ({ columns, showKeys, onChange }: TableColumnsProps)
                 />
                 <span className="text-xs text-zinc-400">%</span>
               </div>
+            </FormField>
+          </FormGrid>
+
+          <FormGrid cols={2}>
+            <FormField label="Text Color">
+              <ColorPicker
+                value={column.style?.color}
+                onChange={(value) =>
+                  update(index, { style: { ...column.style, color: value } })
+                }
+                defaultValue="#111827"
+              />
+            </FormField>
+            <FormField label="Weight">
+              <ToggleGroup
+                value={column.style?.fontWeight || "normal"}
+                options={weightOptions}
+                onChange={(value) =>
+                  update(index, {
+                    style: { ...column.style, fontWeight: value as any },
+                  })
+                }
+              />
             </FormField>
           </FormGrid>
         </div>

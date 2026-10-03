@@ -91,7 +91,10 @@ export const TableSection = ({ block }: TableSectionProps) => {
 
   return (
     <FormSection title="Table">
-      <FormField label="Columns">
+      <FormField
+        label="Columns"
+        hint="Colour and weight set here apply to a column's body cells. The header is styled as a band, below."
+      >
         <Controller
           name="columns"
           control={control}
@@ -269,7 +272,10 @@ export const TableSection = ({ block }: TableSectionProps) => {
 
       <FormSection title="Text">
         <FormGrid cols={2}>
-          <FormField label="Color">
+          <FormField
+            label="Color"
+            hint="Default for every column. A column can set its own."
+          >
             <Controller
               name="textStyle.color"
               control={control}

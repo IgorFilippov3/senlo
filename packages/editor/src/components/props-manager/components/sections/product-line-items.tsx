@@ -66,10 +66,9 @@ export const ProductLineItems = ({ items, onChange }: ProductLineItemsProps) => 
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="icon-sm"
                   onClick={() => move(index, -1)}
                   disabled={index === 0}
-                  className="p-1 h-7 w-7"
                   title="Move up"
                 >
                   <ArrowUp size={14} />
@@ -77,10 +76,9 @@ export const ProductLineItems = ({ items, onChange }: ProductLineItemsProps) => 
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="icon-sm"
                   onClick={() => move(index, 1)}
                   disabled={index === items.length - 1}
-                  className="p-1 h-7 w-7"
                   title="Move down"
                 >
                   <ArrowDown size={14} />
@@ -88,10 +86,10 @@ export const ProductLineItems = ({ items, onChange }: ProductLineItemsProps) => 
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="icon-sm"
                   onClick={() => remove(index)}
                   disabled={items.length <= 1}
-                  className="p-1 h-7 w-7 text-red-600 hover:text-red-700"
+                  className="text-red-600 hover:text-red-700"
                   title="Remove line"
                 >
                   <Trash2 size={14} />

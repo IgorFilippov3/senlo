@@ -197,6 +197,64 @@ describe("the columns", () => {
   });
 });
 
+describe("a column's own type", () => {
+  const styled = [
+    { key: "l", width: 55, align: "right" as const, style: { color: "#71717a" } },
+    { key: "r", width: 45, align: "right" as const, style: { fontWeight: "bold" as const } },
+  ];
+
+  it("lays only what it names over the table's", () => {
+    // The first column takes a colour and keeps the table's size; the second
+    // takes a weight and keeps the table's colour.
+    const html = render({
+      columns: styled,
+      textStyle: { fontSize: 13, color: "#27272a" },
+      rows: [["Subtotal", "$1,240.00"]],
+      showHeader: false,
+    });
+
+    expect(html).toContain("color: #71717a");
+    expect(html).toContain("font-weight: bold");
+    expect(html).toContain("color: #27272a");
+    // Neither column asked for a different size.
+    expect((html.match(/font-size: 13px/g) || []).length).toBe(2);
+  });
+
+  it("leaves the header alone, which is styled as a band", () => {
+    const html = render({
+      columns: styled,
+      headerStyle: { color: "#ffffff", fontWeight: "bold" },
+      headerBackgroundColor: "#4a7c2f",
+      rows: [["a", "b"]],
+    });
+
+    const header = html.slice(html.indexOf("<tr>"), html.indexOf("</tr>"));
+    expect(header).toContain("color: #ffffff");
+    expect(header).not.toContain("color: #71717a");
+  });
+
+  it("colours a link the author typed to match its column", () => {
+    const html = render({
+      columns: styled,
+      rows: [['<a href="https://example.com">terms</a>', "x"]],
+      showHeader: false,
+    });
+
+    expect(html).toContain("color: #71717a");
+  });
+
+  it("changes nothing for a table whose columns name no type", () => {
+    const plain = { columns: [{ key: "a" }], rows: [["one"]], showHeader: false };
+    const withEmpty = {
+      columns: [{ key: "a", style: {} }],
+      rows: [["one"]],
+      showHeader: false,
+    };
+
+    expect(render(withEmpty)).toBe(render(plain));
+  });
+});
+
 describe("the narrow screen", () => {
   it("adds one rule and one class when a phone size is set", () => {
     const context: RenderContext = { responsiveStyles: [] };
@@ -255,6 +313,23 @@ describe("the schema", () => {
 });
 
 describe("the MJML export", () => {
+  it("carries a column's own colour", () => {
+    const mjml = definition.renderMJML(
+      {
+        id: "t1",
+        type: "table",
+        data: {
+          columns: [{ key: "l", style: { color: "#71717a" } }, { key: "r" }],
+          rows: [["Subtotal", "$1,240.00"]],
+          showHeader: false,
+        },
+      },
+      undefined,
+    );
+
+    expect(mjml).toContain("color: #71717a");
+  });
+
   it("uses mj-table and carries the typed rows", () => {
     const mjml = definition.renderMJML(
       { id: "t1", type: "table", data: { columns: COLUMNS, rows: [["Item", "1", "$4"]] } },
