@@ -3,6 +3,9 @@ import { fallbacksFor } from "./common";
 const fallbacks = fallbacksFor("product-line");
 
 export const DEFAULT_PRODUCT_LINE_RIGHT_WIDTH = fallbacks.rightWidth;
+export const DEFAULT_PRODUCT_LINE_LEFT_ALIGN = fallbacks.leftAlign;
+export const DEFAULT_PRODUCT_LINE_RIGHT_ALIGN = fallbacks.rightAlign;
+export const DEFAULT_PRODUCT_LINE_VERTICAL_ALIGN = fallbacks.verticalAlign;
 export const DEFAULT_PRODUCT_LINE_PADDING = fallbacks.padding;
 export const DEFAULT_PRODUCT_LINE_ROW_PADDING = fallbacks.rowPadding;
 export const DEFAULT_PRODUCT_LINE_DIVIDER = fallbacks.divider;

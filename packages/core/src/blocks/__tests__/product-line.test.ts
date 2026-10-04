@@ -140,3 +140,48 @@ describe("the MJML export", () => {
     expect(mjml.match(/border-bottom: 1px solid #e5e7eb/g)).toHaveLength(4);
   });
 });
+
+describe("alignment", () => {
+  it("keeps the label left and the value right by default", () => {
+    const html = render(threeLines);
+
+    expect(html).toContain('align="left"');
+    expect(html).toContain('align="right"');
+    expect(html).toContain("text-align: left");
+    expect(html).toContain("text-align: right");
+    expect(html).toContain("vertical-align: top");
+    expect(html).not.toContain("text-align: center");
+  });
+
+  it("aligns each column on its own", () => {
+    const html = render({ ...threeLines, leftAlign: "center", rightAlign: "left" });
+
+    // One cell of each column per line.
+    expect(html.match(/align="center"/g)).toHaveLength(3);
+    expect(html.match(/text-align: center/g)).toHaveLength(3);
+    expect(html.match(/text-align: left/g)).toHaveLength(3);
+    expect(html).not.toContain("text-align: right");
+  });
+
+  it("sits both cells of a line at the same height", () => {
+    const html = render({ ...threeLines, verticalAlign: "middle" });
+
+    expect(html.match(/valign="middle"/g)).toHaveLength(6);
+    expect(html.match(/vertical-align: middle/g)).toHaveLength(6);
+    expect(html).not.toContain("vertical-align: top");
+  });
+
+  it("is carried into the MJML export", () => {
+    const mjml = renderMJML({
+      ...threeLines,
+      leftAlign: "right",
+      rightAlign: "center",
+      verticalAlign: "bottom",
+    });
+
+    expect(mjml.match(/align="right"/g)).toHaveLength(3);
+    expect(mjml.match(/align="center"/g)).toHaveLength(3);
+    expect(mjml.match(/valign="bottom"/g)).toHaveLength(6);
+    expect(mjml).not.toContain('align="left"');
+  });
+});

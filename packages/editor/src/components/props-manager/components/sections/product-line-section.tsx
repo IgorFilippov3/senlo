@@ -18,7 +18,17 @@ import {
 } from "@senlo/ui";
 import { ProductLineBlock } from "@senlo/core";
 import { Controller } from "react-hook-form";
-import { Minus, MoreHorizontal, Square } from "lucide-react";
+import {
+  AlignCenter,
+  AlignCenterHorizontal,
+  AlignEndHorizontal,
+  AlignLeft,
+  AlignRight,
+  AlignStartHorizontal,
+  Minus,
+  MoreHorizontal,
+  Square,
+} from "lucide-react";
 import { ProductLineItems } from "./product-line-items";
 import { BoxSection } from "./box-section";
 import { ConditionSection } from "./condition-section";
@@ -28,6 +38,9 @@ import {
   DEFAULT_PRODUCT_LINE_LEFT_STYLE,
   DEFAULT_PRODUCT_LINE_RIGHT_STYLE,
   DEFAULT_PRODUCT_LINE_RIGHT_WIDTH,
+  DEFAULT_PRODUCT_LINE_LEFT_ALIGN,
+  DEFAULT_PRODUCT_LINE_RIGHT_ALIGN,
+  DEFAULT_PRODUCT_LINE_VERTICAL_ALIGN,
   DEFAULT_PRODUCT_LINE_PADDING,
   DEFAULT_PRODUCT_LINE_ROW_PADDING,
   DEFAULT_PRODUCT_LINE_DIVIDER,
@@ -57,6 +70,22 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
       icon: <Minus size={16} style={{ transform: "rotate(90deg)" }} />,
       label: "Dotted",
     },
+  ];
+
+  const alignOptions = [
+    { value: "left", icon: <AlignLeft size={16} />, label: "Left" },
+    { value: "center", icon: <AlignCenter size={16} />, label: "Center" },
+    { value: "right", icon: <AlignRight size={16} />, label: "Right" },
+  ];
+
+  const verticalAlignOptions = [
+    { value: "top", icon: <AlignStartHorizontal size={16} />, label: "Top" },
+    {
+      value: "middle",
+      icon: <AlignCenterHorizontal size={16} />,
+      label: "Middle",
+    },
+    { value: "bottom", icon: <AlignEndHorizontal size={16} />, label: "Bottom" },
   ];
 
   return (
@@ -111,6 +140,23 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
             />
           </FormField>
         </FormGrid>
+
+        <FormField
+          label="Alignment"
+          error={errors.leftAlign?.message as string}
+        >
+          <Controller
+            name="leftAlign"
+            control={control}
+            render={({ field }) => (
+              <ToggleGroup
+                value={field.value ?? DEFAULT_PRODUCT_LINE_LEFT_ALIGN}
+                options={alignOptions}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </FormField>
 
         <Controller
           name="leftStyle.fontSize"
@@ -189,6 +235,23 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
           </FormField>
         </FormGrid>
 
+        <FormField
+          label="Alignment"
+          error={errors.rightAlign?.message as string}
+        >
+          <Controller
+            name="rightAlign"
+            control={control}
+            render={({ field }) => (
+              <ToggleGroup
+                value={field.value ?? DEFAULT_PRODUCT_LINE_RIGHT_ALIGN}
+                options={alignOptions}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </FormField>
+
         <Controller
           name="rightStyle.fontSize"
           control={control}
@@ -235,6 +298,24 @@ export const ProductLineSection = ({ block }: ProductLineSectionProps) => {
             />
           )}
         />
+
+        <FormField
+          label="Vertical Alignment"
+          hint="Where the shorter side of a line sits when the other wraps."
+          error={errors.verticalAlign?.message as string}
+        >
+          <Controller
+            name="verticalAlign"
+            control={control}
+            render={({ field }) => (
+              <ToggleGroup
+                value={field.value ?? DEFAULT_PRODUCT_LINE_VERTICAL_ALIGN}
+                options={verticalAlignOptions}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </FormField>
       </FormSection>
 
       <FormSection title="Lines">

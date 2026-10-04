@@ -17,10 +17,13 @@ import {
   boxFields,
   contentConditionSchema,
   copy,
+  alignSchema,
   paddingSchema,
   textStyleSchema,
 } from "./shared";
 import type { BlockDefinition } from "./types";
+
+export const verticalAlignSchema = z.enum(["top", "middle", "bottom"]);
 
 /** One line of the list: a label on the left, its value on the right. */
 export const productLineItemSchema = z.object({
@@ -35,6 +38,11 @@ export const productLineBlockDataSchema = z.object({
   leftStyle: textStyleSchema.optional(),
   rightStyle: textStyleSchema.optional(),
   rightWidth: z.number().positive().optional(),
+  /** Where each column's text sits inside its own cell. */
+  leftAlign: alignSchema.optional(),
+  rightAlign: alignSchema.optional(),
+  /** Where the shorter cell sits when the other one wraps onto more lines. */
+  verticalAlign: verticalAlignSchema.optional(),
   /** Space inside each line, which is also what the rule between them clears. */
   rowPadding: paddingSchema.optional(),
   /** A rule between the lines. Absent means no rules at all. */
@@ -66,6 +74,10 @@ export const productLineBlockFormSchema = productLineBlockDataSchema.extend({
 export const productLineBlockFallbacks = {
   ...boxFallbacks,
   rightWidth: 120,
+  /** The label hugs the left edge and the value the right, as it always has. */
+  leftAlign: "left" as const,
+  rightAlign: "right" as const,
+  verticalAlign: "top" as const,
   padding: { top: 0, right: 0, bottom: 0, left: 0 },
   /**
    * Zero, so a block written before the list existed keeps the height it had.
@@ -105,12 +117,22 @@ export function productLineItems(data: any): Item[] {
   return [];
 }
 
+/** The alignment of both columns and of the line, with the fallbacks applied. */
+function productLineAlignment(data: any) {
+  return {
+    left: data.leftAlign || productLineBlockFallbacks.leftAlign,
+    right: data.rightAlign || productLineBlockFallbacks.rightAlign,
+    vertical: data.verticalAlign || productLineBlockFallbacks.verticalAlign,
+  };
+}
+
 function renderProductLine(block: any, context: RenderContext): string {
   const { data } = block;
   const globals = globalsOf(context);
   const leftStyle = data.leftStyle || {};
   const rightStyle = data.rightStyle || {};
   const items = productLineItems(data);
+  const align = productLineAlignment(data);
 
   const containerStyle = `padding: ${renderPadding(data.padding)}`;
 
@@ -145,18 +167,18 @@ function renderProductLine(block: any, context: RenderContext): string {
   const rightColor = rightStyle.color || globals.textColor || "#000000";
 
   const leftCellStyle = [
-    `text-align: left`,
+    `text-align: ${align.left}`,
     `font-family: ${leftStyle.fontFamily || globals.fontFamily}`,
     `font-size: ${leftStyle.fontSize || productLineBlockFallbacks.leftStyle.fontSize}px`,
     `line-height: ${leftStyle.lineHeight || productLineBlockFallbacks.leftStyle.lineHeight}`,
     `color: ${leftColor}`,
     `font-weight: ${leftStyle.fontWeight || productLineBlockFallbacks.leftStyle.fontWeight}`,
-    `vertical-align: top`,
+    `vertical-align: ${align.vertical}`,
     `padding: ${rowPadding}`,
   ].join("; ");
 
   const rightCellStyle = [
-    `text-align: right`,
+    `text-align: ${align.right}`,
     `width: ${data.rightWidth || productLineBlockFallbacks.rightWidth}px`,
     `font-family: ${rightStyle.fontFamily || globals.fontFamily}`,
     `font-size: ${rightStyle.fontSize || productLineBlockFallbacks.rightStyle.fontSize}px`,
@@ -164,7 +186,7 @@ function renderProductLine(block: any, context: RenderContext): string {
     `color: ${rightColor}`,
     `font-weight: ${rightStyle.fontWeight || productLineBlockFallbacks.rightStyle.fontWeight}`,
     `white-space: nowrap`,
-    `vertical-align: top`,
+    `vertical-align: ${align.vertical}`,
     `padding: ${rowPadding}`,
   ].join("; ");
 
@@ -174,10 +196,10 @@ function renderProductLine(block: any, context: RenderContext): string {
 
       return `
           <tr>
-            <td style="${escapeAttr(leftCellStyle + rule(isLast))}">
+            <td align="${align.left}" valign="${align.vertical}" style="${escapeAttr(leftCellStyle + rule(isLast))}">
               ${colorInlineLinks(item.left, leftColor)}
             </td>
-            <td style="${escapeAttr(rightCellStyle + rule(isLast))}">
+            <td align="${align.right}" valign="${align.vertical}" style="${escapeAttr(rightCellStyle + rule(isLast))}">
               ${colorInlineLinks(item.right, rightColor)}
             </td>
           </tr>`;
@@ -202,6 +224,7 @@ function renderMJMLProductLine(block: any): string {
   const leftStyle = data.leftStyle || {};
   const rightStyle = data.rightStyle || {};
   const items = productLineItems(data);
+  const align = productLineAlignment(data);
   const rowPadding = renderPadding(
     data.rowPadding || productLineBlockFallbacks.rowPadding,
   );
@@ -223,10 +246,10 @@ function renderMJMLProductLine(block: any): string {
 
       return `
             <tr>
-              <td align="left" style="font-family: ${leftStyle.fontFamily || "Arial, sans-serif"}; font-size: ${leftStyle.fontSize || 14}px; line-height: ${leftStyle.lineHeight || 1.4}; color: ${leftColor}; font-weight: ${leftStyle.fontWeight || "normal"}; padding: ${rowPadding};${rule(isLast)}">
+              <td align="${align.left}" valign="${align.vertical}" style="text-align: ${align.left}; vertical-align: ${align.vertical}; font-family: ${leftStyle.fontFamily || "Arial, sans-serif"}; font-size: ${leftStyle.fontSize || 14}px; line-height: ${leftStyle.lineHeight || 1.4}; color: ${leftColor}; font-weight: ${leftStyle.fontWeight || "normal"}; padding: ${rowPadding};${rule(isLast)}">
                 ${colorInlineLinks(item.left, leftColor)}
               </td>
-              <td align="right" width="${data.rightWidth || 120}" style="width: ${data.rightWidth || 120}px; font-family: ${rightStyle.fontFamily || "Arial, sans-serif"}; font-size: ${rightStyle.fontSize || 14}px; line-height: ${rightStyle.lineHeight || 1.4}; color: ${rightColor}; font-weight: ${rightStyle.fontWeight || "normal"}; white-space: nowrap; padding: ${rowPadding};${rule(isLast)}">
+              <td align="${align.right}" valign="${align.vertical}" width="${data.rightWidth || 120}" style="text-align: ${align.right}; vertical-align: ${align.vertical}; width: ${data.rightWidth || 120}px; font-family: ${rightStyle.fontFamily || "Arial, sans-serif"}; font-size: ${rightStyle.fontSize || 14}px; line-height: ${rightStyle.lineHeight || 1.4}; color: ${rightColor}; font-weight: ${rightStyle.fontWeight || "normal"}; white-space: nowrap; padding: ${rowPadding};${rule(isLast)}">
                 ${colorInlineLinks(item.right, rightColor)}
               </td>
             </tr>`;

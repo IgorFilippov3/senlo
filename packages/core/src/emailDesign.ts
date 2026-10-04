@@ -279,6 +279,11 @@ export interface ProductLineBlock extends BaseContentBlock {
       fontFamily?: string;
     };
     rightWidth?: number; // px
+    /** Where each column's text sits inside its own cell. */
+    leftAlign?: "left" | "center" | "right";
+    rightAlign?: "left" | "center" | "right";
+    /** Where the shorter cell sits when the other one wraps. */
+    verticalAlign?: "top" | "middle" | "bottom";
     /** Space inside each line. */
     rowPadding?: {
       top?: number;
