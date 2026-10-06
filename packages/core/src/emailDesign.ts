@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { contentBlockSchema } from "./blocks/registry";
 import {
+  boxFields,
   contentConditionSchema,
   linearGradientSchema,
   paddingSchema,
@@ -430,10 +431,49 @@ export type ContentBlock =
  * ===== LAYOUT: ROW / COLUMN =====
  */
 
+/**
+ * The card a column can draw around its blocks.
+ *
+ * A block's own box styles a single block; a row's background spans the whole
+ * row. Neither can draw a tile around a label, a number and a delta that sit
+ * in one column of three, which is what a KPI row or a feature grid is.
+ *
+ * `padding` is the space inside the card, `margin` the gap outside it - the
+ * same split a block's box makes, so side-by-side cards are spaced with margin
+ * and their content kept off the edge with padding.
+ */
+export interface ColumnSettings {
+  backgroundColor?: string;
+  border?: {
+    width?: number;
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+    style?: "solid" | "dashed" | "dotted";
+    color?: string;
+  };
+  borderRadius?: number;
+  padding?: {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  };
+  margin?: {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  };
+}
+
 export interface ColumnBlock {
   id: ColumnId;
   width: number; // percents, for example 100 / 50 / 33 etc.
   blocks: ContentBlock[];
+  /** Absent on every column saved before columns could be styled. */
+  settings?: ColumnSettings;
 }
 
 export interface RowLoop {
@@ -555,10 +595,19 @@ export const rowLoopSchema = z.object({
   alias: z.string(),
 });
 
+export const columnSettingsSchema = z.object({
+  ...boxFields,
+  padding: paddingSchema.optional(),
+});
+
 export const columnBlockSchema = z.object({
   id: z.string(),
   width: z.number(),
   blocks: z.array(contentBlockSchema),
+  // Optional rather than defaulted: a default would add `settings: {}` to every
+  // column of every parsed document, and a stored document that round-trips
+  // through the schema should come back as it went in.
+  settings: columnSettingsSchema.optional(),
 });
 
 export const rowBlockSchema = z.object({

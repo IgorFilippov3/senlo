@@ -8,6 +8,7 @@ import { UnknownSection } from "./components/sections/unknown-section";
 import { getEditorBlockDefinition } from "../../blocks/registry";
 import { GlobalSection } from "./components/sections/global-section";
 import { RowSection } from "./components/sections/row-section";
+import { ColumnSection } from "./components/sections/column-section";
 
 export const PropsManager = () => {
   // Selection info (kind, id, type) is enough to decide which section to show.
@@ -107,7 +108,15 @@ const SectionRenderer = memo(({ kind, id, type }: SectionRendererProps) => {
   // Selecting a column opens its row, with that column called out in the widths
   // control - the one setting a column actually has.
   if (kind === "column") {
-    return <RowSection row={element as any} focusedColumnId={id} />;
+    const row = element as any;
+    const column = row.columns.find((c: any) => c.id === id);
+
+    return (
+      <>
+        {column && <ColumnSection rowId={row.id} column={column} />}
+        <RowSection row={row} focusedColumnId={id} />
+      </>
+    );
   }
 
   const block = element as any;

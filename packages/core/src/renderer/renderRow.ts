@@ -3,7 +3,7 @@ import { RenderContext, globalsOf } from "./types";
 import { renderBlock } from "./renderBlocks";
 import { evaluateCondition } from "./conditions";
 import { escapeAttr } from "./escape";
-import { cell, hasMargin, renderPadding } from "./utils";
+import { cell, hasMargin, renderColumnBox, renderPadding } from "./utils";
 import {
   registerRowBackground,
   rowBackground,
@@ -166,9 +166,10 @@ function renderColumn(column: ColumnBlock, context: RenderContext): string {
       <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
         <tr>
           <td align="left">
-            ${column.blocks
-              .map((block) => renderBlock(block, context))
-              .join("")}
+            ${renderColumnBox(
+              column.blocks.map((block) => renderBlock(block, context)).join(""),
+              column.settings,
+            )}
           </td>
         </tr>
       </table>

@@ -18,6 +18,9 @@ import { DEFAULT_BOX } from "./defaults/common";
 
 interface BoxSectionProps {
   control: any;
+  /** Hints default to a block's wording; a column passes its own. */
+  backgroundHint?: string;
+  marginHint?: string;
 }
 
 const borderStyleOptions = [
@@ -45,12 +48,16 @@ const borderStyleOptions = [
  * "Outer spacing" is the gap outside the background; the block's own padding,
  * edited in its own section, is the space inside it.
  */
-export const BoxSection = ({ control }: BoxSectionProps) => {
+export const BoxSection = ({
+  control,
+  backgroundHint = "Leave it unset for a block with no background of its own.",
+  marginHint = "The gap around the block, outside its background. The space inside it is the block's own padding, under Spacing.",
+}: BoxSectionProps) => {
   return (
     <FormSection title="Background & Border">
       <FormField
         label="Background"
-        hint="Leave it unset for a block with no background of its own."
+        hint={backgroundHint}
       >
         <Controller
           name="backgroundColor"
@@ -120,7 +127,7 @@ export const BoxSection = ({ control }: BoxSectionProps) => {
         )}
       />
 
-      <FormField hint="The gap around the block, outside its background. The space inside it is the block's own padding, under Spacing.">
+      <FormField hint={marginHint}>
         <Controller
           name="margin"
           control={control}

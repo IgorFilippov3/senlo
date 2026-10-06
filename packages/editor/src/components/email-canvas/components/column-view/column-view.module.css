@@ -57,3 +57,28 @@
   color: var(--sl-color-primary);
   text-align: center;
 }
+
+/*
+ * The column's own card. Border-box so its border and padding come out of the
+ * column's width, as they do in the message, rather than widening it.
+ */
+.card {
+  box-sizing: border-box;
+}
+
+/*
+ * Where an appended block will land. Zero height so showing it does not move
+ * the blocks the author is aiming between.
+ */
+.appendIndicator {
+  position: relative;
+  height: 0;
+}
+
+.appendIndicator > div {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  width: auto;
+  top: -1px;
+}

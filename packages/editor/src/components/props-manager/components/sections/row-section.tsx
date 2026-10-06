@@ -33,6 +33,7 @@ import { RowBlock } from "@senlo/core";
 import { useEditorStore } from "../../../../state/editor.store";
 import { ConditionSection } from "./condition-section";
 import { ColumnWidths } from "./column-widths";
+import { ColumnPicker } from "./column-picker";
 import { LoopSection } from "./loop-section";
 
 interface RowSectionProps {
@@ -164,6 +165,7 @@ export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
   return (
     <FormSection title="Row Settings">
       <ColumnWidths row={row} focusedColumnId={focusedColumnId} />
+      <ColumnPicker row={row} focusedColumnId={focusedColumnId} />
 
       <FormField
         label="Background Color"

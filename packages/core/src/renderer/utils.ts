@@ -225,6 +225,91 @@ export function renderBox(html: string, data?: any): string {
 }
 
 /**
+ * Wraps a column's blocks in the card the column draws, and the gap around it.
+ *
+ * `renderBox` one level up, with one difference: a block keeps its inner space
+ * on its own element, while a column has no element of its own besides this
+ * cell, so its padding is written here, inside the background. With no card to
+ * draw, padding and margin are the same space and land on one cell.
+ *
+ * A column with none of it set comes back untouched, so a message built before
+ * columns could be styled renders byte for byte as it did.
+ */
+export function renderColumnBox(html: string, settings?: any): string {
+  const card = hasBoxStyles(settings);
+  const padding = hasMargin(settings?.padding);
+  const margin = hasMargin(settings?.margin);
+
+  if (!card && !padding && !margin) return html;
+
+  let out = html;
+
+  if (card) {
+    const styles: string[] = [];
+    if (settings.backgroundColor)
+      styles.push(`background-color: ${settings.backgroundColor}`);
+    styles.push(...borderDeclarations(settings.border));
+    if (hasCornerRadius(settings.borderRadius))
+      styles.push(
+        `border-radius: ${formatCornerRadius(resolveCornerRadius(settings.borderRadius))}`,
+      );
+    if (padding) styles.push(`padding: ${renderPadding(settings.padding)}`);
+
+    out = cell(styles.join("; "), out);
+
+    if (margin) out = cell(`padding: ${renderPadding(settings.margin)}`, out);
+    return out;
+  }
+
+  return cell(
+    `padding: ${renderPadding(addPadding(settings?.margin, settings?.padding))}`,
+    out,
+  );
+}
+
+/**
+ * The column's card as `mj-column` attributes.
+ *
+ * `mj-column` draws a card two ways: `background-color` / `border` /
+ * `border-radius` on the column itself, inside which `padding` is the space
+ * around the content; or `inner-*` attributes, outside which `padding` is the
+ * gap. It has no attribute for both spaces at once, so a column with a margin
+ * takes the `inner-*` form and its inner padding is dropped from the export.
+ * The HTML path, which is what is sent, keeps both.
+ */
+export function mjmlColumnAttributes(settings?: any): string {
+  const card = hasBoxStyles(settings);
+  const margin = hasMargin(settings?.margin);
+  const padding = hasMargin(settings?.padding);
+
+  if (!card) {
+    if (!margin && !padding) return "";
+    return ` padding="${renderPadding(addPadding(settings?.margin, settings?.padding))}"`;
+  }
+
+  const prefix = margin ? "inner-" : "";
+  const attrs: string[] = [];
+
+  if (settings.backgroundColor)
+    attrs.push(`${prefix}background-color="${escapeAttr(settings.backgroundColor)}"`);
+
+  for (const declaration of borderDeclarations(settings.border)) {
+    const [name, value] = declaration.split(/:\s*/, 2);
+    attrs.push(`${prefix}${name}="${escapeAttr(value)}"`);
+  }
+
+  if (hasCornerRadius(settings.borderRadius))
+    attrs.push(
+      `${prefix}border-radius="${escapeAttr(formatCornerRadius(resolveCornerRadius(settings.borderRadius)))}"`,
+    );
+
+  if (margin) attrs.push(`padding="${renderPadding(settings.margin)}"`);
+  else if (padding) attrs.push(`padding="${renderPadding(settings.padding)}"`);
+
+  return attrs.length ? " " + attrs.join(" ") : "";
+}
+
+/**
  * The MJML half of the same thing. MJML has no border on `mj-text`, so a
  * styled block becomes a table inside it and the component's own `padding`
  * carries the outer gap. With no card to draw, a gap and a padding are the same

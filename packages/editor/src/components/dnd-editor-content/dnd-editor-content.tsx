@@ -18,6 +18,7 @@ import { useEditorStore } from "../../state/editor.store";
 import { LayoutPreset } from "../../types/layout-preset";
 import { ContentBlockType } from "@senlo/core";
 import { DragOverlayItem } from "./drag-overlay-item";
+import { pointerFirstCollision } from "./collision";
 import { useKeyboardShortcuts } from "../../hooks/use-keyboard-shortcuts";
 import { useUnsavedChanges } from "../../hooks/use-unsaved-changes";
 
@@ -141,6 +142,7 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={pointerFirstCollision}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}

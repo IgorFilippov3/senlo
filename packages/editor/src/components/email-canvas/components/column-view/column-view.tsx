@@ -2,11 +2,12 @@
 
 import { memo } from "react";
 import styles from "./column-view.module.css";
-import type { ColumnId, RowId } from "@senlo/core";
+import { columnCard, type ColumnId, type RowId } from "@senlo/core";
 import { PackagePlus } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import { useShallow } from "zustand/react/shallow";
 import { BlockView } from "../block-view/block-view";
+import { DropIndicator } from "../drop-indicator/drop-indicator";
 import { useEditorStore } from "../../../../state/editor.store";
 import { cn } from "@senlo/ui";
 
@@ -31,6 +32,9 @@ export const ColumnView = memo(
         return {
           width: found.width,
           blockIds: found.blocks.map((b) => b.id).join(" "),
+          // Immer keeps the reference while the settings are untouched, so
+          // the shallow compare still skips renders caused by typing in a block.
+          settings: found.settings,
         };
       }),
     );
@@ -57,6 +61,37 @@ export const ColumnView = memo(
 
     const blockIds = column.blockIds ? column.blockIds.split(" ") : [];
     const isEmpty = blockIds.length === 0;
+    const { outer, card } = columnCard(column.settings);
+    const hasCard = Object.keys(card).length > 0;
+
+    // The column itself is the target only where no block's zone is - the
+    // space under its last block, its padding, its margin - and a drop there
+    // appends. The column's own highlight cannot say so once a card paints over
+    // it, so the line goes where the block will land: after the last one.
+    const appendIndicator =
+      isOver && !isEmpty ? (
+        <div className={styles.appendIndicator}>
+          <DropIndicator isVisible />
+        </div>
+      ) : null;
+
+    const content = isEmpty ? (
+      <div className={styles.emptyPlaceholder}>
+        <PackagePlus className={styles.placeholderIcon} size={20} />
+        <span className={styles.placeholderText}>Drop content here</span>
+      </div>
+    ) : (
+      blockIds.map((blockId, index) => (
+        <BlockView
+          key={blockId}
+          blockId={blockId}
+          columnId={columnId}
+          rowId={rowId}
+          index={index}
+          localData={localData}
+        />
+      ))
+    );
 
     const handleClick = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -77,25 +112,26 @@ export const ColumnView = memo(
         style={{
           flexBasis: `${column.width}%`,
           maxWidth: `${column.width}%`,
+          ...outer,
         }}
         onClick={handleClick}
       >
-        {isEmpty ? (
-          <div className={styles.emptyPlaceholder}>
-            <PackagePlus className={styles.placeholderIcon} size={20} />
-            <span className={styles.placeholderText}>Drop content here</span>
+        {/*
+          The card hugs its content rather than stretching to the row's
+          height: in the message a column is an inline-block, so a card next
+          to a taller one ends where its own blocks end, and the canvas must
+          not promise equal heights the email will not keep.
+        */}
+        {hasCard ? (
+          <div className={styles.card} style={card}>
+            {content}
+            {appendIndicator}
           </div>
         ) : (
-          blockIds.map((blockId, index) => (
-            <BlockView
-              key={blockId}
-              blockId={blockId}
-              columnId={columnId}
-              rowId={rowId}
-              index={index}
-              localData={localData}
-            />
-          ))
+          <>
+            {content}
+            {appendIndicator}
+          </>
         )}
       </div>
     );

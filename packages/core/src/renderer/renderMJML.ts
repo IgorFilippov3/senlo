@@ -1,6 +1,6 @@
 import { EmailDesignDocument, RowBlock, ColumnBlock } from "../emailDesign";
 import { renderMJMLBlock } from "./mjmlBlocks";
-import { hasMargin, renderPadding } from "./utils";
+import { hasMargin, mjmlColumnAttributes, renderPadding } from "./utils";
 import { replaceMergeTags } from "../merge-tags";
 import { escapeAttr, escapeCssValue } from "./escape";
 import { evaluateCondition } from "./conditions";
@@ -169,7 +169,7 @@ function renderMJMLColumn(column: ColumnBlock, context: RenderContext): string {
     .join("\n");
 
   return `
-      <mj-column width="${column.width}%">
+      <mj-column width="${column.width}%"${mjmlColumnAttributes(column.settings)}>
         ${blocks}
       </mj-column>`;
 }

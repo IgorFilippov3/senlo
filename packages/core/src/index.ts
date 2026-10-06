@@ -13,6 +13,7 @@ export * from "./renderer/renderEmailDesign";
 export * from "./renderer/personalize";
 export * from "./renderer/renderRow";
 export * from "./renderer/rowBackground";
+export * from "./renderer/columnCard";
 export * from "./renderer/responsive";
 export * from "./renderer/renderMJML";
 export * from "./renderer/types";

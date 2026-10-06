@@ -14,6 +14,7 @@ import type {
   EmailDesignDocument,
   RowId,
   ColumnId,
+  ColumnSettings,
   ContentBlockId,
   RowBlock,
   ContentBlock,
@@ -255,6 +256,19 @@ export interface EditorState {
   setColumnWidths: (rowId: RowId, widths: number[]) => void;
   /** The same, while a value is still being dragged or typed. */
   setColumnWidthsWithoutHistory: (rowId: RowId, widths: number[]) => void;
+  /**
+   * Replace a column's card - background, border, radius, padding, margin.
+   *
+   * The whole settings object rather than a merge: the form holds every field,
+   * and a field the author cleared has to be able to disappear.
+   */
+  updateColumn: (rowId: RowId, columnId: ColumnId, settings: ColumnSettings) => void;
+  /** The same, while a value is still being dragged or typed. */
+  updateColumnWithoutHistory: (
+    rowId: RowId,
+    columnId: ColumnId,
+    settings: ColumnSettings,
+  ) => void;
   /** Update row settings without history tracking */
   updateRowWithoutHistory: (
     rowId: RowId,
@@ -1172,6 +1186,33 @@ export const useEditorStore = create<EditorState>()(
           target.columns.forEach((column, i) => {
             column.width = widths[i];
           });
+          s.isDirty = true;
+        }
+      });
+    },
+
+    updateColumn: (rowId, columnId, settings) => {
+      const column = get()
+        .design.rows.find((r) => r.id === rowId)
+        ?.columns.find((c) => c.id === columnId);
+      if (!column) return;
+      if (JSON.stringify(column.settings ?? {}) === JSON.stringify(settings)) return;
+
+      commit(set, get, (s) => {
+        const target = s.design.rows
+          .find((r) => r.id === rowId)
+          ?.columns.find((c) => c.id === columnId);
+        if (target) target.settings = settings;
+      });
+    },
+
+    updateColumnWithoutHistory: (rowId, columnId, settings) => {
+      set((s) => {
+        const target = s.design.rows
+          .find((r) => r.id === rowId)
+          ?.columns.find((c) => c.id === columnId);
+        if (target) {
+          target.settings = settings;
           s.isDirty = true;
         }
       });

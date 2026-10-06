@@ -1,0 +1,54 @@
+.list {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+
+.item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--sl-space-1) var(--sl-space-2);
+  font-size: var(--sl-font-size-xs);
+  color: var(--sl-color-text-secondary);
+  background: var(--sl-color-bg-muted);
+  border: 1px solid var(--sl-color-border);
+  border-radius: var(--sl-radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color var(--sl-transition-normal),
+    color var(--sl-transition-normal);
+}
+
+.item:hover {
+  color: var(--sl-color-text-primary);
+  border-color: var(--sl-color-primary-light);
+}
+
+.item.active {
+  color: var(--sl-color-primary);
+  border-color: var(--sl-color-primary);
+  background: color-mix(in srgb, var(--sl-color-primary) 8%, transparent);
+}
+
+/*
+ * A dashed outline for a column with nothing set, filled with its background
+ * once it has one - so a row of cards shows which columns are styled before
+ * any of them is opened.
+ */
+.swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px dashed var(--sl-color-border);
+}
+
+.swatch.styled {
+  border-style: solid;
+  border-color: var(--sl-color-text-placeholder);
+}
