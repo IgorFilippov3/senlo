@@ -147,33 +147,48 @@ describe("dragging a block that is already on the canvas", () => {
     },
   });
 
-  it("moves it to the top of another column", () => {
-    store().handleDragEnd(
-      dragEnd(held("a1", "col-a"), {
-        id: "col-b",
-        type: "column",
-        columnId: "col-b",
-      }),
-    );
-
-    const [colA, colB] = store().design.rows[0].columns;
-    expect(colA.blocks.map((b) => b.id)).toEqual(["a2"]);
-    expect(colB.blocks.map((b) => b.id)).toEqual(["a1", "b1"]);
+  const onColumn = (columnId: string) => ({
+    id: columnId,
+    type: "column",
+    columnId,
   });
 
-  it("does nothing when dropped on the column it came from", () => {
-    store().handleDragEnd(
-      dragEnd(held("a1", "col-a"), {
-        id: "col-a",
-        type: "column",
-        columnId: "col-a",
-      }),
-    );
+  const ids = (index: number) =>
+    store().design.rows[0].columns[index].blocks.map((b) => b.id);
 
-    expect(store().design.rows[0].columns[0].blocks.map((b) => b.id)).toEqual([
-      "a1",
-      "a2",
-    ]);
+  it("appends it to another column when dropped on the column itself", () => {
+    store().handleDragEnd(dragEnd(held("a1", "col-a"), onColumn("col-b")));
+
+    expect(ids(0)).toEqual(["a2"]);
+    expect(ids(1)).toEqual(["b1", "a1"]);
+  });
+
+  it("moves it to the end of its own column when dropped on the column", () => {
+    store().handleDragEnd(dragEnd(held("a1", "col-a"), onColumn("col-a")));
+
+    expect(ids(0)).toEqual(["a2", "a1"]);
+    expect(store().historyPast).toHaveLength(1);
+  });
+
+  it("leaves the last block of its own column where it is", () => {
+    store().handleDragEnd(dragEnd(held("a2", "col-a"), onColumn("col-a")));
+
+    expect(ids(0)).toEqual(["a1", "a2"]);
+    expect(store().isDirty).toBe(false);
+  });
+
+  it("appends it to an empty column", () => {
+    store().handleDragEnd(dragEnd(held("b1", "col-b"), onColumn("col-a")));
+    store().handleDragEnd(dragEnd(held("b1", "col-a"), onColumn("col-b")));
+
+    expect(ids(0)).toEqual(["a1", "a2"]);
+    expect(ids(1)).toEqual(["b1"]);
+  });
+
+  it("ignores a column that is not in the document", () => {
+    store().handleDragEnd(dragEnd(held("a1", "col-a"), onColumn("missing")));
+
+    expect(ids(0)).toEqual(["a1", "a2"]);
     expect(store().isDirty).toBe(false);
   });
 

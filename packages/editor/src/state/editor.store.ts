@@ -740,13 +740,24 @@ export const useEditorStore = create<EditorState>()(
         };
 
         if (overType === "column") {
+          // The column is the target only where no block's zone is - under its
+          // last block, its card's padding, its margin - and the canvas draws
+          // the drop line after the last block. So a drop here appends, in
+          // whichever column; it used to land at the top of another column and
+          // do nothing at all in its own.
           const targetColumnId = over.data.current?.columnId as ColumnId;
-          if (targetColumnId !== blockData.sourceColumnId) {
+          const target = findColumn(get().design, targetColumnId);
+          if (!target) return;
+          const end = target.column.blocks.length;
+
+          if (targetColumnId === blockData.sourceColumnId) {
+            get().moveBlockWithinColumn(blockData.blockId, targetColumnId, end);
+          } else {
             get().moveBlockBetweenColumns(
               blockData.blockId,
               blockData.sourceColumnId,
               targetColumnId,
-              0,
+              end,
             );
           }
         } else if (overType === "block-drop-zone") {
