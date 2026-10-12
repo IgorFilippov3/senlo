@@ -17,6 +17,7 @@ import { dividerBlock } from "./divider";
 import { productLineBlock } from "./product-line";
 import { socialsBlock } from "./socials";
 import { tableBlock } from "./table";
+import { progressBlock } from "./progress";
 
 /**
  * Every block type the product supports. Adding one means writing its
@@ -35,6 +36,7 @@ export const BLOCK_REGISTRY: Record<ContentBlockType, BlockDefinition> = {
   "product-line": productLineBlock,
   socials: socialsBlock,
   table: tableBlock,
+  progress: progressBlock,
 };
 
 /** Registration order, which is also the order the sidebar lists them in. */

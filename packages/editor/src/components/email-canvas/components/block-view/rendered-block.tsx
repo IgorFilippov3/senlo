@@ -74,7 +74,12 @@ export const RenderedBlock = ({
       responsiveStyles: [],
       localData,
       globals: resolveGlobals(settings),
-      options: previewData ? { data: previewData } : undefined,
+      // Data only in preview. A block tells the canvas from a message by
+      // whether there is a data object at all - a table bound to a variable
+      // shows sample rows, a progress bar shows every step - and the canvas
+      // always has sample values on hand, so passing them outside preview made
+      // every block render as if it were being sent.
+      options: previewMode && previewData ? { data: previewData } : undefined,
     };
 
     const rendered = definition.renderHTML(block, context);

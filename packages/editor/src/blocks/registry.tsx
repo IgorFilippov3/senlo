@@ -9,6 +9,7 @@ import {
   Minus,
   MousePointerClick,
   Package,
+  Route,
   Share2,
   SquareSplitVertical,
   Table2,
@@ -25,6 +26,7 @@ import { DividerSection } from "../components/props-manager/components/sections/
 import { ProductLineSection } from "../components/props-manager/components/sections/product-line-section";
 import { SocialsSection } from "../components/props-manager/components/sections/socials-section";
 import { TableSection } from "../components/props-manager/components/sections/table-section";
+import { ProgressSection } from "../components/props-manager/components/sections/progress-section";
 
 /**
  * The editor's half of the block registry: the parts that need React, and so
@@ -51,6 +53,7 @@ export const EDITOR_BLOCK_REGISTRY: Record<
   "product-line": { icon: Package, PropsSection: ProductLineSection },
   socials: { icon: Share2, PropsSection: SocialsSection },
   table: { icon: Table2, PropsSection: TableSection },
+  progress: { icon: Route, PropsSection: ProgressSection },
 };
 
 export function getEditorBlockDefinition(

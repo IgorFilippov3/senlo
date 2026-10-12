@@ -16,3 +16,4 @@ export * from "./divider";
 export * from "./product-line";
 export * from "./socials";
 export * from "./table";
+export * from "./progress";

@@ -21,6 +21,7 @@ describe("block registry", () => {
       "product-line",
       "socials",
       "table",
+      "progress",
     ]);
   });
 

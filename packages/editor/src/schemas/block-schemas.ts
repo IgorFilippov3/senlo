@@ -25,6 +25,7 @@ export {
   productLineBlockFormSchema as productLineSchema,
   socialsBlockFormSchema as socialsSchema,
   tableBlockFormSchema as tableSchema,
+  progressBlockFormSchema as progressSchema,
 } from "@senlo/core";
 
 import type {
@@ -38,6 +39,7 @@ import type {
   productLineBlockFormSchema,
   socialsBlockFormSchema,
   tableBlockFormSchema,
+  progressBlockFormSchema,
 } from "@senlo/core";
 
 export type BlockSchemas = {
@@ -51,4 +53,5 @@ export type BlockSchemas = {
   "product-line": typeof productLineBlockFormSchema;
   socials: typeof socialsBlockFormSchema;
   table: typeof tableBlockFormSchema;
+  progress: typeof progressBlockFormSchema;
 };

@@ -38,7 +38,8 @@ export type ContentBlockType =
   | "divider"
   | "product-line"
   | "socials"
-  | "table";
+  | "table"
+  | "progress";
 
 export type ConditionOperator =
   | "equals"
@@ -415,6 +416,45 @@ export interface TableBlock extends BaseContentBlock {
   } & BoxStyles;
 }
 
+export interface ProgressStep {
+  /** What the recipient reads under the segment. */
+  label: string;
+  /** The status code that selects this step. */
+  value: string;
+  /** How the canvas draws this step. Never reaches a message. */
+  previewState?: "completed" | "active" | "pending";
+}
+
+export interface ProgressBlock extends BaseContentBlock {
+  type: "progress";
+  data: {
+    steps: ProgressStep[];
+    /** Path the status is read from, e.g. `custom.shipment.status`. */
+    statusVariable?: string;
+    completedColor?: string;
+    activeColor?: string;
+    pendingColor?: string;
+    completedLabelColor?: string;
+    activeLabelColor?: string;
+    pendingLabelColor?: string;
+    barHeight?: number;
+    barRadius?: number;
+    gap?: number;
+    showLabels?: boolean;
+    labelAlign?: "left" | "center" | "right";
+    labelSpacing?: number;
+    fontSize?: number;
+    lineHeight?: number;
+    mobileFontSize?: number;
+    padding?: {
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
+    };
+  } & BoxStyles;
+}
+
 export type ContentBlock =
   | HeadingBlock
   | ParagraphBlock
@@ -425,7 +465,8 @@ export type ContentBlock =
   | DividerBlock
   | ProductLineBlock
   | SocialsBlock
-  | TableBlock;
+  | TableBlock
+  | ProgressBlock;
 
 /*
  * ===== LAYOUT: ROW / COLUMN =====
