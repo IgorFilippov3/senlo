@@ -185,3 +185,56 @@ describe("alignment", () => {
     expect(mjml).not.toContain('align="left"');
   });
 });
+
+describe("on a phone", () => {
+  const longValues = {
+    items: [
+      { left: "Ship to", right: "Amelia Hart, Bulevar Oslobođenja 12, 21000 Novi Sad, Serbia" },
+      { left: "Total", right: "$1,299.00" },
+    ],
+  };
+
+  const renderIn = (contentWidth = 600) => {
+    const ctx: RenderContext = {
+      responsiveStyles: [],
+      globals: { fontFamily: "Arial", contentWidth },
+    };
+    const html = definition.renderHTML({ id: "b1", type: "product-line", data: longValues }, ctx);
+    return { html, styles: ctx.responsiveStyles.join("\n") };
+  };
+
+  it("keeps the value on one line at full width, as it always has", () => {
+    const { html } = renderIn();
+    expect(html.match(/white-space: nowrap/g)).toHaveLength(2);
+    expect(html).toContain("width: 120px");
+  });
+
+  it("lets the value wrap and drop its fixed width below the document's width", () => {
+    const { html, styles } = renderIn(600);
+    const cls = html.match(/<td class="(senlo-pl-[^"]+)"/)?.[1];
+
+    expect(cls).toBeTruthy();
+    expect(styles).toContain("@media only screen and (max-width: 600px)");
+    expect(styles).toContain(`.${cls} {`);
+    expect(styles).toContain("white-space: normal !important");
+    expect(styles).toContain("width: auto !important");
+    expect(styles).toContain("word-break: break-word !important");
+  });
+
+  it("puts the class on the value cells only", () => {
+    const { html } = renderIn();
+    expect(html.match(/<td class="senlo-pl-/g)).toHaveLength(2);
+    expect(html.match(/<td /g)).toHaveLength(4);
+  });
+
+  it("follows the document's width", () => {
+    expect(renderIn(520).styles).toContain("max-width: 520px");
+  });
+
+  it("registers the rule once however many blocks there are", () => {
+    const ctx: RenderContext = { responsiveStyles: [], globals: { fontFamily: "Arial", contentWidth: 600 } };
+    definition.renderHTML({ id: "a", type: "product-line", data: longValues }, ctx);
+    definition.renderHTML({ id: "b", type: "product-line", data: threeLines }, ctx);
+    expect(ctx.responsiveStyles.filter((rule) => rule.includes("senlo-pl-"))).toHaveLength(1);
+  });
+});

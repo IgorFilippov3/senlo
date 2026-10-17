@@ -31,7 +31,7 @@ exports[`renderEmailDesign > renders every block type (snapshot) 1`] = `
       font-family: Arial, sans-serif;
     }
 
-    
+    @media only screen and (max-width: 600px) { .senlo-pl-18o0c76 { white-space: normal !important; width: auto !important; word-break: break-word !important; } }
 
     @media only screen and (max-width: 600px) {
       .senlo-full-width {
@@ -108,7 +108,7 @@ exports[`renderEmailDesign > renders every block type (snapshot) 1`] = `
             <td align="left" valign="top" style="text-align: left; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.4; color: #111827; font-weight: normal; vertical-align: top; padding: 0px 0px 0px 0px">
               Mug
             </td>
-            <td align="right" valign="top" style="text-align: right; width: 120px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.4; color: #111827; font-weight: normal; white-space: nowrap; vertical-align: top; padding: 0px 0px 0px 0px">
+            <td class="senlo-pl-18o0c76" align="right" valign="top" style="text-align: right; width: 120px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.4; color: #111827; font-weight: normal; white-space: nowrap; vertical-align: top; padding: 0px 0px 0px 0px">
               $12.00
             </td>
           </tr>

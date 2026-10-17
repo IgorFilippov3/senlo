@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import {
   getBlockDefinition,
   replaceMergeTags,
+  withProgressPreviewStatusForBlock,
   resolveGlobals,
   type ContentBlock,
   type GlobalSettings,
@@ -79,7 +80,18 @@ export const RenderedBlock = ({
       // shows sample rows, a progress bar shows every step - and the canvas
       // always has sample values on hand, so passing them outside preview made
       // every block render as if it were being sent.
-      options: previewMode && previewData ? { data: previewData } : undefined,
+      // A progress bar gets its status filled in when the preview data lacks
+      // one, the same way the preview dialog does it.
+      options:
+        previewMode && previewData
+          ? {
+              data: withProgressPreviewStatusForBlock(
+                previewData,
+                block,
+                localData,
+              ),
+            }
+          : undefined,
     };
 
     const rendered = definition.renderHTML(block, context);

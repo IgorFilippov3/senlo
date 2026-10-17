@@ -3,7 +3,11 @@
 import React, { useState, useMemo } from "react";
 import { Dialog, ToggleGroup, Button, JsonEditor } from "@senlo/ui";
 import { Monitor, Smartphone, Database, X } from "lucide-react";
-import { renderEmailDesign, RenderOptions } from "@senlo/core";
+import {
+  renderEmailDesign,
+  RenderOptions,
+  withProgressPreviewStatus,
+} from "@senlo/core";
 import { useEditorStore } from "../../state/editor.store";
 import styles from "./preview-modal.module.css";
 import { cn } from "@senlo/ui";
@@ -42,13 +46,21 @@ export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
     const options: RenderOptions = {
       baseUrl:
         typeof window !== "undefined" ? window.location.origin : undefined,
-      data: {
-        contact: previewContact || {},
-        custom: previewContact || {}, // Pass mock data as custom variables too
-        workspace: { name: "Sample Workspace" },
-        trigger: { name: "Sample Trigger" },
-        unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
-      },
+      // A progress bar whose status the mock data does not carry would be
+      // hidden, as in a real message. The preview fills that status in from
+      // the step marked active in the canvas, so it shows the bar the author
+      // just styled. A status typed into the mock data wins; this never
+      // touches the mock data itself.
+      data: withProgressPreviewStatus(
+        {
+          contact: previewContact || {},
+          custom: previewContact || {}, // Pass mock data as custom variables too
+          workspace: { name: "Sample Workspace" },
+          trigger: { name: "Sample Trigger" },
+          unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
+        },
+        design,
+      ),
     };
 
     return renderEmailDesign(design, options);

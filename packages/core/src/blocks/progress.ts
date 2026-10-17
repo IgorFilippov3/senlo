@@ -460,3 +460,105 @@ export const progressBlock: BlockDefinition = {
     return `Progress · ${count} step${count === 1 ? "" : "s"}`;
   },
 };
+
+/*
+ * ===== PREVIEW DATA =====
+ *
+ * The preview renders with data, so it follows a message's rules: a progress
+ * bar whose status is missing is hidden. Mock data rarely carries a status, so
+ * an author who had just styled the bar in the canvas opened the preview and
+ * found it gone.
+ *
+ * These helpers fill in the missing status - only where it is missing - with
+ * the value of the step the author marked active in the canvas. The preview
+ * then shows the bar the canvas shows, drawn by the real rules rather than a
+ * preview-only mode. A status the author typed into the mock data wins, and
+ * removing it is still how to see the block disappear.
+ *
+ * Nothing here is used when a message is sent.
+ */
+
+/**
+ * The status that reproduces the canvas: the active step, else the last
+ * completed one (a bar the author left all completed is a finished journey),
+ * else the first step.
+ */
+export function previewStatusOf(steps: ProgressStep[]): string | undefined {
+  if (!Array.isArray(steps) || !steps.length) return undefined;
+
+  const active = steps.find((step) => step?.previewState === "active");
+  if (active?.value) return active.value;
+
+  const completed = steps.filter(
+    (step) => (step?.previewState ?? "completed") === "completed",
+  );
+  const last = completed[completed.length - 1];
+  if (last?.value) return last.value;
+
+  return steps[0]?.value || undefined;
+}
+
+/** `obj` with `value` at `parts`, copying each object on the way down. */
+function withValueAt(obj: any, parts: string[], value: unknown): any {
+  const [head, ...rest] = parts;
+  const base = obj && typeof obj === "object" ? obj : {};
+  return {
+    ...base,
+    [head]: rest.length ? withValueAt(base[head], rest, value) : value,
+  };
+}
+
+/**
+ * `data` with a status for this block when it has none. Returns `data` itself
+ * when there is nothing to add, so a caller can compare by reference.
+ *
+ * A path that starts at a loop alias is left alone: its value comes from the
+ * loop's item, which these helpers do not invent.
+ */
+export function withProgressPreviewStatusForBlock<T extends Record<string, any>>(
+  data: T,
+  block: { type: string; data?: any },
+  localData?: Record<string, any>,
+): T {
+  if (block?.type !== "progress") return data;
+
+  const path = variablePath(block.data?.statusVariable);
+  if (!path) return data;
+
+  const parts = path.split(".").filter(Boolean);
+  if (!parts.length) return data;
+  if (localData && Object.prototype.hasOwnProperty.call(localData, parts[0])) {
+    return data;
+  }
+  if (resolveVariable(path, data, localData) !== undefined) return data;
+
+  const status = previewStatusOf(stepsOf(block.data));
+  if (status === undefined) return data;
+
+  return withValueAt(data, parts, status);
+}
+
+/**
+ * `data` with a status for every progress bar in the document that lacks one.
+ * Bars inside a looped row whose path starts at the loop's alias are skipped,
+ * as above.
+ */
+export function withProgressPreviewStatus<T extends Record<string, any>>(
+  data: T,
+  design: { rows?: Array<{ loop?: { alias?: string }; columns?: Array<{ blocks?: any[] }> }> },
+): T {
+  let result = data;
+
+  for (const row of design?.rows ?? []) {
+    const alias = row.loop?.alias;
+    const local = alias ? { [alias]: {} } : undefined;
+
+    for (const column of row.columns ?? []) {
+      for (const block of column.blocks ?? []) {
+        result = withProgressPreviewStatusForBlock(result, block, local);
+      }
+    }
+  }
+
+  return result;
+}

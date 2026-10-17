@@ -27,6 +27,8 @@ import {
   MoveDownRight,
   Minus,
   MoreHorizontal,
+  Columns3,
+  Rows3,
 } from "lucide-react";
 import { Controller, useWatch } from "react-hook-form";
 import { RowBlock } from "@senlo/core";
@@ -63,6 +65,11 @@ export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
   const widthOptions = [
     { value: "auto", icon: <Minimize2 size={16} />, label: "Content Width" },
     { value: "custom", icon: <Maximize2 size={16} />, label: "Custom" },
+  ];
+
+  const stackOptions = [
+    { value: "stack", icon: <Rows3 size={16} />, label: "Stack" },
+    { value: "side", icon: <Columns3 size={16} />, label: "Side by side" },
   ];
 
   const bandOptions = [
@@ -166,6 +173,27 @@ export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
     <FormSection title="Row Settings">
       <ColumnWidths row={row} focusedColumnId={focusedColumnId} />
       <ColumnPicker row={row} focusedColumnId={focusedColumnId} />
+
+      {row.columns.length > 1 && (
+        <FormField
+          label="On a phone"
+          hint="Side by side keeps the columns in one line and lets them narrow with the screen - a thumbnail next to its text, two buttons in a row. Check that each column is still wide enough to read at 360px."
+        >
+          <Controller
+            name="stackOnMobile"
+            control={control}
+            render={({ field }) => (
+              <ToggleGroup
+                value={field.value === false ? "side" : "stack"}
+                options={stackOptions}
+                onChange={(val) =>
+                  field.onChange(val === "side" ? false : undefined)
+                }
+              />
+            )}
+          />
+        </FormField>
+      )}
 
       <FormField
         label="Background Color"

@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { escapeAttr } from "../renderer/escape";
+import { registerStyleRule } from "../renderer/responsive";
 import { globalsOf } from "../renderer/types";
 import {
   colorInlineLinks,
@@ -190,6 +191,24 @@ function renderProductLine(block: any, context: RenderContext): string {
     `padding: ${rowPadding}`,
   ].join("; ");
 
+  // The right cell keeps its value on one line, which is what a price needs -
+  // `$1,299.00` should never break. But a cell that cannot wrap cannot narrow
+  // either, so a long value there (an address, "Express, 2 to 3 business
+  // days") made the table wider than a phone. A table never shrinks below its
+  // content, so the column, the row and in the end the whole message grew with
+  // it: every full-width row took the wider width, a centred button drifted
+  // right and the far columns of other rows went off screen.
+  //
+  // Below the document's width the cell is allowed to wrap and give up its
+  // fixed width. Above it nothing changes, so the desktop layout is what it
+  // always was. A client without media queries keeps today's behaviour.
+  const mobileClass = registerStyleRule(
+    context,
+    "pl",
+    "white-space: normal !important; width: auto !important; word-break: break-word !important;",
+    { media: `only screen and (max-width: ${globals.contentWidth}px)` },
+  );
+
   const rows = items
     .map((item, index) => {
       const isLast = index === items.length - 1;
@@ -199,7 +218,7 @@ function renderProductLine(block: any, context: RenderContext): string {
             <td align="${align.left}" valign="${align.vertical}" style="${escapeAttr(leftCellStyle + rule(isLast))}">
               ${colorInlineLinks(item.left, leftColor)}
             </td>
-            <td align="${align.right}" valign="${align.vertical}" style="${escapeAttr(rightCellStyle + rule(isLast))}">
+            <td class="${mobileClass}" align="${align.right}" valign="${align.vertical}" style="${escapeAttr(rightCellStyle + rule(isLast))}">
               ${colorInlineLinks(item.right, rightColor)}
             </td>
           </tr>`;

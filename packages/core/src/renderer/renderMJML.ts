@@ -98,9 +98,16 @@ function renderMJMLSection(row: RowBlock, context: RenderContext): string {
   if (!evaluateCondition(row.condition, context)) return "";
 
   const { settings } = row;
-  const columns = row.columns
+  const renderedColumns = row.columns
     .map((col) => renderMJMLColumn(col, context))
     .join("\n");
+
+  // MJML's own way of keeping columns side by side on a phone. Only a row that
+  // asked for it gets the group, so every other export is what it was.
+  const columns =
+    settings.stackOnMobile === false && row.columns.length > 1
+      ? `<mj-group>\n${renderedColumns}\n</mj-group>`
+      : renderedColumns;
   const borderRadius = settings.borderRadius || { top: 0, bottom: 0 };
   const borderRadiusStr = `${borderRadius.top || 0}px ${borderRadius.top || 0}px ${borderRadius.bottom || 0}px ${borderRadius.bottom || 0}px`;
 

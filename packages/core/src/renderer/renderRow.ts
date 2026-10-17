@@ -98,6 +98,13 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
 
   const paddingStyle = escapeAttr(`padding: ${renderPadding(padding)}`);
 
+  // Stacking is the `.senlo-stack` class, which the head's media query turns
+  // into a full-width block on a phone. A row that keeps its columns side by
+  // side simply leaves the class off: the columns stay inline-blocks with a
+  // percentage width and narrow with the message. Outlook is not affected
+  // either way - it lays the columns out in its own table and never stacks.
+  const stack = settings.stackOnMobile !== false;
+
   const rowStyle = fullWidth
     ? paddingStyle
     : `${backgroundStyle}; ${paddingStyle}`;
@@ -119,7 +126,7 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
           <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
             <tr>
           <![endif]-->
-          ${row.columns.map((col) => renderColumn(col, context)).join("")}
+          ${row.columns.map((col) => renderColumn(col, context, stack)).join("")}
           <!--[if mso]>
             </tr>
           </table>
@@ -152,7 +159,11 @@ export function renderRow(row: RowBlock, context: RenderContext): string {
   return cell(`padding: ${renderPadding(settings.margin)}`, html);
 }
 
-function renderColumn(column: ColumnBlock, context: RenderContext): string {
+function renderColumn(
+  column: ColumnBlock,
+  context: RenderContext,
+  stack = true,
+): string {
   // Width reaches both an attribute and two style declarations, so it is
   // coerced rather than escaped.
   const width = Number(column.width) || 100;
@@ -162,7 +173,7 @@ function renderColumn(column: ColumnBlock, context: RenderContext): string {
     <!--[if mso]>
     <td ${widthAttr} valign="top" style="width: ${width}%;">
     <![endif]-->
-    <div class="senlo-stack" style="display: inline-block; width: 100%; max-width: ${width}%; vertical-align: top; font-size: 16px;">
+    <div${stack ? ' class="senlo-stack"' : ""} style="display: inline-block; width: 100%; max-width: ${width}%; vertical-align: top; font-size: 16px;">
       <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
         <tr>
           <td align="left">

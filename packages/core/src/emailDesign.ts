@@ -576,6 +576,15 @@ export interface RowBlock {
      * Rules on two neighbouring rows add up, the way their gaps do.
      */
     border?: RowBorder;
+    /**
+     * Whether the columns stack on a phone. Absent means they do, which is
+     * what every row did before this field existed.
+     *
+     * Off keeps them side by side and lets them narrow with the message - a
+     * thumbnail next to its text, two buttons in a row. Whether the columns
+     * are still wide enough to read at 360px is then the author's call.
+     */
+    stackOnMobile?: boolean;
   };
 }
 
@@ -673,6 +682,7 @@ export const rowBlockSchema = z.object({
       width: z.number().int().positive().optional(),
       backgroundGradient: linearGradientSchema.optional(),
       border: rowBorderSchema.optional(),
+      stackOnMobile: z.boolean().optional(),
     })
     .optional()
     .default({}),

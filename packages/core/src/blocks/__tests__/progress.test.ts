@@ -7,7 +7,13 @@ import { describe, expect, it } from "vitest";
 import type { RenderContext } from "../../renderer/types";
 import { renderEmailDesign } from "../../renderer/renderEmailDesign";
 import { getBlockDefinition } from "../registry";
-import { progressBlockDataSchema, resolveProgressStep } from "../progress";
+import {
+  previewStatusOf,
+  progressBlockDataSchema,
+  resolveProgressStep,
+  withProgressPreviewStatus,
+  withProgressPreviewStatusForBlock,
+} from "../progress";
 
 const definition = getBlockDefinition("progress")!;
 
@@ -378,5 +384,136 @@ describe("MJML export", () => {
   it("leaves the preview states behind", () => {
     const mjml = definition.renderMJML(block({ steps: PREVIEWED }));
     expect(segments(mjml)).toEqual(Array(4).fill(COLORS.completedColor));
+  });
+});
+
+describe("preview data", () => {
+  const steps = (...states: Array<"completed" | "active" | "pending" | undefined>) =>
+    STEPS.map((step, i) => ({ ...step, previewState: states[i] }));
+
+  describe("previewStatusOf", () => {
+    it("takes the step marked active", () => {
+      expect(previewStatusOf(steps("completed", "completed", "active", "pending"))).toBe("out_for_delivery");
+    });
+
+    it("takes the last completed step when none is active", () => {
+      expect(previewStatusOf(steps("completed", "completed", "pending", "pending"))).toBe("shipped");
+      expect(previewStatusOf(STEPS)).toBe("delivered");
+    });
+
+    it("falls back to the first step when every step is pending", () => {
+      expect(previewStatusOf(steps("pending", "pending", "pending", "pending"))).toBe("ordered");
+    });
+
+    it("has nothing to offer without steps", () => {
+      expect(previewStatusOf([])).toBeUndefined();
+    });
+  });
+
+  const bar = (data: any = {}) => ({
+    type: "progress",
+    data: {
+      steps: steps("completed", "completed", "active", "pending"),
+      statusVariable: "custom.shipment.status",
+      ...data,
+    },
+  });
+
+  describe("withProgressPreviewStatusForBlock", () => {
+    it("fills in a missing status from the active step", () => {
+      const data = { custom: { name: "Amelia" } };
+      const seeded = withProgressPreviewStatusForBlock(data, bar());
+      expect(seeded.custom).toEqual({ name: "Amelia", shipment: { status: "out_for_delivery" } });
+    });
+
+    it("leaves the original data untouched", () => {
+      const custom = { name: "Amelia" };
+      const data = { contact: custom, custom };
+      withProgressPreviewStatusForBlock(data, bar());
+      expect(custom).toEqual({ name: "Amelia" });
+      expect(data.contact).toBe(custom);
+    });
+
+    it("keeps a status the mock data already has", () => {
+      const data = { custom: { shipment: { status: "ordered" } } };
+      expect(withProgressPreviewStatusForBlock(data, bar())).toBe(data);
+    });
+
+    it("keeps even a status that matches no step, so its effect can be previewed", () => {
+      const data = { custom: { shipment: { status: "returned" } } };
+      expect(withProgressPreviewStatusForBlock(data, bar())).toBe(data);
+    });
+
+    it("accepts a path written as a merge tag", () => {
+      const seeded = withProgressPreviewStatusForBlock({ custom: {} }, bar({ statusVariable: "{{custom.order.state}}" }));
+      expect(seeded.custom).toEqual({ order: { state: "out_for_delivery" } });
+    });
+
+    it("does nothing without a status variable", () => {
+      const data = { custom: {} };
+      expect(withProgressPreviewStatusForBlock(data, bar({ statusVariable: "" }))).toBe(data);
+    });
+
+    it("leaves a path that starts at a loop alias alone", () => {
+      const data = { custom: {} };
+      const block = bar({ statusVariable: "order.status" });
+      expect(withProgressPreviewStatusForBlock(data, block, { order: {} })).toBe(data);
+    });
+
+    it("ignores every other block type", () => {
+      const data = { custom: {} };
+      expect(withProgressPreviewStatusForBlock(data, { type: "paragraph", data: { text: "x" } })).toBe(data);
+    });
+
+    it("makes the bar render the way the canvas draws it", () => {
+      const block = bar(COLORS);
+      const seeded = withProgressPreviewStatusForBlock({ custom: {} }, block);
+      const html = definition.renderHTML(
+        { id: "p1", type: "progress", data: block.data },
+        { responsiveStyles: [], options: { data: seeded } } as any,
+      );
+      expect(segments(html)).toEqual([
+        COLORS.completedColor,
+        COLORS.completedColor,
+        COLORS.activeColor,
+        COLORS.pendingColor,
+      ]);
+    });
+  });
+
+  describe("withProgressPreviewStatus", () => {
+    const design = (rows: any[]) => ({ rows });
+    const rowWith = (blocks: any[], extra: any = {}) => ({ columns: [{ blocks }], ...extra });
+
+    it("seeds every bar in the document", () => {
+      const seeded = withProgressPreviewStatus(
+        { custom: {} },
+        design([
+          rowWith([{ type: "heading", data: { text: "Hi" } }, bar()]),
+          rowWith([bar({ statusVariable: "custom.refund.status", steps: [{ label: "A", value: "requested", previewState: "active" }] })]),
+        ]),
+      );
+      expect(seeded.custom).toEqual({
+        shipment: { status: "out_for_delivery" },
+        refund: { status: "requested" },
+      });
+    });
+
+    it("returns the same object when nothing is missing", () => {
+      const data = { custom: { shipment: { status: "shipped" } } };
+      expect(withProgressPreviewStatus(data, design([rowWith([bar()])]))).toBe(data);
+    });
+
+    it("skips a bar that reads its status from the loop's item", () => {
+      const data = { custom: {} };
+      const looped = rowWith([bar({ statusVariable: "item.status" })], { loop: { variable: "custom.items", alias: "item" } });
+      expect(withProgressPreviewStatus(data, design([looped]))).toBe(data);
+    });
+
+    it("still seeds a bar in a looped row whose path does not use the alias", () => {
+      const looped = rowWith([bar()], { loop: { variable: "custom.items", alias: "item" } });
+      const seeded = withProgressPreviewStatus({ custom: {} }, design([looped]));
+      expect(seeded.custom).toEqual({ shipment: { status: "out_for_delivery" } });
+    });
   });
 });
