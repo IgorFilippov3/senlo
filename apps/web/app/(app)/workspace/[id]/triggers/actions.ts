@@ -16,6 +16,8 @@ import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { CreateCampaignSchema, UpdateCampaignSchema } from "./schemas";
 import { auth } from "apps/web/auth";
+import { access } from "apps/web/lib/access";
+import { requireUserId } from "apps/web/lib/session";
 
 const campaignRepo = new CampaignRepository(db);
 const projectRepo = new ProjectRepository(db);
@@ -24,19 +26,33 @@ const providerRepo = new EmailProviderRepository(db);
 const triggeredLogRepo = new TriggeredSendLogRepository(db);
 
 async function getAuthorizedCampaign(campaignId: number) {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
+  const userId = await requireUserId();
+  const campaign = await access.requireInProject(
+    userId,
+    await campaignRepo.findById(campaignId),
+    "Trigger",
+  );
+  const project = await access.requireProject(userId, campaign.projectId);
+  return { campaign, project, userId };
+}
 
-  const campaign = await campaignRepo.findById(campaignId);
-  if (!campaign) throw new Error("Campaign not found");
-
-  const project = await projectRepo.findById(campaign.projectId);
-  if (!project || project.userId !== userId) {
-    throw new Error("Unauthorized");
+/**
+ * Every template a trigger points at - the default one and each locale
+ * variant - must live in the trigger's own project. The ids arrive from the
+ * form, and the send path would otherwise render whatever they name.
+ */
+async function requireProjectTemplates(
+  projectId: number,
+  templateIds: Array<number | null | undefined>,
+) {
+  for (const templateId of templateIds) {
+    if (templateId == null) continue;
+    access.requireSameProject(
+      projectId,
+      await templateRepo.findById(Number(templateId)),
+      "Template",
+    );
   }
-
-  return { campaign, project, userId, session };
 }
 
 export async function getCampaignDetails(id: number): Promise<{
@@ -158,10 +174,7 @@ export async function listProjectCampaigns(
     };
 
   return withErrorHandling(async () => {
-    const project = await projectRepo.findById(projectId);
-    if (!project || project.userId !== userId) {
-      throw new Error("Unauthorized");
-    }
+    await access.requireProject(userId, projectId);
 
     logger.debug("Listing campaigns by project", { projectId });
     return await campaignRepo.findByProject(projectId);
@@ -193,8 +206,7 @@ export async function getTemplatesByProject(
   const userId = session?.user?.id;
   if (!userId) throw new Error("Unauthorized");
 
-  const project = await projectRepo.findById(projectId);
-  if (!project || project.userId !== userId) throw new Error("Unauthorized");
+  await access.requireProject(userId, projectId);
 
   return templateRepo.findByProject(projectId);
 }
@@ -225,10 +237,8 @@ export async function createCampaignAction(formData: FormData) {
   } = parsed.data;
 
   try {
-    const project = await projectRepo.findById(projectId);
-    if (!project || project.userId !== userId) {
-      throw new Error("Unauthorized");
-    }
+    await access.requireProject(userId, projectId);
+    await requireProjectTemplates(projectId, [templateId]);
 
     logger.info("Creating email trigger", {
       name,
@@ -292,6 +302,13 @@ export async function updateCampaignAction(id: number, formData: FormData) {
       variablesSchema,
       localeTemplates,
     } = parsed.data;
+
+    if (localeTemplates) {
+      await requireProjectTemplates(
+        project.id,
+        Object.values(localeTemplates as Record<string, number>),
+      );
+    }
 
     logger.info("Updating campaign", { campaignId: id, name });
 

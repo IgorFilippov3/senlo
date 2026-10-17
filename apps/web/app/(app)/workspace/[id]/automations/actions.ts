@@ -12,7 +12,8 @@ import {
   TriggeredSendLogRepository,
   db,
 } from "@senlo/db";
-import { auth } from "apps/web/auth";
+import { access } from "apps/web/lib/access";
+import { requireUserId } from "apps/web/lib/session";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import {
   Workflow,
@@ -49,17 +50,18 @@ const automationService = new AutomationService(
   triggerService,
 );
 
+/** The workflow, if the signed-in user may access its project. */
+async function requireWorkflow(id: number): Promise<Workflow> {
+  const userId = await requireUserId();
+  const workflow = await workflowRepo.findById(id);
+  return access.requireInProject(userId, workflow, "Workflow");
+}
+
 export async function listWorkflows(
   projectId: number,
 ): Promise<ActionResult<Workflow[]>> {
-  const session = await auth();
-  if (!session?.user?.id)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
   return withErrorHandling(async () => {
+    await access.requireProject(await requireUserId(), projectId);
     return await workflowRepo.findByProject(projectId);
   });
 }
@@ -68,14 +70,8 @@ export async function createWorkflow(
   projectId: number,
   name: string,
 ): Promise<ActionResult<Workflow>> {
-  const session = await auth();
-  if (!session?.user?.id)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
   return withErrorHandling(async () => {
+    await access.requireProject(await requireUserId(), projectId);
     const workflow = await workflowRepo.create({
       projectId,
       name,
@@ -117,16 +113,8 @@ export async function getWorkflow(id: number): Promise<
     edges: WorkflowEdge[];
   }>
 > {
-  const session = await auth();
-  if (!session?.user?.id)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
   return withErrorHandling(async () => {
-    const workflow = await workflowRepo.findById(id);
-    if (!workflow) throw new Error("Workflow not found");
+    const workflow = await requireWorkflow(id);
 
     const [nodes, edges] = await Promise.all([
       workflowRepo.getNodes(id),
@@ -142,14 +130,9 @@ export async function saveWorkflowGraph(
   nodes: any[],
   edges: any[],
 ): Promise<ActionResult<void>> {
-  const session = await auth();
-  if (!session?.user?.id)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
   return withErrorHandling(async () => {
+    await requireWorkflow(id);
+
     // Map UI nodes to DB nodes
     const dbNodes = nodes.map((n) => ({
       id: n.id,
@@ -174,50 +157,26 @@ export async function updateWorkflowStatus(
   id: number,
   status: Workflow["status"],
 ): Promise<ActionResult<void>> {
-  const session = await auth();
-  if (!session?.user?.id)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
   return withErrorHandling(async () => {
+    const workflow = await requireWorkflow(id);
     await workflowRepo.update(id, { status });
-    const workflow = await workflowRepo.findById(id);
-    if (workflow) {
-      revalidatePath(`/workspace/${workflow.projectId}/automations`);
-    }
+    revalidatePath(`/workspace/${workflow.projectId}/automations`);
   });
 }
 
 export async function deleteWorkflow(id: number): Promise<ActionResult<void>> {
-  const session = await auth();
-  if (!session?.user?.id)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
   return withErrorHandling(async () => {
-    const workflow = await workflowRepo.findById(id);
-    if (workflow) {
-      await workflowRepo.delete(id);
-      revalidatePath(`/workspace/${workflow.projectId}/automations`);
-    }
+    const workflow = await requireWorkflow(id);
+    await workflowRepo.delete(id);
+    revalidatePath(`/workspace/${workflow.projectId}/automations`);
   });
 }
 
 export async function getWorkflowStats(
   workflowId: number,
 ): Promise<ActionResult<WorkflowNodeStats[]>> {
-  const session = await auth();
-  if (!session?.user?.id)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
   return withErrorHandling(async () => {
+    await requireWorkflow(workflowId);
     return await automationService.getWorkflowStats(workflowId);
   });
 }

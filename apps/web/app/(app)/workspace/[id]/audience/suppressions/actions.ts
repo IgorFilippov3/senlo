@@ -16,6 +16,7 @@ import {
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
+import { access } from "apps/web/lib/access";
 import { Suppression } from "@senlo/core";
 import { AudienceService } from "@senlo/core/src/services/audienceService";
 import { AutomationService } from "@senlo/core/src/services/automationService";
@@ -89,6 +90,7 @@ export async function listProjectSuppressions(
   }
 
   return withErrorHandling(async () => {
+    await access.requireProject(userId, projectId);
     logger.debug("Listing suppressions for project", { projectId, userId });
     return await audienceService.listProjectSuppressions(projectId);
   });
@@ -109,12 +111,12 @@ export async function deleteSuppressionAction(
 
   return withErrorHandling(async () => {
     logger.info("Deleting suppression entry", { id, userId });
-    const suppression = await audienceService.getSuppressionById(id);
-    if (suppression) {
-      await audienceService.removeSuppression(id);
-      revalidatePath(
-        `/workspace/${suppression.projectId}/audience/suppressions`,
-      );
-    }
+    const suppression = await access.requireInProject(
+      userId,
+      await audienceService.getSuppressionById(id),
+      "Suppression",
+    );
+    await audienceService.removeSuppression(id);
+    revalidatePath(`/workspace/${suppression.projectId}/audience/suppressions`);
   });
 }

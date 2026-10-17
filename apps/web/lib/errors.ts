@@ -3,110 +3,18 @@
  * Provides consistent error handling across the application.
  */
 
-export type ErrorCode =
-  | 'VALIDATION_ERROR'
-  | 'NOT_FOUND'
-  | 'UNAUTHORIZED'
-  | 'FORBIDDEN'
-  | 'DUPLICATE_ENTRY'
-  | 'EXTERNAL_SERVICE_ERROR'
-  | 'DATABASE_ERROR'
-  | 'UNKNOWN_ERROR';
+import { AppError, ValidationError, type ErrorCode } from "@senlo/core";
 
-/**
- * Base application error with structured information
- */
-export class AppError extends Error {
-  public readonly code: ErrorCode;
-  public readonly details?: Record<string, any>;
-  public readonly statusCode: number;
-
-  constructor(
-    code: ErrorCode,
-    message: string,
-    details?: Record<string, any>,
-    statusCode?: number
-  ) {
-    super(message);
-    this.name = 'AppError';
-    this.code = code;
-    this.details = details;
-    this.statusCode = statusCode ?? this.getDefaultStatusCode(code);
-
-    // Maintain proper stack trace
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, AppError);
-    }
-  }
-
-  private getDefaultStatusCode(code: ErrorCode): number {
-    switch (code) {
-      case 'VALIDATION_ERROR':
-        return 400;
-      case 'UNAUTHORIZED':
-        return 401;
-      case 'FORBIDDEN':
-        return 403;
-      case 'NOT_FOUND':
-        return 404;
-      case 'DUPLICATE_ENTRY':
-        return 409;
-      case 'EXTERNAL_SERVICE_ERROR':
-        return 502;
-      case 'DATABASE_ERROR':
-        return 500;
-      case 'UNKNOWN_ERROR':
-      default:
-        return 500;
-    }
-  }
-
-  /**
-   * Convert error to JSON-serializable object
-   */
-  toJSON() {
-    return {
-      code: this.code,
-      message: this.message,
-      details: this.details,
-      statusCode: this.statusCode,
-    };
-  }
-}
-
-/**
- * Validation-specific error for form and input validation
- */
-export class ValidationError extends AppError {
-  constructor(message: string, details?: Record<string, any>) {
-    super('VALIDATION_ERROR', message, details, 400);
-    this.name = 'ValidationError';
-  }
-}
-
-/**
- * Not found error for missing resources
- */
-export class NotFoundError extends AppError {
-  constructor(resource: string, identifier?: string | number) {
-    const message = identifier
-      ? `${resource} with ID ${identifier} not found`
-      : `${resource} not found`;
-
-    super('NOT_FOUND', message, { resource, identifier }, 404);
-    this.name = 'NotFoundError';
-  }
-}
-
-/**
- * Database operation error
- */
-export class DatabaseError extends AppError {
-  constructor(message: string, details?: Record<string, any>) {
-    super('DATABASE_ERROR', message, details, 500);
-    this.name = 'DatabaseError';
-  }
-}
+// The error classes live in core so services can throw them and every app
+// maps them the same way. Re-exported here for existing imports.
+export {
+  AppError,
+  ValidationError,
+  NotFoundError,
+  UnauthorizedError,
+  DatabaseError,
+  type ErrorCode,
+} from "@senlo/core";
 
 /**
  * Serializable error type for client components

@@ -324,7 +324,9 @@ export class EmailWorkerProcessor {
       this.providerRepo.findById(project.providerId),
     ]);
 
-    if (!template) throw new Error("Template not found");
+    if (!template || template.projectId !== campaign.projectId) {
+      throw new Error("Template not found");
+    }
     if (!provider) throw new Error("Email provider not found");
 
     if (!campaign.listId) {

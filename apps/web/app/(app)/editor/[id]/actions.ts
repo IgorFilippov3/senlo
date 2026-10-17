@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  EmailTemplateRepository, EmailProviderRepository, ProjectRepository, SavedRowRepository, db } from "@senlo/db";
+  EmailTemplateRepository, EmailProviderRepository, SavedRowRepository, db } from "@senlo/db";
 import {
   EmailDesignDocument,
   renderEmailDesign,
@@ -12,27 +12,27 @@ import {
 import { emailQueue } from "@senlo/core/src/queue";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
+import { access } from "apps/web/lib/access";
+import { requireUserId } from "apps/web/lib/session";
 
 const repo = new EmailTemplateRepository(db);
 const providerRepo = new EmailProviderRepository(db);
-const projectRepo = new ProjectRepository(db);
 const savedRowRepo = new SavedRowRepository(db);
 
 async function authorizeTemplate(templateId: number) {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
-
-  const template = await repo.findById(templateId);
-  if (!template) throw new Error("Template not found");
-
-  const project = await projectRepo.findById(template.projectId);
-  if (!project || project.userId !== userId) {
-    throw new Error("Unauthorized");
-  }
-
-  return { template, project, session };
+  const userId = await requireUserId();
+  const template = await access.requireInProject(
+    userId,
+    await repo.findById(templateId),
+    "Template",
+  );
+  const project = await access.requireProject(userId, template.projectId);
+  return { template, project, userId };
 }
+
+// One plain address: no display name, no list, and nothing that could end a
+// header line. Both addresses below come straight from the client.
+const SINGLE_ADDRESS = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
 
 export async function saveTemplateFromEditor(
   id: number,
@@ -85,7 +85,14 @@ export async function sendTestEmailAction(
   subject: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { template, project } = await authorizeTemplate(templateId);
+    const { template, project, userId } = await authorizeTemplate(templateId);
+
+    if (!SINGLE_ADDRESS.test(targetEmail)) {
+      throw new Error("Enter a single valid recipient address.");
+    }
+    if (fromEmail && !SINGLE_ADDRESS.test(fromEmail)) {
+      throw new Error("Enter a single valid sender address.");
+    }
 
     if (!project.providerId) {
       throw new Error(
@@ -94,7 +101,7 @@ export async function sendTestEmailAction(
     }
 
     const provider = await providerRepo.findById(project.providerId);
-    if (!provider) {
+    if (!provider || provider.userId !== userId) {
       throw new Error("Email provider not found. It may have been deleted.");
     }
 
@@ -166,9 +173,10 @@ export async function saveRowAction(
   projectId?: number,
 ): Promise<{ success: boolean; data?: SavedRow }> {
   try {
-    const session = await auth();
-    const userId = session?.user?.id;
-    if (!userId) throw new Error("Unauthorized");
+    const userId = await requireUserId();
+    if (projectId) {
+      await access.requireProject(userId, projectId);
+    }
 
     const savedRow = await savedRowRepo.create({
       name,
@@ -190,14 +198,8 @@ export async function deleteSavedRowAction(
   id: number,
 ): Promise<{ success: boolean }> {
   try {
-    const session = await auth();
-    const userId = session?.user?.id;
-    if (!userId) throw new Error("Unauthorized");
-
-    const row = await savedRowRepo.findById(id);
-    if (!row || row.userId !== userId) {
-      throw new Error("Unauthorized");
-    }
+    const userId = await requireUserId();
+    access.requireUserOwned(userId, await savedRowRepo.findById(id), "Saved row");
 
     await savedRowRepo.delete(id);
     return { success: true };

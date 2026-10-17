@@ -19,6 +19,8 @@ export * from "./renderer/renderMJML";
 export * from "./renderer/types";
 export * from "./ports";
 export * from "./constants";
+export * from "./errors";
+export * from "./access";
 export * from "./merge-tags";
 export * from "./tracking";
 export * from "./unsubscribe-token";

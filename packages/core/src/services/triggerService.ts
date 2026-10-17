@@ -60,7 +60,11 @@ export class TriggerService {
       this.projectRepo.findById(campaign.projectId),
     ]);
 
-    if (!template) throw new Error("Template not found");
+    // A locale template is an id stored on the campaign; one from another
+    // project must never be rendered here.
+    if (!template || template.projectId !== campaign.projectId) {
+      throw new Error("Template not found");
+    }
     if (!project) throw new Error("Project not found");
     
     if (!project.providerId) {

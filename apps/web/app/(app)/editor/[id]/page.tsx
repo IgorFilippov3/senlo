@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import {
-  EmailTemplateRepository, CampaignRepository, ProjectRepository, db } from "@senlo/db";
+import { EmailTemplateRepository, CampaignRepository, db } from "@senlo/db";
 import { EditorLayout } from "@senlo/editor";
 import { EmailDesignDocument, emailDesignVersion, MergeTag } from "@senlo/core";
 import {
@@ -10,6 +9,8 @@ import {
   saveRowAction,
   deleteSavedRowAction,
 } from "./actions";
+import { access } from "apps/web/lib/access";
+import { requireUserId } from "apps/web/lib/session";
 
 interface EditorPageProps {
   params: Promise<{ id: string }>;
@@ -18,7 +19,6 @@ interface EditorPageProps {
 
 const templateRepo = new EmailTemplateRepository(db);
 const campaignRepo = new CampaignRepository(db);
-const projectRepo = new ProjectRepository(db);
 
 export default async function EditorIdPage({
   params,
@@ -32,21 +32,29 @@ export default async function EditorIdPage({
     notFound();
   }
 
-  let campaign = null;
-  if (campaignIdParam) {
-    campaign = await campaignRepo.findById(Number(campaignIdParam));
-  } else {
-    campaign = await campaignRepo.findByTemplateId(templateId);
+  // The page renders the template's design and its trigger's variables, so it
+  // needs the same access check as the actions it hands to the editor.
+  const userId = await requireUserId().catch(() => null);
+  if (!userId) {
+    notFound();
   }
 
-  const template = await templateRepo.findById(templateId);
-
+  const template = await access
+    .requireInProject(userId, await templateRepo.findById(templateId), "Template")
+    .catch(() => null);
   if (!template) {
     notFound();
   }
 
-  const project = await projectRepo.findById(template.projectId);
-  const hasAiProvider = !!project?.aiProviderId;
+  const project = await access.requireProject(userId, template.projectId);
+  const hasAiProvider = !!project.aiProviderId;
+
+  let campaign = campaignIdParam
+    ? await campaignRepo.findById(Number(campaignIdParam))
+    : await campaignRepo.findByTemplateId(templateId);
+  if (campaign && campaign.projectId !== template.projectId) {
+    campaign = null;
+  }
 
   const design: EmailDesignDocument =
     (template.designJson as EmailDesignDocument | null) ?? {

@@ -24,6 +24,8 @@ import {
 } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
+import { access } from "apps/web/lib/access";
+import { requireUserId } from "apps/web/lib/session";
 
 const settingsService = new SettingsService(
   new ApiKeyRepository(db),
@@ -35,15 +37,9 @@ const aiProviderRepo = new AiProviderRepository(db);
 const templateRepo = new EmailTemplateRepository(db);
 
 async function getAuthorizedProject(projectId: number) {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
-
-  const project = await settingsService.getWorkspace(projectId);
-  if (!project) throw new Error("Project not found");
-  if (project.userId !== userId) throw new Error("Unauthorized");
-
-  return { project, userId, session };
+  const userId = await requireUserId();
+  const project = await access.requireProject(userId, projectId);
+  return { project, userId };
 }
 
 export async function getWorkspaceById(
@@ -118,6 +114,11 @@ export async function deleteTemplate(
       templateId,
     });
 
+    access.requireSameProject(
+      numericProjectId,
+      await templateRepo.findById(templateId),
+      "Template",
+    );
     await templateRepo.delete(templateId);
     revalidatePath(`/workspace/${projectId}/templates`);
   });
@@ -153,17 +154,19 @@ export async function updateWorkspace(
   }
 
   if (providerId) {
-    const provider = await providerRepo.findById(providerId);
-    if (!provider || provider.userId !== userId) {
-      throw new Error("Invalid email provider");
-    }
+    access.requireUserOwned(
+      userId,
+      await providerRepo.findById(providerId),
+      "Email provider",
+    );
   }
 
   if (aiProviderId) {
-    const aiProvider = await aiProviderRepo.findById(aiProviderId);
-    if (!aiProvider || aiProvider.userId !== userId) {
-      throw new Error("Invalid AI provider");
-    }
+    access.requireUserOwned(
+      userId,
+      await aiProviderRepo.findById(aiProviderId),
+      "AI provider",
+    );
   }
 
   await settingsService.updateWorkspace(id, {
