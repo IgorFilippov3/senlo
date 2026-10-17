@@ -1,4 +1,4 @@
-import { db, users, seedUserData } from "./index";
+import { db, users, seedNewUser } from "./index";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -56,7 +56,7 @@ async function main() {
 
     if (newUser) {
       console.log(`User ${user.email} created successfully. Seeding data...`);
-      await seedUserData(newUser.id);
+      await seedNewUser(newUser.id);
       console.log(`Data seeded for ${user.email}.`);
     }
   }

@@ -1,96 +1,50 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { renderEmailDesign } from "@senlo/core";
 import { db } from "./client";
-import { projects, emailTemplates, campaigns } from "./schema";
-import {
-  ORDER_CONFIRMATION_TEMPLATE_DESIGN_JSON,
-  ORDER_CONFIRMATION_TEMPLATE_HTML,
-} from "./seeds/order-confirmation-template";
-import {
-  PERSONALIZATION_TEMPLATE_DESIGN_JSON,
-  PERSONALIZATION_TEMPLATE_HTML,
-} from "./seeds/personalization-template";
-import {
-  TRANSACTIONAL_TEMPLATE_DESIGN_JSON,
-  TRANSACTIONAL_TEMPLATE_HTML,
-} from "./seeds/transactional-template";
-import {
-  WELCOME_TO_SENLO_TEMPLATE_DESIGN_JSON,
-  WELCOME_TO_SENLO_TEMPLATE_HTML,
-} from "./seeds/welcome-to-senlo-template";
+import { emailTemplates, projects } from "./schema";
+import { STARTER_TEMPLATES } from "./seeds/starter-templates";
 
 /**
- * Seeds initial data for a newly registered user.
- * This is used for the demo mode to provide users with example data.
- * @param userId - The ID of the newly created user
+ * Gives a new account one example project with the starter templates, so the
+ * editor has something real to open on the first visit. No provider, contacts
+ * or sending history: nothing here pretends to be the user's own data.
+ *
+ * The stored `html` is rendered here the way the editor renders it on save.
+ * Sending renders `designJson` again, so it only serves previews and lists;
+ * `/logoipsum.png` and the social icons resolve against `NEXT_PUBLIC_APP_URL`.
  */
 export async function seedUserData(userId: string) {
-  // Insert project
   const [project] = await db
     .insert(projects)
     .values({
       userId,
-      name: "Example Project",
-      description: "This is your first example project. You can manage your email templates here.",
+      name: "Acme",
+      description:
+        "Example project with ready-made transactional emails. Open any template to see what the editor can do.",
     })
     .returning();
 
-  // Insert templates
-  await db.insert(emailTemplates).values([
-    {
-      projectId: project.id,
-      name: "Order Confirmation",
-      subject: "Your order is confirmed",
-      html: ORDER_CONFIRMATION_TEMPLATE_HTML,
-      designJson: ORDER_CONFIRMATION_TEMPLATE_DESIGN_JSON,
-      status: "draft",
-    },
-    {
-      projectId: project.id,
-      name: "Welcome to Senlo",
-      subject: "Welcome to Senlo — start building emails in minutes",
-      html: WELCOME_TO_SENLO_TEMPLATE_HTML,
-      designJson: WELCOME_TO_SENLO_TEMPLATE_DESIGN_JSON,
-      status: "draft",
-    },
-    {
-      projectId: project.id,
-      name: "Personalization",
-      subject: "Personalize your emails with dynamic data",
-      html: PERSONALIZATION_TEMPLATE_HTML,
-      designJson: PERSONALIZATION_TEMPLATE_DESIGN_JSON,
-      status: "draft",
-    },
-  ]);
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  // Insert transactional template
-  const [transitionalEmail] = await db
-    .insert(emailTemplates)
-    .values({
+  await db.insert(emailTemplates).values(
+    STARTER_TEMPLATES.map((template) => ({
       projectId: project.id,
-      name: "Transactional",
-      subject: "Your transactional email update",
-      html: TRANSACTIONAL_TEMPLATE_HTML,
-      designJson: TRANSACTIONAL_TEMPLATE_DESIGN_JSON,
+      name: template.name,
+      subject: template.subject,
+      preheader: template.preheader,
+      designJson: template.design,
+      html: renderEmailDesign(template.design, {
+        baseUrl,
+        preheader: template.preheader,
+        title: template.subject,
+      }),
       status: "draft",
-    })
-    .returning();
-
-  // Insert campaign
-  await db.insert(campaigns).values({
-    projectId: project.id,
-    templateId: transitionalEmail.id,
-    name: "Transactional Email",
-    type: "TRIGGERED",
-    status: "DRAFT",
-    fromName: "Senlo Team",
-    fromEmail: "onboarding@senlo.io",
-    subject: "Transactional email notification",
-    variablesSchema: {
-      status: "string",
-      custom_note: "string",
-      reference_id: "number",
-    },
-  });
+      locale: "en",
+    })),
+  );
 
   return project;
 }
-

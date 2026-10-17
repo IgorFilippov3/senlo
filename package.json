@@ -18,7 +18,6 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:provision": "tsx packages/db/src/provision.ts",
-    "db:seed:demo": "tsx packages/db/src/seed-demo.ts",
     "test:core": "pnpm --filter @senlo/core test",
     "test:core:update": "pnpm --filter @senlo/core test:update",
     "test:editor": "pnpm --filter @senlo/editor test",

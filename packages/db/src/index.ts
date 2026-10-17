@@ -8,11 +8,8 @@ export * from "./client";
 // Schema (tables, enums, types)
 export * from "./schema";
 
-// User Seeding
+// Starter data for new accounts
 export * from "./user-seed";
-
-// Demo Seeding (screenshots / public demo instance)
-export * from "./demo-seed";
 
 // Entry point used by both registration paths
 export * from "./seed-new-user";
