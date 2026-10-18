@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { emailDesignDocumentSchema } from "@senlo/core";
 import { auth } from "../../../../auth";
+import { limitRequest } from "apps/web/lib/rate-limit";
 import { ProjectRepository, AiProviderRepository, db } from "@senlo/db";
 
 const projectRepo = new ProjectRepository(db);
@@ -19,6 +20,9 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const limited = await limitRequest(req, "ai", `user:${userId}`);
+    if (limited) return limited;
 
     const { prompt, currentDesign, projectId } = await req.json();
 

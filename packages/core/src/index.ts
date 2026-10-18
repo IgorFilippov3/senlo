@@ -21,6 +21,7 @@ export * from "./ports";
 export * from "./constants";
 export * from "./errors";
 export * from "./access";
+export * from "./rate-limit";
 export * from "./merge-tags";
 export * from "./tracking";
 export * from "./tracking-token";

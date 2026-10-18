@@ -12,6 +12,7 @@ export {
   ValidationError,
   NotFoundError,
   UnauthorizedError,
+  RateLimitedError,
   DatabaseError,
   type ErrorCode,
 } from "@senlo/core";
@@ -49,11 +50,16 @@ export async function withErrorHandling<T>(
       return { success: false, error: error.toJSON() };
     }
 
-    // Convert unknown errors to AppError
+    // Convert unknown errors to AppError. The message stays: actions throw
+    // plain Errors with text meant for the user. The stack does not - it is
+    // in the server log above, and in a response it hands out file paths and
+    // driver internals. Kept in development, where it saves a trip to the log.
     const appError = new AppError(
       'UNKNOWN_ERROR',
       error instanceof Error ? error.message : 'An unknown error occurred',
-      { originalError: error instanceof Error ? error.stack : String(error) }
+      process.env.NODE_ENV === 'development'
+        ? { originalError: error instanceof Error ? error.stack : String(error) }
+        : undefined
     );
 
     return { success: false, error: appError.toJSON() };

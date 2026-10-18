@@ -14,6 +14,7 @@ export type ErrorCode =
   | "UNAUTHORIZED"
   | "FORBIDDEN"
   | "DUPLICATE_ENTRY"
+  | "RATE_LIMITED"
   | "EXTERNAL_SERVICE_ERROR"
   | "DATABASE_ERROR"
   | "UNKNOWN_ERROR";
@@ -24,6 +25,7 @@ const DEFAULT_STATUS: Record<ErrorCode, number> = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   DUPLICATE_ENTRY: 409,
+  RATE_LIMITED: 429,
   EXTERNAL_SERVICE_ERROR: 502,
   DATABASE_ERROR: 500,
   UNKNOWN_ERROR: 500,
@@ -78,6 +80,18 @@ export class UnauthorizedError extends AppError {
   constructor(message = "Unauthorized") {
     super("UNAUTHORIZED", message, undefined, 401);
     this.name = "UnauthorizedError";
+  }
+}
+
+export class RateLimitedError extends AppError {
+  constructor(retryAfter: number) {
+    super(
+      "RATE_LIMITED",
+      "Too many attempts. Please wait a moment and try again.",
+      { retryAfter },
+      429,
+    );
+    this.name = "RateLimitedError";
   }
 }
 

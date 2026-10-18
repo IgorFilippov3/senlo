@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processUnsubscribe } from "apps/web/lib/unsubscribe";
 import { logger } from "apps/web/lib/logger";
+import { limitRequest } from "apps/web/lib/rate-limit";
 
 /**
  * One-click unsubscribe. This is the address the List-Unsubscribe header
@@ -8,9 +9,12 @@ import { logger } from "apps/web/lib/logger";
  * the recipient to confirm or sign in.
  */
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
+  const limited = await limitRequest(request, "oneClick");
+  if (limited) return limited;
+
   const { token } = await params;
 
   try {

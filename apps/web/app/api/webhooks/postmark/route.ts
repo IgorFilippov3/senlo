@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import {
   TriggeredSendLogRepository, CampaignRepository, ProjectRepository, EmailProviderRepository, db } from "@senlo/db";
 import { logger } from "apps/web/lib";
+import { limitRequest } from "apps/web/lib/rate-limit";
 import { scopeWebhookEvent, suppressOnce } from "apps/web/lib/webhook-scope";
 
 const logRepo = new TriggeredSendLogRepository(db);
@@ -32,6 +33,9 @@ interface PostmarkWebhookPayload {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = await limitRequest(req, "webhook");
+  if (limited) return limited;
+
   const payload = await req.text();
   const headers = Object.fromEntries(req.headers.entries());
 

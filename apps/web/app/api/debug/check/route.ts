@@ -8,14 +8,14 @@ import { NextRequest, NextResponse } from "next/server";
  *   - The email contains "pass"
  *   - OR meta.test_check is true
  * - Returns 400 (NO) otherwise.
+ *
+ * Public on purpose: the automation worker calls it server to server, and the
+ * builder suggests it for testing branches. It reads nothing but the request.
  */
 export async function POST(req: NextRequest) {
   try {
+    // Not logged: the body is a real contact's email and metadata.
     const body = await req.json();
-    console.log(
-      "[Debug API] Full Body Received:",
-      JSON.stringify(body, null, 2),
-    );
 
     const { email, metadata, meta } = body;
     // Handle cases where metadata might be a string (if jsonb parsing fails somewhere)
@@ -33,18 +33,6 @@ export async function POST(req: NextRequest) {
       effectiveMetadata.test_check === true ||
       (Array.isArray(effectiveMetadata.tags) &&
         effectiveMetadata.tags.includes("test-pass"));
-
-    console.log("[Debug API] Decision details:", {
-      emailPass: email?.includes("pass"),
-      testCheck: effectiveMetadata.test_check === true,
-      tagsPass:
-        Array.isArray(effectiveMetadata.tags) &&
-        effectiveMetadata.tags.includes("test-pass"),
-      tagsFound: effectiveMetadata.tags,
-      shouldPass,
-    });
-
-    console.log("[Debug API] Decision:", shouldPass ? "YES" : "NO");
 
     if (shouldPass) {
       return NextResponse.json(

@@ -3,9 +3,13 @@ import { logger, validateApiKey } from "apps/web/lib";
 import { eventHandlers } from "apps/web/lib/events/handlers";
 import { EventHandler, EventRequest } from "apps/web/lib/events/types";
 import { WorkflowEventType } from "@senlo/core";
+import { limitRequest } from "apps/web/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = await limitRequest(req, "api");
+    if (limited) return limited;
+
     const auth = await validateApiKey(req);
     if (!auth.success) return auth.response;
 

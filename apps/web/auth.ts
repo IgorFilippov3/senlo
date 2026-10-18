@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db, users, seedNewUser } from "@senlo/db";
+import { resetLoginFailures } from "./lib/rate-limit";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -91,6 +92,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const passwordsMatch = await bcrypt.compare(password, user.password);
 
           if (passwordsMatch) {
+            // A correct password clears this address's failed attempts.
+            await resetLoginFailures(email);
             return {
               id: user.id,
               name: user.name,

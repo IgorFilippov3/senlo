@@ -7,6 +7,12 @@ import { z } from "zod";
 import { signIn, signOut } from "../../auth";
 import { logger } from "../../lib";
 import { AuthError } from "next-auth";
+import { RateLimitedError } from "@senlo/core";
+import {
+  assertLoginAllowed,
+  limitAction,
+  recordLoginFailure,
+} from "../../lib/rate-limit";
 
 const RegisterSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -19,6 +25,15 @@ export async function registerAction(formData: FormData) {
   const allowRegistration = process.env.ALLOW_REGISTRATION !== "false";
   if (!allowRegistration) {
     return { error: { general: "Registration is disabled on this instance." } };
+  }
+
+  try {
+    await limitAction("register");
+  } catch (error) {
+    if (error instanceof RateLimitedError) {
+      return { error: { general: error.message } };
+    }
+    throw error;
   }
 
   const values = Object.fromEntries(formData);
@@ -92,6 +107,14 @@ export async function loginAction(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
+  // Only failed attempts count: see assertLoginAllowed.
+  try {
+    await assertLoginAllowed(String(email ?? ""));
+  } catch (error) {
+    if (error instanceof RateLimitedError) return { error: error.message };
+    throw error;
+  }
+
   try {
     await signIn("credentials", {
       email,
@@ -102,6 +125,7 @@ export async function loginAction(formData: FormData) {
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":
+          await recordLoginFailure(String(email ?? ""));
           return { error: "Invalid credentials." };
         default:
           return { error: "Something went wrong." };

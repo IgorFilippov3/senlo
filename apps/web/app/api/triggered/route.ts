@@ -10,6 +10,7 @@ import {
 import { TriggerService } from "@senlo/core/src/services/triggerService";
 import { emailQueue } from "@senlo/core/src/queue";
 import { logger, validateApiKey } from "apps/web/lib";
+import { limitRequest } from "apps/web/lib/rate-limit";
 
 interface TriggeredEmailRequest {
   id?: string | number;
@@ -33,6 +34,9 @@ export async function POST(req: NextRequest) {
   let body: TriggeredEmailRequest | null = null;
 
   try {
+    const limited = await limitRequest(req, "api");
+    if (limited) return limited;
+
     const auth = await validateApiKey(req);
     if (!auth.success) return auth.response;
 
