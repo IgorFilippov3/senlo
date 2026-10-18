@@ -23,6 +23,8 @@ export * from "./errors";
 export * from "./access";
 export * from "./merge-tags";
 export * from "./tracking";
+export * from "./tracking-token";
+export { resolveSigningSecret } from "./signing";
 export * from "./unsubscribe-token";
 export * from "./renderer/htmlToText";
 export * from "./html-validator";

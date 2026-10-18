@@ -5,7 +5,7 @@ import {
   buildUnsubscribeHeaders,
   unsubscribeUrls,
 } from "../unsubscribe-token";
-import { resolveSigningSecret } from "../signing";
+import { resolveSigningSecret, encodeJson, signPayload } from "../signing";
 
 const SECRET = "test-secret";
 const legacy = (data: unknown) =>
@@ -27,24 +27,48 @@ describe("unsubscribe tokens", () => {
     expect((await decodeUnsubscribeToken(token, SECRET))?.data.email).toBe("ann@example.com");
   });
 
-  it("refuses a token whose ids were edited", async () => {
-    const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, SECRET);
-    const [, signature] = token.split(".");
-    const forged = `${legacy({ contactId: 8, campaignId: 42 })}.${signature}`;
-
-    expect(await decodeUnsubscribeToken(forged, SECRET)).toBeNull();
+  it("does not reveal the recipient's address", async () => {
+    const token = await encodeUnsubscribeToken(
+      { projectId: 1, email: "ann@example.com", campaignId: 42 },
+      SECRET,
+    );
+    expect(token).not.toContain(".");
+    expect(Buffer.from(token, "base64url").toString("latin1")).not.toContain("example.com");
   });
 
-  it("refuses a token signed with another secret", async () => {
+  it("treats an altered sealed token as nothing it can trust", async () => {
+    const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, SECRET);
+    const flipped = token.slice(0, 20) + (token[20] === "A" ? "B" : "A") + token.slice(21);
+
+    // Not a valid seal and not legacy JSON either.
+    expect(await decodeUnsubscribeToken(flipped, SECRET)).toBeNull();
+  });
+
+  it("refuses a token sealed with another secret", async () => {
     const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, "other");
     expect(await decodeUnsubscribeToken(token, SECRET)).toBeNull();
   });
 
-  it("refuses a signed token with a mangled signature", async () => {
-    const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, SECRET);
-    expect(await decodeUnsubscribeToken(`${token}x`, SECRET)).toBeNull();
-    expect(await decodeUnsubscribeToken(`${token.split(".")[0]}.`, SECRET)).toBeNull();
-    expect(await decodeUnsubscribeToken(`${token}.extra`, SECRET)).toBeNull();
+  describe("signed tokens from mail sent before sealing", () => {
+    const signed = async (data: unknown, secret = SECRET) => {
+      const payload = encodeJson(data);
+      return `${payload}.${await signPayload(payload, secret)}`;
+    };
+
+    it("are still trusted when the signature matches", async () => {
+      const data = { contactId: 7, campaignId: 42 };
+      expect(await decodeUnsubscribeToken(await signed(data), SECRET)).toEqual({ data, signed: true });
+    });
+
+    it("are refused when the ids were edited or the signature mangled", async () => {
+      const token = await signed({ contactId: 7, campaignId: 42 });
+      const [, signature] = token.split(".");
+
+      expect(await decodeUnsubscribeToken(`${legacy({ contactId: 8, campaignId: 42 })}.${signature}`, SECRET)).toBeNull();
+      expect(await decodeUnsubscribeToken(`${token}x`, SECRET)).toBeNull();
+      expect(await decodeUnsubscribeToken(`${token}.extra`, SECRET)).toBeNull();
+      expect(await decodeUnsubscribeToken(await signed({ contactId: 7, campaignId: 42 }, "other"), SECRET)).toBeNull();
+    });
   });
 
   it("reads a legacy unsigned token but marks it unsigned", async () => {
@@ -62,7 +86,7 @@ describe("unsubscribe tokens", () => {
 
   it("produces a token safe in a path segment", async () => {
     const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, SECRET);
-    expect(token).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    expect(token).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 });
 

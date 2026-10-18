@@ -1,41 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CampaignRepository, db } from "@senlo/db";
-import { TrackingService } from "@senlo/core/src/services/trackingService";
-import { logger } from "apps/web/lib/logger";
+import { CampaignRepository, EmailTemplateRepository, db } from "@senlo/db";
+import { escapeAttr } from "@senlo/core";
+import { confirmLeavingResponse } from "apps/web/lib/tracking";
 
-const trackingService = new TrackingService(new CampaignRepository(db));
+const campaignRepo = new CampaignRepository(db);
+const templateRepo = new EmailTemplateRepository(db);
 
+/**
+ * Click link from mail sent before tracking links were signed. Its `url` was
+ * never signed, so following it blindly made this an open redirect. It now
+ * redirects only to a destination that appears in one of the campaign's
+ * templates; anything else is shown on a page instead of followed. Clicks are
+ * no longer recorded here, since the campaign and address are not verified.
+ * New mail uses `/api/t/c/[token]`.
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ campaignId: string; email: string }> },
 ) {
-  const { campaignId, email } = await params;
-  const id = Number(campaignId);
-  const decodedEmail = decodeURIComponent(email);
+  const { campaignId } = await params;
+  const url = new URL(request.url).searchParams.get("url");
 
-  const { searchParams } = new URL(request.url);
-  const targetUrl = searchParams.get("url");
-
-  if (isNaN(id) || !targetUrl) {
+  if (!url) {
     return new NextResponse("Invalid request", { status: 400 });
   }
 
-  const userAgent = request.headers.get("user-agent") || "unknown";
-  const ip =
-    request.headers.get("x-forwarded-for") ||
-    request.headers.get("x-real-ip") ||
-    "unknown";
+  if (/^https?:\/\//i.test(url) && (await appearsInCampaign(Number(campaignId), url))) {
+    return NextResponse.redirect(url);
+  }
 
-  // Record click event
-  await trackingService.trackClick(id, decodedEmail, targetUrl, { userAgent, ip }).catch((error) => {
-    logger.error("Failed to track click event", {
-      error: error instanceof Error ? error.message : String(error),
-      campaignId: id,
-      email: decodedEmail,
-      url: targetUrl,
-    });
-  });
+  return confirmLeavingResponse(url);
+}
 
-  // Always redirect to the target URL
-  return NextResponse.redirect(targetUrl);
+async function appearsInCampaign(campaignId: number, url: string) {
+  if (!Number.isInteger(campaignId) || campaignId <= 0) return false;
+
+  const campaign = await campaignRepo.findById(campaignId);
+  if (!campaign) return false;
+
+  const templateIds = new Set<number>([
+    campaign.templateId,
+    ...Object.values(campaign.localeTemplates ?? {}),
+  ]);
+
+  for (const templateId of templateIds) {
+    const template = await templateRepo.findById(Number(templateId));
+    // Same project only, and the URL as it stands in the stored HTML: raw or
+    // attribute-escaped. A destination built from a merge tag is not there
+    // and gets the page instead, which is the safe direction to be wrong in.
+    if (
+      template &&
+      template.projectId === campaign.projectId &&
+      (template.html.includes(url) || template.html.includes(escapeAttr(url)))
+    ) {
+      return true;
+    }
+  }
+  return false;
 }

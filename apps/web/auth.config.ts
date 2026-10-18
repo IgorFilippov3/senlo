@@ -20,6 +20,9 @@ export const authConfig = {
         // callback to /login before the handler ever runs, which silently
         // breaks OAuth sign-in.
         nextUrl.pathname.startsWith("/api/auth/") ||
+        // Open pixel and click redirect, fetched by mail clients and
+        // recipients. /api/track/ serves links in mail sent before 0.4.
+        nextUrl.pathname.startsWith("/api/t/") ||
         nextUrl.pathname.startsWith("/api/track/") ||
         // The unsubscribe page and the one-click endpoint are opened by
         // recipients, who are not signed in. Guarding them sent every

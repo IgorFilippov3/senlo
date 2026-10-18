@@ -6,14 +6,14 @@ import type { EmailDesignDocument } from "../emailDesign";
 import type { RenderOptions } from "./types";
 import { replaceMergeTags } from "../merge-tags";
 import { sanitizeUrlsInHtml } from "./escape";
-import { wrapLinksWithTracking } from "../tracking";
+import { trackLinks, type SignedClickTracking } from "../tracking";
 import { injectBeforeBodyEnd } from "./htmlToText";
 
 export interface PersonalizeOptions {
   /** Merge tag values for this recipient. */
   data?: RenderOptions["data"];
-  /** Base URL for click tracking; links are left alone when absent. */
-  clickTrackingBaseUrl?: string;
+  /** Signed click tracking for this recipient; links are left alone when absent. */
+  clickTracking?: SignedClickTracking;
   /** Links that must keep their destination, such as the unsubscribe page. */
   skipTrackingUrls?: string[];
   /** Open tracking pixel, injected inside the body. */
@@ -31,10 +31,10 @@ export interface PersonalizeOptions {
  * check has to run after substitution, and click tracking has to see the final
  * destination rather than a `{{...}}` placeholder.
  */
-export function personalizeEmail(
+export async function personalizeEmail(
   templateHtml: string,
   options: PersonalizeOptions = {},
-): string {
+): Promise<string> {
   let html = templateHtml;
 
   if (options.data) {
@@ -42,8 +42,8 @@ export function personalizeEmail(
     html = sanitizeUrlsInHtml(html);
   }
 
-  if (options.clickTrackingBaseUrl) {
-    html = wrapLinksWithTracking(html, options.clickTrackingBaseUrl, {
+  if (options.clickTracking) {
+    html = await trackLinks(html, options.clickTracking, {
       skipUrls: options.skipTrackingUrls,
     });
   }

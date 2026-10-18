@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { decodeJson, encodeJson, signPayload, verifyPayload } from "./signing";
+import { decodeJson, openJson, sealJson, verifyPayload } from "./signing";
 
 export interface UnsubscribeTokenData {
   /**
@@ -26,13 +26,15 @@ export interface DecodedUnsubscribeToken {
   signed: boolean;
 }
 
-/** `<payload>.<signature>`, both base64url, so the token fits a path segment. */
+/**
+ * Sealed with AES-GCM, so the token is unforgeable and the recipient's
+ * address cannot be read out of the link. base64url, safe in a path segment.
+ */
 export async function encodeUnsubscribeToken(
   data: UnsubscribeTokenData,
   secret: string,
 ): Promise<string> {
-  const payload = encodeJson(data);
-  return `${payload}.${await signPayload(payload, secret)}`;
+  return sealJson(data, secret);
 }
 
 function readData(value: unknown): UnsubscribeTokenData | null {
@@ -46,8 +48,15 @@ function readData(value: unknown): UnsubscribeTokenData | null {
 }
 
 /**
- * A signed token whose signature does not match is refused outright. A token
- * without a signature is a legacy one and comes back with `signed: false`.
+ * Reads the three formats mail in the wild carries:
+ *
+ * - sealed (current): trusted, `signed: true`;
+ * - `<payload>.<signature>` (signed, not sealed - mail sent between the two
+ *   changes): trusted when the signature matches, refused when it does not;
+ * - plain base64url JSON (before tokens were signed): `signed: false`.
+ *
+ * A sealed token and a plain one both lack a dot; a plain one never opens as
+ * AES-GCM, so trying to open it first is unambiguous.
  */
 export async function decodeUnsubscribeToken(
   token: string,
@@ -56,18 +65,21 @@ export async function decodeUnsubscribeToken(
   if (!token) return null;
 
   const dot = token.indexOf(".");
-  if (dot === -1) {
-    const data = readData(decodeJson(token));
-    return data ? { data, signed: false } : null;
+  if (dot !== -1) {
+    const payload = token.slice(0, dot);
+    const signature = token.slice(dot + 1);
+    if (!payload || !signature || signature.includes(".")) return null;
+    if (!(await verifyPayload(payload, signature, secret))) return null;
+
+    const data = readData(decodeJson(payload));
+    return data ? { data, signed: true } : null;
   }
 
-  const payload = token.slice(0, dot);
-  const signature = token.slice(dot + 1);
-  if (!payload || !signature || signature.includes(".")) return null;
-  if (!(await verifyPayload(payload, signature, secret))) return null;
+  const sealed = readData(await openJson(token, secret));
+  if (sealed) return { data: sealed, signed: true };
 
-  const data = readData(decodeJson(payload));
-  return data ? { data, signed: true } : null;
+  const legacy = readData(decodeJson(token));
+  return legacy ? { data: legacy, signed: false } : null;
 }
 
 /**

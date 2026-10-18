@@ -17,6 +17,7 @@ import {
   unsubscribeUrls,
 } from "../unsubscribe-token";
 import { resolveSigningSecret } from "../signing";
+import { sealTrackingToken, trackingUrls } from "../tracking-token";
 import { htmlToPlainText, EMAIL_CLIPPING_BYTES } from "../renderer/htmlToText";
 import {
   personalizeEmail,
@@ -153,19 +154,32 @@ export class EmailWorkerProcessor {
     );
 
     const baseUrl = data.baseUrl;
-    const emailEncoded = encodeURIComponent(data.email);
 
-    const message = personalizeEmail(templateHtml, {
+    // One sealed token per recipient: it hides the address and cannot be
+    // edited to count opens or clicks against another campaign.
+    let tracking: { token: string; secret: string; urls: ReturnType<typeof trackingUrls> } | undefined;
+    if (baseUrl) {
+      const secret = resolveSigningSecret();
+      const token = await sealTrackingToken(
+        { campaignId: data.campaignId, email: data.email },
+        secret,
+      );
+      tracking = { token, secret, urls: trackingUrls(baseUrl, token) };
+    }
+
+    const message = await personalizeEmail(templateHtml, {
       data: data.renderData,
-      clickTrackingBaseUrl: baseUrl
-        ? `${baseUrl}/api/track/click/${data.campaignId}/${emailEncoded}`
+      clickTracking: tracking
+        ? {
+            clickUrl: tracking.urls.click,
+            token: tracking.token,
+            secret: tracking.secret,
+          }
         : undefined,
       skipTrackingUrls: data.unsubscribePageUrl
         ? [data.unsubscribePageUrl]
         : undefined,
-      trackingPixelUrl: baseUrl
-        ? `${baseUrl}/api/track/open/${data.campaignId}/${emailEncoded}`
-        : undefined,
+      trackingPixelUrl: tracking?.urls.open,
     });
 
     if (message.length > EMAIL_CLIPPING_BYTES) {

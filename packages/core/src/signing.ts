@@ -88,7 +88,7 @@ export async function signPayload(payload: string, secret: string): Promise<stri
 }
 
 /** Compares in time that does not depend on where the strings differ. */
-function constantTimeEqual(a: string, b: string): boolean {
+export function constantTimeEqual(a: string, b: string): boolean {
   let diff = a.length ^ b.length;
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
     diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
@@ -102,4 +102,60 @@ export async function verifyPayload(
   secret: string,
 ): Promise<boolean> {
   return constantTimeEqual(await signPayload(payload, secret), signature);
+}
+
+const sealKeyCache = new Map<string, Promise<CryptoKey>>();
+
+/**
+ * An AES-GCM key of its own, derived from the secret with a label, so the
+ * sealing key and the HMAC key are never the same bytes.
+ */
+function sealKey(secret: string): Promise<CryptoKey> {
+  let key = sealKeyCache.get(secret);
+  if (!key) {
+    key = globalThis.crypto.subtle
+      .digest("SHA-256", encoder.encode(`senlo:seal:${secret}`))
+      .then((raw) =>
+        globalThis.crypto.subtle.importKey("raw", raw, "AES-GCM", false, [
+          "encrypt",
+          "decrypt",
+        ]),
+      );
+    sealKeyCache.set(secret, key);
+  }
+  return key;
+}
+
+/**
+ * Encrypts and authenticates a value into one base64url string. Use it where
+ * the contents must not be readable in the URL - a recipient's address - as
+ * well as unforgeable.
+ */
+export async function sealJson(value: unknown, secret: string): Promise<string> {
+  const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await globalThis.crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    await sealKey(secret),
+    encoder.encode(JSON.stringify(value)),
+  );
+  const out = new Uint8Array(iv.length + ciphertext.byteLength);
+  out.set(iv);
+  out.set(new Uint8Array(ciphertext), iv.length);
+  return toBase64Url(out);
+}
+
+/** The sealed value, or null when it was altered, truncated or sealed with another secret. */
+export async function openJson(token: string, secret: string): Promise<unknown> {
+  const bytes = fromBase64Url(token);
+  if (!bytes || bytes.length < 12 + 16 + 1) return null;
+  try {
+    const plain = await globalThis.crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: bytes.slice(0, 12) },
+      await sealKey(secret),
+      bytes.slice(12),
+    );
+    return JSON.parse(new TextDecoder().decode(plain));
+  } catch {
+    return null;
+  }
 }

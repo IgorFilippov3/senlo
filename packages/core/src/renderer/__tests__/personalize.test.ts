@@ -3,8 +3,12 @@ import type { EmailDesignDocument, RowBlock } from "../../emailDesign";
 import { personalizeEmail, isRecipientIndependent } from "../personalize";
 import { renderEmailDesign } from "../renderEmailDesign";
 
-const TRACK = "https://senlo.io/api/track/click/1/a%40b.com";
-const PIXEL = "https://senlo.io/api/track/open/1/a%40b.com";
+const TRACK = {
+  clickUrl: "https://senlo.io/api/t/c/TOKEN",
+  token: "TOKEN",
+  secret: "test-secret",
+};
+const PIXEL = "https://senlo.io/api/t/o/TOKEN";
 
 function doc(rows: RowBlock[]): EmailDesignDocument {
   return { version: 1, rows, settings: { contentWidth: 600 } };
@@ -20,26 +24,26 @@ function row(blocks: RowBlock["columns"][number]["blocks"]): RowBlock {
 }
 
 describe("personalizeEmail", () => {
-  it("substitutes merge tags", () => {
-    const html = personalizeEmail("<p>Hi {{contact.first_name}}</p>", {
+  it("substitutes merge tags", async () => {
+    const html = await personalizeEmail("<p>Hi {{contact.first_name}}</p>", {
       data: { contact: { first_name: "Ann" } },
     });
 
     expect(html).toBe("<p>Hi Ann</p>");
   });
 
-  it("escapes what it substitutes", () => {
-    const html = personalizeEmail("<p>{{contact.first_name}}</p>", {
+  it("escapes what it substitutes", async () => {
+    const html = await personalizeEmail("<p>{{contact.first_name}}</p>", {
       data: { contact: { first_name: "<script>alert(1)</script>" } },
     });
 
     expect(html).not.toContain("<script>");
   });
 
-  it("checks URL schemes after substitution, not before", () => {
+  it("checks URL schemes after substitution, not before", async () => {
     // This is the reason the scheme check cannot stay inside the render: at
     // render time the href is still a merge tag.
-    const html = personalizeEmail('<a href="{{contact.url}}">x</a>', {
+    const html = await personalizeEmail('<a href="{{contact.url}}">x</a>', {
       data: { contact: { url: "javascript:alert(1)" } },
     });
 
@@ -47,28 +51,30 @@ describe("personalizeEmail", () => {
     expect(html).toContain('href="#"');
   });
 
-  it("wraps links for click tracking after they resolve", () => {
-    const html = personalizeEmail('<a href="{{contact.url}}">x</a>', {
+  it("wraps links for click tracking after they resolve", async () => {
+    const html = await personalizeEmail('<a href="{{contact.url}}">x</a>', {
       data: { contact: { url: "https://example.com/x" } },
-      clickTrackingBaseUrl: TRACK,
+      clickTracking: TRACK,
     });
 
-    expect(html).toContain("url=https%3A%2F%2Fexample.com%2Fx");
+    expect(html).toContain(
+      "https://senlo.io/api/t/c/TOKEN?url=https%3A%2F%2Fexample.com%2Fx&amp;s=",
+    );
   });
 
-  it("leaves the unsubscribe link out of click tracking", () => {
+  it("leaves the unsubscribe link out of click tracking", async () => {
     const unsubscribe = "https://senlo.io/unsubscribe/abc";
-    const html = personalizeEmail(`<a href="${unsubscribe}">Bye</a>`, {
+    const html = await personalizeEmail(`<a href="${unsubscribe}">Bye</a>`, {
       data: {},
-      clickTrackingBaseUrl: TRACK,
+      clickTracking: TRACK,
       skipTrackingUrls: [unsubscribe],
     });
 
     expect(html).toBe(`<a href="${unsubscribe}">Bye</a>`);
   });
 
-  it("puts the tracking pixel inside the body", () => {
-    const html = personalizeEmail("<html><body><p>Hi</p></body></html>", {
+  it("puts the tracking pixel inside the body", async () => {
+    const html = await personalizeEmail("<html><body><p>Hi</p></body></html>", {
       trackingPixelUrl: PIXEL,
     });
 
@@ -76,8 +82,8 @@ describe("personalizeEmail", () => {
     expect(html.indexOf(PIXEL)).toBeLessThan(html.indexOf("</body>"));
   });
 
-  it("changes nothing when given nothing to do", () => {
-    expect(personalizeEmail("<p>Hi</p>")).toBe("<p>Hi</p>");
+  it("changes nothing when given nothing to do", async () => {
+    expect(await personalizeEmail("<p>Hi</p>")).toBe("<p>Hi</p>");
   });
 });
 
@@ -88,32 +94,32 @@ describe("render once, personalize many", () => {
     ]),
   ]);
 
-  it("produces the same message as rendering per recipient did", () => {
+  it("produces the same message as rendering per recipient did", async () => {
     const perRecipient = renderEmailDesign(design, {
       baseUrl: "https://senlo.io",
       data: { contact: { name: "Ann" } },
     });
 
     const template = renderEmailDesign(design, { baseUrl: "https://senlo.io" });
-    const personalized = personalizeEmail(template, {
+    const personalized = await personalizeEmail(template, {
       data: { contact: { name: "Ann" } },
     });
 
     expect(personalized).toBe(perRecipient);
   });
 
-  it("gives each recipient their own values from one render", () => {
+  it("gives each recipient their own values from one render", async () => {
     const template = renderEmailDesign(design, { baseUrl: "https://senlo.io" });
 
-    expect(personalizeEmail(template, { data: { contact: { name: "Ann" } } }))
+    expect(await personalizeEmail(template, { data: { contact: { name: "Ann" } } }))
       .toContain("Hi Ann");
-    expect(personalizeEmail(template, { data: { contact: { name: "Bo" } } }))
+    expect(await personalizeEmail(template, { data: { contact: { name: "Bo" } } }))
       .toContain("Hi Bo");
   });
 });
 
 describe("isRecipientIndependent", () => {
-  it("is true for a document that looks the same for everyone", () => {
+  it("is true for a document that looks the same for everyone", async () => {
     expect(
       isRecipientIndependent(
         doc([row([{ id: "b1", type: "paragraph", data: { text: "Hi" } }])]),
@@ -121,7 +127,7 @@ describe("isRecipientIndependent", () => {
     ).toBe(true);
   });
 
-  it("is false when a block has a condition", () => {
+  it("is false when a block has a condition", async () => {
     expect(
       isRecipientIndependent(
         doc([
@@ -142,7 +148,7 @@ describe("isRecipientIndependent", () => {
     ).toBe(false);
   });
 
-  it("is false when a row has a condition or a loop", () => {
+  it("is false when a row has a condition or a loop", async () => {
     const conditional = row([
       { id: "b1", type: "paragraph", data: { text: "Hi" } },
     ]);
@@ -157,7 +163,7 @@ describe("isRecipientIndependent", () => {
     expect(isRecipientIndependent(doc([looped]))).toBe(false);
   });
 
-  it("is true for an empty document", () => {
+  it("is true for an empty document", async () => {
     expect(isRecipientIndependent(doc([]))).toBe(true);
   });
 });

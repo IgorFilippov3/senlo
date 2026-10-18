@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { wrapLinksWithTracking } from "../tracking";
+import { wrapLinksWithTracking, trackableUrls, trackLinks } from "../tracking";
+import { verifyClickSignature } from "../tracking-token";
+import { decodeHtmlEntities } from "../renderer/escape";
 
 const BASE = "https://senlo.io/api/track/click/1/ann%40example.com";
 
@@ -90,5 +92,44 @@ describe("wrapLinksWithTracking", () => {
     expect(out).toContain('class="btn"');
     expect(out).toContain('target="_blank"');
     expect(out).toContain(">Go</a>");
+  });
+});
+
+describe("trackableUrls", () => {
+  it("lists each destination once and skips what is never tracked", () => {
+    const html =
+      '<a href="https://a.com">1</a><a href="https://a.com">2</a>' +
+      '<a href="mailto:x@y.z">3</a><a href="https://senlo.io/unsubscribe/t">4</a>' +
+      '<a href="https://b.com/?x=1&amp;y=2">5</a>';
+    expect(trackableUrls(html)).toEqual(["https://a.com", "https://b.com/?x=1&y=2"]);
+  });
+});
+
+describe("trackLinks", () => {
+  const tracking = { clickUrl: "https://senlo.io/api/t/c/TOK", token: "TOK", secret: "s" };
+
+  it("signs each destination with the recipient token", async () => {
+    const out = await trackLinks('<a href="https://a.com/x?y=1&amp;z=2">Go</a>', tracking);
+    const href = decodeHtmlEntities(out.match(/href="([^"]+)"/)![1]);
+    const url = new URL(href);
+
+    expect(url.origin + url.pathname).toBe("https://senlo.io/api/t/c/TOK");
+    expect(url.searchParams.get("url")).toBe("https://a.com/x?y=1&z=2");
+    expect(
+      await verifyClickSignature("TOK", "https://a.com/x?y=1&z=2", url.searchParams.get("s")!, "s"),
+    ).toBe(true);
+  });
+
+  it("gives a swapped destination a signature that does not verify", async () => {
+    const out = await trackLinks('<a href="https://a.com">Go</a>', tracking);
+    const signature = new URL(decodeHtmlEntities(out.match(/href="([^"]+)"/)![1])).searchParams.get("s")!;
+
+    expect(await verifyClickSignature("TOK", "https://evil.example", signature, "s")).toBe(false);
+    expect(await verifyClickSignature("OTHER", "https://a.com", signature, "s")).toBe(false);
+  });
+
+  it("does not track a link already pointing at the click endpoint", async () => {
+    const html = '<a href="https://senlo.io/api/t/c/TOK?url=x&amp;s=y">Go</a>';
+    expect(await trackLinks(html, tracking)).toBe(html);
   });
 });
