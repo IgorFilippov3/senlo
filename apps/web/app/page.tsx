@@ -15,18 +15,18 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { ALLOW_REGISTRATION } from "apps/web/lib/constants";
+import { getConfig } from "apps/web/lib/config";
 
 export default function HomePage() {
   // Send first-time visitors straight at the sign-up form rather than at the
   // login page they would be bounced to. When the operator has closed
   // registration there is nothing to send them to but login.
-  const entryHref = ALLOW_REGISTRATION ? "/register" : "/login";
+  const { allowRegistration } = getConfig();
+  const entryHref = allowRegistration ? "/register" : "/login";
 
-  // Deliberately true on every instance. This page is statically prerendered,
-  // so anything phrased per-instance here would be frozen at build time; the
-  // demo instance says what is specific to it in the in-app banner instead.
-  const entryPromise = ALLOW_REGISTRATION
+  // Deliberately true on every instance; the demo instance says what is
+  // specific to it in the in-app banner instead.
+  const entryPromise = allowRegistration
     ? "Free, and instant — no email confirmation. Your account opens on a ready-made project, with templates you can edit and send from straight away."
     : null;
 

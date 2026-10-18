@@ -11,15 +11,8 @@ WORKDIR /app
 # Copy all files first to ensure pnpm workspace works correctly
 COPY . .
 
-# Set build-time arguments (needed for Next.js build)
-ARG NEXT_PUBLIC_APP_URL
-ARG NEXT_PUBLIC_ALLOW_REGISTRATION
-ARG NEXT_PUBLIC_IS_DEMO_MODE
-ARG NEXT_PUBLIC_UMAMI_WEBSITE_ID
-ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-ENV NEXT_PUBLIC_ALLOW_REGISTRATION=$NEXT_PUBLIC_ALLOW_REGISTRATION
-ENV NEXT_PUBLIC_IS_DEMO_MODE=$NEXT_PUBLIC_IS_DEMO_MODE
-ENV NEXT_PUBLIC_UMAMI_WEBSITE_ID=$NEXT_PUBLIC_UMAMI_WEBSITE_ID
+# No build arguments: every setting is read when the container starts, so
+# one image serves every install.
 
 # Install all dependencies and build
 RUN pnpm install --frozen-lockfile

@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { signIn, signOut } from "../../auth";
 import { logger } from "../../lib";
+import { getConfig } from "../../lib/config";
 import { AuthError } from "next-auth";
 import { RateLimitedError } from "@senlo/core";
 import {
@@ -22,8 +23,7 @@ const RegisterSchema = z.object({
 
 export async function registerAction(formData: FormData) {
   // Check if registration is allowed
-  const allowRegistration = process.env.ALLOW_REGISTRATION !== "false";
-  if (!allowRegistration) {
+  if (!getConfig().allowRegistration) {
     return { error: { general: "Registration is disabled on this instance." } };
   }
 
@@ -72,7 +72,7 @@ export async function registerAction(formData: FormData) {
     // an empty workspace is recoverable where a dead sign-up form is not.
     if (user) {
       try {
-        await seedNewUser(user.id);
+        await seedNewUser(user.id, { appUrl: getConfig().appUrl });
       } catch (seedError) {
         logger.error("Failed to seed a new account", {
           userId: user.id,

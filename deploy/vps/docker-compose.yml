@@ -3,28 +3,27 @@ services:
     build:
       context: ../..
       dockerfile: deploy/vps/Dockerfile
-      args:
-        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-        - NEXT_PUBLIC_ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
-        - NEXT_PUBLIC_IS_DEMO_MODE=${NEXT_PUBLIC_IS_DEMO_MODE:-false}
-        - NEXT_PUBLIC_UMAMI_WEBSITE_ID=${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
     container_name: senlo-app
     restart: always
     ports:
       - "3000:3000"
+    # Read at start, not at build: one image for every install.
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - REDIS_QUEUE_PREFIX=${REDIS_QUEUE_PREFIX:-senlo}
       - AUTH_SECRET=${AUTH_SECRET}
       - LINK_SIGNING_SECRET=${LINK_SIGNING_SECRET:-}
       - AUTH_TRUST_HOST=${AUTH_TRUST_HOST:-true}
-      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      # APP_URL, or the old NEXT_PUBLIC_APP_URL from an existing .env.
+      - APP_URL=${APP_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-}
       - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
-      - NEXT_PUBLIC_ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
+      - GITHUB_ID=${GITHUB_ID:-}
+      - GITHUB_SECRET=${GITHUB_SECRET:-}
       - INITIAL_USERS=${INITIAL_USERS}
-      - IS_DEMO_MODE=${IS_DEMO_MODE:-false}
-      - NEXT_PUBLIC_IS_DEMO_MODE=${NEXT_PUBLIC_IS_DEMO_MODE:-false}
-      - NEXT_PUBLIC_UMAMI_WEBSITE_ID=${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
+      - IS_DEMO_MODE=${IS_DEMO_MODE:-${NEXT_PUBLIC_IS_DEMO_MODE:-false}}
+      - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}}
     volumes:
       - uploads_data:/app/apps/web/public/uploads
     depends_on:
@@ -43,11 +42,13 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - REDIS_QUEUE_PREFIX=${REDIS_QUEUE_PREFIX:-senlo}
       # The worker builds unsubscribe and tracking links for campaign mail, so
       # it needs the public URL and the secret those links are signed with.
-      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - APP_URL=${APP_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}
       - AUTH_SECRET=${AUTH_SECRET}
       - LINK_SIGNING_SECRET=${LINK_SIGNING_SECRET:-}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-}
     depends_on:
       db:
         condition: service_healthy

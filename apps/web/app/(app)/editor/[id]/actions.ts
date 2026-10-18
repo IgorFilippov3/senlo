@@ -9,7 +9,8 @@ import {
   SavedRow,
   RowBlock,
 } from "@senlo/core";
-import { emailQueue } from "@senlo/core/queue";
+import { getQueues } from "apps/web/lib/infra";
+import { getConfig } from "apps/web/lib/config";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 import { access } from "apps/web/lib/access";
@@ -105,7 +106,7 @@ export async function sendTestEmailAction(
       throw new Error("Email provider not found. It may have been deleted.");
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const { appUrl: baseUrl, defaultFromEmail } = getConfig();
 
     const personalizedHtml = renderEmailDesign(design, {
       baseUrl,
@@ -121,18 +122,18 @@ export async function sendTestEmailAction(
       },
     });
 
-    const job = await emailQueue.add(`test-email-${templateId}-${Date.now()}`, {
+    const job = await getQueues().email.add(`test-email-${templateId}-${Date.now()}`, {
       projectId: project.id,
       campaignId: 0, // 0 for test emails
       contactId: 0, // 0 for test emails
       email: targetEmail,
-      from: fromEmail || "hello@senlo.io",
+      from: fromEmail || defaultFromEmail,
       subject: `[TEST] ${subject || template.subject || "No Subject"}`,
       html: personalizedHtml,
       providerId: project.providerId,
     });
 
-    const workers = await emailQueue.getWorkers();
+    const workers = await getQueues().email.getWorkers();
     if (workers.length === 0) {
       logger.warn(
         "Test email added to queue but NO active workers found. Is the worker running?",

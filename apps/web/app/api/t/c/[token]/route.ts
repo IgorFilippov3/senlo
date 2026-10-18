@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   openTrackingToken,
-  resolveSigningSecret,
   verifyClickSignature,
 } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
+import { getConfig } from "apps/web/lib/config";
 import {
   confirmLeavingResponse,
   requestMetadata,
@@ -29,7 +29,7 @@ export async function GET(
     return new NextResponse("Invalid request", { status: 400 });
   }
 
-  const secret = resolveSigningSecret();
+  const secret = getConfig().linkSigningSecret;
   const [recipient, signed] = await Promise.all([
     openTrackingToken(token, secret),
     verifyClickSignature(token, url, signature, secret),

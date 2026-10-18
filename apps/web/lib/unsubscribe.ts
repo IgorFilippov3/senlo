@@ -1,5 +1,5 @@
 import { decodeUnsubscribeToken } from "@senlo/core";
-import { resolveSigningSecret } from "@senlo/core";
+import { getConfig } from "./config";
 import {
   ContactRepository,
   CampaignRepository,
@@ -33,7 +33,7 @@ export async function processUnsubscribe(
   token: string,
   options: { confirmEmail?: string } = {},
 ): Promise<UnsubscribeOutcome> {
-  const decoded = await decodeUnsubscribeToken(token, resolveSigningSecret());
+  const decoded = await decodeUnsubscribeToken(token, getConfig().linkSigningSecret);
   if (!decoded) return { ok: false, reason: "invalid" };
 
   const { data, signed } = decoded;

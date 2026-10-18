@@ -1,34 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { RateLimiter, RateLimitedError, type RateLimitRule } from "@senlo/core";
-import { getRedisConnection } from "@senlo/core/queue";
+import { getRedis } from "./infra";
+import { getConfig } from "./config";
 import { logger } from "./logger";
 
-const limiter = new RateLimiter(
-  {
-    async increment(key, ttlSeconds) {
-      const results = await getRedisConnection()
-        .multi()
-        .incr(key)
-        .expire(key, ttlSeconds)
-        .exec();
-      const [error, count] = results?.[0] ?? [];
-      if (error) throw error;
-      return Number(count);
+let limiter: RateLimiter | undefined;
+
+/** Created on first use, once the config can be read. */
+function getLimiter(): RateLimiter {
+  return (limiter ??= new RateLimiter(
+    {
+      async increment(key, ttlSeconds) {
+        const results = await getRedis()
+          .multi()
+          .incr(key)
+          .expire(key, ttlSeconds)
+          .exec();
+        const [error, count] = results?.[0] ?? [];
+        if (error) throw error;
+        return Number(count);
+      },
+      async get(key) {
+        return Number((await getRedis().get(key)) ?? 0);
+      },
+      async delete(key) {
+        await getRedis().del(key);
+      },
     },
-    async get(key) {
-      return Number((await getRedisConnection().get(key)) ?? 0);
-    },
-    async delete(key) {
-      await getRedisConnection().del(key);
-    },
-  },
-  `${process.env.REDIS_QUEUE_PREFIX || "senlo"}:rl`,
-  (error) =>
-    logger.warn("Rate limiter unavailable, letting the request through", {
-      error: error instanceof Error ? error.message : String(error),
-    }),
-);
+    `${getConfig().queuePrefix}:rl`,
+    (error) =>
+      logger.warn("Rate limiter unavailable, letting the request through", {
+        error: error instanceof Error ? error.message : String(error),
+      }),
+  ));
+}
 
 /**
  * Per-caller limits. Generous for machine traffic, tight where a human is
@@ -92,7 +98,7 @@ export async function limitRequest(
   const key = caller ?? clientIp(request.headers);
   if (!key) return null;
 
-  const result = await limiter.check(bucket, key, RATE_LIMITS[bucket]);
+  const result = await getLimiter().check(bucket, key, RATE_LIMITS[bucket]);
   if (result.allowed) return null;
 
   return NextResponse.json(
@@ -114,7 +120,7 @@ async function callersFor(extra: string[]): Promise<string[]> {
  */
 export async function limitAction(bucket: Bucket, ...callers: string[]) {
   for (const caller of await callersFor(callers)) {
-    const result = await limiter.check(bucket, caller, RATE_LIMITS[bucket]);
+    const result = await getLimiter().check(bucket, caller, RATE_LIMITS[bucket]);
     if (!result.allowed) throw new RateLimitedError(result.retryAfter);
   }
 }
@@ -129,18 +135,18 @@ const loginKey = (email: string) => `email:${email.trim().toLowerCase()}`;
  */
 export async function assertLoginAllowed(email: string) {
   for (const caller of await callersFor([loginKey(email)])) {
-    const result = await limiter.isBlocked("login", caller, RATE_LIMITS.login);
+    const result = await getLimiter().isBlocked("login", caller, RATE_LIMITS.login);
     if (!result.allowed) throw new RateLimitedError(result.retryAfter);
   }
 }
 
 export async function recordLoginFailure(email: string) {
   for (const caller of await callersFor([loginKey(email)])) {
-    await limiter.recordFailure("login", caller, RATE_LIMITS.login);
+    await getLimiter().recordFailure("login", caller, RATE_LIMITS.login);
   }
 }
 
 /** Only the address: the IP may be shared, and others behind it may still be guessing. */
 export async function resetLoginFailures(email: string) {
-  await limiter.reset("login", loginKey(email), RATE_LIMITS.login);
+  await getLimiter().reset("login", loginKey(email), RATE_LIMITS.login);
 }

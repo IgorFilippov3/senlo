@@ -14,9 +14,12 @@ import { STARTER_TEMPLATES } from "./seeds/starter-templates";
  *
  * The stored `html` is rendered here the way the editor renders it on save.
  * Sending renders `designJson` again, so it only serves previews and lists;
- * `/logoipsum.png` and the social icons resolve against `NEXT_PUBLIC_APP_URL`.
+ * `/logoipsum.png` and the social icons resolve against the app URL.
  */
-export async function seedUserData(userId: string) {
+export async function seedUserData(
+  userId: string,
+  options: { appUrl: string },
+) {
   const [project] = await db
     .insert(projects)
     .values({
@@ -27,7 +30,7 @@ export async function seedUserData(userId: string) {
     })
     .returning();
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = options.appUrl;
 
   await db.insert(emailTemplates).values(
     STARTER_TEMPLATES.map((template) => ({

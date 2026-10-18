@@ -7,7 +7,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "@senlo/ui/styles.css";
 import Script from "next/script";
-import { IS_DEMO_MODE, UMAMI_WEBSITE_ID } from "../lib";
+import { getConfig } from "../lib/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,7 +19,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+/**
+ * Rendered per request, so values from the runtime config - demo mode, the
+ * analytics id, the app URL - are what the server has now, not what the build
+ * machine had. Nearly every page is behind a login and dynamic anyway.
+ */
+export const dynamic = "force-dynamic";
+
+const baseMetadata: Metadata = {
   title: "Senlo — Open-Source Email Trigger Infrastructure",
   description:
     "A modern, self-hosted alternative to Postmark and Resend. Open-source email trigger infrastructure with a visual MJML editor.",
@@ -42,9 +49,6 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  ),
   alternates: {
     canonical: "/",
   },
@@ -85,20 +89,26 @@ export const metadata: Metadata = {
   },
 };
 
+export function generateMetadata(): Metadata {
+  return { ...baseMetadata, metadataBase: new URL(getConfig().appUrl) };
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { demoMode, umamiWebsiteId } = getConfig();
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {IS_DEMO_MODE && UMAMI_WEBSITE_ID && (
+        {demoMode && umamiWebsiteId && (
           <Script
             src="https://cloud.umami.is/script.js"
-            data-website-id={UMAMI_WEBSITE_ID}
+            data-website-id={umamiWebsiteId}
             strategy="afterInteractive"
           />
         )}

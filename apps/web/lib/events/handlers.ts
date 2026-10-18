@@ -16,7 +16,7 @@ import {
   TriggerService,
   WorkflowEventType,
 } from "@senlo/core";
-import { automationQueue, emailQueue } from "@senlo/core/queue";
+import { getMailSettings, getQueues } from "apps/web/lib/infra";
 import { EventHandler } from "./types";
 
 // Initialize services (ideally this should be centralized but keeping it here for refactoring simplicity)
@@ -35,14 +35,15 @@ const triggerService = new TriggerService(
   providerRepo,
   projectRepo,
   logRepo,
-  emailQueue,
+  getQueues().email,
+  getMailSettings(),
 );
 
 const automationService = new AutomationService(
   workflowRepo,
   executionRepo,
   contactRepo,
-  automationQueue,
+  getQueues().automation,
   triggerService,
 );
 

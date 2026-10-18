@@ -1,21 +1,22 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { Redis } from "ioredis";
 
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+/**
+ * A Redis connection for queues, workers and the rate limiter. Nothing
+ * connects on import any more: the app creates the connection from its
+ * config and passes it to whatever needs it.
+ */
+export function createRedisConnection(url: string): Redis {
+  const connection = new Redis(url, {
+    maxRetriesPerRequest: null, // Required by BullMQ
+  });
 
-let redisInstance: Redis | null = null;
+  connection.on("error", (err) => {
+    console.error("Redis connection error:", err);
+  });
 
-export function getRedisConnection() {
-  if (!redisInstance) {
-    redisInstance = new Redis(REDIS_URL, {
-      maxRetriesPerRequest: null, // Required by BullMQ
-    });
-
-    redisInstance.on("error", (err) => {
-      console.error("Redis connection error:", err);
-    });
-  }
-
-  return redisInstance;
+  return connection;
 }
-
-export const redis = getRedisConnection();

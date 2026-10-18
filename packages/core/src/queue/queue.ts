@@ -1,50 +1,62 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { Queue } from "bullmq";
-import { redis } from "../redis";
+import type { Redis } from "ioredis";
 import type { EmailJobData, CampaignJobData, AutomationJobData } from "./types";
 
 export const EMAIL_QUEUE_NAME = "email-queue";
 export const CAMPAIGN_QUEUE_NAME = "campaign-queue";
 export const AUTOMATION_QUEUE_NAME = "automation-queue";
 
-const queuePrefix = process.env.REDIS_QUEUE_PREFIX || "senlo";
+/** Where queues and workers keep their state. */
+export interface QueueConnection {
+  connection: Redis;
+  /** Key prefix, `SenloConfig.queuePrefix`. */
+  prefix: string;
+}
 
-export const emailQueue = new Queue<EmailJobData>(EMAIL_QUEUE_NAME, {
-  connection: redis as any, // Cast to any to resolve version mismatch between BullMQ and ioredis
-  prefix: queuePrefix,
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 5000,
-    },
-    removeOnComplete: true,
-    removeOnFail: false,
-  },
-});
+export interface SenloQueues {
+  email: Queue<EmailJobData>;
+  campaign: Queue<CampaignJobData>;
+  automation: Queue<AutomationJobData>;
+}
 
-export const campaignQueue = new Queue<CampaignJobData>(CAMPAIGN_QUEUE_NAME, {
-  connection: redis as any, // Cast to any to resolve version mismatch between BullMQ and ioredis
-  prefix: queuePrefix,
-  defaultJobOptions: {
-    attempts: 1,
-    removeOnComplete: true,
-    removeOnFail: false,
-  },
-});
+/**
+ * The three queues, created on demand rather than on import, so the prefix
+ * and the connection come from the app's config.
+ */
+export function createQueues({ connection, prefix }: QueueConnection): SenloQueues {
+  // Cast: BullMQ bundles its own ioredis types, which differ from ours.
+  const options = { connection: connection as any, prefix };
 
-export const automationQueue = new Queue<AutomationJobData>(
-  AUTOMATION_QUEUE_NAME,
-  {
-    connection: redis as any,
-    prefix: queuePrefix,
-    defaultJobOptions: {
-      attempts: 5,
-      backoff: {
-        type: "exponential",
-        delay: 1000,
+  return {
+    email: new Queue<EmailJobData>(EMAIL_QUEUE_NAME, {
+      ...options,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+        removeOnComplete: true,
+        removeOnFail: false,
       },
-      removeOnComplete: true,
-      removeOnFail: false,
-    },
-  },
-);
+    }),
+    campaign: new Queue<CampaignJobData>(CAMPAIGN_QUEUE_NAME, {
+      ...options,
+      defaultJobOptions: {
+        attempts: 1,
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
+    }),
+    automation: new Queue<AutomationJobData>(AUTOMATION_QUEUE_NAME, {
+      ...options,
+      defaultJobOptions: {
+        attempts: 5,
+        backoff: { type: "exponential", delay: 1000 },
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
+    }),
+  };
+}

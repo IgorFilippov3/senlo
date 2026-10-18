@@ -1,5 +1,4 @@
 import { Worker, Job, Queue } from "bullmq";
-import { redis } from "../redis";
 import type { EmailJobData, CampaignJobData, AutomationJobData } from "./types";
 import {
   ICampaignRepository,
@@ -16,7 +15,7 @@ import {
   buildUnsubscribeHeaders,
   unsubscribeUrls,
 } from "../unsubscribe-token";
-import { resolveSigningSecret } from "../signing";
+import type { MailSettings } from "../config";
 import { sealTrackingToken, trackingUrls } from "../tracking-token";
 import { htmlToPlainText, EMAIL_CLIPPING_BYTES } from "../renderer/htmlToText";
 import {
@@ -27,7 +26,12 @@ import type { EmailTemplate } from "../emailTemplate";
 import { renderEmailDesign } from "../renderer/renderEmailDesign";
 import type { EmailDesignDocument } from "../emailDesign";
 import { AutomationService } from "../services/automationService";
-import { AUTOMATION_QUEUE_NAME } from "./queue";
+import {
+  AUTOMATION_QUEUE_NAME,
+  CAMPAIGN_QUEUE_NAME,
+  EMAIL_QUEUE_NAME,
+  type QueueConnection,
+} from "./queue";
 
 /**
  * How long a rendered campaign template is reused inside one worker process.
@@ -44,6 +48,8 @@ interface CachedRender {
 
 export class EmailWorkerProcessor {
   constructor(
+    /** Where links point, how they are signed, the default sender. */
+    private readonly settings: MailSettings,
     private readonly campaignRepo: ICampaignRepository,
     private readonly providerRepo: IEmailProviderRepository,
     private readonly templateRepo: IEmailTemplateRepository,
@@ -159,7 +165,7 @@ export class EmailWorkerProcessor {
     // edited to count opens or clicks against another campaign.
     let tracking: { token: string; secret: string; urls: ReturnType<typeof trackingUrls> } | undefined;
     if (baseUrl) {
-      const secret = resolveSigningSecret();
+      const secret = this.settings.linkSigningSecret;
       const token = await sealTrackingToken(
         { campaignId: data.campaignId, email: data.email },
         secret,
@@ -367,13 +373,12 @@ export class EmailWorkerProcessor {
       sentAt: new Date(),
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    // Resolved once per campaign: a missing secret fails the dispatch before
-    // any job is queued, not halfway through the recipient list.
-    const signingSecret = resolveSigningSecret();
+    const baseUrl = this.settings.appUrl;
+    const signingSecret = this.settings.linkSigningSecret;
+    const fromEmail = campaign.fromEmail || this.settings.defaultFromEmail;
     const fromAddress = campaign.fromName
-      ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
-      : campaign.fromEmail || "hello@senlo.io";
+      ? `${campaign.fromName} <${fromEmail}>`
+      : fromEmail;
 
     // Queue jobs in chunks to avoid memory issues and BullMQ limits
     const CHUNK_SIZE = 100;
@@ -430,54 +435,58 @@ export class EmailWorkerProcessor {
   }
 }
 
-export function createEmailWorker(processor: EmailWorkerProcessor) {
-  const queuePrefix = process.env.REDIS_QUEUE_PREFIX || "senlo";
+export function createEmailWorker(
+  processor: EmailWorkerProcessor,
+  { connection, prefix }: QueueConnection,
+) {
   return new Worker(
-    "email-queue",
+    EMAIL_QUEUE_NAME,
     async (job: Job<EmailJobData>) => {
       await processor.processEmailJob(job);
     },
-    {
-      connection: redis as any, // Cast to any to resolve version mismatch between BullMQ and ioredis
-      prefix: queuePrefix,
-    },
+    // Cast: BullMQ bundles its own ioredis types, which differ from ours.
+    { connection: connection as any, prefix },
   );
 }
 
-export function createCampaignWorker(processor: EmailWorkerProcessor) {
-  const queuePrefix = process.env.REDIS_QUEUE_PREFIX || "senlo";
+export function createCampaignWorker(
+  processor: EmailWorkerProcessor,
+  { connection, prefix }: QueueConnection,
+) {
   return new Worker(
-    "campaign-queue",
+    CAMPAIGN_QUEUE_NAME,
     async (job: Job<CampaignJobData>) => {
       await processor.processCampaignJob(job);
     },
-    {
-      connection: redis as any,
-      prefix: queuePrefix,
-    },
+    { connection: connection as any, prefix },
   );
 }
 
 export class AutomationWorkerProcessor {
-  constructor(private readonly automationService: AutomationService) {}
+  constructor(
+    private readonly automationService: AutomationService,
+    private readonly settings: Pick<MailSettings, "appUrl">,
+  ) {}
 
   async processAutomationJob(job: Job<AutomationJobData>) {
     const { executionId, nodeId } = job.data;
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    await this.automationService.processStep(executionId, nodeId, baseUrl);
+    await this.automationService.processStep(
+      executionId,
+      nodeId,
+      this.settings.appUrl,
+    );
   }
 }
 
-export function createAutomationWorker(processor: AutomationWorkerProcessor) {
-  const queuePrefix = process.env.REDIS_QUEUE_PREFIX || "senlo";
+export function createAutomationWorker(
+  processor: AutomationWorkerProcessor,
+  { connection, prefix }: QueueConnection,
+) {
   return new Worker(
     AUTOMATION_QUEUE_NAME,
     async (job: Job<AutomationJobData>) => {
       await processor.processAutomationJob(job);
     },
-    {
-      connection: redis as any,
-      prefix: queuePrefix,
-    },
+    { connection: connection as any, prefix },
   );
 }

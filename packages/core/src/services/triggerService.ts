@@ -6,7 +6,7 @@ import {
   ITriggeredSendLogRepository,
 } from "../ports";
 import { replaceMergeTags } from "../merge-tags";
-import { resolveSigningSecret } from "../signing";
+import type { MailSettings } from "../config";
 import {
   encodeUnsubscribeToken,
   buildUnsubscribeHeaders,
@@ -32,6 +32,10 @@ export class TriggerService {
     private readonly projectRepo: IProjectRepository,
     private readonly logRepo: ITriggeredSendLogRepository,
     private readonly emailQueue: Queue,
+    private readonly settings: Pick<
+      MailSettings,
+      "linkSigningSecret" | "defaultFromEmail"
+    >,
   ) {}
 
   async sendTriggeredEmail(options: TriggeredEmailOptions) {
@@ -82,13 +86,14 @@ export class TriggerService {
     // "#" and the link did nothing.
     const unsubscribeToken = await encodeUnsubscribeToken(
       { projectId: project.id, email: to, campaignId: campaign.id },
-      resolveSigningSecret(),
+      this.settings.linkSigningSecret,
     );
     const unsubscribe = unsubscribeUrls(baseUrl, unsubscribeToken);
 
+    const fromEmail = campaign.fromEmail || this.settings.defaultFromEmail;
     const fromAddress = campaign.fromName
-      ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
-      : campaign.fromEmail || "hello@senlo.io";
+      ? `${campaign.fromName} <${fromEmail}>`
+      : fromEmail;
 
     // Prepare subject with merge tags support
     const rawSubject = subjectOverride || template.subject;

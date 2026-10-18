@@ -17,7 +17,10 @@ import { seedUserData } from "./user-seed";
  * account that already owns a project is left alone, which also keeps
  * existing accounts out of it.
  */
-export async function seedNewUser(userId: string) {
+export async function seedNewUser(
+  userId: string,
+  options: { appUrl: string },
+) {
   const [existingProject] = await db
     .select({ id: projects.id })
     .from(projects)
@@ -29,7 +32,7 @@ export async function seedNewUser(userId: string) {
   }
 
   try {
-    await seedUserData(userId);
+    await seedUserData(userId, options);
   } catch (error) {
     // The seed is not a transaction and writes the project first. A failure
     // part-way would leave a project behind, which the guard above would read

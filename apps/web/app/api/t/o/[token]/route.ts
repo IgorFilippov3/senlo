@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
-import { openTrackingToken, resolveSigningSecret } from "@senlo/core";
+import { openTrackingToken } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
+import { getConfig } from "apps/web/lib/config";
 import {
   pixelResponse,
   requestMetadata,
@@ -13,7 +14,7 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
-  const recipient = await openTrackingToken(token, resolveSigningSecret());
+  const recipient = await openTrackingToken(token, getConfig().linkSigningSecret);
 
   if (recipient) {
     // Fire and forget: the image must not wait for the database.

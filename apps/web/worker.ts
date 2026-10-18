@@ -17,13 +17,34 @@ import {
   createEmailWorker,
   createCampaignWorker,
   createAutomationWorker,
-  emailQueue,
-  automationQueue,
+  createQueues,
+  createRedisConnection,
 } from "@senlo/core/queue";
 import {
   AutomationService,
+  ConfigError,
   TriggerService,
+  loadSenloConfig,
+  mailSettings,
+  type SenloConfig,
 } from "@senlo/core";
+
+// Checked before anything connects: a broken config stops the worker with
+// the full list of what to fix, instead of failing on the first job.
+let config: SenloConfig;
+try {
+  config = loadSenloConfig(process.env);
+} catch (error) {
+  console.error(error instanceof ConfigError ? error.message : error);
+  process.exit(1);
+}
+
+const connection = {
+  connection: createRedisConnection(config.redisUrl),
+  prefix: config.queuePrefix,
+};
+const queues = createQueues(connection);
+const settings = mailSettings(config);
 
 const campaignRepo = new CampaignRepository(db);
 const providerRepo = new EmailProviderRepository(db);
@@ -42,35 +63,37 @@ const triggerService = new TriggerService(
   providerRepo,
   projectRepo,
   logRepo,
-  emailQueue,
+  queues.email,
+  settings,
 );
 
 const automationService = new AutomationService(
   workflowRepo,
   executionRepo,
   contactRepo,
-  automationQueue,
+  queues.automation,
   triggerService,
 );
 
 const processor = new EmailWorkerProcessor(
+  settings,
   campaignRepo,
   providerRepo,
   templateRepo,
   projectRepo,
   listRepo,
-  emailQueue,
+  queues.email,
   logRepo,
   suppressionRepo,
 );
 
-const automationProcessor = new AutomationWorkerProcessor(automationService);
+const automationProcessor = new AutomationWorkerProcessor(automationService, settings);
 
 console.log("🚀 Starting Senlo Workers...");
 
-const emailWorker = createEmailWorker(processor);
-const campaignWorker = createCampaignWorker(processor);
-const automationWorker = createAutomationWorker(automationProcessor);
+const emailWorker = createEmailWorker(processor, connection);
+const campaignWorker = createCampaignWorker(processor, connection);
+const automationWorker = createAutomationWorker(automationProcessor, connection);
 
 const setupLogging = (worker: any, name: string) => {
   worker.on("completed", (job: any) => {

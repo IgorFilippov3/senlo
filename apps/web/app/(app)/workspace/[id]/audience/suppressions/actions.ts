@@ -21,7 +21,7 @@ import { Suppression } from "@senlo/core";
 import { AudienceService } from "@senlo/core/server";
 import { AutomationService } from "@senlo/core/server";
 import { TriggerService } from "@senlo/core/server";
-import { automationQueue, emailQueue } from "@senlo/core/queue";
+import { getMailSettings, getQueues } from "apps/web/lib/infra";
 
 const suppressionRepo = new SuppressionRepository(db);
 const contactRepo = new ContactRepository(db);
@@ -39,14 +39,15 @@ const triggerService = new TriggerService(
   providerRepo,
   projectRepo,
   logRepo,
-  emailQueue,
+  getQueues().email,
+  getMailSettings(),
 );
 
 const automationService = new AutomationService(
   workflowRepo,
   executionRepo,
   contactRepo,
-  automationQueue,
+  getQueues().automation,
   triggerService,
 );
 

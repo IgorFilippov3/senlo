@@ -11,7 +11,7 @@ import {
   LinkStat,
   TimeSeriesData,
 } from "@senlo/core";
-import { campaignQueue } from "@senlo/core/queue";
+import { getQueues } from "apps/web/lib/infra";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { CreateCampaignSchema, UpdateCampaignSchema } from "./schemas";
@@ -377,7 +377,7 @@ export async function sendCampaignAction(
     });
 
     // Add to campaign queue - the worker will handle contact fetching and email generation
-    await campaignQueue.add(`dispatch-campaign-${id}-${Date.now()}`, {
+    await getQueues().campaign.add(`dispatch-campaign-${id}-${Date.now()}`, {
       campaignId: id,
       userId,
     });

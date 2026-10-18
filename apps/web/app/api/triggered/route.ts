@@ -8,7 +8,8 @@ import {
   db,
 } from "@senlo/db";
 import { TriggerService } from "@senlo/core/server";
-import { emailQueue } from "@senlo/core/queue";
+import { getMailSettings, getQueues } from "apps/web/lib/infra";
+import { getConfig } from "apps/web/lib/config";
 import { logger, validateApiKey } from "apps/web/lib";
 import { limitRequest } from "apps/web/lib/rate-limit";
 
@@ -27,7 +28,8 @@ const triggerService = new TriggerService(
   new EmailProviderRepository(db),
   new ProjectRepository(db),
   new TriggeredSendLogRepository(db),
-  emailQueue,
+  getQueues().email,
+  getMailSettings(),
 );
 
 export async function POST(req: NextRequest) {
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = getConfig().appUrl;
 
     const result = await triggerService.sendTriggeredEmail({
       campaignId: Number(campaignId),

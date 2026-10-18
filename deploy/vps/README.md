@@ -26,10 +26,12 @@ cp env.example .env
 sed -i.bak "s|YOUR_AUTH_SECRET_HERE|$(openssl rand -base64 32)|" .env && rm .env.bak
 ```
 
-Then set `NEXT_PUBLIC_APP_URL` in `.env` to the address users will open, including the port:
+Then set `APP_URL` in `.env` to the address users will open, including the port. Links in outgoing mail point there:
 ```
-NEXT_PUBLIC_APP_URL="http://your-server-ip:3000"
+APP_URL="http://your-server-ip:3000"
 ```
+
+Every variable is read when the containers start, so changing one needs a restart (`docker compose up -d`), not a rebuild. If a required value is missing, the app and the worker refuse to start and print what to fix. An existing `.env` with `NEXT_PUBLIC_APP_URL` keeps working.
 
 The remaining required values already have working defaults in `env.example`:
 - `AUTH_TRUST_HOST` — `true`, needed to authenticate from your server's IP.

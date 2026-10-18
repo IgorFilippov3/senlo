@@ -1,4 +1,4 @@
-import { IS_DEMO_MODE } from "apps/web/lib/constants";
+import { getConfig } from "apps/web/lib/config";
 
 /**
  * Marks the public demo instance.
@@ -9,7 +9,7 @@ import { IS_DEMO_MODE } from "apps/web/lib/constants";
  * exactly what makes it misleading.
  */
 export function DemoBanner() {
-  if (!IS_DEMO_MODE) {
+  if (!getConfig().demoMode) {
     return null;
   }
 

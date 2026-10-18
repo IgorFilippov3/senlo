@@ -5,7 +5,7 @@ import {
   buildUnsubscribeHeaders,
   unsubscribeUrls,
 } from "../unsubscribe-token";
-import { resolveSigningSecret, encodeJson, signPayload } from "../signing";
+import { encodeJson, signPayload } from "../signing";
 
 const SECRET = "test-secret";
 const legacy = (data: unknown) =>
@@ -87,17 +87,6 @@ describe("unsubscribe tokens", () => {
   it("produces a token safe in a path segment", async () => {
     const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, SECRET);
     expect(token).toMatch(/^[A-Za-z0-9_-]+$/);
-  });
-});
-
-describe("resolveSigningSecret", () => {
-  it("prefers LINK_SIGNING_SECRET, falls back to AUTH_SECRET", () => {
-    expect(resolveSigningSecret({ LINK_SIGNING_SECRET: "a", AUTH_SECRET: "b" })).toBe("a");
-    expect(resolveSigningSecret({ AUTH_SECRET: "b" })).toBe("b");
-  });
-
-  it("refuses to sign with no secret at all", () => {
-    expect(() => resolveSigningSecret({})).toThrow(/AUTH_SECRET/);
   });
 });
 

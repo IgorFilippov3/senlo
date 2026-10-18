@@ -4,6 +4,7 @@ import GitHub from "next-auth/providers/github";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db, users, seedNewUser } from "@senlo/db";
 import { resetLoginFailures } from "./lib/rate-limit";
+import { getConfig } from "./lib/config";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -24,13 +25,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // after the operator believed registration was off. People who already
       // have an account still get in.
       //
-      // This reads the same plain variable `registerAction` enforces rather
-      // than the NEXT_PUBLIC_ twin, which Next.js inlines at build time — a
-      // security check must not be decided by what the build machine had.
-      if (
-        account?.provider !== "github" ||
-        process.env.ALLOW_REGISTRATION !== "false"
-      ) {
+      // Same runtime config `registerAction` enforces: a security check must
+      // not be decided by what the build machine had.
+      if (account?.provider !== "github" || getConfig().allowRegistration) {
         return true;
       }
 
@@ -57,7 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       try {
-        await seedNewUser(user.id);
+        await seedNewUser(user.id, { appUrl: getConfig().appUrl });
       } catch (error) {
         // An empty dashboard is a far smaller problem than a sign-up that
         // fails after the account has already been created.
@@ -70,8 +67,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   providers: [
     GitHub({
-      clientId: process.env.GITHUB_ID,
-      clientSecret: process.env.GITHUB_SECRET,
+      clientId: getConfig().github?.clientId,
+      clientSecret: getConfig().github?.clientSecret,
     }),
     Credentials({
       async authorize(credentials) {

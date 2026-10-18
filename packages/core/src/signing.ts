@@ -15,23 +15,6 @@
 const encoder = new TextEncoder();
 const keyCache = new Map<string, Promise<CryptoKey>>();
 
-/**
- * The secret links are signed with. `LINK_SIGNING_SECRET` lets it rotate
- * independently; without it `AUTH_SECRET` is used, which every install
- * already has. Rotating either invalidates links in mail already sent.
- */
-export function resolveSigningSecret(
-  env: Record<string, string | undefined> = process.env,
-): string {
-  const secret = env.LINK_SIGNING_SECRET || env.AUTH_SECRET;
-  if (!secret) {
-    throw new Error(
-      "LINK_SIGNING_SECRET or AUTH_SECRET must be set to sign unsubscribe and tracking links",
-    );
-  }
-  return secret;
-}
-
 export function toBase64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
