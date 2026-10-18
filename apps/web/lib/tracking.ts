@@ -1,9 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CampaignRepository } from "@senlo/db";
-import { db } from "apps/web/lib/db";
-import { TrackingService } from "@senlo/core/server";
-
-export const trackingService = new TrackingService(new CampaignRepository(db));
 
 // 1x1 transparent GIF
 const TRANSPARENT_PIXEL = Buffer.from(

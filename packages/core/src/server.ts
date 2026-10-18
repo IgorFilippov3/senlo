@@ -19,3 +19,4 @@ export * from "./services/settingsService";
 export * from "./services/trackingService";
 export * from "./services/triggerService";
 export * from "./services/mail";
+export * from "./composition";

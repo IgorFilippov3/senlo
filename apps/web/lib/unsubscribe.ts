@@ -1,7 +1,6 @@
 import { decodeUnsubscribeToken } from "@senlo/core";
 import { getConfig } from "./config";
-import { ContactRepository, CampaignRepository, SuppressionRepository } from "@senlo/db";
-import { db } from "apps/web/lib/db";
+import { repositories } from "apps/web/lib/services";
 
 export type UnsubscribeOutcome =
   | { ok: true; alreadyUnsubscribed: boolean }
@@ -37,9 +36,9 @@ export async function processUnsubscribe(
     return { ok: false, reason: "confirm_email" };
   }
 
-  const contactRepo = new ContactRepository(db);
-  const campaignRepo = new CampaignRepository(db);
-  const suppressionRepo = new SuppressionRepository(db);
+  const contactRepo = repositories.contacts;
+  const campaignRepo = repositories.campaigns;
+  const suppressionRepo = repositories.suppressions;
 
   const campaign = await campaignRepo.findById(data.campaignId);
   if (campaign && data.projectId && campaign.projectId !== data.projectId) {

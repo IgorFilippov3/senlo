@@ -1,10 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ProjectRepository, ApiKeyRepository, EmailProviderRepository } from "@senlo/db";
-import { db } from "apps/web/lib/db";
 import { Project } from "@senlo/core";
-import { SettingsService } from "@senlo/core/server";
 import {
   ActionResult,
   withErrorHandling,
@@ -13,12 +10,9 @@ import {
 import { logger } from "apps/web/lib/logger";
 import { access } from "apps/web/lib/access";
 import { requireUserId } from "apps/web/lib/session";
+import { getServices, repositories } from "apps/web/lib/services";
 
-const settingsService = new SettingsService(
-  new ApiKeyRepository(db),
-  new ProjectRepository(db),
-);
-const providerRepo = new EmailProviderRepository(db);
+const providerRepo = repositories.providers;
 
 async function getAuthorizedProject(projectId: number) {
   const userId = await requireUserId();
@@ -53,7 +47,7 @@ export async function updateWorkspaceAction(
       ...data,
     });
 
-    const updatedProject = await settingsService.updateWorkspace(validId, data);
+    const updatedProject = await getServices().settings.updateWorkspace(validId, data);
     if (!updatedProject) throw new Error("Failed to update workspace");
 
     revalidatePath(`/workspace/${validId}/settings`);
@@ -72,7 +66,7 @@ export async function deleteWorkspaceAction(
 
     logger.info("Deleting workspace", { workspaceId: validId });
 
-    await settingsService.deleteWorkspace(validId);
+    await getServices().settings.deleteWorkspace(validId);
 
     revalidatePath("/workspaces");
   });

@@ -4,11 +4,11 @@ import {
   verifyClickSignature,
 } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
+import { getServices } from "apps/web/lib/services";
 import { getConfig } from "apps/web/lib/config";
 import {
   confirmLeavingResponse,
   requestMetadata,
-  trackingService,
 } from "apps/web/lib/tracking";
 
 /**
@@ -39,7 +39,7 @@ export async function GET(
     return confirmLeavingResponse(url);
   }
 
-  await trackingService
+  await getServices().tracking
     .trackClick(recipient.campaignId, recipient.email, url, requestMetadata(request))
     .catch((error) => {
       logger.error("Failed to track click", {

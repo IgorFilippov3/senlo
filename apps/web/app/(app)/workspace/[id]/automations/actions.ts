@@ -1,17 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  WorkflowRepository,
-  WorkflowExecutionRepository,
-  ContactRepository,
-  CampaignRepository,
-  EmailTemplateRepository,
-  EmailProviderRepository,
-  ProjectRepository,
-  TriggeredSendLogRepository,
-} from "@senlo/db";
-import { db } from "apps/web/lib/db";
 import { access } from "apps/web/lib/access";
 import { requireUserId } from "apps/web/lib/session";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
@@ -22,34 +11,9 @@ import {
   WorkflowNodeStats,
 } from "@senlo/core";
 import { AutomationService, TriggerService } from "@senlo/core";
-import { getMailSettings, getQueues } from "apps/web/lib/infra";
+import { getServices, repositories } from "apps/web/lib/services";
 
-const workflowRepo = new WorkflowRepository(db);
-const executionRepo = new WorkflowExecutionRepository(db);
-const contactRepo = new ContactRepository(db);
-const campaignRepo = new CampaignRepository(db);
-const templateRepo = new EmailTemplateRepository(db);
-const providerRepo = new EmailProviderRepository(db);
-const projectRepo = new ProjectRepository(db);
-const logRepo = new TriggeredSendLogRepository(db);
-
-const triggerService = new TriggerService(
-  campaignRepo,
-  templateRepo,
-  providerRepo,
-  projectRepo,
-  logRepo,
-  getQueues().email,
-  getMailSettings(),
-);
-
-const automationService = new AutomationService(
-  workflowRepo,
-  executionRepo,
-  contactRepo,
-  getQueues().automation,
-  triggerService,
-);
+const workflowRepo = repositories.workflows;
 
 /** The workflow, if the signed-in user may access its project. */
 async function requireWorkflow(id: number): Promise<Workflow> {
@@ -178,6 +142,6 @@ export async function getWorkflowStats(
 ): Promise<ActionResult<WorkflowNodeStats[]>> {
   return withErrorHandling(async () => {
     await requireWorkflow(workflowId);
-    return await automationService.getWorkflowStats(workflowId);
+    return await getServices().automation.getWorkflowStats(workflowId);
   });
 }

@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  CampaignRepository,
-  EmailTemplateRepository,
-  EmailProviderRepository,
-  ProjectRepository,
-  TriggeredSendLogRepository,
-} from "@senlo/db";
-import { db } from "apps/web/lib/db";
-import { TriggerService } from "@senlo/core/server";
-import { getMailSettings, getQueues } from "apps/web/lib/infra";
 import { getConfig } from "apps/web/lib/config";
 import { logger, validateApiKey } from "apps/web/lib";
 import { limitRequest } from "apps/web/lib/rate-limit";
+import { getServices } from "apps/web/lib/services";
 
 interface TriggeredEmailRequest {
   id?: string | number;
@@ -21,16 +12,6 @@ interface TriggeredEmailRequest {
   locale?: string;
   subject?: string;
 }
-
-const triggerService = new TriggerService(
-  new CampaignRepository(db),
-  new EmailTemplateRepository(db),
-  new EmailProviderRepository(db),
-  new ProjectRepository(db),
-  new TriggeredSendLogRepository(db),
-  getQueues().email,
-  getMailSettings(),
-);
 
 export async function POST(req: NextRequest) {
   let body: TriggeredEmailRequest | null = null;
@@ -72,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = getConfig().appUrl;
 
-    const result = await triggerService.sendTriggeredEmail({
+    const result = await getServices().trigger.sendTriggeredEmail({
       campaignId: Number(campaignId),
       projectId: apiKey.projectId,
       to,

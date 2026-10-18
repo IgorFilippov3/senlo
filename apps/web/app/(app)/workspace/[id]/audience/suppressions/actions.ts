@@ -1,62 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  SuppressionRepository,
-  ContactRepository,
-  WorkflowRepository,
-  WorkflowExecutionRepository,
-  CampaignRepository,
-  EmailTemplateRepository,
-  EmailProviderRepository,
-  ProjectRepository,
-  TriggeredSendLogRepository,
-} from "@senlo/db";
-import { db } from "apps/web/lib/db";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 import { access } from "apps/web/lib/access";
 import { Suppression } from "@senlo/core";
-import { AudienceService } from "@senlo/core/server";
-import { AutomationService } from "@senlo/core/server";
-import { TriggerService } from "@senlo/core/server";
-import { getMailSettings, getQueues } from "apps/web/lib/infra";
-
-const suppressionRepo = new SuppressionRepository(db);
-const contactRepo = new ContactRepository(db);
-const workflowRepo = new WorkflowRepository(db);
-const executionRepo = new WorkflowExecutionRepository(db);
-const campaignRepo = new CampaignRepository(db);
-const templateRepo = new EmailTemplateRepository(db);
-const providerRepo = new EmailProviderRepository(db);
-const projectRepo = new ProjectRepository(db);
-const logRepo = new TriggeredSendLogRepository(db);
-
-const triggerService = new TriggerService(
-  campaignRepo,
-  templateRepo,
-  providerRepo,
-  projectRepo,
-  logRepo,
-  getQueues().email,
-  getMailSettings(),
-);
-
-const automationService = new AutomationService(
-  workflowRepo,
-  executionRepo,
-  contactRepo,
-  getQueues().automation,
-  triggerService,
-);
-
-const audienceService = new AudienceService(
-  suppressionRepo,
-  contactRepo,
-  workflowRepo,
-  automationService,
-);
+import { getServices } from "apps/web/lib/services";
 
 export async function listAllSuppressions(): Promise<
   ActionResult<(Suppression & { projectName: string })[]>
@@ -73,7 +23,7 @@ export async function listAllSuppressions(): Promise<
 
   return withErrorHandling(async () => {
     logger.debug("Listing all suppressions for user", { userId });
-    return await audienceService.listAllSuppressions(userId);
+    return await getServices().audience.listAllSuppressions(userId);
   });
 }
 
@@ -93,7 +43,7 @@ export async function listProjectSuppressions(
   return withErrorHandling(async () => {
     await access.requireProject(userId, projectId);
     logger.debug("Listing suppressions for project", { projectId, userId });
-    return await audienceService.listProjectSuppressions(projectId);
+    return await getServices().audience.listProjectSuppressions(projectId);
   });
 }
 
@@ -114,10 +64,10 @@ export async function deleteSuppressionAction(
     logger.info("Deleting suppression entry", { id, userId });
     const suppression = await access.requireInProject(
       userId,
-      await audienceService.getSuppressionById(id),
+      await getServices().audience.getSuppressionById(id),
       "Suppression",
     );
-    await audienceService.removeSuppression(id);
+    await getServices().audience.removeSuppression(id);
     revalidatePath(`/workspace/${suppression.projectId}/audience/suppressions`);
   });
 }

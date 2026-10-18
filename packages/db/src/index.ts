@@ -4,6 +4,7 @@
 
 // Database client
 export * from "./client";
+export * from "./create-repositories";
 
 // Schema (tables, enums, types)
 export * from "./schema";

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CampaignRepository, EmailTemplateRepository } from "@senlo/db";
-import { db } from "apps/web/lib/db";
 import { escapeAttr } from "@senlo/core";
 import { confirmLeavingResponse } from "apps/web/lib/tracking";
+import { repositories } from "apps/web/lib/services";
 
-const campaignRepo = new CampaignRepository(db);
-const templateRepo = new EmailTemplateRepository(db);
+const campaignRepo = repositories.campaigns;
+const templateRepo = repositories.templates;
 
 /**
  * Click link from mail sent before tracking links were signed. Its `url` was

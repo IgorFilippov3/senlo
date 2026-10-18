@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { openTrackingToken } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
+import { getServices } from "apps/web/lib/services";
 import { getConfig } from "apps/web/lib/config";
 import {
   pixelResponse,
   requestMetadata,
-  trackingService,
 } from "apps/web/lib/tracking";
 
 /** Open pixel. The token is sealed, so a forged one records nothing. */
@@ -18,7 +18,7 @@ export async function GET(
 
   if (recipient) {
     // Fire and forget: the image must not wait for the database.
-    trackingService
+    getServices().tracking
       .trackOpen(recipient.campaignId, recipient.email, requestMetadata(request))
       .catch((error) => {
         logger.error("Failed to track open", {

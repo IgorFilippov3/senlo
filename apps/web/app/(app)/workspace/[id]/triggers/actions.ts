@@ -2,15 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  CampaignRepository,
-  ProjectRepository,
-  EmailTemplateRepository,
-  EmailProviderRepository,
-  TriggeredSendLogRepository,
-  RecipientListRepository,
-} from "@senlo/db";
-import { db } from "apps/web/lib/db";
-import {
   Campaign,
   Project,
   EmailTemplate,
@@ -25,12 +16,12 @@ import { CreateCampaignSchema, UpdateCampaignSchema } from "./schemas";
 import { auth } from "apps/web/auth";
 import { access } from "apps/web/lib/access";
 import { requireUserId } from "apps/web/lib/session";
+import { repositories } from "apps/web/lib/services";
 
-const campaignRepo = new CampaignRepository(db);
-const projectRepo = new ProjectRepository(db);
-const templateRepo = new EmailTemplateRepository(db);
-const providerRepo = new EmailProviderRepository(db);
-const triggeredLogRepo = new TriggeredSendLogRepository(db);
+const campaignRepo = repositories.campaigns;
+const projectRepo = repositories.projects;
+const templateRepo = repositories.templates;
+const triggeredLogRepo = repositories.sendLogs;
 
 async function getAuthorizedCampaign(campaignId: number) {
   const userId = await requireUserId();

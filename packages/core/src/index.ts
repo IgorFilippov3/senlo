@@ -21,6 +21,7 @@ export * from "./ports";
 export * from "./constants";
 export * from "./errors";
 export * from "./config";
+export * from "./logger";
 export * from "./access";
 export * from "./rate-limit";
 export * from "./merge-tags";

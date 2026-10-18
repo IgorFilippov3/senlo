@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ApiKeyRepository } from "@senlo/db";
-import { db } from "apps/web/lib/db";
 import { ApiKey } from "@senlo/core";
-import { AuthService } from "@senlo/core/server";
-
-const authService = new AuthService(new ApiKeyRepository(db));
+import { getServices } from "apps/web/lib/services";
 
 export type ApiAuthResult =
   | { success: true; apiKey: ApiKey }
@@ -28,7 +24,7 @@ export async function validateApiKey(req: NextRequest): Promise<ApiAuthResult> {
   }
 
   const key = authHeader.split(" ")[1];
-  const apiKey = await authService.validateApiKey(key);
+  const apiKey = await getServices().auth.validateApiKey(key);
 
   if (!apiKey) {
     return {

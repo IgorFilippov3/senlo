@@ -1,8 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ApiKeyRepository, ProjectRepository } from "@senlo/db";
-import { db } from "apps/web/lib/db";
 import {
   ActionResult,
   withErrorHandling,
@@ -10,15 +8,10 @@ import {
 } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { ApiKey } from "@senlo/core";
-import { SettingsService } from "@senlo/core/server";
 import { auth } from "apps/web/auth";
+import { getServices, repositories } from "apps/web/lib/services";
 
-const settingsService = new SettingsService(
-  new ApiKeyRepository(db),
-  new ProjectRepository(db),
-);
-
-const projectRepo = new ProjectRepository(db);
+const projectRepo = repositories.projects;
 
 async function authorizeProject(projectId: number) {
   const session = await auth();
@@ -41,7 +34,7 @@ export async function listApiKeys(
     await authorizeProject(validProjectId);
     logger.debug("Listing API keys", { projectId: validProjectId });
 
-    return await settingsService.listApiKeys(validProjectId);
+    return await getServices().settings.listApiKeys(validProjectId);
   });
 }
 
@@ -66,7 +59,7 @@ export async function createApiKey(
       name: name.trim(),
     });
 
-    const apiKey = await settingsService.createApiKey(
+    const apiKey = await getServices().settings.createApiKey(
       validProjectId,
       name.trim(),
     );
@@ -84,14 +77,14 @@ export async function deleteApiKey(id: number): Promise<ActionResult<void>> {
     const validId = validateId(id, "apiKeyId");
 
     // Check ownership via project
-    const apiKey = await settingsService.getApiKeyById(validId);
+    const apiKey = await getServices().settings.getApiKeyById(validId);
     if (!apiKey) throw new Error("API key not found");
 
     await authorizeProject(apiKey.projectId);
 
     logger.info("Deleting API key", { apiKeyId: validId });
 
-    await settingsService.deleteApiKey(validId);
+    await getServices().settings.deleteApiKey(validId);
     revalidatePath(`/workspace/${apiKey.projectId}/settings/keys`);
 
     logger.info("API key deleted successfully", { apiKeyId: validId });

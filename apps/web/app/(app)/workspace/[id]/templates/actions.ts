@@ -2,21 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  ProjectRepository,
-  EmailTemplateRepository,
-  EmailProviderRepository,
-  AiProviderRepository,
-  ApiKeyRepository,
-} from "@senlo/db";
-import { db } from "apps/web/lib/db";
-import {
   type Project,
   type EmailTemplate,
   type EmailProvider,
   type AiProvider,
   EMPTY_EMAIL_DESIGN,
 } from "@senlo/core";
-import { SettingsService } from "@senlo/core/server";
 import {
   ActionResult,
   withErrorHandling,
@@ -26,15 +17,11 @@ import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 import { access } from "apps/web/lib/access";
 import { requireUserId } from "apps/web/lib/session";
+import { getServices, repositories } from "apps/web/lib/services";
 
-const settingsService = new SettingsService(
-  new ApiKeyRepository(db),
-  new ProjectRepository(db),
-);
-
-const providerRepo = new EmailProviderRepository(db);
-const aiProviderRepo = new AiProviderRepository(db);
-const templateRepo = new EmailTemplateRepository(db);
+const providerRepo = repositories.providers;
+const aiProviderRepo = repositories.aiProviders;
+const templateRepo = repositories.templates;
 
 async function getAuthorizedProject(projectId: number) {
   const userId = await requireUserId();
@@ -169,7 +156,7 @@ export async function updateWorkspace(
     );
   }
 
-  await settingsService.updateWorkspace(id, {
+  await getServices().settings.updateWorkspace(id, {
     name,
     description,
     providerId,

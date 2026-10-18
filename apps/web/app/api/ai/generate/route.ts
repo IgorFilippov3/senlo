@@ -3,11 +3,10 @@ import OpenAI from "openai";
 import { emailDesignDocumentSchema } from "@senlo/core";
 import { auth } from "../../../../auth";
 import { limitRequest } from "apps/web/lib/rate-limit";
-import { ProjectRepository, AiProviderRepository } from "@senlo/db";
-import { db } from "apps/web/lib/db";
+import { repositories } from "apps/web/lib/services";
 
-const projectRepo = new ProjectRepository(db);
-const aiProviderRepo = new AiProviderRepository(db);
+const projectRepo = repositories.projects;
+const aiProviderRepo = repositories.aiProviders;
 
 const SYSTEM_PROMPT = `
 You are an expert email designer for the Senlo Email Builder.

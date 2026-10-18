@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import {
-  TriggeredSendLogRepository,
-  CampaignRepository,
-  ProjectRepository,
-  EmailProviderRepository,
-} from "@senlo/db";
-import { db } from "apps/web/lib/db";
 import { logger } from "apps/web/lib";
 import { limitRequest } from "apps/web/lib/rate-limit";
 import { scopeWebhookEvent, suppressOnce } from "apps/web/lib/webhook-scope";
+import { repositories } from "apps/web/lib/services";
 
-const logRepo = new TriggeredSendLogRepository(db);
-const campaignRepo = new CampaignRepository(db);
-const projectRepo = new ProjectRepository(db);
-const providerRepo = new EmailProviderRepository(db);
+const logRepo = repositories.sendLogs;
+const campaignRepo = repositories.campaigns;
+const projectRepo = repositories.projects;
+const providerRepo = repositories.providers;
 
 function secretsMatch(expected: string, received: string | undefined) {
   if (!received) return false;

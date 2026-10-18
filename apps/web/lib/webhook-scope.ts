@@ -1,16 +1,10 @@
 import type { Campaign, TriggeredSendLog } from "@senlo/core";
-import {
-  CampaignRepository,
-  ContactRepository,
-  SuppressionRepository,
-  TriggeredSendLogRepository,
-} from "@senlo/db";
-import { db } from "apps/web/lib/db";
+import { repositories } from "apps/web/lib/services";
 
-const campaignRepo = new CampaignRepository(db);
-const contactRepo = new ContactRepository(db);
-const logRepo = new TriggeredSendLogRepository(db);
-const suppressionRepo = new SuppressionRepository(db);
+const campaignRepo = repositories.campaigns;
+const contactRepo = repositories.contacts;
+const logRepo = repositories.sendLogs;
+const suppressionRepo = repositories.suppressions;
 
 export interface WebhookScope {
   campaign: Campaign | null;

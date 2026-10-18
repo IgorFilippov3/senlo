@@ -1,62 +1,20 @@
-import {
-  ContactRepository,
-  WorkflowRepository,
-  WorkflowExecutionRepository,
-  SuppressionRepository,
-  CampaignRepository,
-  EmailTemplateRepository,
-  EmailProviderRepository,
-  ProjectRepository,
-  TriggeredSendLogRepository,
-} from "@senlo/db";
-import { db } from "apps/web/lib/db";
+
+
 import {
   AudienceService,
   AutomationService,
   TriggerService,
   WorkflowEventType,
 } from "@senlo/core";
-import { getMailSettings, getQueues } from "apps/web/lib/infra";
 import { EventHandler } from "./types";
+import { getServices, repositories } from "apps/web/lib/services";
 
 // Initialize services (ideally this should be centralized but keeping it here for refactoring simplicity)
-const campaignRepo = new CampaignRepository(db);
-const templateRepo = new EmailTemplateRepository(db);
-const providerRepo = new EmailProviderRepository(db);
-const projectRepo = new ProjectRepository(db);
-const logRepo = new TriggeredSendLogRepository(db);
-const contactRepo = new ContactRepository(db);
-const workflowRepo = new WorkflowRepository(db);
-const executionRepo = new WorkflowExecutionRepository(db);
-
-const triggerService = new TriggerService(
-  campaignRepo,
-  templateRepo,
-  providerRepo,
-  projectRepo,
-  logRepo,
-  getQueues().email,
-  getMailSettings(),
-);
-
-const automationService = new AutomationService(
-  workflowRepo,
-  executionRepo,
-  contactRepo,
-  getQueues().automation,
-  triggerService,
-);
-
-const audienceService = new AudienceService(
-  new SuppressionRepository(db),
-  contactRepo,
-  workflowRepo,
-  automationService,
-);
+const contactRepo = repositories.contacts;
 
 export const eventHandlers: Record<WorkflowEventType, EventHandler> = {
   contact_added: async (req, ctx) => {
-    return await audienceService.createContact({
+    return await getServices().audience.createContact({
       projectId: ctx.projectId,
       email: req.email,
       name: req.name,
@@ -75,7 +33,7 @@ export const eventHandlers: Record<WorkflowEventType, EventHandler> = {
       meta: { ...(contact.meta as any), ...req.metadata },
     });
 
-    await automationService.triggerEvent({
+    await getServices().automation.triggerEvent({
       event: "contact_updated",
       projectId: ctx.projectId,
       contactId: contact.id,
@@ -100,7 +58,7 @@ export const eventHandlers: Record<WorkflowEventType, EventHandler> = {
       meta: { ...(contact.meta as any), tags: combinedTags },
     });
 
-    await automationService.triggerEvent({
+    await getServices().automation.triggerEvent({
       event: "tag_added",
       projectId: ctx.projectId,
       contactId: contact.id,
@@ -113,7 +71,7 @@ export const eventHandlers: Record<WorkflowEventType, EventHandler> = {
   order_created: async (req, ctx) => {
     let contact = await contactRepo.findByEmail(ctx.projectId, req.email);
     if (!contact) {
-      contact = await audienceService.createContact({
+      contact = await getServices().audience.createContact({
         projectId: ctx.projectId,
         email: req.email,
         name: req.name,
@@ -122,7 +80,7 @@ export const eventHandlers: Record<WorkflowEventType, EventHandler> = {
       });
     }
 
-    await automationService.triggerEvent({
+    await getServices().automation.triggerEvent({
       event: "order_created",
       projectId: ctx.projectId,
       contactId: contact.id,
@@ -135,7 +93,7 @@ export const eventHandlers: Record<WorkflowEventType, EventHandler> = {
   event_triggered: async (req, ctx) => {
     let contact = await contactRepo.findByEmail(ctx.projectId, req.email);
     if (!contact) {
-      contact = await audienceService.createContact({
+      contact = await getServices().audience.createContact({
         projectId: ctx.projectId,
         email: req.email,
         name: req.name,
@@ -144,7 +102,7 @@ export const eventHandlers: Record<WorkflowEventType, EventHandler> = {
       });
     }
 
-    await automationService.triggerEvent({
+    await getServices().automation.triggerEvent({
       event: "event_triggered",
       projectId: ctx.projectId,
       contactId: contact.id,

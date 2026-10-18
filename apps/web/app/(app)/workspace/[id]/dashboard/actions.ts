@@ -1,11 +1,9 @@
 "use server";
 
-import { DashboardRepository } from "@senlo/db";
-import { db } from "apps/web/lib/db";
 import { auth } from "apps/web/auth";
 import { logger } from "apps/web/lib/logger";
 
-const dashboardRepo = new DashboardRepository(db);
+const dashboardRepo = repositories.dashboard;
 
 export async function getDashboardStats(projectId?: number) {
   const session = await auth();
@@ -64,6 +62,7 @@ export async function getRecentEvents(limit: number = 10, projectId?: number) {
 }
 
 import { DashboardStats, DashboardActivity, DashboardEvent } from "@senlo/core";
+import { repositories } from "apps/web/lib/services";
 
 export async function getDashboardData(
   projectId: number,
