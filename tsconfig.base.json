@@ -39,12 +39,6 @@
       "@senlo/db/*": [
         "packages/db/src/*"
       ],
-      "@senlo/integrations": [
-        "packages/integrations/src"
-      ],
-      "@senlo/integrations/*": [
-        "packages/integrations/src/*"
-      ],
       "@senlo/automation-builder": [
         "packages/automation-builder/src"
       ],

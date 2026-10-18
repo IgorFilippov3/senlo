@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useProjects } from "apps/web/hooks/use-projects";
+import { useProjects } from "apps/web/queries/projects";
 import { useWorkspaceStorage } from "apps/web/hooks/use-workspace-storage";
 import { Card, Button, Badge } from "@senlo/ui";
 import { Loader2, Plus, ArrowRight } from "lucide-react";
@@ -9,7 +9,12 @@ import { useDialogStore } from "apps/web/providers/dialogs/store";
 
 export default function WorkspacesPage() {
   const router = useRouter();
-  const { projects, loading, error } = useProjects();
+  const { data: projects = [], isLoading: loading, error: queryError } = useProjects();
+  const error = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : String(queryError)
+    : null;
   const { setWorkspaceId } = useWorkspaceStorage();
   const openDialog = useDialogStore((state) => state.open);
 

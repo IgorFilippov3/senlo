@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname, useParams, useRouter } from "next/navigation";
 import { Settings, Folder, Zap, Globe, Cloud, Key, FileCode, Users, LayoutDashboard, GitBranch } from "lucide-react";
-import { useProjects } from "apps/web/hooks/use-projects";
+import { useProjects } from "apps/web/queries/projects";
 import { useWorkspaceStorage } from "apps/web/hooks/use-workspace-storage";
 import { Sidebar as SharedSidebar, NavItem } from "@senlo/features";
 
@@ -12,7 +12,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const params = useParams();
   const router = useRouter();
-  const { projects } = useProjects();
+  const { data: projects = [] } = useProjects();
   const { setWorkspaceId } = useWorkspaceStorage();
 
   // Hide sidebar in editor
