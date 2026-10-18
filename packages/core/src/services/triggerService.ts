@@ -6,6 +6,7 @@ import {
   ITriggeredSendLogRepository,
 } from "../ports";
 import { replaceMergeTags } from "../merge-tags";
+import { resolveSigningSecret } from "../signing";
 import {
   encodeUnsubscribeToken,
   buildUnsubscribeHeaders,
@@ -79,11 +80,10 @@ export class TriggerService {
     // A triggered recipient may have no contact row, so the token carries the
     // project and the address. Without this the unsubscribe tag rendered as
     // "#" and the link did nothing.
-    const unsubscribeToken = encodeUnsubscribeToken({
-      projectId: project.id,
-      email: to,
-      campaignId: campaign.id,
-    });
+    const unsubscribeToken = await encodeUnsubscribeToken(
+      { projectId: project.id, email: to, campaignId: campaign.id },
+      resolveSigningSecret(),
+    );
     const unsubscribe = unsubscribeUrls(baseUrl, unsubscribeToken);
 
     const fromAddress = campaign.fromName

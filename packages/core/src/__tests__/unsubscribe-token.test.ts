@@ -5,58 +5,75 @@ import {
   buildUnsubscribeHeaders,
   unsubscribeUrls,
 } from "../unsubscribe-token";
+import { resolveSigningSecret } from "../signing";
+
+const SECRET = "test-secret";
+const legacy = (data: unknown) =>
+  Buffer.from(JSON.stringify(data)).toString("base64url");
 
 describe("unsubscribe tokens", () => {
-  it("round-trips a campaign recipient", () => {
-    const token = encodeUnsubscribeToken({
-      contactId: 7,
-      projectId: 1,
-      email: "ann@example.com",
-      campaignId: 42,
-    });
+  it("round-trips a campaign recipient as a signed token", async () => {
+    const data = { contactId: 7, projectId: 1, email: "ann@example.com", campaignId: 42 };
+    const token = await encodeUnsubscribeToken(data, SECRET);
 
-    expect(decodeUnsubscribeToken(token)).toEqual({
-      contactId: 7,
-      projectId: 1,
-      email: "ann@example.com",
-      campaignId: 42,
-    });
+    expect(await decodeUnsubscribeToken(token, SECRET)).toEqual({ data, signed: true });
   });
 
-  it("round-trips a triggered recipient that has no contact row", () => {
-    const token = encodeUnsubscribeToken({
-      projectId: 1,
-      email: "ann@example.com",
-      campaignId: 42,
-    });
-
-    expect(decodeUnsubscribeToken(token)?.email).toBe("ann@example.com");
-  });
-
-  it("still reads a token issued before the shape changed", () => {
-    const legacy = Buffer.from(
-      JSON.stringify({ contactId: 7, campaignId: 42 }),
-    ).toString("base64url");
-
-    expect(decodeUnsubscribeToken(legacy)).toEqual({
-      contactId: 7,
-      campaignId: 42,
-    });
-  });
-
-  it("rejects a token that identifies nobody", () => {
-    const bad = Buffer.from(JSON.stringify({ campaignId: 42 })).toString(
-      "base64url",
+  it("round-trips a triggered recipient that has no contact row", async () => {
+    const token = await encodeUnsubscribeToken(
+      { projectId: 1, email: "ann@example.com", campaignId: 42 },
+      SECRET,
     );
-
-    expect(decodeUnsubscribeToken(bad)).toBeNull();
-    expect(decodeUnsubscribeToken("not-a-token")).toBeNull();
-    expect(decodeUnsubscribeToken("")).toBeNull();
+    expect((await decodeUnsubscribeToken(token, SECRET))?.data.email).toBe("ann@example.com");
   });
 
-  it("produces a url safe in a path segment", () => {
-    const token = encodeUnsubscribeToken({ contactId: 7, campaignId: 42 });
-    expect(token).toMatch(/^[A-Za-z0-9_-]+$/);
+  it("refuses a token whose ids were edited", async () => {
+    const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, SECRET);
+    const [, signature] = token.split(".");
+    const forged = `${legacy({ contactId: 8, campaignId: 42 })}.${signature}`;
+
+    expect(await decodeUnsubscribeToken(forged, SECRET)).toBeNull();
+  });
+
+  it("refuses a token signed with another secret", async () => {
+    const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, "other");
+    expect(await decodeUnsubscribeToken(token, SECRET)).toBeNull();
+  });
+
+  it("refuses a signed token with a mangled signature", async () => {
+    const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, SECRET);
+    expect(await decodeUnsubscribeToken(`${token}x`, SECRET)).toBeNull();
+    expect(await decodeUnsubscribeToken(`${token.split(".")[0]}.`, SECRET)).toBeNull();
+    expect(await decodeUnsubscribeToken(`${token}.extra`, SECRET)).toBeNull();
+  });
+
+  it("reads a legacy unsigned token but marks it unsigned", async () => {
+    expect(await decodeUnsubscribeToken(legacy({ contactId: 7, campaignId: 42 }), SECRET)).toEqual({
+      data: { contactId: 7, campaignId: 42 },
+      signed: false,
+    });
+  });
+
+  it("rejects a token that identifies nobody", async () => {
+    expect(await decodeUnsubscribeToken(legacy({ campaignId: 42 }), SECRET)).toBeNull();
+    expect(await decodeUnsubscribeToken("not-a-token", SECRET)).toBeNull();
+    expect(await decodeUnsubscribeToken("", SECRET)).toBeNull();
+  });
+
+  it("produces a token safe in a path segment", async () => {
+    const token = await encodeUnsubscribeToken({ contactId: 7, campaignId: 42 }, SECRET);
+    expect(token).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+  });
+});
+
+describe("resolveSigningSecret", () => {
+  it("prefers LINK_SIGNING_SECRET, falls back to AUTH_SECRET", () => {
+    expect(resolveSigningSecret({ LINK_SIGNING_SECRET: "a", AUTH_SECRET: "b" })).toBe("a");
+    expect(resolveSigningSecret({ AUTH_SECRET: "b" })).toBe("b");
+  });
+
+  it("refuses to sign with no secret at all", () => {
+    expect(() => resolveSigningSecret({})).toThrow(/AUTH_SECRET/);
   });
 });
 

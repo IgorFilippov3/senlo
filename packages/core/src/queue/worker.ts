@@ -16,6 +16,7 @@ import {
   buildUnsubscribeHeaders,
   unsubscribeUrls,
 } from "../unsubscribe-token";
+import { resolveSigningSecret } from "../signing";
 import { htmlToPlainText, EMAIL_CLIPPING_BYTES } from "../renderer/htmlToText";
 import {
   personalizeEmail,
@@ -353,6 +354,9 @@ export class EmailWorkerProcessor {
     });
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    // Resolved once per campaign: a missing secret fails the dispatch before
+    // any job is queued, not halfway through the recipient list.
+    const signingSecret = resolveSigningSecret();
     const fromAddress = campaign.fromName
       ? `${campaign.fromName} <${campaign.fromEmail || "hello@senlo.io"}>`
       : campaign.fromEmail || "hello@senlo.io";
@@ -364,12 +368,15 @@ export class EmailWorkerProcessor {
 
       await Promise.all(
         chunk.map(async (contact) => {
-          const unsubscribeToken = encodeUnsubscribeToken({
-            contactId: contact.id,
-            projectId: project.id,
-            email: contact.email,
-            campaignId: campaign.id,
-          });
+          const unsubscribeToken = await encodeUnsubscribeToken(
+            {
+              contactId: contact.id,
+              projectId: project.id,
+              email: contact.email,
+              campaignId: campaign.id,
+            },
+            signingSecret,
+          );
           const unsubscribe = unsubscribeUrls(baseUrl, unsubscribeToken);
 
           return this.emailQueue.add(

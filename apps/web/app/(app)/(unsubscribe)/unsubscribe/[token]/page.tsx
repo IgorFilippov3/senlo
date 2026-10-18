@@ -1,32 +1,42 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { unsubscribeAction } from "../actions";
-import { Button, Card } from "@senlo/ui";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Button, Card, Input } from "@senlo/ui";
+import { CheckCircle2, XCircle, Loader2, MailQuestion } from "lucide-react";
 
 export default function UnsubscribePage() {
   const { token } = useParams<{ token: string }>();
 
+  const [email, setEmail] = useState("");
+
   const unsubscribeMutation = useMutation({
-    mutationFn: async (token: string) => {
-      const result = await unsubscribeAction(token);
+    mutationFn: async (vars: { token: string; email?: string }) => {
+      const result = await unsubscribeAction(vars.token, vars.email);
       if (!result.success) {
         throw new Error(result.error.message || "Something went wrong");
       }
       return result.data;
     },
-    retry: 2, // Retry up to 2 times for network issues
-    retryDelay: 1000, // Wait 1 second between retries
+    // Retrying a wrong address would only repeat the same answer.
+    retry: (count, error) =>
+      count < 2 && !/does not match|not valid/.test(error.message),
+    retryDelay: 1000,
   });
 
   useEffect(() => {
-    if (token && !unsubscribeMutation.isSuccess && !unsubscribeMutation.isError) {
-      unsubscribeMutation.mutate(token);
+    if (token && unsubscribeMutation.isIdle) {
+      unsubscribeMutation.mutate({ token });
     }
   }, [token, unsubscribeMutation]);
+
+  // A link from mail sent before links were signed: the address is the
+  // only proof that the person asking is the recipient.
+  const needsEmail =
+    unsubscribeMutation.isSuccess && unsubscribeMutation.data?.needsEmail;
+  const done = unsubscribeMutation.isSuccess && !needsEmail;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
@@ -41,7 +51,39 @@ export default function UnsubscribePage() {
           </div>
         )}
 
-        {unsubscribeMutation.isSuccess && (
+        {needsEmail && (
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (token && email.trim()) {
+                unsubscribeMutation.mutate({ token, email: email.trim() });
+              }
+            }}
+          >
+            <MailQuestion className="w-12 h-12 text-blue-500 mx-auto" />
+            <h1 className="text-2xl font-bold text-gray-900">
+              Confirm your address
+            </h1>
+            <p className="text-gray-600">
+              Enter the email address this message was sent to, and we will
+              unsubscribe it.
+            </p>
+            <Input
+              type="email"
+              required
+              autoFocus
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            <Button type="submit" className="w-full">
+              Unsubscribe
+            </Button>
+          </form>
+        )}
+
+        {done && (
           <div className="space-y-4">
             <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto" />
             <h1 className="text-2xl font-bold text-gray-900">Unsubscribed</h1>
@@ -61,10 +103,9 @@ export default function UnsubscribePage() {
             </p>
             <Button 
               variant="outline" 
-              onClick={() => {
-                unsubscribeMutation.reset();
-                if (token) unsubscribeMutation.mutate(token);
-              }}
+              // Back to idle: the effect above starts over, and a legacy
+              // link shows the address form again.
+              onClick={() => unsubscribeMutation.reset()}
               disabled={unsubscribeMutation.isPending}
             >
               {unsubscribeMutation.isPending ? "Retrying..." : "Try Again"}

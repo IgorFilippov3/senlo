@@ -16,6 +16,7 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - AUTH_SECRET=${AUTH_SECRET}
+      - LINK_SIGNING_SECRET=${LINK_SIGNING_SECRET:-}
       - AUTH_TRUST_HOST=${AUTH_TRUST_HOST:-true}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
@@ -42,6 +43,11 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # The worker builds unsubscribe and tracking links for campaign mail, so
+      # it needs the public URL and the secret those links are signed with.
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - LINK_SIGNING_SECRET=${LINK_SIGNING_SECRET:-}
     depends_on:
       db:
         condition: service_healthy

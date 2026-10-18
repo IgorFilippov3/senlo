@@ -1,3 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { decodeJson, encodeJson, signPayload, verifyPayload } from "./signing";
+
 export interface UnsubscribeTokenData {
   /**
    * Present for campaign sends, where the recipient is a known contact.
@@ -10,28 +16,58 @@ export interface UnsubscribeTokenData {
   campaignId: number;
 }
 
-export function encodeUnsubscribeToken(data: UnsubscribeTokenData): string {
-  const json = JSON.stringify(data);
-  return Buffer.from(json).toString("base64url");
+export interface DecodedUnsubscribeToken {
+  data: UnsubscribeTokenData;
+  /**
+   * False for a token issued before tokens were signed. Its ids may have been
+   * edited by anyone, so it must not unsubscribe on its own: the recipient
+   * has to confirm their address first.
+   */
+  signed: boolean;
 }
 
-export function decodeUnsubscribeToken(
+/** `<payload>.<signature>`, both base64url, so the token fits a path segment. */
+export async function encodeUnsubscribeToken(
+  data: UnsubscribeTokenData,
+  secret: string,
+): Promise<string> {
+  const payload = encodeJson(data);
+  return `${payload}.${await signPayload(payload, secret)}`;
+}
+
+function readData(value: unknown): UnsubscribeTokenData | null {
+  if (!value || typeof value !== "object") return null;
+  const data = value as UnsubscribeTokenData;
+  if (typeof data.campaignId !== "number") return null;
+  // Tokens issued before triggered sends had an unsubscribe link carry only
+  // a contact id, so either identifier is enough.
+  if (data.contactId === undefined && !data.email) return null;
+  return data;
+}
+
+/**
+ * A signed token whose signature does not match is refused outright. A token
+ * without a signature is a legacy one and comes back with `signed: false`.
+ */
+export async function decodeUnsubscribeToken(
   token: string,
-): UnsubscribeTokenData | null {
-  try {
-    const json = Buffer.from(token, "base64url").toString("utf8");
-    const data = JSON.parse(json) as UnsubscribeTokenData;
+  secret: string,
+): Promise<DecodedUnsubscribeToken | null> {
+  if (!token) return null;
 
-    if (!data || typeof data !== "object") return null;
-    if (typeof data.campaignId !== "number") return null;
-    // Tokens issued before triggered sends had an unsubscribe link carry only
-    // a contact id, so either identifier is enough.
-    if (data.contactId === undefined && !data.email) return null;
-
-    return data;
-  } catch (e) {
-    return null;
+  const dot = token.indexOf(".");
+  if (dot === -1) {
+    const data = readData(decodeJson(token));
+    return data ? { data, signed: false } : null;
   }
+
+  const payload = token.slice(0, dot);
+  const signature = token.slice(dot + 1);
+  if (!payload || !signature || signature.includes(".")) return null;
+  if (!(await verifyPayload(payload, signature, secret))) return null;
+
+  const data = readData(decodeJson(payload));
+  return data ? { data, signed: true } : null;
 }
 
 /**
