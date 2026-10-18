@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  CampaignRepository, ProjectRepository, EmailTemplateRepository, EmailProviderRepository, TriggeredSendLogRepository, RecipientListRepository, db } from "@senlo/db";
+  CampaignRepository,
+  ProjectRepository,
+  EmailTemplateRepository,
+  EmailProviderRepository,
+  TriggeredSendLogRepository,
+  RecipientListRepository,
+} from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import {
   Campaign,
   Project,

@@ -4,8 +4,8 @@ import {
   ContactRepository,
   SuppressionRepository,
   TriggeredSendLogRepository,
-  db,
 } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 
 const campaignRepo = new CampaignRepository(db);
 const contactRepo = new ContactRepository(db);

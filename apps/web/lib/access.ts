@@ -1,5 +1,6 @@
 import { AccessGuard } from "@senlo/core";
-import { ProjectRepository, db } from "@senlo/db";
+import { ProjectRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 
 /**
  * The app's instance of the core access guard. Every action or route that

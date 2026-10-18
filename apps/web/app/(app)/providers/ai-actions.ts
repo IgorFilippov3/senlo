@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AiProviderRepository, db } from "@senlo/db";
+import { AiProviderRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { AiProvider, AiProviderType } from "@senlo/core";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";

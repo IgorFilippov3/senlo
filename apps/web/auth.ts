@@ -2,7 +2,8 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { db, users, seedNewUser } from "@senlo/db";
+import { users, seedNewUser } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { resetLoginFailures } from "./lib/rate-limit";
 import { getConfig } from "./lib/config";
 import { eq } from "drizzle-orm";
@@ -54,7 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       try {
-        await seedNewUser(user.id, { appUrl: getConfig().appUrl });
+        await seedNewUser(db, user.id, { appUrl: getConfig().appUrl });
       } catch (error) {
         // An empty dashboard is a far smaller problem than a sign-up that
         // fails after the account has already been created.

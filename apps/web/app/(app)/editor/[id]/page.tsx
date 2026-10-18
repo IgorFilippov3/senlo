@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { EmailTemplateRepository, CampaignRepository, db } from "@senlo/db";
+import { EmailTemplateRepository, CampaignRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { EditorLayout } from "@senlo/editor";
 import { EmailDesignDocument, emailDesignVersion, MergeTag } from "@senlo/core";
 import {

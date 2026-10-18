@@ -8,8 +8,8 @@ import {
   EmailProviderRepository,
   ProjectRepository,
   TriggeredSendLogRepository,
-  db,
 } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import {
   AudienceService,
   AutomationService,

@@ -1,3 +1,5 @@
+// First: the environment has to be in place before anything reads it.
+import "./lib/load-env";
 import {
   CampaignRepository,
   EmailProviderRepository,
@@ -9,7 +11,7 @@ import {
   WorkflowRepository,
   WorkflowExecutionRepository,
   ContactRepository,
-  db,
+  createDb,
 } from "@senlo/db";
 import {
   EmailWorkerProcessor,
@@ -39,6 +41,7 @@ try {
   process.exit(1);
 }
 
+const db = createDb(config.databaseUrl);
 const connection = {
   connection: createRedisConnection(config.redisUrl),
   prefix: config.queuePrefix,

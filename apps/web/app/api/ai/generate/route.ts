@@ -3,7 +3,8 @@ import OpenAI from "openai";
 import { emailDesignDocumentSchema } from "@senlo/core";
 import { auth } from "../../../../auth";
 import { limitRequest } from "apps/web/lib/rate-limit";
-import { ProjectRepository, AiProviderRepository, db } from "@senlo/db";
+import { ProjectRepository, AiProviderRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 
 const projectRepo = new ProjectRepository(db);
 const aiProviderRepo = new AiProviderRepository(db);

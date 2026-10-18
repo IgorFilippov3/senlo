@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ApiKeyRepository, db } from "@senlo/db";
+import { ApiKeyRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { ApiKey } from "@senlo/core";
 import { AuthService } from "@senlo/core/server";
 

@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { EmailProviderRepository, db } from "@senlo/db";
+import { EmailProviderRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { EmailProvider, EmailProviderType } from "@senlo/core";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";

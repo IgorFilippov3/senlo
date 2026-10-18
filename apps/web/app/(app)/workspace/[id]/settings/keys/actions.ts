@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ApiKeyRepository, ProjectRepository, db } from "@senlo/db";
+import { ApiKeyRepository, ProjectRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import {
   ActionResult,
   withErrorHandling,

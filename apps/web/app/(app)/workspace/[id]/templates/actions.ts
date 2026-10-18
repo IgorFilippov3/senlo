@@ -7,8 +7,8 @@ import {
   EmailProviderRepository,
   AiProviderRepository,
   ApiKeyRepository,
-  db,
 } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import {
   type Project,
   type EmailTemplate,

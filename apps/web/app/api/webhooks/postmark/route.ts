@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import {
-  TriggeredSendLogRepository, CampaignRepository, ProjectRepository, EmailProviderRepository, db } from "@senlo/db";
+  TriggeredSendLogRepository,
+  CampaignRepository,
+  ProjectRepository,
+  EmailProviderRepository,
+} from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { logger } from "apps/web/lib";
 import { limitRequest } from "apps/web/lib/rate-limit";
 import { scopeWebhookEvent, suppressOnce } from "apps/web/lib/webhook-scope";

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { renderEmailDesign } from "@senlo/core";
-import { db } from "./client";
+import type { Database } from "./client";
 import { emailTemplates, projects } from "./schema";
 import { STARTER_TEMPLATES } from "./seeds/starter-templates";
 
@@ -17,6 +17,7 @@ import { STARTER_TEMPLATES } from "./seeds/starter-templates";
  * `/logoipsum.png` and the social icons resolve against the app URL.
  */
 export async function seedUserData(
+  db: Database,
   userId: string,
   options: { appUrl: string },
 ) {

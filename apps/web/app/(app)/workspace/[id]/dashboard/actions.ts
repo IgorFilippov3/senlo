@@ -1,6 +1,7 @@
 "use server";
 
-import { DashboardRepository, db } from "@senlo/db";
+import { DashboardRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { auth } from "apps/web/auth";
 import { logger } from "apps/web/lib/logger";
 

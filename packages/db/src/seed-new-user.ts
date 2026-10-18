@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { eq } from "drizzle-orm";
-import { db } from "./client";
+import type { Database } from "./client";
 import { projects } from "./schema";
 import { seedUserData } from "./user-seed";
 
@@ -18,6 +18,7 @@ import { seedUserData } from "./user-seed";
  * existing accounts out of it.
  */
 export async function seedNewUser(
+  db: Database,
   userId: string,
   options: { appUrl: string },
 ) {
@@ -32,7 +33,7 @@ export async function seedNewUser(
   }
 
   try {
-    await seedUserData(userId, options);
+    await seedUserData(db, userId, options);
   } catch (error) {
     // The seed is not a transaction and writes the project first. A failure
     // part-way would leave a project behind, which the guard above would read

@@ -11,8 +11,8 @@ import {
   EmailProviderRepository,
   ProjectRepository,
   TriggeredSendLogRepository,
-  db,
 } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";

@@ -10,8 +10,8 @@ import {
   EmailProviderRepository,
   ProjectRepository,
   TriggeredSendLogRepository,
-  db,
 } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { access } from "apps/web/lib/access";
 import { requireUserId } from "apps/web/lib/session";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";

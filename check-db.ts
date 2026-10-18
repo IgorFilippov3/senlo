@@ -1,5 +1,9 @@
-import { db } from "./packages/db/src/client";
 import { sql } from "drizzle-orm";
+import { createDb } from "./packages/db/src/client";
+import { loadLocalEnv } from "./packages/db/src/cli-env";
+
+loadLocalEnv();
+const db = createDb(process.env.DATABASE_URL!);
 
 async function checkSchema() {
   try {

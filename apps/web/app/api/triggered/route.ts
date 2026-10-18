@@ -5,8 +5,8 @@ import {
   EmailProviderRepository,
   ProjectRepository,
   TriggeredSendLogRepository,
-  db,
 } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { TriggerService } from "@senlo/core/server";
 import { getMailSettings, getQueues } from "apps/web/lib/infra";
 import { getConfig } from "apps/web/lib/config";

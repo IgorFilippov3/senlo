@@ -1,6 +1,10 @@
-import { WorkflowExecutionRepository, db } from "@senlo/db";
+import { createDb } from "@senlo/db";
+import { loadLocalEnv } from "@senlo/db/src/cli-env";
 import { eq } from "drizzle-orm";
 import * as schema from "@senlo/db/src/schema";
+
+loadLocalEnv();
+const db = createDb(process.env.DATABASE_URL!);
 
 async function resetExecutions() {
   console.log("Resetting stuck executions...");

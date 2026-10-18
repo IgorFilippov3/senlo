@@ -1,12 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  ProjectRepository,
-  ApiKeyRepository,
-  EmailProviderRepository,
-  db,
-} from "@senlo/db";
+import { ProjectRepository, ApiKeyRepository, EmailProviderRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { Project } from "@senlo/core";
 import { SettingsService } from "@senlo/core/server";
 import {

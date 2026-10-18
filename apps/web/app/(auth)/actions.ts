@@ -1,6 +1,7 @@
 "use server";
 
-import { db, users, seedNewUser } from "@senlo/db";
+import { users, seedNewUser } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -72,7 +73,7 @@ export async function registerAction(formData: FormData) {
     // an empty workspace is recoverable where a dead sign-up form is not.
     if (user) {
       try {
-        await seedNewUser(user.id, { appUrl: getConfig().appUrl });
+        await seedNewUser(db, user.id, { appUrl: getConfig().appUrl });
       } catch (seedError) {
         logger.error("Failed to seed a new account", {
           userId: user.id,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CampaignRepository, EmailTemplateRepository, db } from "@senlo/db";
+import { CampaignRepository, EmailTemplateRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import { escapeAttr } from "@senlo/core";
 import { confirmLeavingResponse } from "apps/web/lib/tracking";
 

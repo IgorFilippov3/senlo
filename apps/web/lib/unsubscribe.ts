@@ -1,11 +1,7 @@
 import { decodeUnsubscribeToken } from "@senlo/core";
 import { getConfig } from "./config";
-import {
-  ContactRepository,
-  CampaignRepository,
-  SuppressionRepository,
-  db,
-} from "@senlo/db";
+import { ContactRepository, CampaignRepository, SuppressionRepository } from "@senlo/db";
+import { db } from "apps/web/lib/db";
 
 export type UnsubscribeOutcome =
   | { ok: true; alreadyUnsubscribed: boolean }

@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  EmailTemplateRepository, EmailProviderRepository, SavedRowRepository, db } from "@senlo/db";
+  EmailTemplateRepository,
+  EmailProviderRepository,
+  SavedRowRepository,
+} from "@senlo/db";
+import { db } from "apps/web/lib/db";
 import {
   EmailDesignDocument,
   renderEmailDesign,

@@ -1,5 +1,7 @@
 import { loadSenloConfig } from "@senlo/core";
-import { db, users, seedNewUser } from "./index";
+import { users, seedNewUser } from "./index";
+import { createDb } from "./client";
+import { loadLocalEnv } from "./cli-env";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -11,6 +13,8 @@ interface InitialUser {
 }
 
 async function main() {
+  loadLocalEnv();
+
   const initialUsersJson = process.env.INITIAL_USERS;
 
   if (!initialUsersJson) {
@@ -30,7 +34,8 @@ async function main() {
 
   // A CLI entry point, so it reads the environment itself - and fails with
   // the same list of problems the app and the worker would.
-  const { appUrl } = loadSenloConfig(process.env);
+  const { appUrl, databaseUrl } = loadSenloConfig(process.env);
+  const db = createDb(databaseUrl);
 
   console.log(`Starting provisioning for ${initialUsers.length} users...`);
 
@@ -61,7 +66,7 @@ async function main() {
 
     if (newUser) {
       console.log(`User ${user.email} created successfully. Seeding data...`);
-      await seedNewUser(newUser.id, { appUrl });
+      await seedNewUser(db, newUser.id, { appUrl });
       console.log(`Data seeded for ${user.email}.`);
     }
   }
