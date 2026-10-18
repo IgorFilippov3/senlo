@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import {
-  TriggeredSendLogRepository, CampaignRepository, ProjectRepository, EmailProviderRepository, SuppressionRepository, db } from "@senlo/db";
+  TriggeredSendLogRepository, CampaignRepository, ProjectRepository, EmailProviderRepository, db } from "@senlo/db";
 import { logger } from "apps/web/lib";
+import { scopeWebhookEvent, suppressOnce } from "apps/web/lib/webhook-scope";
 
 const logRepo = new TriggeredSendLogRepository(db);
 const campaignRepo = new CampaignRepository(db);
 const projectRepo = new ProjectRepository(db);
 const providerRepo = new EmailProviderRepository(db);
-const suppressionRepo = new SuppressionRepository(db);
+
+function secretsMatch(expected: string, received: string | undefined) {
+  if (!received) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(received);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 interface PostmarkWebhookPayload {
   RecordType: "Delivery" | "Bounce" | "Open" | "Click" | "SpamComplaint";
@@ -24,7 +32,6 @@ interface PostmarkWebhookPayload {
 }
 
 export async function POST(req: NextRequest) {
-  logger.info("Postmark webhook request received");
   const payload = await req.text();
   const headers = Object.fromEntries(req.headers.entries());
 
@@ -61,10 +68,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  // Postmark does not sign webhooks; the shared secret travels in a custom
+  // header set on the webhook in Postmark. Without one configured anyone
+  // could post bounces and complaints and fill the suppression list, so an
+  // unconfigured secret refuses every event instead of accepting them all.
   const configuredSecret = provider.config.webhook_secret as string | undefined;
-  const receivedSecret = headers["x-postmark-secret"];
+  if (!configuredSecret) {
+    logger.error("Postmark webhook secret is not set for provider", {
+      providerId: provider.id,
+    });
+    return NextResponse.json(
+      { error: "Webhook secret not configured" },
+      { status: 401 },
+    );
+  }
 
-  if (configuredSecret && configuredSecret !== receivedSecret) {
+  if (!secretsMatch(configuredSecret, headers["x-postmark-secret"])) {
     logger.error("Postmark webhook secret verification failed", {
       providerId: provider.id,
     });
@@ -86,11 +105,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    let logEntry = await logRepo.findByProviderMessageId(MessageID);
-
-    if (!logEntry && campaignId) {
-      logEntry = await logRepo.findLatestByCampaignAndEmail(campaignId, email);
-    }
+    const { campaign, logEntry, contactId: scopedContactId } =
+      await scopeWebhookEvent(projectId, {
+        providerMessageId: MessageID,
+        campaignId,
+        contactId,
+        email,
+      });
 
     // Map Postmark RecordType to Senlo events
     if (RecordType === "Delivery" || RecordType === "Bounce" || RecordType === "SpamComplaint") {
@@ -106,10 +127,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      if (campaignId) {
+      if (campaign) {
         await campaignRepo.logEvent({
-          campaignId,
-          contactId,
+          campaignId: campaign.id,
+          contactId: scopedContactId,
           email,
           type: 
             RecordType === "Bounce" ? "BOUNCE" :
@@ -126,17 +147,17 @@ export async function POST(req: NextRequest) {
           email,
           reason: RecordType,
         });
-        await suppressionRepo.create({
+        await suppressOnce(
           projectId,
           email,
-          reason: RecordType === "Bounce" ? "BOUNCE" : "SPAM",
-        });
+          RecordType === "Bounce" ? "BOUNCE" : "SPAM",
+        );
       }
     } else if (RecordType === "Open" || RecordType === "Click") {
-      if (campaignId) {
+      if (campaign) {
         await campaignRepo.logEvent({
-          campaignId,
-          contactId,
+          campaignId: campaign.id,
+          contactId: scopedContactId,
           email,
           type: RecordType === "Open" ? "OPEN" : "CLICK",
           metadata: { 

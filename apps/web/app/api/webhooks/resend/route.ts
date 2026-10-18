@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "svix";
 import {
-  TriggeredSendLogRepository, CampaignRepository, ProjectRepository, EmailProviderRepository, SuppressionRepository, db } from "@senlo/db";
+  TriggeredSendLogRepository, CampaignRepository, ProjectRepository, EmailProviderRepository, db } from "@senlo/db";
 import { logger } from "apps/web/lib";
+import { scopeWebhookEvent, suppressOnce } from "apps/web/lib/webhook-scope";
 
 const logRepo = new TriggeredSendLogRepository(db);
 const campaignRepo = new CampaignRepository(db);
 const projectRepo = new ProjectRepository(db);
 const providerRepo = new EmailProviderRepository(db);
-const suppressionRepo = new SuppressionRepository(db);
 
 interface ResendTag {
   name: string;
@@ -35,11 +35,9 @@ interface ResendWebhookEvent {
 }
 
 export async function POST(req: NextRequest) {
-  logger.info("Webhook request received");
   const payload = await req.text();
+  // Not logged: the svix headers include the signature.
   const headers = Object.fromEntries(req.headers.entries());
-
-  logger.info("Webhook headers", { headers });
 
   // 1. Parse payload without verification first to get tags
   let jsonPayload: ResendWebhookEvent;
@@ -134,18 +132,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 1. Find the log entry by provider message ID
-    let logEntry = await logRepo.findByProviderMessageId(providerMessageId);
-
-    // 1.1 Fallback: Find by campaignId and email if providerMessageId lookup fails
-    if (!logEntry && campaignId) {
-      logger.info("Log entry not found by messageId, trying fallback lookup", {
+    const { campaign, logEntry, contactId: scopedContactId } =
+      await scopeWebhookEvent(projectId, {
         providerMessageId,
         campaignId,
+        contactId,
         email,
       });
-      logEntry = await logRepo.findLatestByCampaignAndEmail(campaignId, email);
-    }
 
     if (
       type === "email.bounced" ||
@@ -172,11 +165,11 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 3. Log campaign event if we have a campaignId
-      if (campaignId) {
+      // 3. Log the event onto the campaign, if it is this project's
+      if (campaign) {
         await campaignRepo.logEvent({
-          campaignId,
-          contactId,
+          campaignId: campaign.id,
+          contactId: scopedContactId,
           email,
           type:
             type === "email.bounced"
@@ -195,11 +188,11 @@ export async function POST(req: NextRequest) {
           email,
           reason: type,
         });
-        await suppressionRepo.create({
+        await suppressOnce(
           projectId,
           email,
-          reason: type === "email.bounced" ? "BOUNCE" : "SPAM",
-        });
+          type === "email.bounced" ? "BOUNCE" : "SPAM",
+        );
       }
     }
 

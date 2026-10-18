@@ -248,7 +248,7 @@ export default function AddProviderDialog({
 
             <FormField
               label="Webhook Secret"
-              hint="Optional: A secret to verify webhooks (sent in X-Postmark-Secret header)"
+              hint="Needed for delivery, bounce and open events: Senlo ignores Postmark webhooks without it. In Postmark, add a custom header X-Postmark-Secret with this value to the webhook."
             >
               <Input
                 name="webhookSecret"
