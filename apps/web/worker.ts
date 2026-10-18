@@ -19,7 +19,7 @@ import {
   createAutomationWorker,
   emailQueue,
   automationQueue,
-} from "@senlo/core/src/queue";
+} from "@senlo/core/queue";
 import {
   AutomationService,
   TriggerService,

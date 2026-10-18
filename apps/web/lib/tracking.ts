@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CampaignRepository, db } from "@senlo/db";
-import { TrackingService } from "@senlo/core/src/services/trackingService";
+import { TrackingService } from "@senlo/core/server";
 
 export const trackingService = new TrackingService(new CampaignRepository(db));
 

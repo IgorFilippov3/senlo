@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { RateLimiter, RateLimitedError, type RateLimitRule } from "@senlo/core";
-import { getRedisConnection } from "@senlo/core/src/redis";
+import { getRedisConnection } from "@senlo/core/queue";
 import { logger } from "./logger";
 
 const limiter = new RateLimiter(

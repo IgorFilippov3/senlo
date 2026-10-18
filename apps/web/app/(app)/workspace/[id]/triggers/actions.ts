@@ -11,7 +11,7 @@ import {
   LinkStat,
   TimeSeriesData,
 } from "@senlo/core";
-import { campaignQueue } from "@senlo/core/src/queue";
+import { campaignQueue } from "@senlo/core/queue";
 import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { CreateCampaignSchema, UpdateCampaignSchema } from "./schemas";

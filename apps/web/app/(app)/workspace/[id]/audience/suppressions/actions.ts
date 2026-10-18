@@ -18,10 +18,10 @@ import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 import { access } from "apps/web/lib/access";
 import { Suppression } from "@senlo/core";
-import { AudienceService } from "@senlo/core/src/services/audienceService";
-import { AutomationService } from "@senlo/core/src/services/automationService";
-import { TriggerService } from "@senlo/core/src/services/triggerService";
-import { automationQueue, emailQueue } from "@senlo/core/src/queue";
+import { AudienceService } from "@senlo/core/server";
+import { AutomationService } from "@senlo/core/server";
+import { TriggerService } from "@senlo/core/server";
+import { automationQueue, emailQueue } from "@senlo/core/queue";
 
 const suppressionRepo = new SuppressionRepository(db);
 const contactRepo = new ContactRepository(db);

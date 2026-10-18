@@ -9,7 +9,7 @@ import {
   SavedRow,
   RowBlock,
 } from "@senlo/core";
-import { emailQueue } from "@senlo/core/src/queue";
+import { emailQueue } from "@senlo/core/queue";
 import { logger } from "apps/web/lib/logger";
 import { auth } from "apps/web/auth";
 import { access } from "apps/web/lib/access";

@@ -9,7 +9,7 @@ import {
 } from "apps/web/lib/errors";
 import { logger } from "apps/web/lib/logger";
 import { ApiKey } from "@senlo/core";
-import { SettingsService } from "@senlo/core/src/services/settingsService";
+import { SettingsService } from "@senlo/core/server";
 import { auth } from "apps/web/auth";
 
 const settingsService = new SettingsService(

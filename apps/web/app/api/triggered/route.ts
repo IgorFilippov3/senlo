@@ -7,8 +7,8 @@ import {
   TriggeredSendLogRepository,
   db,
 } from "@senlo/db";
-import { TriggerService } from "@senlo/core/src/services/triggerService";
-import { emailQueue } from "@senlo/core/src/queue";
+import { TriggerService } from "@senlo/core/server";
+import { emailQueue } from "@senlo/core/queue";
 import { logger, validateApiKey } from "apps/web/lib";
 import { limitRequest } from "apps/web/lib/rate-limit";
 

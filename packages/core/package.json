@@ -1,9 +1,14 @@
 {
   "name": "@senlo/core",
-  "version": "0.0.35",
+  "version": "0.0.36",
   "main": "src/index.ts",
   "private": true,
   "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./queue": "./src/queue/index.ts"
+  },
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit",

@@ -1,5 +1,5 @@
-import { decodeUnsubscribeToken } from "@senlo/core/src/unsubscribe-token";
-import { resolveSigningSecret } from "@senlo/core/src/signing";
+import { decodeUnsubscribeToken } from "@senlo/core";
+import { resolveSigningSecret } from "@senlo/core";
 import {
   ContactRepository,
   CampaignRepository,

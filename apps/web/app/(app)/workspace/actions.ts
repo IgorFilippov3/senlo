@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { ProjectRepository, ApiKeyRepository, db } from "@senlo/db";
 import { Project } from "@senlo/core";
-import { SettingsService } from "@senlo/core/src/services/settingsService";
+import { SettingsService } from "@senlo/core/server";
 import {
   ActionResult,
   validateId,

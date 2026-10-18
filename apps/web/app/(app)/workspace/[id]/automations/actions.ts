@@ -22,7 +22,7 @@ import {
   WorkflowNodeStats,
 } from "@senlo/core";
 import { AutomationService, TriggerService } from "@senlo/core";
-import { emailQueue, automationQueue } from "@senlo/core/src/queue";
+import { emailQueue, automationQueue } from "@senlo/core/queue";
 
 const workflowRepo = new WorkflowRepository(db);
 const executionRepo = new WorkflowExecutionRepository(db);

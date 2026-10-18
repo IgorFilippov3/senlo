@@ -16,7 +16,7 @@ import {
   TriggerService,
   WorkflowEventType,
 } from "@senlo/core";
-import { automationQueue, emailQueue } from "@senlo/core/src/queue";
+import { automationQueue, emailQueue } from "@senlo/core/queue";
 import { EventHandler } from "./types";
 
 // Initialize services (ideally this should be centralized but keeping it here for refactoring simplicity)
