@@ -1,6 +1,6 @@
 {
   "name": "@senlo/db",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "main": "src/index.ts",
   "private": true,
   "type": "module",

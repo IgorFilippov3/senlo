@@ -1,18 +1,25 @@
+import { AccessGuard } from "../access";
 import {
   ISuppressionRepository,
   ContactRepository,
+  IProjectRepository,
   IWorkflowRepository,
 } from "../ports";
 import { Suppression, Contact } from "../domain";
 import { AutomationService } from "./automationService";
 
 export class AudienceService {
+  private readonly access: AccessGuard;
+
   constructor(
     private readonly suppressionRepo: ISuppressionRepository,
     private readonly contactRepo: ContactRepository,
     private readonly workflowRepo: IWorkflowRepository,
     private readonly automationService: AutomationService,
-  ) {}
+    projects: Pick<IProjectRepository, "findById">,
+  ) {
+    this.access = new AccessGuard(projects);
+  }
 
   async createContact(data: {
     projectId: number;
@@ -40,15 +47,19 @@ export class AudienceService {
     return await this.suppressionRepo.findAllByUser(userId);
   }
 
-  async listProjectSuppressions(projectId: number): Promise<Suppression[]> {
+  async listProjectSuppressions(userId: string, projectId: number): Promise<Suppression[]> {
+    await this.access.requireProject(userId, projectId);
     return await this.suppressionRepo.findByProject(projectId);
   }
 
-  async removeSuppression(id: number): Promise<void> {
+  /** Returns the entry's project id, for the caller to revalidate. */
+  async removeSuppression(userId: string, id: number): Promise<{ projectId: number }> {
+    const suppression = await this.access.requireInProject(
+      userId,
+      await this.suppressionRepo.findById(id),
+      "Suppression",
+    );
     await this.suppressionRepo.delete(id);
-  }
-
-  async getSuppressionById(id: number): Promise<Suppression | null> {
-    return await this.suppressionRepo.findById(id);
+    return { projectId: suppression.projectId };
   }
 }

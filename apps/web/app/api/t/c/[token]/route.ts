@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  openTrackingToken,
-  verifyClickSignature,
-} from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
 import { getServices } from "apps/web/lib/services";
-import { getConfig } from "apps/web/lib/config";
-import {
-  confirmLeavingResponse,
-  requestMetadata,
-} from "apps/web/lib/tracking";
+import { confirmLeavingResponse, requestMetadata } from "apps/web/lib/tracking";
 
 /**
  * Click redirect. The destination is signed together with the recipient
@@ -29,24 +21,16 @@ export async function GET(
     return new NextResponse("Invalid request", { status: 400 });
   }
 
-  const secret = getConfig().linkSigningSecret;
-  const [recipient, signed] = await Promise.all([
-    openTrackingToken(token, secret),
-    verifyClickSignature(token, url, signature, secret),
-  ]);
-
-  if (!recipient || !signed || !/^https?:\/\//i.test(url)) {
+  const tracking = getServices().tracking;
+  const click = await tracking.resolveClick(token, url, signature);
+  if (!click.follow) {
     return confirmLeavingResponse(url);
   }
 
-  await getServices().tracking
-    .trackClick(recipient.campaignId, recipient.email, url, requestMetadata(request))
-    .catch((error) => {
-      logger.error("Failed to track click", {
-        error: error instanceof Error ? error.message : String(error),
-        campaignId: recipient.campaignId,
-      });
-    });
+  const result = await tracking.trackClick(click.campaignId, click.email, url, requestMetadata(request));
+  if (!result.success) {
+    logger.error("Failed to track click", { error: result.error, campaignId: click.campaignId });
+  }
 
   return NextResponse.redirect(url);
 }

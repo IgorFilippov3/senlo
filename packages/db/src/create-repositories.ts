@@ -16,6 +16,7 @@ import { RecipientListRepository } from "./repositories/recipientListRepository"
 import { SavedRowRepository } from "./repositories/savedRowRepository";
 import { SuppressionRepository } from "./repositories/suppressionRepository";
 import { TriggeredSendLogRepository } from "./repositories/triggeredSendLogRepository";
+import { UserRepository } from "./repositories/userRepository";
 import { WorkflowExecutionRepository } from "./repositories/workflowExecutionRepository";
 import { WorkflowRepository } from "./repositories/workflowRepository";
 
@@ -39,6 +40,7 @@ export function createRepositories(db: Database) {
     sendLogs: new TriggeredSendLogRepository(db),
     suppressions: new SuppressionRepository(db),
     templates: new EmailTemplateRepository(db),
+    users: new UserRepository(db),
     workflows: new WorkflowRepository(db),
   };
   // Checked here, not at every call site: a repository that drifts from the

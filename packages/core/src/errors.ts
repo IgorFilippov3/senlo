@@ -66,6 +66,27 @@ export class ValidationError extends AppError {
   }
 }
 
+/**
+ * Invalid form input, by field. `fieldErrors` uses zod's flattened shape so a
+ * form can show each message next to its field; `general` is for failures
+ * that belong to no single field.
+ */
+export class FormValidationError extends ValidationError {
+  constructor(
+    public readonly fieldErrors: Record<string, string[] | undefined>,
+    public readonly formErrors: string[] = [],
+    message = "Validation failed",
+  ) {
+    super(message, { fieldErrors, formErrors });
+    this.name = "FormValidationError";
+  }
+
+  /** The error for one field. */
+  static field(field: string, message: string): FormValidationError {
+    return new FormValidationError({ [field]: [message] });
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(resource: string, identifier?: string | number) {
     const message = identifier

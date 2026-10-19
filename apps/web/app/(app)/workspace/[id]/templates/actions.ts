@@ -1,53 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  type Project,
-  type EmailTemplate,
-  type EmailProvider,
-  type AiProvider,
-  EMPTY_EMAIL_DESIGN,
-} from "@senlo/core";
-import {
-  ActionResult,
-  withErrorHandling,
-  validateId,
-} from "apps/web/lib/errors";
-import { logger } from "apps/web/lib/logger";
-import { auth } from "apps/web/auth";
-import { access } from "apps/web/lib/access";
+import type { AiProvider, EmailProvider, EmailTemplate, Project } from "@senlo/core";
+import { ActionResult, validateId, withErrorHandling } from "apps/web/lib/errors";
 import { requireUserId } from "apps/web/lib/session";
-import { getServices, repositories } from "apps/web/lib/services";
+import { getServices } from "apps/web/lib/services";
 
-const providerRepo = repositories.providers;
-const aiProviderRepo = repositories.aiProviders;
-const templateRepo = repositories.templates;
-
-async function getAuthorizedProject(projectId: number) {
-  const userId = await requireUserId();
-  const project = await access.requireProject(userId, projectId);
-  return { project, userId };
-}
-
-export async function getWorkspaceById(
-  id: string,
-): Promise<ActionResult<Project | null>> {
+export async function getWorkspaceById(id: string): Promise<ActionResult<Project | null>> {
   return withErrorHandling(async () => {
-    const projectId = validateId(id, "projectId");
-    const { project } = await getAuthorizedProject(projectId);
-    return project;
+    const userId = await requireUserId();
+    return getServices().project.require(userId, validateId(id, "projectId"));
   });
 }
 
-export async function listProjectTemplates(
-  id: string,
-): Promise<ActionResult<EmailTemplate[]>> {
+export async function listProjectTemplates(id: string): Promise<ActionResult<EmailTemplate[]>> {
   return withErrorHandling(async () => {
-    const projectId = validateId(id, "projectId");
-    await getAuthorizedProject(projectId);
-    logger.debug("Listing project templates", { projectId });
-
-    return templateRepo.findByProject(projectId);
+    const userId = await requireUserId();
+    return getServices().template.listProjectTemplates(userId, validateId(id, "projectId"));
   });
 }
 
@@ -56,34 +25,13 @@ export async function createTemplate(
   formData: FormData,
 ): Promise<ActionResult<EmailTemplate>> {
   return withErrorHandling(async () => {
-    const name = String(formData.get("name") || "").trim();
-    const subject = String(formData.get("subject") || "").trim();
-    const locale = String(formData.get("locale") || "en").trim();
-    const numericProjectId = parseInt(projectId, 10);
-
-    await getAuthorizedProject(numericProjectId);
-
-    if (!name || !subject) {
-      throw new Error("Name and subject required");
-    }
-
-    logger.debug("Creating template", {
-      projectId: numericProjectId,
-      name,
-      locale,
-    });
-
-    const template = await templateRepo.create({
-      projectId: numericProjectId,
-      name,
-      subject,
-      html: "<p>Empty template</p>",
-      designJson: EMPTY_EMAIL_DESIGN,
-      locale,
-    });
-
+    const userId = await requireUserId();
+    const template = await getServices().template.create(
+      userId,
+      validateId(projectId, "projectId"),
+      Object.fromEntries(formData),
+    );
     revalidatePath(`/workspace/${projectId}/templates`);
-
     return template;
   });
 }
@@ -93,107 +41,30 @@ export async function deleteTemplate(
   templateId: number,
 ): Promise<ActionResult<void>> {
   return withErrorHandling(async () => {
-    const numericProjectId = parseInt(projectId, 10);
-    await getAuthorizedProject(numericProjectId);
-
-    logger.debug("Deleting template", {
-      projectId: numericProjectId,
-      templateId,
-    });
-
-    access.requireSameProject(
-      numericProjectId,
-      await templateRepo.findById(templateId),
-      "Template",
-    );
-    await templateRepo.delete(templateId);
+    const userId = await requireUserId();
+    await getServices().template.delete(userId, validateId(projectId, "projectId"), templateId);
     revalidatePath(`/workspace/${projectId}/templates`);
   });
 }
 
-export async function updateWorkspace(
-  id: number,
-  formData: FormData,
-): Promise<void> {
-  const { userId } = await getAuthorizedProject(id);
-
-  const name = String(formData.get("name") || "").trim();
-  const descriptionRaw = formData.get("description");
-  const description =
-    typeof descriptionRaw === "string" && descriptionRaw.trim().length > 0
-      ? descriptionRaw.trim()
-      : null;
-
-  const providerIdRaw = formData.get("providerId");
-  const providerId =
-    providerIdRaw && providerIdRaw !== "" && providerIdRaw !== "none"
-      ? Number(providerIdRaw)
-      : null;
-
-  const aiProviderIdRaw = formData.get("aiProviderId");
-  const aiProviderId =
-    aiProviderIdRaw && aiProviderIdRaw !== "" && aiProviderIdRaw !== "none"
-      ? Number(aiProviderIdRaw)
-      : null;
-
-  if (!name) {
-    throw new Error("Project name is required");
-  }
-
-  if (providerId) {
-    access.requireUserOwned(
-      userId,
-      await providerRepo.findById(providerId),
-      "Email provider",
-    );
-  }
-
-  if (aiProviderId) {
-    access.requireUserOwned(
-      userId,
-      await aiProviderRepo.findById(aiProviderId),
-      "AI provider",
-    );
-  }
-
-  await getServices().settings.updateWorkspace(id, {
-    name,
-    description,
-    providerId,
-    aiProviderId,
-  });
-
+export async function updateWorkspace(id: number, formData: FormData): Promise<void> {
+  const userId = await requireUserId();
+  await getServices().project.update(userId, id, Object.fromEntries(formData));
   revalidatePath(`/workspace/${id}/templates`);
+  revalidatePath(`/workspace/${id}/settings`);
+  revalidatePath("/workspaces");
 }
 
 export async function listProviders(): Promise<ActionResult<EmailProvider[]>> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) {
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-  }
-
   return withErrorHandling(async () => {
-    logger.debug("Listing all email providers for project", { userId });
-    return await providerRepo.findByUser(userId);
+    const userId = await requireUserId();
+    return getServices().emailProvider.listForUser(userId);
   });
 }
 
 export async function listAiProviders(): Promise<ActionResult<AiProvider[]>> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) {
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-  }
-
   return withErrorHandling(async () => {
-    logger.debug("Listing all AI providers for project", { userId });
-    return await aiProviderRepo.findByUser(userId);
+    const userId = await requireUserId();
+    return getServices().aiProvider.listForUser(userId);
   });
 }

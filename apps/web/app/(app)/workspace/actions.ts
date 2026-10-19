@@ -1,138 +1,46 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Project } from "@senlo/core";
+import type { Project } from "@senlo/core";
+import type { CreateWorkspaceInput } from "@senlo/core/server";
 import {
   ActionResult,
-  validateId,
+  FormActionResult,
   withErrorHandling,
+  withFormErrors,
 } from "apps/web/lib/errors";
-import { CreateWorkspaceSchema } from "./schemas";
-import { logger } from "apps/web/lib";
-import { auth } from "apps/web/auth";
-import { getServices, repositories } from "apps/web/lib/services";
-
-const projectRepository = repositories.projects;
+import { requireUserId } from "apps/web/lib/session";
+import { getServices } from "apps/web/lib/services";
 
 export async function listWorkspaces(): Promise<ActionResult<Project[]>> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-  }
-
-  const userId = session.user.id;
-
   return withErrorHandling(async () => {
-    logger.debug("Listing all workspaces", { userId });
-    return await projectRepository.findByUser(userId);
+    const userId = await requireUserId();
+    return getServices().project.listForUser(userId);
   });
 }
 
-export async function createWorkspace(formData: FormData) {
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  if (!userId) {
-    return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
-  }
-
-  const parsed = CreateWorkspaceSchema.safeParse(Object.fromEntries(formData));
-
-  if (!parsed.success) {
-    return {
-      error: parsed.error.flatten(),
-    };
-  }
-
-  const { name, description } = parsed.data;
-
-  try {
-    logger.info("Creating new workspace", {
-      name,
-      hasDescription: !!description,
-      userId,
-    });
-
-    const project = await projectRepository.create({
-      name,
-      description: description || null,
-      userId,
-    });
-
+export async function createWorkspace(
+  formData: FormData,
+): Promise<FormActionResult<Project, keyof CreateWorkspaceInput | "general">> {
+  return withFormErrors(async () => {
+    const userId = await requireUserId();
+    const project = await getServices().project.create(userId, Object.fromEntries(formData));
     revalidatePath("/workspaces");
-
-    logger.info("Workspace created successfully", { projectId: project.id });
-
-    return { success: true, data: project };
-  } catch (error) {
-    logger.error("Failed to create workspace", {
-      error: error instanceof Error ? error.message : String(error),
-      name,
-    });
-    return {
-      error: {
-        formErrors: [],
-        fieldErrors: { general: ["Failed to create workspace"] },
-      },
-    };
-  }
-}
-
-export async function deleteWorkspace(
-  projectId: number,
-): Promise<ActionResult<void>> {
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  if (!userId) {
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-  }
-
-  return withErrorHandling(async () => {
-    const validId = validateId(projectId, "projectId");
-
-    // Check ownership
-    const project = await getServices().settings.getWorkspace(validId);
-    if (!project || project.userId !== userId) {
-      throw new Error("Workspace not found or unauthorized");
-    }
-
-    logger.info("Deleting workspace", { projectId: validId, userId });
-
-    await getServices().settings.deleteWorkspace(validId);
-    revalidatePath("/workspaces");
-
-    logger.info("Workspace deleted successfully", { projectId: validId });
-  });
-}
-
-export async function getWorkspace(
-  projectId: number,
-): Promise<ActionResult<Project>> {
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  if (!userId) {
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-  }
-
-  return withErrorHandling(async () => {
-    const validId = validateId(projectId, "projectId");
-    const project = await getServices().settings.getWorkspace(validId);
-
-    if (!project || project.userId !== userId) {
-      throw new Error("Workspace not found or unauthorized");
-    }
-
     return project;
+  });
+}
+
+export async function deleteWorkspace(projectId: number): Promise<ActionResult<void>> {
+  return withErrorHandling(async () => {
+    const userId = await requireUserId();
+    await getServices().project.delete(userId, projectId);
+    revalidatePath("/workspaces");
+  });
+}
+
+export async function getWorkspace(projectId: number): Promise<ActionResult<Project>> {
+  return withErrorHandling(async () => {
+    const userId = await requireUserId();
+    return getServices().project.require(userId, projectId);
   });
 }

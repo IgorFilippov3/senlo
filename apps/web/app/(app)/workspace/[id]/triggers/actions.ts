@@ -1,91 +1,33 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
+import type {
   Campaign,
-  Project,
-  EmailTemplate,
   CampaignEvent,
+  EmailTemplate,
   LinkStat,
+  Project,
   TimeSeriesData,
 } from "@senlo/core";
-import { getQueues } from "apps/web/lib/infra";
-import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
-import { logger } from "apps/web/lib/logger";
-import { CreateCampaignSchema, UpdateCampaignSchema } from "./schemas";
-import { auth } from "apps/web/auth";
-import { access } from "apps/web/lib/access";
+import type {
+  CampaignDetails,
+  CreateTriggeredCampaignInput,
+  UpdateTriggeredCampaignInput,
+} from "@senlo/core/server";
+import {
+  ActionResult,
+  FormActionResult,
+  withErrorHandling,
+  withFormErrors,
+} from "apps/web/lib/errors";
 import { requireUserId } from "apps/web/lib/session";
-import { repositories } from "apps/web/lib/services";
+import { getServices } from "apps/web/lib/services";
 
-const campaignRepo = repositories.campaigns;
-const projectRepo = repositories.projects;
-const templateRepo = repositories.templates;
-const triggeredLogRepo = repositories.sendLogs;
+const campaigns = () => getServices().campaign;
 
-async function getAuthorizedCampaign(campaignId: number) {
+export async function getCampaignDetails(id: number): Promise<CampaignDetails | null> {
   const userId = await requireUserId();
-  const campaign = await access.requireInProject(
-    userId,
-    await campaignRepo.findById(campaignId),
-    "Trigger",
-  );
-  const project = await access.requireProject(userId, campaign.projectId);
-  return { campaign, project, userId };
-}
-
-/**
- * Every template a trigger points at - the default one and each locale
- * variant - must live in the trigger's own project. The ids arrive from the
- * form, and the send path would otherwise render whatever they name.
- */
-async function requireProjectTemplates(
-  projectId: number,
-  templateIds: Array<number | null | undefined>,
-) {
-  for (const templateId of templateIds) {
-    if (templateId == null) continue;
-    access.requireSameProject(
-      projectId,
-      await templateRepo.findById(Number(templateId)),
-      "Template",
-    );
-  }
-}
-
-export async function getCampaignDetails(id: number): Promise<{
-  campaign: Campaign;
-  project: Project;
-  template: EmailTemplate;
-  stats: {
-    sent: number;
-    delivered: number;
-    opens: { unique: number; total: number };
-    clicks: { unique: number; total: number };
-    errors: number;
-  };
-} | null> {
-  const { campaign, project } = await getAuthorizedCampaign(id);
-
-  const [template, eventStats, sendStats] = await Promise.all([
-    templateRepo.findById(campaign.templateId),
-    campaignRepo.getEventStatsByCampaign(id),
-    triggeredLogRepo.getStatsByCampaign(id),
-  ]);
-
-  if (!template) return null;
-
-  return {
-    campaign,
-    project,
-    template,
-    stats: {
-      ...sendStats,
-      opens: eventStats.opens,
-      clicks: eventStats.clicks,
-      errors: sendStats.errors,
-    },
-  };
+  return campaigns().getDetails(userId, id);
 }
 
 export async function getPaginatedCampaignEvents(
@@ -96,22 +38,8 @@ export async function getPaginatedCampaignEvents(
   search?: string,
 ): Promise<ActionResult<{ events: CampaignEvent[]; total: number }>> {
   return withErrorHandling(async () => {
-    await getAuthorizedCampaign(campaignId);
-
-    logger.debug("Fetching paginated campaign events", {
-      campaignId,
-      page,
-      pageSize,
-      type,
-      search,
-    });
-
-    return await campaignRepo.getPaginatedEventsByCampaign(campaignId, {
-      page,
-      pageSize,
-      type,
-      search,
-    });
+    const userId = await requireUserId();
+    return campaigns().getEvents(userId, campaignId, { page, pageSize, type, search });
   });
 }
 
@@ -119,281 +47,89 @@ export async function getCampaignLinkStats(
   campaignId: number,
 ): Promise<ActionResult<LinkStat[]>> {
   return withErrorHandling(async () => {
-    await getAuthorizedCampaign(campaignId);
-    return await campaignRepo.getLinkStatsByCampaign(campaignId);
+    const userId = await requireUserId();
+    return campaigns().getLinkStats(userId, campaignId);
   });
 }
 
 export async function getCampaignTimeSeriesStats(
   campaignId: number,
-  options: {
-    interval: "hour" | "day";
-    days?: number;
-  },
+  options: { interval: "hour" | "day"; days?: number },
 ): Promise<ActionResult<TimeSeriesData[]>> {
   return withErrorHandling(async () => {
-    await getAuthorizedCampaign(campaignId);
-    return await campaignRepo.getTimeSeriesStatsByCampaign(campaignId, options);
+    const userId = await requireUserId();
+    return campaigns().getTimeSeriesStats(userId, campaignId, options);
   });
 }
 
 export async function listAllCampaigns(): Promise<ActionResult<Campaign[]>> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
   return withErrorHandling(async () => {
-    logger.debug("Listing all campaigns for user", { userId });
-    const projects = await projectRepo.findByUser(userId);
-    const projectIds = projects.map((p) => p.id);
-
-    if (projectIds.length === 0) return [];
-
-    const allCampaigns = await Promise.all(
-      projectIds.map((pid) => campaignRepo.findByProject(pid)),
-    );
-    return allCampaigns.flat();
+    const userId = await requireUserId();
+    return campaigns().listForUser(userId);
   });
 }
 
 export async function listProjectCampaigns(
   projectId: number,
 ): Promise<ActionResult<Campaign[]>> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
   return withErrorHandling(async () => {
-    await access.requireProject(userId, projectId);
-
-    logger.debug("Listing campaigns by project", { projectId });
-    return await campaignRepo.findByProject(projectId);
+    const userId = await requireUserId();
+    return campaigns().listForProject(userId, projectId);
   });
 }
 
-export async function getWizardData(): Promise<
-  ActionResult<{ projects: Project[] }>
-> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId)
-    return {
-      success: false,
-      error: { code: "UNAUTHORIZED", message: "Unauthorized", statusCode: 401 },
-    };
-
+export async function getWizardData(): Promise<ActionResult<{ projects: Project[] }>> {
   return withErrorHandling(async () => {
-    logger.debug("Getting wizard data for user", { userId });
-    const projects = await projectRepo.findByUser(userId);
-    return { projects };
+    const userId = await requireUserId();
+    return { projects: await getServices().project.listForUser(userId) };
   });
 }
 
-export async function getTemplatesByProject(
-  projectId: number,
-): Promise<EmailTemplate[]> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
-
-  await access.requireProject(userId, projectId);
-
-  return templateRepo.findByProject(projectId);
+export async function getTemplatesByProject(projectId: number): Promise<EmailTemplate[]> {
+  const userId = await requireUserId();
+  return getServices().template.listProjectTemplates(userId, projectId);
 }
 
-export async function createCampaignAction(formData: FormData) {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId)
-    return { error: { formErrors: ["Unauthorized"], fieldErrors: {} } };
-
-  const parsed = CreateCampaignSchema.safeParse(Object.fromEntries(formData));
-
-  if (!parsed.success) {
-    return {
-      error: parsed.error.flatten(),
-    };
-  }
-
-  const {
-    name,
-    description,
-    projectId,
-    templateId,
-    type,
-    fromName,
-    fromEmail,
-    variablesSchema,
-  } = parsed.data;
-
-  try {
-    await access.requireProject(userId, projectId);
-    await requireProjectTemplates(projectId, [templateId]);
-
-    logger.info("Creating email trigger", {
-      name,
-      projectId,
-      templateId,
-      type,
-    });
-
-    const campaign = await campaignRepo.create({
-      name,
-      description,
-      projectId,
-      templateId,
-      listId: null,
-      type: "TRIGGERED",
-      variablesSchema,
-      fromName,
-      fromEmail,
-      status: "DRAFT",
-    });
-
-    revalidatePath(`/workspace/${projectId}/triggers`);
-
-    logger.info("Email trigger created successfully", {
-      campaignId: campaign.id,
-    });
-
-    return { success: true, data: campaign };
-  } catch (error) {
-    logger.error("Failed to create email trigger", {
-      error: error instanceof Error ? error.message : String(error),
-      name,
-      projectId,
-    });
-    return {
-      error: {
-        formErrors: [],
-        fieldErrors: { general: ["Failed to create email trigger"] },
-      },
-    };
-  }
+export async function createCampaignAction(
+  formData: FormData,
+): Promise<FormActionResult<Campaign, keyof CreateTriggeredCampaignInput | "general">> {
+  return withFormErrors(async () => {
+    const userId = await requireUserId();
+    const campaign = await campaigns().createTriggered(userId, Object.fromEntries(formData));
+    revalidatePath(`/workspace/${campaign.projectId}/triggers`);
+    return campaign;
+  });
 }
 
-export async function updateCampaignAction(id: number, formData: FormData) {
-  try {
-    const { project } = await getAuthorizedCampaign(id);
-
-    const parsed = UpdateCampaignSchema.safeParse(Object.fromEntries(formData));
-
-    if (!parsed.success) {
-      return {
-        error: parsed.error.flatten(),
-      };
-    }
-
-    const {
-      name,
-      description,
-      fromName,
-      fromEmail,
-      variablesSchema,
-      localeTemplates,
-    } = parsed.data;
-
-    if (localeTemplates) {
-      await requireProjectTemplates(
-        project.id,
-        Object.values(localeTemplates as Record<string, number>),
-      );
-    }
-
-    logger.info("Updating campaign", { campaignId: id, name });
-
-    const updatedCampaign = await campaignRepo.update(id, {
-      name,
-      description,
-      fromName,
-      fromEmail,
-      variablesSchema,
-      localeTemplates,
-    });
-
-    if (!updatedCampaign) {
-      return {
-        error: {
-          formErrors: [],
-          fieldErrors: { general: ["Campaign not found"] },
-        },
-      };
-    }
-
-    revalidatePath(`/workspace/${project.id}/triggers/${id}`);
-    revalidatePath(`/workspace/${project.id}/triggers`);
-
-    logger.info("Campaign updated successfully", { campaignId: id });
-
-    return { success: true, data: updatedCampaign };
-  } catch (error) {
-    logger.error("Failed to update campaign", {
-      error: error instanceof Error ? error.message : String(error),
-      campaignId: id,
-    });
-    return {
-      error: {
-        formErrors: [],
-        fieldErrors: { general: ["Failed to update campaign"] },
-      },
-    };
-  }
+export async function updateCampaignAction(
+  id: number,
+  formData: FormData,
+): Promise<FormActionResult<Campaign, keyof UpdateTriggeredCampaignInput | "general">> {
+  return withFormErrors(async () => {
+    const userId = await requireUserId();
+    const campaign = await campaigns().updateTriggered(userId, id, Object.fromEntries(formData));
+    revalidatePath(`/workspace/${campaign.projectId}/triggers/${id}`);
+    revalidatePath(`/workspace/${campaign.projectId}/triggers`);
+    return campaign;
+  });
 }
 
 export async function sendCampaignAction(
   id: number,
 ): Promise<ActionResult<{ success: boolean }>> {
   return withErrorHandling(async () => {
-    const { campaign, project, userId } = await getAuthorizedCampaign(id);
-
-    if (!project.providerId) {
-      throw new Error("No email provider configured for this workspace");
-    }
-
-    if (!campaign.listId) {
-      throw new Error("No recipient list selected for this campaign");
-    }
-
-    logger.info("Queuing campaign for dispatch", {
-      campaignId: id,
-      projectId: project.id,
-      userId,
-    });
-
-    // Mark as pending sending
-    await campaignRepo.update(id, {
-      status: "SENDING",
-      sentAt: new Date(),
-    });
-
-    // Add to campaign queue - the worker will handle contact fetching and email generation
-    await getQueues().campaign.add(`dispatch-campaign-${id}-${Date.now()}`, {
-      campaignId: id,
-      userId,
-    });
-
+    const userId = await requireUserId();
+    const { project } = await campaigns().send(userId, id);
     revalidatePath(`/workspace/${project.id}/triggers/${id}`);
     revalidatePath(`/workspace/${project.id}/triggers`);
-
     return { success: true };
   });
 }
 
-export async function deleteCampaignAction(
-  id: number,
-): Promise<ActionResult<void>> {
+export async function deleteCampaignAction(id: number): Promise<ActionResult<void>> {
   return withErrorHandling(async () => {
-    const { project } = await getAuthorizedCampaign(id);
-    logger.debug("Deleting email", { campaignId: id });
-    await campaignRepo.delete(id);
+    const userId = await requireUserId();
+    const { project } = await campaigns().delete(userId, id);
     revalidatePath(`/workspace/${project.id}/triggers`);
   });
 }

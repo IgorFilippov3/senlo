@@ -1,3 +1,14 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { WORKFLOW_EVENT_TYPES } from "./services/eventIngestionService";
+
+/**
+ * The public API, as the docs page renders it. Hand-written for now; the
+ * request bodies mirror `TriggeredEmailRequestSchema` and
+ * `EventRequestSchema`, which are what the routes actually enforce.
+ */
 export const openApiSpec = {
   openapi: "3.0.0",
   info: {
@@ -204,13 +215,7 @@ export const openApiSpec = {
                 properties: {
                   event: {
                     type: "string",
-                    enum: [
-                      "contact_added",
-                      "contact_updated",
-                      "tag_added",
-                      "order_created",
-                      "event_triggered",
-                    ],
+                    enum: [...WORKFLOW_EVENT_TYPES],
                   },
                   email: { type: "string", format: "email" },
                   name: { type: "string" },

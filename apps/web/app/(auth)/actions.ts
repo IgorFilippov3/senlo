@@ -1,136 +1,76 @@
 "use server";
 
-import { users, seedNewUser } from "@senlo/db";
-import { db } from "apps/web/lib/db";
-import { eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
-import { z } from "zod";
-import { signIn, signOut } from "../../auth";
-import { logger } from "../../lib";
-import { getConfig } from "../../lib/config";
 import { AuthError } from "next-auth";
-import { RateLimitedError } from "@senlo/core";
+import { FormValidationError, RateLimitedError } from "@senlo/core";
+import { RegistrationClosedError } from "@senlo/core/server";
+import { signIn, signOut } from "../../auth";
+import { getConfig } from "../../lib/config";
+import { getServices } from "../../lib/services";
 import {
   assertLoginAllowed,
   limitAction,
   recordLoginFailure,
 } from "../../lib/rate-limit";
 
-const RegisterSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+type RegisterResult = { success?: true; error?: Record<string, string[] | string> };
 
-export async function registerAction(formData: FormData) {
-  // Check if registration is allowed
-  if (!getConfig().allowRegistration) {
-    return { error: { general: "Registration is disabled on this instance." } };
-  }
+export async function registerAction(formData: FormData): Promise<RegisterResult | void> {
+  const values = Object.fromEntries(formData);
 
   try {
     await limitAction("register");
+    await getServices().user.register(values, getConfig());
   } catch (error) {
-    if (error instanceof RateLimitedError) {
+    if (error instanceof RegistrationClosedError || error instanceof RateLimitedError) {
       return { error: { general: error.message } };
+    }
+    if (error instanceof FormValidationError) {
+      return { error: error.fieldErrors as Record<string, string[]> };
     }
     throw error;
   }
 
-  const values = Object.fromEntries(formData);
-  const validatedFields = RegisterSchema.safeParse(values);
-
-  if (!validatedFields.success) {
-    return { error: validatedFields.error.flatten().fieldErrors };
-  }
-
-  const { name, email, password } = validatedFields.data;
-  const hashedPassword = await bcrypt.hash(password, 10);
-
   try {
-    // Check if user already exists
-    const [existingUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email));
-
-    if (existingUser) {
-      return { error: { email: ["Email already in use"] } };
-    }
-
-    // Create user
-    const [user] = await db
-      .insert(users)
-      .values({
-        name,
-        email,
-        password: hashedPassword,
-      })
-      .returning();
-
-    // Fill the account so the dashboard is not empty on arrival. A failed
-    // seed must not fail the registration — the user exists either way, and
-    // an empty workspace is recoverable where a dead sign-up form is not.
-    if (user) {
-      try {
-        await seedNewUser(db, user.id, { appUrl: getConfig().appUrl });
-      } catch (seedError) {
-        logger.error("Failed to seed a new account", {
-          userId: user.id,
-          error:
-            seedError instanceof Error ? seedError.message : String(seedError),
-        });
-      }
-    }
-
-    // Sign in the user
     await signIn("credentials", {
-      email,
-      password,
+      email: values.email,
+      password: values.password,
       redirectTo: "/home",
     });
-
     return { success: true };
   } catch (error) {
     if (error instanceof AuthError) {
-      switch (error.type) {
-        case "CredentialsSignin":
-          return { error: { general: "Invalid credentials." } };
-        default:
-          return { error: { general: "Something went wrong." } };
-      }
+      return {
+        error: {
+          general:
+            error.type === "CredentialsSignin" ? "Invalid credentials." : "Something went wrong.",
+        },
+      };
     }
     throw error;
   }
 }
 
 export async function loginAction(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  const email = String(formData.get("email") ?? "");
+  const password = formData.get("password");
 
   // Only failed attempts count: see assertLoginAllowed.
   try {
-    await assertLoginAllowed(String(email ?? ""));
+    await assertLoginAllowed(email);
   } catch (error) {
     if (error instanceof RateLimitedError) return { error: error.message };
     throw error;
   }
 
   try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo: "/home",
-    });
+    await signIn("credentials", { email, password, redirectTo: "/home" });
   } catch (error) {
     if (error instanceof AuthError) {
-      switch (error.type) {
-        case "CredentialsSignin":
-          await recordLoginFailure(String(email ?? ""));
-          return { error: "Invalid credentials." };
-        default:
-          return { error: "Something went wrong." };
+      if (error.type === "CredentialsSignin") {
+        await recordLoginFailure(email);
+        return { error: "Invalid credentials." };
       }
+      return { error: "Something went wrong." };
     }
     throw error;
   }

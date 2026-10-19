@@ -2,16 +2,17 @@
 
 import { ApiReferenceReact } from "@scalar/api-reference-react";
 import "@scalar/api-reference-react/style.css";
-import { openApiSpec } from "apps/web/lib/openapi";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 interface ApiReferenceProps {
+  /** The OpenAPI document, passed from the server page so the spec module stays out of the client bundle. */
+  spec: Record<string, unknown>;
   backHref: string;
   backLabel: string;
 }
 
-export function ApiReference({ backHref, backLabel }: ApiReferenceProps) {
+export function ApiReference({ spec, backHref, backLabel }: ApiReferenceProps) {
   return (
     <div className="min-h-screen w-full flex flex-col bg-white">
       {/* Top Bar to get back */}
@@ -28,7 +29,7 @@ export function ApiReference({ backHref, backLabel }: ApiReferenceProps) {
       <div className="flex-1">
         <ApiReferenceReact
           configuration={{
-            content: openApiSpec,
+            content: spec,
             theme: "default",
             layout: "modern",
             showSidebar: true,

@@ -13,6 +13,9 @@ import {
   unsubscribeUrls,
 } from "../unsubscribe-token";
 import { Queue } from "bullmq";
+import { z } from "zod";
+import { NotFoundError, ValidationError } from "../errors";
+import { parseInput } from "../validation";
 
 export interface TriggeredEmailOptions {
   campaignId: number;
@@ -23,6 +26,28 @@ export interface TriggeredEmailOptions {
   subject?: string;
   baseUrl: string;
 }
+
+/** Body of `POST /api/triggered`. `id` wins over its older alias `campaignId`. */
+export const TriggeredEmailRequestSchema = z
+  .object({
+    id: z.union([z.number(), z.string()]).optional(),
+    campaignId: z.union([z.number(), z.string()]).optional(),
+    to: z.string().trim().min(1, "to (email) is required").email(),
+    data: z.record(z.unknown()).optional(),
+    locale: z.string().optional(),
+    subject: z.string().optional(),
+  })
+  .transform(({ id, campaignId, ...rest }, ctx) => {
+    const raw = id ?? campaignId;
+    const resolved = raw === undefined || raw === "" ? NaN : Number(raw);
+    if (!Number.isInteger(resolved) || resolved <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["id"], message: "id (trigger id) is required" });
+      return z.NEVER;
+    }
+    return { campaignId: resolved, ...rest };
+  });
+
+export type TriggeredEmailRequest = z.output<typeof TriggeredEmailRequestSchema>;
 
 export class TriggerService {
   constructor(
@@ -38,16 +63,22 @@ export class TriggerService {
     >,
   ) {}
 
+  /** The public API entry: the body as received, the project from the API key. */
+  async sendFromRequest(projectId: number, rawBody: unknown, baseUrl: string) {
+    const request = parseInput(TriggeredEmailRequestSchema, rawBody);
+    return this.sendTriggeredEmail({ ...request, projectId, baseUrl });
+  }
+
   async sendTriggeredEmail(options: TriggeredEmailOptions) {
     const { campaignId, to, data, locale, subject: subjectOverride, baseUrl } = options;
 
     const campaign = await this.campaignRepo.findById(campaignId);
     if (!campaign || campaign.projectId !== options.projectId) {
-      throw new Error("Campaign not found");
+      throw new NotFoundError("Campaign");
     }
 
     if (campaign.type !== "TRIGGERED") {
-      throw new Error("This campaign is not configured for API triggers");
+      throw new ValidationError("This campaign is not configured for API triggers");
     }
 
     // Locale-based template selection
@@ -68,17 +99,17 @@ export class TriggerService {
     // A locale template is an id stored on the campaign; one from another
     // project must never be rendered here.
     if (!template || template.projectId !== campaign.projectId) {
-      throw new Error("Template not found");
+      throw new NotFoundError("Template");
     }
-    if (!project) throw new Error("Project not found");
+    if (!project) throw new NotFoundError("Project");
     
     if (!project.providerId) {
-      throw new Error("No email provider configured for this project");
+      throw new ValidationError("No email provider configured for this project");
     }
 
     const provider = await this.providerRepo.findById(project.providerId);
     if (!provider) {
-      throw new Error("Email provider not found");
+      throw new NotFoundError("Email provider");
     }
 
     // A triggered recipient may have no contact row, so the token carries the

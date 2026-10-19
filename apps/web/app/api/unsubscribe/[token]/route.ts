@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processUnsubscribe } from "apps/web/lib/unsubscribe";
+import { getServices } from "apps/web/lib/services";
 import { logger } from "apps/web/lib/logger";
 import { limitRequest } from "apps/web/lib/rate-limit";
 
@@ -18,7 +18,7 @@ export async function POST(
   const { token } = await params;
 
   try {
-    const result = await processUnsubscribe(token);
+    const result = await getServices().unsubscribe.process(token);
 
     if (!result.ok) {
       if (result.reason === "confirm_email") {

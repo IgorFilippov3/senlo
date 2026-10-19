@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { isApiKeyPath, isAuthPath, isPublicPath } from "@senlo/core";
 
 export const authConfig = {
   pages: {
@@ -7,52 +8,23 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl, headers } }) {
       const isLoggedIn = !!auth?.user;
-      const isAuthRoute =
-        nextUrl.pathname.startsWith("/login") ||
-        nextUrl.pathname.startsWith("/register");
-      const isPublicRoute =
-        nextUrl.pathname === "/" ||
-        nextUrl.pathname === "/api-docs" ||
-        nextUrl.pathname.startsWith("/privacy") ||
-        nextUrl.pathname.startsWith("/terms") ||
-        // Auth.js owns everything under /api/auth — its OAuth callback and
-        // error pages included. Guarding them here redirects the provider's
-        // callback to /login before the handler ever runs, which silently
-        // breaks OAuth sign-in.
-        nextUrl.pathname.startsWith("/api/auth/") ||
-        // Open pixel and click redirect, fetched by mail clients and
-        // recipients. /api/track/ serves links in mail sent before 0.4.
-        nextUrl.pathname.startsWith("/api/t/") ||
-        nextUrl.pathname.startsWith("/api/track/") ||
-        // The unsubscribe page and the one-click endpoint are opened by
-        // recipients, who are not signed in. Guarding them sent every
-        // unsubscribe attempt to /login.
-        nextUrl.pathname.startsWith("/unsubscribe/") ||
-        nextUrl.pathname.startsWith("/api/unsubscribe/") ||
-        nextUrl.pathname.startsWith("/api/debug/") ||
-        nextUrl.pathname.startsWith("/api/webhooks/");
+      const { pathname } = nextUrl;
 
-      // 1. Allow API routes with Authorization header (API Keys)
-      const isApiRoute =
-        nextUrl.pathname.startsWith("/api/v1/") ||
-        nextUrl.pathname.startsWith("/api/events") ||
-        nextUrl.pathname.startsWith("/api/triggered");
-      const hasAuthHeader = headers.has("Authorization");
-
-      if (isApiRoute && hasAuthHeader) {
+      // 1. API routes authenticate with an API key, checked by the route.
+      if (isApiKeyPath(pathname) && headers.has("Authorization")) {
         return true;
       }
 
-      // 2. Auth routes logic
-      if (isAuthRoute) {
+      // 2. Sign-in pages: a signed-in user is sent home.
+      if (isAuthPath(pathname)) {
         if (isLoggedIn) {
           return Response.redirect(new URL("/home", nextUrl));
         }
         return true;
       }
 
-      // 3. Protected routes logic
-      if (!isLoggedIn && !isPublicRoute) {
+      // 3. Everything else needs a session unless it is public.
+      if (!isLoggedIn && !isPublicPath(pathname)) {
         return false; // Redirect to login
       }
 
@@ -65,5 +37,5 @@ export const authConfig = {
       return session;
     },
   },
-  providers: [], // Add providers with an empty array for now
+  providers: [], // Added in auth.ts; this file must stay edge-safe.
 } satisfies NextAuthConfig;

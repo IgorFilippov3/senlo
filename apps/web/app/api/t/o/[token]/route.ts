@@ -1,12 +1,7 @@
 import { NextRequest } from "next/server";
-import { openTrackingToken } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
 import { getServices } from "apps/web/lib/services";
-import { getConfig } from "apps/web/lib/config";
-import {
-  pixelResponse,
-  requestMetadata,
-} from "apps/web/lib/tracking";
+import { pixelResponse, requestMetadata } from "apps/web/lib/tracking";
 
 /** Open pixel. The token is sealed, so a forged one records nothing. */
 export async function GET(
@@ -14,17 +9,17 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
-  const recipient = await openTrackingToken(token, getConfig().linkSigningSecret);
+  const tracking = getServices().tracking;
+  const recipient = await tracking.resolveOpen(token);
 
   if (recipient) {
     // Fire and forget: the image must not wait for the database.
-    getServices().tracking
+    void tracking
       .trackOpen(recipient.campaignId, recipient.email, requestMetadata(request))
-      .catch((error) => {
-        logger.error("Failed to track open", {
-          error: error instanceof Error ? error.message : String(error),
-          campaignId: recipient.campaignId,
-        });
+      .then((result) => {
+        if (!result.success) {
+          logger.error("Failed to track open", { error: result.error, campaignId: recipient.campaignId });
+        }
       });
   }
 

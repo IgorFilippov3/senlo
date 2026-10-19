@@ -1,3 +1,12 @@
+/** An account. `passwordHash` is set for credentials sign-in only. */
+export interface User {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  passwordHash: string | null;
+}
+
 export interface Project {
   id: number;
   userId?: string | null;

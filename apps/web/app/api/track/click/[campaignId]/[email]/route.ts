@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { escapeAttr } from "@senlo/core";
 import { confirmLeavingResponse } from "apps/web/lib/tracking";
-import { repositories } from "apps/web/lib/services";
-
-const campaignRepo = repositories.campaigns;
-const templateRepo = repositories.templates;
+import { getServices } from "apps/web/lib/services";
 
 /**
  * Click link from mail sent before tracking links were signed. Its `url` was
@@ -25,36 +21,8 @@ export async function GET(
     return new NextResponse("Invalid request", { status: 400 });
   }
 
-  if (/^https?:\/\//i.test(url) && (await appearsInCampaign(Number(campaignId), url))) {
+  if (await getServices().tracking.isLegacyClickTarget(Number(campaignId), url)) {
     return NextResponse.redirect(url);
   }
-
   return confirmLeavingResponse(url);
-}
-
-async function appearsInCampaign(campaignId: number, url: string) {
-  if (!Number.isInteger(campaignId) || campaignId <= 0) return false;
-
-  const campaign = await campaignRepo.findById(campaignId);
-  if (!campaign) return false;
-
-  const templateIds = new Set<number>([
-    campaign.templateId,
-    ...Object.values(campaign.localeTemplates ?? {}),
-  ]);
-
-  for (const templateId of templateIds) {
-    const template = await templateRepo.findById(Number(templateId));
-    // Same project only, and the URL as it stands in the stored HTML: raw or
-    // attribute-escaped. A destination built from a merge tag is not there
-    // and gets the page instead, which is the safe direction to be wrong in.
-    if (
-      template &&
-      template.projectId === campaign.projectId &&
-      (template.html.includes(url) || template.html.includes(escapeAttr(url)))
-    ) {
-      return true;
-    }
-  }
-  return false;
 }

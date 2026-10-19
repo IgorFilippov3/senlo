@@ -1,6 +1,6 @@
 "use server";
 
-import { processUnsubscribe } from "apps/web/lib/unsubscribe";
+import { getServices } from "apps/web/lib/services";
 import { withErrorHandling, ActionResult, AppError } from "apps/web/lib/errors";
 import { limitAction } from "apps/web/lib/rate-limit";
 
@@ -15,7 +15,7 @@ export async function unsubscribeAction(
     // must not be guessable by trying addresses in a loop.
     // Per IP and per link, so the limit holds even when the IP is unknown.
     await limitAction("unsubscribe", `token:${token.slice(0, 128)}`);
-    const result = await processUnsubscribe(token, { confirmEmail });
+    const result = await getServices().unsubscribe.process(token, { confirmEmail });
 
     if (!result.ok) {
       if (result.reason === "confirm_email") return { needsEmail: true };

@@ -1,4 +1,6 @@
 import type {
+  AiProvider,
+  User,
   Project,
   Contact,
   RecipientList,
@@ -7,6 +9,7 @@ import type {
   EmailProvider,
   TriggeredSendLog,
   LinkStat,
+  SavedRow,
   TimeSeriesData,
   Suppression,
   DashboardStats,
@@ -19,7 +22,11 @@ import type {
   WorkflowExecution,
   WorkflowStepExecution,
 } from "./domain";
-import type { EmailTemplate } from "./emailTemplate";
+import type {
+  CreateEmailTemplateInput,
+  EmailTemplate,
+  UpdateEmailTemplateInput,
+} from "./emailTemplate";
 
 // ============================================================
 // Mailer Interface
@@ -72,6 +79,37 @@ export interface ISuppressionRepository {
 export interface IEmailProviderRepository {
   findById(id: number): Promise<EmailProvider | null>;
   findAll(): Promise<EmailProvider[]>;
+  findByUser(userId: string): Promise<EmailProvider[]>;
+  create(
+    data: Omit<EmailProvider, "id" | "createdAt" | "updatedAt">,
+  ): Promise<EmailProvider>;
+  update(
+    id: number,
+    data: Partial<Omit<EmailProvider, "id" | "createdAt" | "updatedAt">>,
+  ): Promise<EmailProvider | null>;
+  delete(id: number): Promise<void>;
+}
+
+export interface IAiProviderRepository {
+  findById(id: number): Promise<AiProvider | null>;
+  findByUser(userId: string): Promise<AiProvider[]>;
+  create(
+    data: Omit<AiProvider, "id" | "createdAt" | "updatedAt">,
+  ): Promise<AiProvider>;
+  update(
+    id: number,
+    data: Partial<Omit<AiProvider, "id" | "createdAt" | "updatedAt">>,
+  ): Promise<AiProvider | null>;
+  delete(id: number): Promise<void>;
+}
+
+export interface IUserRepository {
+  findByEmail(email: string): Promise<User | null>;
+  create(data: {
+    name: string;
+    email: string;
+    passwordHash: string;
+  }): Promise<User>;
 }
 
 export interface IProjectRepository {
@@ -94,16 +132,24 @@ export interface IProjectRepository {
 }
 
 export interface IEmailTemplateRepository {
-  create(data: {
-    projectId: number;
-    name: string;
-    subject: string;
-    html: string;
-    designJson?: unknown;
-  }): Promise<EmailTemplate>;
+  create(input: CreateEmailTemplateInput): Promise<EmailTemplate>;
 
   findById(id: number): Promise<EmailTemplate | null>;
   findByProject(projectId: number): Promise<EmailTemplate[]>;
+  update(input: UpdateEmailTemplateInput): Promise<EmailTemplate | null>;
+  delete(id: number): Promise<void>;
+}
+
+export interface ISavedRowRepository {
+  findById(id: number): Promise<SavedRow | null>;
+  findByUser(userId: string): Promise<SavedRow[]>;
+  create(data: {
+    userId: string;
+    projectId?: number | null;
+    name: string;
+    data: unknown;
+  }): Promise<SavedRow>;
+  delete(id: number): Promise<void>;
 }
 
 export interface ContactRepository {
@@ -115,6 +161,9 @@ export interface ContactRepository {
 
   findByProject(projectId: number): Promise<Contact[]>;
   findById(id: number): Promise<Contact | null>;
+  findByEmail(projectId: number, email: string): Promise<Contact | null>;
+  /** Marks the contact unsubscribed, with the time. */
+  unsubscribe(id: number): Promise<void>;
   update(
     id: number,
     data: Partial<Omit<Contact, "id" | "projectId" | "createdAt">>,
@@ -153,6 +202,8 @@ export interface ICampaignRepository {
   ): Promise<Campaign>;
   findById(id: number): Promise<Campaign | null>;
   findByProject(projectId: number): Promise<Campaign[]>;
+  /** The trigger that uses the template, if any. */
+  findByTemplateId(templateId: number): Promise<Campaign | null>;
   update(
     id: number,
     data: Partial<

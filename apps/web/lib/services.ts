@@ -1,7 +1,10 @@
-import { createRepositories } from "@senlo/db";
-import { createServices, type Services } from "@senlo/core/server";
+import { createRepositories, seedNewUser } from "@senlo/db";
+import { join } from "node:path";
+import { createServices, LocalDiskStorage, type Services } from "@senlo/core/server";
+import { getConfig } from "./config";
 import { db } from "./db";
 import { getMailSettings, getQueues } from "./infra";
+import { logger } from "./logger";
 
 /**
  * The app's composition root: every repository over the app's database, and
@@ -18,5 +21,10 @@ export function getServices(): Services {
     repositories,
     queues: getQueues(),
     settings: getMailSettings(),
+    logger,
+    // Uploads land in Next's public folder, served as /uploads/<name>.
+    storage: new LocalDiskStorage(join(process.cwd(), "public/uploads"), "/uploads"),
+    // Fill a new account so the dashboard is not empty on arrival.
+    onUserCreated: (user) => seedNewUser(db, user.id, { appUrl: getConfig().appUrl }),
   }));
 }

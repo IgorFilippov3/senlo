@@ -70,7 +70,7 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: async (formData: FormData) => {
       const result = await createProjectAction(formData);
-      if (!result.success) {
+      if ("error" in result) {
         throw result; // Throw the entire result for error handling
       }
       return result.data;

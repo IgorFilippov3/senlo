@@ -41,7 +41,7 @@ export function useCreateAiProvider() {
   return useMutation({
     mutationFn: async (formData: FormData) => {
       const result = await createAiProviderAction(formData);
-      if (!result.success) {
+      if ("error" in result) {
         throw result;
       }
       return result.data;

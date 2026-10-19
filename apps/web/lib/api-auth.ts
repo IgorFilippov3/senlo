@@ -1,40 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ApiKey } from "@senlo/core";
+import { bearerToken, type ApiKey } from "@senlo/core";
 import { getServices } from "apps/web/lib/services";
 
 export type ApiAuthResult =
   | { success: true; apiKey: ApiKey }
   | { success: false; response: NextResponse };
 
-/**
- * Validates the API key from the Authorization header.
- * Returns the API key object if valid, or a NextResponse with an error if invalid.
- */
+/** The API key named by the request's bearer token, or the 401 to answer with. */
 export async function validateApiKey(req: NextRequest): Promise<ApiAuthResult> {
-  const authHeader = req.headers.get("Authorization");
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const token = bearerToken(req.headers.get("Authorization"));
+  if (!token) {
     return {
       success: false,
       response: NextResponse.json(
         { error: "Missing or invalid Authorization header" },
-        { status: 401 }
+        { status: 401 },
       ),
     };
   }
 
-  const key = authHeader.split(" ")[1];
-  const apiKey = await getServices().auth.validateApiKey(key);
-
+  const apiKey = await getServices().auth.validateApiKey(token);
   if (!apiKey) {
     return {
       success: false,
-      response: NextResponse.json(
-        { error: "Invalid API key" },
-        { status: 401 }
-      ),
+      response: NextResponse.json({ error: "Invalid API key" }, { status: 401 }),
     };
   }
-
   return { success: true, apiKey };
 }

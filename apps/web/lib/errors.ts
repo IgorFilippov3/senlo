@@ -3,12 +3,14 @@
  * Provides consistent error handling across the application.
  */
 
-import { AppError, ValidationError, type ErrorCode } from "@senlo/core";
+import { NextResponse } from "next/server";
+import { AppError, FormValidationError, ValidationError, type ErrorCode } from "@senlo/core";
 
 // The error classes live in core so services can throw them and every app
 // maps them the same way. Re-exported here for existing imports.
 export {
   AppError,
+  FormValidationError,
   ValidationError,
   NotFoundError,
   UnauthorizedError,
@@ -67,20 +69,58 @@ export async function withErrorHandling<T>(
 }
 
 /**
- * Validates required fields and throws ValidationError if any are missing
+ * Result type for Server Actions behind a form: errors come back per field,
+ * in zod's flattened shape, so the form can show them next to the inputs.
  */
-export function validateRequiredFields(
-  fields: Record<string, any>,
-  fieldNames: string[]
-): void {
-  const missingFields = fieldNames.filter(name => !fields[name]);
+export type FormActionResult<T, F extends string = string> =
+  | { success: true; data: T }
+  | { error: { formErrors: string[]; fieldErrors: Partial<Record<F, string[]>> } };
 
-  if (missingFields.length > 0) {
-    throw new ValidationError(
-      `Missing required fields: ${missingFields.join(', ')}`,
-      { missingFields, providedFields: Object.keys(fields) }
+/**
+ * Wraps a form Server Action. A `FormValidationError` from a service keeps
+ * its fields; any other failure lands under `general`.
+ */
+export async function withFormErrors<T, F extends string = string>(
+  action: () => Promise<T>,
+): Promise<FormActionResult<T, F>> {
+  try {
+    return { success: true, data: await action() };
+  } catch (error) {
+    if (error instanceof FormValidationError) {
+      return {
+        error: {
+          formErrors: error.formErrors,
+          fieldErrors: error.fieldErrors as Partial<Record<F, string[]>>,
+        },
+      };
+    }
+    console.error("SERVER ACTION ERROR:", error);
+    const message = error instanceof Error ? error.message : "Something went wrong";
+    return { error: { formErrors: [], fieldErrors: { general: [message] } as Partial<Record<F, string[]>> } };
+  }
+}
+
+/**
+ * Maps a failure inside an API route to a JSON response: an `AppError`
+ * answers with its own status and message (a form error with its first
+ * field message), anything else is a 500 with `fallback`, logged by the
+ * caller.
+ */
+export function errorResponse(error: unknown, fallback = "Internal server error"): NextResponse {
+  if (error instanceof FormValidationError) {
+    const first = Object.values(error.fieldErrors).flat().find(Boolean) ?? error.formErrors[0];
+    return NextResponse.json(
+      { error: first ?? error.message, details: error.details },
+      { status: error.statusCode },
     );
   }
+  if (error instanceof AppError) {
+    return NextResponse.json(
+      { error: error.message, details: error.details },
+      { status: error.statusCode },
+    );
+  }
+  return NextResponse.json({ error: fallback }, { status: 500 });
 }
 
 /**
@@ -96,39 +136,3 @@ export function validateId(id: unknown, fieldName: string = 'id'): number {
   }
   return numId;
 }
-
-/**
- * Validates string field constraints
- */
-export function validateStringField(
-  value: string,
-  fieldName: string,
-  options: { min?: number; max?: number; required?: boolean } = {}
-): string {
-  const trimmed = value?.trim() || '';
-
-  if (options.required && !trimmed) {
-    throw new ValidationError(`Field '${fieldName}' is required`);
-  }
-
-  if (options.min && trimmed.length < options.min) {
-    throw new ValidationError(
-      `Field '${fieldName}' must be at least ${options.min} characters long`
-    );
-  }
-
-  if (options.max && trimmed.length > options.max) {
-    throw new ValidationError(
-      `Field '${fieldName}' must be at most ${options.max} characters long`
-    );
-  }
-
-  return trimmed;
-}
-
-
-
-
-
-
-
