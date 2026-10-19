@@ -93,6 +93,12 @@ describe("CampaignService.createTriggered", () => {
     expect(c).toMatchObject({ name: "Welcome", projectId: 1, templateId: 10, type: "TRIGGERED", status: "DRAFT", listId: null, variablesSchema: { x: 1 } });
   });
 
+  it("takes an empty sender address as none", async () => {
+    const { service } = fakes([]);
+    const c = await service.createTriggered("alice", { name: "x", projectId: 1, templateId: 10, fromEmail: "" });
+    expect(c.fromEmail).toBeNull();
+  });
+
   it("reports field errors", async () => {
     const { service } = fakes([]);
     const e = await service.createTriggered("alice", { name: "", projectId: "", templateId: "x", fromEmail: "nope" }).catch((x) => x);
@@ -115,6 +121,12 @@ describe("CampaignService.updateTriggered", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
     const ok = await service.updateTriggered("alice", 100, { name: "n", localeTemplates: JSON.stringify({ en: 10 }) });
     expect(ok.localeTemplates).toEqual({ en: 10 });
+  });
+
+  it("clears the sender address when the field is emptied", async () => {
+    const { service } = fakes([campaign({ id: 100, fromEmail: "a@b.co" })]);
+    const c = await service.updateTriggered("alice", 100, { name: "n", fromEmail: " " });
+    expect(c.fromEmail).toBeNull();
   });
 
   it("treats unparsable JSON fields as unset", async () => {

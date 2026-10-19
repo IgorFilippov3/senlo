@@ -1,38 +1,24 @@
 "use client";
 
+import React from "react";
 import { Button, Dialog } from "@senlo/ui";
-import { Campaign } from "@senlo/core";
-import { useDeleteCampaign } from "apps/web/queries/campaigns";
-import { logger } from "apps/web/lib/logger";
+import type { Campaign } from "@senlo/core";
 
-interface DeleteTriggerDialogProps {
+export interface DeleteTriggerDialogProps {
   campaign: Campaign;
   isOpen: boolean;
   onClose: () => void;
+  onConfirm: () => void;
+  isDeleting?: boolean;
 }
 
-export default function DeleteTriggerDialog({
+export function DeleteTriggerDialog({
   campaign,
   isOpen,
   onClose,
+  onConfirm,
+  isDeleting = false,
 }: DeleteTriggerDialogProps) {
-  const { mutate: deleteTrigger, isPending: isDeleting } = useDeleteCampaign();
-
-  const confirmDelete = () => {
-    deleteTrigger(campaign.id, {
-      onSuccess: () => {
-        onClose();
-      },
-      onError: (error) => {
-        logger.error("Failed to delete trigger from dialog", {
-          campaignId: campaign.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        alert("Failed to delete trigger. Please try again.");
-      },
-    });
-  };
-
   return (
     <Dialog
       isOpen={isOpen}
@@ -45,11 +31,7 @@ export default function DeleteTriggerDialog({
           <Button variant="secondary" onClick={onClose} disabled={isDeleting}>
             Cancel
           </Button>
-          <Button
-            variant="destructive"
-            onClick={confirmDelete}
-            disabled={isDeleting}
-          >
+          <Button variant="destructive" onClick={onConfirm} disabled={isDeleting}>
             {isDeleting ? "Deleting..." : "Delete Trigger"}
           </Button>
         </div>

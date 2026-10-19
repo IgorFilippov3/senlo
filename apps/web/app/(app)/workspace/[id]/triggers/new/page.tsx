@@ -1,44 +1,23 @@
-import { getWizardData } from "../actions";
-import { TriggerWizard } from "./trigger-wizard";
+import { notFound } from "next/navigation";
+import { getWorkspace } from "../../../actions";
+import { TriggerWizard } from "apps/web/components/triggers/trigger-wizard";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewCampaignPage({
+export default async function NewTriggerPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const result = await getWizardData();
-  const { id: workspaceId } = await params;
+  const { id } = await params;
+  const projectId = Number(id);
+  if (!Number.isInteger(projectId)) notFound();
 
+  const result = await getWorkspace(projectId);
   if (!result.success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-6">
-          <div className="mx-auto w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
-            <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              !
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Failed to load wizard
-            </h1>
-            <p className="text-gray-600">
-              We could not load the data needed to create a trigger. Please try
-              again.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    if (result.error.code === "NOT_FOUND") notFound();
+    throw new Error(result.error.message);
   }
 
-  return (
-    <TriggerWizard
-      projects={result.data.projects}
-      initialProjectId={workspaceId}
-    />
-  );
+  return <TriggerWizard projectId={projectId} projectName={result.data.name} />;
 }

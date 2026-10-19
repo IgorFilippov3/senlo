@@ -37,6 +37,8 @@ export const queryKeys = {
       [...queryKeys.campaigns.lists(), "project", projectId] as const,
     details: () => [...queryKeys.campaigns.all, "detail"] as const,
     detail: (id: number) => [...queryKeys.campaigns.details(), id] as const,
+    events: (campaignId: number, params: Record<string, unknown>) =>
+      [...queryKeys.campaigns.detail(campaignId), "events", params] as const,
   },
 
   contacts: {

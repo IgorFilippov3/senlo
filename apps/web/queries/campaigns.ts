@@ -1,72 +1,118 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Campaign } from "@senlo/core";
+import type { Campaign } from "@senlo/core";
 import {
-  listAllCampaigns,
   listProjectCampaigns,
   deleteCampaignAction,
+  createCampaignAction,
+  updateCampaignAction,
+  getPaginatedCampaignEvents,
+  getCampaignLinkStats,
+  getCampaignTimeSeriesStats,
 } from "../app/(app)/workspace/[id]/triggers/actions";
 import { queryKeys } from "../providers";
 import { logger } from "../lib/logger";
+import type { ActionResult, FormActionResult } from "../lib/errors";
 
-/**
- * Query function for fetching all campaigns
- */
-async function fetchAllCampaigns(): Promise<Campaign[]> {
-  const result = await listAllCampaigns();
-
-  if (!result.success) {
-    throw new Error(result.error.message);
-  }
-
+function unwrap<T>(result: ActionResult<T>): T {
+  if (!result.success) throw new Error(result.error.message);
   return result.data;
 }
 
-/**
- * Query function for fetching campaigns by project
- */
-async function fetchProjectCampaigns(projectId: number): Promise<Campaign[]> {
-  const result = await listProjectCampaigns(projectId);
-
-  if (!result.success) {
-    throw new Error(result.error.message);
+/** The first message of a failed form action, in the order fields are shown. */
+function formError(
+  result: Exclude<FormActionResult<unknown>, { success: true }>,
+  fields: string[],
+): string {
+  const { fieldErrors, formErrors } = result.error;
+  const errors = fieldErrors as Record<string, string[] | undefined>;
+  for (const field of [...fields, "general"]) {
+    if (errors[field]?.[0]) return errors[field]![0];
   }
-
-  return result.data;
+  return formErrors[0] ?? "Validation failed";
 }
 
-/**
- * Hook for fetching all campaigns
- */
-export function useCampaigns() {
-  return useQuery({
-    queryKey: queryKeys.campaigns.list(),
-    queryFn: fetchAllCampaigns,
-  });
-}
-
-/**
- * Hook for fetching campaigns by project
- */
 export function useProjectCampaigns(projectId: number) {
   return useQuery({
     queryKey: queryKeys.campaigns.byProject(projectId),
-    queryFn: () => fetchProjectCampaigns(projectId),
+    queryFn: async () => unwrap(await listProjectCampaigns(projectId)),
     enabled: !!projectId,
   });
 }
 
-/**
- * Hook for deleting a campaign
- */
+export function useCampaignEvents(
+  campaignId: number,
+  params: { page: number; pageSize: number; type?: string; search?: string },
+) {
+  return useQuery({
+    queryKey: queryKeys.campaigns.events(campaignId, params),
+    queryFn: async () =>
+      unwrap(
+        await getPaginatedCampaignEvents(
+          campaignId,
+          params.page,
+          params.pageSize,
+          params.type,
+          params.search,
+        ),
+      ),
+  });
+}
+
+export function useCampaignTimeSeries(
+  campaignId: number,
+  options: { days: number; interval: "hour" | "day" },
+) {
+  return useQuery({
+    queryKey: queryKeys.analytics.timeSeries(campaignId, options),
+    queryFn: async () => unwrap(await getCampaignTimeSeriesStats(campaignId, options)),
+  });
+}
+
+export function useCampaignLinkStats(campaignId: number) {
+  return useQuery({
+    queryKey: queryKeys.analytics.links(campaignId),
+    queryFn: async () => unwrap(await getCampaignLinkStats(campaignId)),
+  });
+}
+
+/** Creates a trigger; a validation failure rejects with the message to show. */
+export function useCreateTriggeredCampaign() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: Record<string, unknown>): Promise<Campaign> => {
+      const result = await createCampaignAction(input);
+      if ("success" in result) return result.data;
+      throw new Error(formError(result, ["name", "projectId", "templateId", "fromEmail"]));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.lists() });
+    },
+  });
+}
+
+/** Updates a trigger; a validation failure rejects with the message to show. */
+export function useUpdateTriggeredCampaign(campaignId: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (formData: FormData): Promise<Campaign> => {
+      const result = await updateCampaignAction(campaignId, formData);
+      if ("success" in result) return result.data;
+      throw new Error(formError(result, ["name", "fromEmail", "variablesSchema"]));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.all });
+    },
+  });
+}
+
 export function useDeleteCampaign() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (campaignId: number) => {
-      const result = await deleteCampaignAction(campaignId);
-      if (!result.success) {
-        throw result;
-      }
+      unwrap(await deleteCampaignAction(campaignId));
       return campaignId;
     },
     onError: (err, campaignId) => {
@@ -76,18 +122,10 @@ export function useDeleteCampaign() {
       });
     },
     onSuccess: (campaignId) => {
-      // Remove from individual campaign cache
-      queryClient.removeQueries({
-        queryKey: queryKeys.campaigns.detail(campaignId),
-      });
-
-      logger.info("Campaign deleted successfully", { campaignId });
+      queryClient.removeQueries({ queryKey: queryKeys.campaigns.detail(campaignId) });
     },
     onSettled: () => {
-      // Invalidate all campaign lists to refresh UI
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.campaigns.lists(),
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.lists() });
     },
   });
 }

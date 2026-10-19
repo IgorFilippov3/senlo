@@ -1,36 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card, Button, Badge } from "@senlo/ui";
 import { Webhook, Copy, Check, Info } from "lucide-react";
 
-interface WebhookInfoProps {
+export interface TriggerApiInfoProps {
   campaignId: number;
+  /** Full URL of the send endpoint, from the server's configured app URL. */
+  endpointUrl: string;
+  /** The trigger's sample variables; a generic example when it has none. */
   sampleData?: Record<string, unknown> | null;
   hasLocales?: boolean;
 }
 
-export function WebhookInfo({
+export function TriggerApiInfo({
   campaignId,
+  endpointUrl,
   sampleData,
   hasLocales,
-}: WebhookInfoProps) {
+}: TriggerApiInfoProps) {
   const [copied, setCopied] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("");
-
-  useEffect(() => {
-    setWebhookUrl(`${window.location.origin}/api/triggered`);
-  }, []);
 
   const sampleJson = JSON.stringify(
     {
       id: campaignId,
       to: "customer@example.com",
       subject: "this value will override template subject",
-      data: sampleData || {
-        user_name: "Alex",
-        order_id: "#12345",
-      },
+      data: sampleData || { user_name: "Alex", order_id: "#12345" },
       ...(hasLocales ? { locale: "en" } : {}),
     },
     null,
@@ -50,10 +46,7 @@ export function WebhookInfo({
           <Webhook size={18} className="text-blue-600" />
           API Integration
         </h3>
-        <Badge
-          variant="secondary"
-          className="bg-blue-100 text-blue-700 border-blue-200"
-        >
+        <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
           Webhook
         </Badge>
       </div>
@@ -64,28 +57,21 @@ export function WebhookInfo({
             Webhook URL
           </label>
           <div className="flex items-center gap-2 p-2.5 bg-white border border-blue-100 rounded-lg shadow-sm">
-            <code className="text-sm text-blue-900 flex-1 truncate">
-              {webhookUrl || "Loading..."}
-            </code>
+            <code className="text-sm text-blue-900 flex-1 truncate">{endpointUrl}</code>
             <Button
               size="sm"
               variant="ghost"
               className="h-9 w-9 p-0 hover:bg-blue-50 text-blue-600"
-              onClick={() => webhookUrl && copyToClipboard(webhookUrl)}
-              disabled={!webhookUrl}
+              onClick={() => copyToClipboard(endpointUrl)}
             >
-              {copied ? (
-                <Check size={20} strokeWidth={2.5} />
-              ) : (
-                <Copy size={20} strokeWidth={2.5} />
-              )}
+              {copied ? <Check size={20} strokeWidth={2.5} /> : <Copy size={20} strokeWidth={2.5} />}
             </Button>
           </div>
         </div>
 
         <div className="space-y-2">
           <label className="text-xs font-bold uppercase text-blue-800/60 tracking-wider">
-            Sample Payload (POST) - Updated
+            Sample Payload (POST)
           </label>
           <div className="relative group">
             <pre className="p-4 bg-zinc-900 text-zinc-100 rounded-xl text-xs font-mono overflow-x-auto leading-relaxed shadow-inner">
@@ -107,21 +93,19 @@ export function WebhookInfo({
           <Info size={16} className="text-blue-600 mt-0.5" />
           <div className="text-xs text-blue-800 leading-relaxed space-y-1">
             <p>
-              Include your API Key in the{" "}
-              <code>Authorization: Bearer YOUR_KEY</code> header.
+              Include your API Key in the <code>Authorization: Bearer YOUR_KEY</code> header.
             </p>
             <p>
-              The <code>data</code> object properties will be used to replace
-              merge tags in both the subject and body.
+              The <code>data</code> object properties will be used to replace merge tags in
+              both the subject and body.
             </p>
             <p>
-              The <code>subject</code> field is optional and overrides the
-              template subject.
+              The <code>subject</code> field is optional and overrides the template subject.
             </p>
             {hasLocales && (
               <p>
-                Use the <code>locale</code> field to trigger a specific language
-                variant of this email.
+                Use the <code>locale</code> field to trigger a specific language variant of
+                this email.
               </p>
             )}
           </div>

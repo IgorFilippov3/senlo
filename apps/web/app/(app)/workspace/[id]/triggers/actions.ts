@@ -4,9 +4,7 @@ import { revalidatePath } from "next/cache";
 import type {
   Campaign,
   CampaignEvent,
-  EmailTemplate,
   LinkStat,
-  Project,
   TimeSeriesData,
 } from "@senlo/core";
 import type {
@@ -62,13 +60,6 @@ export async function getCampaignTimeSeriesStats(
   });
 }
 
-export async function listAllCampaigns(): Promise<ActionResult<Campaign[]>> {
-  return withErrorHandling(async () => {
-    const userId = await requireUserId();
-    return campaigns().listForUser(userId);
-  });
-}
-
 export async function listProjectCampaigns(
   projectId: number,
 ): Promise<ActionResult<Campaign[]>> {
@@ -78,24 +69,13 @@ export async function listProjectCampaigns(
   });
 }
 
-export async function getWizardData(): Promise<ActionResult<{ projects: Project[] }>> {
-  return withErrorHandling(async () => {
-    const userId = await requireUserId();
-    return { projects: await getServices().project.listForUser(userId) };
-  });
-}
-
-export async function getTemplatesByProject(projectId: number): Promise<EmailTemplate[]> {
-  const userId = await requireUserId();
-  return getServices().template.listProjectTemplates(userId, projectId);
-}
-
+/** Raw wizard fields in; the service validates them. */
 export async function createCampaignAction(
-  formData: FormData,
+  input: Record<string, unknown>,
 ): Promise<FormActionResult<Campaign, keyof CreateTriggeredCampaignInput | "general">> {
   return withFormErrors(async () => {
     const userId = await requireUserId();
-    const campaign = await campaigns().createTriggered(userId, Object.fromEntries(formData));
+    const campaign = await campaigns().createTriggered(userId, input);
     revalidatePath(`/workspace/${campaign.projectId}/triggers`);
     return campaign;
   });
@@ -111,18 +91,6 @@ export async function updateCampaignAction(
     revalidatePath(`/workspace/${campaign.projectId}/triggers/${id}`);
     revalidatePath(`/workspace/${campaign.projectId}/triggers`);
     return campaign;
-  });
-}
-
-export async function sendCampaignAction(
-  id: number,
-): Promise<ActionResult<{ success: boolean }>> {
-  return withErrorHandling(async () => {
-    const userId = await requireUserId();
-    const { project } = await campaigns().send(userId, id);
-    revalidatePath(`/workspace/${project.id}/triggers/${id}`);
-    revalidatePath(`/workspace/${project.id}/triggers`);
-    return { success: true };
   });
 }
 

@@ -9,11 +9,10 @@ type DialogComponentProps<T extends DialogType> = DialogPropsMap[T] & {
 };
 
 const EditTriggerConfigDialog = lazy(
-  () =>
-    import("../../app/(app)/workspace/[id]/triggers/[triggerId]/edit-trigger-dialog"),
+  () => import("../../components/triggers/edit-trigger-dialog"),
 );
 const DeleteTriggerDialog = lazy(
-  () => import("../../app/(app)/workspace/[id]/triggers/delete-trigger-dialog"),
+  () => import("../../components/triggers/delete-trigger-dialog"),
 );
 const CreateWorkspaceDialog = lazy(
   () => import("../../app/(app)/workspace/create-workspace-dialog"),

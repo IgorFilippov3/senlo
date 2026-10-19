@@ -246,6 +246,15 @@ export interface TimeSeriesData {
   clicks: number;
 }
 
+/** A trigger's delivery and engagement totals, as its detail page shows them. */
+export interface CampaignStats {
+  sent: number;
+  delivered: number;
+  errors: number;
+  opens: { unique: number; total: number };
+  clicks: { unique: number; total: number };
+}
+
 export interface DashboardStats {
   totalSent: number;
   delivered: number;

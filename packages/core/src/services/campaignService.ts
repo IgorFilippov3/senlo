@@ -7,6 +7,7 @@ import { z } from "zod";
 import { AccessGuard } from "../access";
 import type {
   Campaign,
+  CampaignStats,
   CampaignEvent,
   LinkStat,
   Project,
@@ -26,6 +27,12 @@ import { parseInput } from "../validation";
 const optionalId = z.preprocess(
   (val) => (val === "" ? undefined : val),
   z.coerce.number().int().positive(),
+);
+
+/** A sender address from a form field; an empty field means "no sender of its own". */
+const optionalEmail = z.preprocess(
+  (val) => (typeof val === "string" && val.trim() === "" ? null : val),
+  z.string().trim().email().nullable().optional(),
 );
 
 /** A JSON string from a form field; anything unparsable becomes null. */
@@ -49,7 +56,7 @@ export const CreateTriggeredCampaignSchema = z.object({
   templateId: optionalId,
   type: z.literal("TRIGGERED").default("TRIGGERED"),
   fromName: z.string().max(255).trim().optional(),
-  fromEmail: z.string().email().optional(),
+  fromEmail: optionalEmail,
   variablesSchema: jsonField,
 });
 
@@ -57,21 +64,13 @@ export const UpdateTriggeredCampaignSchema = z.object({
   name: z.string().min(1).max(255).trim(),
   description: z.string().max(1000).trim().optional(),
   fromName: z.string().max(255).trim().optional(),
-  fromEmail: z.string().email().optional(),
+  fromEmail: optionalEmail,
   variablesSchema: jsonField,
   localeTemplates: jsonField,
 });
 
 export type CreateTriggeredCampaignInput = z.infer<typeof CreateTriggeredCampaignSchema>;
 export type UpdateTriggeredCampaignInput = z.infer<typeof UpdateTriggeredCampaignSchema>;
-
-export interface CampaignStats {
-  sent: number;
-  delivered: number;
-  errors: number;
-  opens: { unique: number; total: number };
-  clicks: { unique: number; total: number };
-}
 
 export interface CampaignDetails {
   campaign: Campaign;

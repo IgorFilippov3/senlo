@@ -1,7 +1,7 @@
 import { PageHeader, Button } from "@senlo/ui";
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { TriggersList } from "apps/web/components/campaigns-list";
+import { TriggersList } from "apps/web/components/triggers/triggers-list";
 
 export default async function TriggersPage({
   params,
@@ -25,7 +25,7 @@ export default async function TriggersPage({
         }
       />
 
-      <TriggersList showFilters={true} projectId={projectId} />
+      <TriggersList projectId={projectId} />
     </main>
   );
 }

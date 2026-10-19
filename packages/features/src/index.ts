@@ -5,3 +5,4 @@ export * from "./triggers";
 export * from "./audience";
 export * from "./settings";
 export * from "./layout";
+export * from "./shared";
