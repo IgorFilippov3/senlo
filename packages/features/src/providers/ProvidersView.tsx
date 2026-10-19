@@ -4,6 +4,8 @@ import React from "react";
 import type { PublicAiProvider, PublicEmailProvider } from "@senlo/core";
 import { Card, Badge, Button, Tabs, TabsList, TabsTrigger, TabsContent } from "@senlo/ui";
 import { Cloud, Trash2, CheckCircle2, Circle, Bot, Plus, Pencil } from "lucide-react";
+import { ErrorScreen } from "../shared/ErrorScreen";
+import { PageSkeleton } from "../shared/Skeletons";
 
 interface ProviderCardProps {
   icon: React.ReactNode;
@@ -127,36 +129,11 @@ export function ProvidersView({
   onToggleAiProvider,
 }: ProvidersViewProps) {
   if (isLoading) {
-    return (
-      <main className="max-w-7xl mx-auto py-10 px-8">
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-        </div>
-      </main>
-    );
+    return <PageSkeleton variant="cards" />;
   }
 
   if (error) {
-    return (
-      <main className="max-w-7xl mx-auto py-10 px-8">
-        <div className="text-center space-y-6">
-          <div className="mx-auto w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
-            <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              !
-            </div>
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-gray-900">Failed to load providers</h1>
-            <p className="text-gray-600">{error}</p>
-            {onRetry && (
-              <Button onClick={onRetry} variant="outline">
-                Try Again
-              </Button>
-            )}
-          </div>
-        </div>
-      </main>
-    );
+    return <ErrorScreen title="Failed to load providers" description={error} onRetry={onRetry} />;
   }
 
   return (

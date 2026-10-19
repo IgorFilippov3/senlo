@@ -1,55 +1,9 @@
 "use client";
-
-import Link from "next/link";
-import { ErrorBoundary } from "apps/web/components/error-boundary";
-
-export default function EditorError({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
-  return (
-    <ErrorBoundary
-      fallback={
-        <div className="h-screen flex items-center justify-center p-8">
-          <div className="max-w-md w-full text-center space-y-6">
-            <div className="mx-auto w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
-              <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                !
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-gray-900">
-                Editor failed to load
-              </h1>
-              <p className="text-gray-600">
-                We could not load the email editor. The template may have been
-                deleted or corrupted.
-              </p>
-            </div>
-
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={reset}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Try Again
-              </button>
-              <Link
-                href="/workspaces"
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Back to Workspaces
-              </Link>
-            </div>
-          </div>
-        </div>
-      }
-    >
-      {null}
-    </ErrorBoundary>
-  );
-}
+import { routeError } from "apps/web/components/route-states";
+// `[id]` here is the template, not a workspace: only the workspace list is a safe way back.
+export default routeError({
+  title: "Editor failed to load",
+  description: "The template may have been deleted, or you may not have access to it.",
+  back: "workspaces",
+  fullScreen: true,
+});

@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
 import {
   DashboardHeader,
   DashboardStatsGrid,
   EngagementStats,
   ActivityChart,
   EventFeed,
+  LoadingState,
 } from "@senlo/features";
 import { useDashboardData } from "apps/web/queries/dashboard";
 import { DashboardStats, DashboardActivity, DashboardEvent } from "@senlo/core";
@@ -31,11 +31,7 @@ export function DashboardClient({ projectId }: { projectId?: number }) {
     | undefined;
 
   if (!mounted || (isLoading && !dashboardData?.stats)) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="animate-spin text-zinc-400" size={32} />
-      </div>
-    );
+    return <LoadingState className="h-[60vh]" />;
   }
 
   const headerActions = (

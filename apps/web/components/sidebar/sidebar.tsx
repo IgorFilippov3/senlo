@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar as SharedSidebar, useRememberedWorkspace } from "@senlo/features";
 import { logoutAction } from "apps/web/app/(auth)/actions";
 import { useProjects } from "apps/web/queries/projects";
+import { renderLink } from "apps/web/components/link";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -28,11 +28,7 @@ export function Sidebar() {
         setWorkspaceId(null);
         await logoutAction();
       }}
-      renderLink={(href, children, className) => (
-        <Link href={href} className={className}>
-          {children}
-        </Link>
-      )}
+      renderLink={renderLink}
     />
   );
 }

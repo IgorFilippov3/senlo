@@ -4,6 +4,7 @@ import React from "react";
 import type { Workflow } from "@senlo/core";
 import { Button, Card, Badge, EmptyState } from "@senlo/ui";
 import { GitBranch, Play, Pause, Trash2 } from "lucide-react";
+import { LoadingState } from "../shared/Loading";
 
 export interface WorkflowListProps {
   workflows: Workflow[];
@@ -28,12 +29,7 @@ export function WorkflowList({
   emptyAction,
 }: WorkflowListProps) {
   if (isLoading) {
-    return (
-      <div className="p-8 text-center">
-        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-zinc-500">Loading automations...</p>
-      </div>
-    );
+    return <LoadingState label="Loading automations..." />;
   }
 
   if (workflows.length === 0) {

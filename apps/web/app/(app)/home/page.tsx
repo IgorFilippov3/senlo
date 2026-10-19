@@ -3,8 +3,12 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useProjects } from "apps/web/queries/projects";
-import { pickStartWorkspace, useRememberedWorkspace, workspaceHomePath } from "@senlo/features";
-import { Loader2 } from "lucide-react";
+import {
+  LoadingScreen,
+  pickStartWorkspace,
+  useRememberedWorkspace,
+  workspaceHomePath,
+} from "@senlo/features";
 
 export default function AppHomePage() {
   const router = useRouter();
@@ -34,12 +38,5 @@ export default function AppHomePage() {
     router.replace(workspaceHomePath(target.id));
   }, [projects, isLoading, lastWorkspaceId, isLoaded, router, setWorkspaceId]);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-      <div className="text-center space-y-4">
-        <Loader2 className="w-10 h-10 text-blue-500 animate-spin mx-auto" />
-        <p className="text-zinc-500 font-medium">Preparing your workspace...</p>
-      </div>
-    </div>
-  );
+  return <LoadingScreen label="Preparing your workspace..." />;
 }

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { LoginForm as SharedLoginForm } from "@senlo/features";
 import { githubLoginAction, loginAction } from "apps/web/app/(auth)/actions";
-import { renderAuthLink } from "./link";
+import { renderLink } from "apps/web/components/link";
 
 export function LoginForm({
   allowRegistration,
@@ -28,7 +28,7 @@ export function LoginForm({
       }
       onGitHubSignIn={githubEnabled ? () => startTransition(() => githubLoginAction()) : undefined}
       registerHref={allowRegistration ? "/register" : undefined}
-      renderLink={renderAuthLink}
+      renderLink={renderLink}
     />
   );
 }

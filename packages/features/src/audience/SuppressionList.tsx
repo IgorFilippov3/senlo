@@ -5,6 +5,7 @@ import type { Suppression } from "@senlo/core";
 import { Button, Badge, Card } from "@senlo/ui";
 import { Trash2, Search, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
+import { LoadingState } from "../shared/Loading";
 
 export interface SuppressionListProps {
   suppressions: Suppression[];
@@ -69,10 +70,7 @@ export function SuppressionList({
 
       <Card className="overflow-hidden border-zinc-200 shadow-sm">
         {isLoading ? (
-          <div className="p-12 text-center text-zinc-500">
-            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-            Loading suppression list...
-          </div>
+          <LoadingState label="Loading suppression list..." />
         ) : filteredSuppressions.length === 0 ? (
           <div className="p-12 text-center text-zinc-500 bg-zinc-50/30">
             <ShieldCheck className="mx-auto mb-4 text-zinc-300" size={48} />

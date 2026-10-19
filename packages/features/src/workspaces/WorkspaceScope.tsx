@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext } from "react";
 import type { Project } from "@senlo/core";
-import { Loader2 } from "lucide-react";
+import { LoadingState } from "../shared/Loading";
 
 const WorkspaceContext = createContext<Project | null>(null);
 
@@ -19,11 +19,7 @@ export function WorkspaceScope({
   children: React.ReactNode;
 }) {
   if (!workspace) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="animate-spin text-zinc-400" size={32} />
-      </div>
-    );
+    return <LoadingState className="h-[60vh]" />;
   }
   return <WorkspaceContext.Provider value={workspace}>{children}</WorkspaceContext.Provider>;
 }

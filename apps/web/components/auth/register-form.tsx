@@ -7,7 +7,7 @@ import {
   githubLoginAction,
   registerAction,
 } from "apps/web/app/(auth)/actions";
-import { renderAuthLink } from "./link";
+import { renderLink } from "apps/web/components/link";
 
 export function RegisterForm({
   passwordMinLength,
@@ -34,7 +34,7 @@ export function RegisterForm({
       }
       onGitHubSignIn={githubEnabled ? () => startTransition(() => githubLoginAction()) : undefined}
       loginHref="/login"
-      renderLink={renderAuthLink}
+      renderLink={renderLink}
     />
   );
 }

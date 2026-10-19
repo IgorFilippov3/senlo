@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { ApiKey } from "@senlo/core";
 import { Card, Button } from "@senlo/ui";
 import { Key, Copy, Check, Trash2, Plus } from "lucide-react";
+import { LoadingState } from "../shared/Loading";
 
 export interface ApiKeysListProps {
   keys: ApiKey[];
@@ -70,12 +71,7 @@ export function ApiKeysList({
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Your Keys</h3>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center space-y-4">
-              <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
-              <p className="text-zinc-500">Loading API keys...</p>
-            </div>
-          </div>
+          <LoadingState label="Loading API keys..." />
         ) : keys.length === 0 ? (
           <div className="text-center py-12 bg-zinc-50 rounded-lg border border-dashed border-zinc-200 text-zinc-500">
             No API keys found for this workspace.

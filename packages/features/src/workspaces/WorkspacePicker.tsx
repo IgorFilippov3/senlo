@@ -3,7 +3,8 @@
 import React from "react";
 import type { Project } from "@senlo/core";
 import { Badge, Button, Card } from "@senlo/ui";
-import { ArrowRight, Loader2, Plus } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
+import { LoadingScreen } from "../shared/Loading";
 
 export interface WorkspacePickerProps {
   /** Product name in the greeting ("Welcome back to …"). */
@@ -31,14 +32,7 @@ export function WorkspacePicker({
   footer,
 }: WorkspacePickerProps) {
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-10 h-10 text-blue-500 animate-spin mx-auto" />
-          <p className="text-zinc-500 font-medium">Loading your workspaces...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen label="Loading your workspaces..." />;
   }
 
   return (

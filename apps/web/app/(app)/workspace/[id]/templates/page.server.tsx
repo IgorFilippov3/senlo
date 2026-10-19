@@ -4,7 +4,8 @@ import { PageHeader, Button } from "@senlo/ui";
 import Link from "next/link";
 import { useProject } from "apps/web/queries/projects";
 import { useProjectTemplates } from "apps/web/queries/templates";
-import { TemplatesList } from "@senlo/features";
+import { TemplatesList, PageSkeleton, ErrorScreen } from "@senlo/features";
+import { renderLink } from "apps/web/components/link";
 import { useDialogStore } from "apps/web/providers/dialogs/store";
 import { Settings2, Plus } from "lucide-react";
 import { EmailTemplate } from "@senlo/core";
@@ -28,35 +29,19 @@ export default function ProjectPage({ projectId }: ProjectPageClientProps) {
     });
 
   if (projectLoading || templatesLoading) {
-    return (
-      <main className="max-w-7xl mx-auto py-10 px-8">
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-        </div>
-      </main>
-    );
+    return <PageSkeleton variant="cards" />;
   }
 
   if (projectError || !project) {
     return (
-      <main className="max-w-7xl mx-auto py-10 px-8">
-        <div className="text-center space-y-6">
-          <div className="mx-auto w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
-            <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              !
-            </div>
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Workspace not found
-            </h1>
-            <p className="text-gray-600">
-              {projectError?.message ||
-                "The workspace you are looking for does not exist."}
-            </p>
-          </div>
-        </div>
-      </main>
+      <ErrorScreen
+        title="Workspace not found"
+        description={
+          projectError?.message || "The workspace you are looking for does not exist."
+        }
+        back={{ href: "/workspaces", label: "Back to workspaces" }}
+        renderLink={renderLink}
+      />
     );
   }
 
