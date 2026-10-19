@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from "zod";
-import type { EmailProvider, EmailProviderType } from "../domain";
+import type { EmailProvider, EmailProviderType, PublicEmailProvider } from "../domain";
 import { FormValidationError, NotFoundError } from "../errors";
 import { parseInput } from "../validation";
 import type { IEmailProviderRepository } from "../ports";
@@ -42,12 +42,41 @@ export const EmailProviderInputSchema = z.object({
   password: z.string().optional(),
 });
 
-export const EmailProviderUpdateSchema = EmailProviderInputSchema.partial();
+export const EmailProviderUpdateSchema = EmailProviderInputSchema.partial().extend({
+  /** A checkbox: the stored webhook secret is never sent to the form, so clearing it is explicit. */
+  clearWebhookSecret: z.preprocess(
+    (v) => v === true || v === "on" || v === "true",
+    z.boolean(),
+  ).optional(),
+});
 
 export type EmailProviderInput = z.infer<typeof EmailProviderInputSchema>;
 export type EmailProviderUpdate = z.infer<typeof EmailProviderUpdateSchema>;
 
-export type EmailProviderField = keyof EmailProviderInput | "general";
+export type EmailProviderField = keyof EmailProviderUpdate | "general";
+
+/** Config keys that hold credentials: stored, used to send, never sent to a browser. */
+export const EMAIL_PROVIDER_SECRET_KEYS = [
+  "apiKey",
+  "webhook_secret",
+  "secretAccessKey",
+  "serverToken",
+  "password",
+] as const;
+
+/** The provider without its credentials, for anything a browser receives. */
+export function toPublicEmailProvider(provider: EmailProvider): PublicEmailProvider {
+  const config: Record<string, string | number> = {};
+  const secretsSet: string[] = [];
+  for (const [key, value] of Object.entries(provider.config ?? {})) {
+    if ((EMAIL_PROVIDER_SECRET_KEYS as readonly string[]).includes(key)) {
+      if (value) secretsSet.push(key);
+    } else if (typeof value === "string" || typeof value === "number") {
+      config[key] = value;
+    }
+  }
+  return { ...provider, config, secretsSet };
+}
 export type EmailProviderFieldErrors = Partial<Record<EmailProviderField, string[]>>;
 
 export type ProviderConfig = Record<string, string | number>;
@@ -133,10 +162,16 @@ export function buildProviderConfig(input: EmailProviderInput): ConfigOutcome {
   }
 }
 
+function applyWebhookSecret(config: ProviderConfig, input: EmailProviderUpdate) {
+  if (input.clearWebhookSecret) config.webhook_secret = "";
+  else if (input.webhookSecret) config.webhook_secret = input.webhookSecret;
+}
+
 /**
  * Applies an edit to a stored config. Only the fields the (new or current)
  * type uses are touched; an empty secret means "keep the stored one", so
- * editing the host does not silently wipe a credential.
+ * editing the host does not silently wipe a credential. The form never sees
+ * stored secrets, so removing the webhook secret takes `clearWebhookSecret`.
  */
 export function mergeProviderConfig(
   provider: EmailProvider,
@@ -148,7 +183,7 @@ export function mergeProviderConfig(
   switch (type) {
     case "RESEND":
       if (input.apiKey) config.apiKey = input.apiKey;
-      if (input.webhookSecret !== undefined) config.webhook_secret = input.webhookSecret;
+      applyWebhookSecret(config, input);
       break;
     case "MAILGUN":
       if (input.apiKey) config.apiKey = input.apiKey;
@@ -162,7 +197,7 @@ export function mergeProviderConfig(
       break;
     case "POSTMARK":
       if (input.serverToken) config.serverToken = input.serverToken;
-      if (input.webhookSecret !== undefined) config.webhook_secret = input.webhookSecret;
+      applyWebhookSecret(config, input);
       break;
     case "SMTP":
       if (input.host) config.host = input.host;
@@ -178,12 +213,14 @@ export function mergeProviderConfig(
 /**
  * A user's sending providers: create and edit with per-type rules, and the
  * ownership check every other feature needs before it uses a provider.
+ * Everything a UI receives is the public view; only `requireOwned` returns
+ * credentials, for server-side use.
  */
 export class EmailProviderService {
   constructor(private readonly providers: IEmailProviderRepository) {}
 
-  listForUser(userId: string): Promise<EmailProvider[]> {
-    return this.providers.findByUser(userId);
+  async listForUser(userId: string): Promise<PublicEmailProvider[]> {
+    return (await this.providers.findByUser(userId)).map(toPublicEmailProvider);
   }
 
   /** The provider, if it is this user's; "not found" otherwise, so ids leak nothing. */
@@ -196,22 +233,23 @@ export class EmailProviderService {
   }
 
   /** Raw form fields in; the schema and the per-type rules decide. */
-  async create(userId: string, rawInput: unknown): Promise<EmailProvider> {
+  async create(userId: string, rawInput: unknown): Promise<PublicEmailProvider> {
     const input = parseInput(EmailProviderInputSchema, rawInput);
     const outcome = buildProviderConfig(input);
     if ("fieldErrors" in outcome) {
       throw new FormValidationError(outcome.fieldErrors);
     }
-    return this.providers.create({
+    const created = await this.providers.create({
       name: input.name,
       type: input.type,
       config: outcome.config,
       isActive: true,
       userId,
     });
+    return toPublicEmailProvider(created);
   }
 
-  async update(userId: string, id: number, rawInput: unknown): Promise<EmailProvider> {
+  async update(userId: string, id: number, rawInput: unknown): Promise<PublicEmailProvider> {
     const provider = await this.requireOwned(userId, id);
     const input = parseInput(EmailProviderUpdateSchema, rawInput);
     const updated = await this.providers.update(id, {
@@ -220,14 +258,14 @@ export class EmailProviderService {
       config: mergeProviderConfig(provider, input),
     });
     if (!updated) throw new NotFoundError("Provider");
-    return updated;
+    return toPublicEmailProvider(updated);
   }
 
-  async setActive(userId: string, id: number, isActive: boolean): Promise<EmailProvider> {
+  async setActive(userId: string, id: number, isActive: boolean): Promise<PublicEmailProvider> {
     await this.requireOwned(userId, id);
     const updated = await this.providers.update(id, { isActive });
     if (!updated) throw new NotFoundError("Provider");
-    return updated;
+    return toPublicEmailProvider(updated);
   }
 
   async delete(userId: string, id: number): Promise<void> {

@@ -3,6 +3,7 @@ import {
   EmailProviderService,
   buildProviderConfig,
   mergeProviderConfig,
+  toPublicEmailProvider,
 } from "../services/emailProviderService";
 import { FormValidationError, NotFoundError } from "../errors";
 import type { EmailProvider } from "../domain";
@@ -96,8 +97,28 @@ describe("mergeProviderConfig", () => {
     expect(mergeProviderConfig(r, { apiKey: "" })).toEqual({ apiKey: "re_1", webhook_secret: "w" });
   });
 
-  it("lets a webhook secret be cleared explicitly", () => {
-    expect(mergeProviderConfig(provider(), { webhookSecret: "" })).toEqual({ apiKey: "re_1", webhook_secret: "" });
+  it("keeps the webhook secret on an empty field and clears it only on request", () => {
+    expect(mergeProviderConfig(provider(), { webhookSecret: "" })).toEqual({ apiKey: "re_1", webhook_secret: "w" });
+    expect(mergeProviderConfig(provider(), { clearWebhookSecret: true })).toEqual({ apiKey: "re_1", webhook_secret: "" });
+    expect(mergeProviderConfig(provider(), { clearWebhookSecret: true, webhookSecret: "w2" })).toEqual({ apiKey: "re_1", webhook_secret: "" });
+  });
+});
+
+describe("toPublicEmailProvider", () => {
+  it("drops every credential and says which ones are set", () => {
+    const smtp = provider({
+      type: "SMTP",
+      config: { host: "h", port: 587, encryption: "starttls", username: "u", password: "p" },
+    });
+    expect(toPublicEmailProvider(smtp)).toMatchObject({
+      config: { host: "h", port: 587, encryption: "starttls", username: "u" },
+      secretsSet: ["password"],
+    });
+    const ses = provider({ type: "SES", config: { accessKeyId: "AKIA", secretAccessKey: "s", region: "eu" } });
+    expect(toPublicEmailProvider(ses).config).toEqual({ accessKeyId: "AKIA", region: "eu" });
+    const resend = toPublicEmailProvider(provider({ config: { apiKey: "re_1", webhook_secret: "" } }));
+    expect(resend.config).toEqual({});
+    expect(resend.secretsSet).toEqual(["apiKey"]);
   });
 
   it("uses the new type's fields when the type changes", () => {
@@ -120,7 +141,8 @@ describe("EmailProviderService", () => {
 
   it("creates from raw form fields", async () => {
     const p = await service.create("alice", { name: " New ", type: "POSTMARK", serverToken: "t", port: "" });
-    expect(p).toMatchObject({ name: "New", type: "POSTMARK", userId: "alice", isActive: true, config: { serverToken: "t", webhook_secret: "" } });
+    expect(p).toMatchObject({ name: "New", type: "POSTMARK", userId: "alice", isActive: true, config: {}, secretsSet: ["serverToken"] });
+    expect(repo.rows.get(p.id)!.config).toEqual({ serverToken: "t", webhook_secret: "" });
   });
 
   it("reports schema errors as field errors", async () => {
@@ -144,8 +166,10 @@ describe("EmailProviderService", () => {
   });
 
   it("updates name, type and config together", async () => {
-    const p = await service.update("alice", 1, { name: "Renamed", webhookSecret: "w2", port: "" });
-    expect(p).toMatchObject({ name: "Renamed", type: "RESEND", config: { apiKey: "re_1", webhook_secret: "w2" } });
+    const p = await service.update("alice", 1, { name: "Renamed", webhookSecret: "w2", port: "", clearWebhookSecret: "" });
+    expect(p).toMatchObject({ name: "Renamed", type: "RESEND", secretsSet: ["apiKey", "webhook_secret"] });
+    expect(JSON.stringify(p)).not.toContain("re_1");
+    expect(repo.rows.get(1)!.config).toEqual({ apiKey: "re_1", webhook_secret: "w2" });
   });
 
   it("toggles and deletes the user's own provider", async () => {

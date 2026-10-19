@@ -12,14 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@senlo/ui";
-import { Project, EmailProvider, AiProvider } from "@senlo/core";
+import type { Project, PublicEmailProvider, PublicAiProvider } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
 import { useUpdateProject } from "apps/web/queries/projects";
 
 interface EditProjectDialogProps {
   project: Project;
-  providers: EmailProvider[];
-  aiProviders: AiProvider[];
+  providers: PublicEmailProvider[];
+  aiProviders: PublicAiProvider[];
   isOpen: boolean;
   onClose: () => void;
 }

@@ -1,193 +1,87 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { EmailProvider } from "@senlo/core";
+import type { PublicEmailProvider } from "@senlo/core";
 import {
   listProviders,
   createProviderAction,
   deleteProviderAction,
   toggleProviderAction,
   updateProviderAction,
-  type CreateProviderError,
 } from "../app/(app)/providers/actions";
 import { queryKeys } from "../providers";
-import { logger } from "../lib/logger";
+import { unwrap, unwrapForm } from "./result";
 
-/**
- * Query function for fetching all email providers
- */
-async function fetchProviders(): Promise<EmailProvider[]> {
-  const result = await listProviders();
+/** Form fields in the order the provider dialog shows them. */
+const PROVIDER_FIELDS = [
+  "name",
+  "type",
+  "apiKey",
+  "webhookSecret",
+  "domain",
+  "region",
+  "accessKeyId",
+  "secretAccessKey",
+  "serverToken",
+  "host",
+  "port",
+  "encryption",
+  "username",
+  "password",
+];
 
-  if (!result.success) {
-    throw new Error(result.error.message);
-  }
-
-  return result.data;
-}
-
-/**
- * Hook for fetching all email providers
- */
 export function useProviders() {
   return useQuery({
     queryKey: queryKeys.emailProviders.list(),
-    queryFn: fetchProviders,
+    queryFn: async () => unwrap(await listProviders()),
   });
 }
 
-/**
- * Hook for creating a new email provider
- */
+function useInvalidateProviders() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: queryKeys.emailProviders.lists() });
+}
+
+/** Rejects with the message to show when the form does not validate. */
 export function useCreateProvider() {
-  const queryClient = useQueryClient();
-
-  return useMutation<EmailProvider, CreateProviderError, FormData>({
-    mutationFn: async (formData: FormData) => {
-      const result = await createProviderAction(formData);
-      if ("error" in result) {
-        throw result;
-      }
-      return result.data;
-    },
-    onError: (err) => {
-      logger.error("Failed to create provider", {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    },
-    onSuccess: (provider) => {
-      logger.info("Provider created successfully", { providerId: provider.id });
-    },
-    onSettled: () => {
-      // Invalidate providers list to refresh UI
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.emailProviders.lists(),
-      });
-    },
+  const invalidate = useInvalidateProviders();
+  return useMutation({
+    mutationFn: async (formData: FormData) =>
+      unwrapForm(await createProviderAction(formData), PROVIDER_FIELDS),
+    onSettled: invalidate,
   });
 }
 
-/**
- * Hook for updating an existing email provider
- */
+/** Rejects with the message to show when the form does not validate. */
 export function useUpdateProvider() {
-  const queryClient = useQueryClient();
-
-  return useMutation<
-    EmailProvider,
-    CreateProviderError,
-    { id: number; formData: FormData }
-  >({
-    mutationFn: async ({ id, formData }) => {
-      const result = await updateProviderAction(id, formData);
-      if ("error" in result) {
-        throw result;
-      }
-      return result.data;
-    },
-    onError: (err, { id }) => {
-      logger.error("Failed to update provider", {
-        providerId: id,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    },
-    onSuccess: (provider) => {
-      logger.info("Provider updated successfully", { providerId: provider.id });
-    },
-    onSettled: () => {
-      // Invalidate providers list to refresh UI
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.emailProviders.lists(),
-      });
-    },
+  const invalidate = useInvalidateProviders();
+  return useMutation({
+    mutationFn: async ({ id, formData }: { id: number; formData: FormData }) =>
+      unwrapForm(await updateProviderAction(id, formData), PROVIDER_FIELDS),
+    onSettled: invalidate,
   });
 }
 
-/**
- * Hook for deleting an email provider
- */
 export function useDeleteProvider() {
-  const queryClient = useQueryClient();
-
+  const invalidate = useInvalidateProviders();
   return useMutation({
     mutationFn: async (providerId: number) => {
-      const result = await deleteProviderAction(providerId);
-      if (!result.success) {
-        throw result;
-      }
+      unwrap(await deleteProviderAction(providerId));
       return providerId;
     },
-    onError: (err, providerId) => {
-      logger.error("Failed to delete provider", {
-        providerId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    },
-    onSuccess: (providerId) => {
-      // Remove from individual provider cache
-      queryClient.removeQueries({
-        queryKey: queryKeys.emailProviders.detail(providerId),
-      });
-
-      logger.info("Provider deleted successfully", { providerId });
-    },
-    onSettled: () => {
-      // Invalidate providers list to refresh UI
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.emailProviders.lists(),
-      });
-    },
+    onSettled: invalidate,
   });
 }
 
-/**
- * Hook for toggling email provider active status
- */
 export function useToggleProvider() {
   const queryClient = useQueryClient();
-
+  const invalidate = useInvalidateProviders();
   return useMutation({
-    mutationFn: async ({
-      providerId,
-      isActive,
-    }: {
-      providerId: number;
-      isActive: boolean;
-    }) => {
-      const result = await toggleProviderAction(providerId, isActive);
-      if (!result.success) {
-        throw result;
-      }
-      return result.data;
-    },
-    onError: (err, { providerId }) => {
-      logger.error("Failed to toggle provider status", {
-        providerId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    },
-    onSuccess: (provider, { providerId }) => {
-      // Update the specific provider in cache
-      queryClient.setQueryData(
-        queryKeys.emailProviders.detail(providerId),
-        provider,
+    mutationFn: async ({ providerId, isActive }: { providerId: number; isActive: boolean }) =>
+      unwrap(await toggleProviderAction(providerId, isActive)),
+    onSuccess: (provider) => {
+      queryClient.setQueryData<PublicEmailProvider[]>(queryKeys.emailProviders.list(), (old) =>
+        old?.map((p) => (p.id === provider.id ? provider : p)),
       );
-
-      // Update provider in the list cache
-      queryClient.setQueryData<EmailProvider[]>(
-        queryKeys.emailProviders.list(),
-        (old) =>
-          old ? old.map((p) => (p.id === providerId ? provider : p)) : [],
-      );
-
-      logger.info("Provider status toggled successfully", {
-        providerId,
-        isActive: provider.isActive,
-      });
     },
-    onSettled: () => {
-      // Invalidate providers list to ensure consistency
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.emailProviders.lists(),
-      });
-    },
+    onSettled: invalidate,
   });
 }

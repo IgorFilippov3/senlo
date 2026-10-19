@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AiProvider } from "@senlo/core";
+import type { PublicAiProvider } from "@senlo/core";
 import {
   listAiProviders,
   createAiProviderAction,
@@ -7,145 +7,52 @@ import {
   toggleAiProviderAction,
 } from "../app/(app)/providers/ai-actions";
 import { queryKeys } from "../providers/query-keys";
-import { logger } from "../lib/logger";
+import { unwrap, unwrapForm } from "./result";
 
-/**
- * Query function for fetching all AI providers
- */
-async function fetchAiProviders(): Promise<AiProvider[]> {
-  const result = await listAiProviders();
-
-  if (!result.success) {
-    throw new Error(result.error.message);
-  }
-
-  return result.data;
-}
-
-/**
- * Hook for fetching all AI providers
- */
 export function useAiProviders() {
   return useQuery({
     queryKey: queryKeys.aiProviders.list(),
-    queryFn: fetchAiProviders,
+    queryFn: async () => unwrap(await listAiProviders()),
   });
 }
 
-/**
- * Hook for creating a new AI provider
- */
+function useInvalidateAiProviders() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: queryKeys.aiProviders.lists() });
+}
+
+/** Rejects with the message to show when the form does not validate. */
 export function useCreateAiProvider() {
-  const queryClient = useQueryClient();
-
+  const invalidate = useInvalidateAiProviders();
   return useMutation({
-    mutationFn: async (formData: FormData) => {
-      const result = await createAiProviderAction(formData);
-      if ("error" in result) {
-        throw result;
-      }
-      return result.data;
-    },
-    onError: (err) => {
-      logger.error("Failed to create AI provider", {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    },
-    onSuccess: (provider) => {
-      logger.info("AI provider created successfully", {
-        providerId: provider.id,
-      });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.aiProviders.lists(),
-      });
-    },
+    mutationFn: async (formData: FormData) =>
+      unwrapForm(await createAiProviderAction(formData), ["name", "type", "apiKey", "model"]),
+    onSettled: invalidate,
   });
 }
 
-/**
- * Hook for deleting an AI provider
- */
 export function useDeleteAiProvider() {
-  const queryClient = useQueryClient();
-
+  const invalidate = useInvalidateAiProviders();
   return useMutation({
     mutationFn: async (providerId: number) => {
-      const result = await deleteAiProviderAction(providerId);
-      if (!result.success) {
-        throw result;
-      }
+      unwrap(await deleteAiProviderAction(providerId));
       return providerId;
     },
-    onError: (err, providerId) => {
-      logger.error("Failed to delete AI provider", {
-        providerId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    },
-    onSuccess: (providerId) => {
-      queryClient.removeQueries({
-        queryKey: queryKeys.aiProviders.detail(providerId),
-      });
-
-      logger.info("AI provider deleted successfully", { providerId });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.aiProviders.lists(),
-      });
-    },
+    onSettled: invalidate,
   });
 }
 
-/**
- * Hook for toggling AI provider active status
- */
 export function useToggleAiProvider() {
   const queryClient = useQueryClient();
-
+  const invalidate = useInvalidateAiProviders();
   return useMutation({
-    mutationFn: async ({
-      providerId,
-      isActive,
-    }: {
-      providerId: number;
-      isActive: boolean;
-    }) => {
-      const result = await toggleAiProviderAction(providerId, isActive);
-      if (!result.success) {
-        throw result;
-      }
-      return result.data;
-    },
-    onError: (err, { providerId }) => {
-      logger.error("Failed to toggle AI provider status", {
-        providerId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    },
-    onSuccess: (provider, { providerId }) => {
-      queryClient.setQueryData(
-        queryKeys.aiProviders.detail(providerId),
-        provider,
+    mutationFn: async ({ providerId, isActive }: { providerId: number; isActive: boolean }) =>
+      unwrap(await toggleAiProviderAction(providerId, isActive)),
+    onSuccess: (provider) => {
+      queryClient.setQueryData<PublicAiProvider[]>(queryKeys.aiProviders.list(), (old) =>
+        old?.map((p) => (p.id === provider.id ? provider : p)),
       );
-
-      queryClient.setQueryData<AiProvider[]>(
-        queryKeys.aiProviders.list(),
-        (old) =>
-          old ? old.map((p) => (p.id === providerId ? provider : p)) : [],
-      );
-
-      logger.info("AI provider status toggled successfully", {
-        providerId,
-        isActive: provider.isActive,
-      });
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.aiProviders.lists(),
-      });
-    },
+    onSettled: invalidate,
   });
 }

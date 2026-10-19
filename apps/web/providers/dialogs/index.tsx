@@ -32,20 +32,21 @@ const DeleteTemplateDialog = lazy(
   () =>
     import("../../app/(app)/workspace/[id]/templates/delete-template-dialog"),
 );
-const AddProviderDialog = lazy(
-  () => import("../../app/(app)/providers/add-provider-dialog"),
+const EmailProviderDialog = lazy(
+  () => import("../../components/providers/email-provider-dialog"),
 );
-const EditProviderDialog = lazy(
-  () => import("../../app/(app)/providers/edit-provider-dialog"),
-);
-const DeleteProviderDialog = lazy(
-  () => import("../../app/(app)/providers/delete-provider-dialog"),
+const DeleteProviderDialog = lazy(() =>
+  import("../../components/providers/delete-provider-dialogs").then((m) => ({
+    default: m.DeleteEmailProviderDialog,
+  })),
 );
 const AddAiProviderDialog = lazy(
-  () => import("../../app/(app)/providers/add-ai-provider-dialog"),
+  () => import("../../components/providers/ai-provider-dialog"),
 );
-const DeleteAiProviderDialog = lazy(
-  () => import("../../app/(app)/providers/delete-ai-provider-dialog"),
+const DeleteAiProviderDialog = lazy(() =>
+  import("../../components/providers/delete-provider-dialogs").then((m) => ({
+    default: m.DeleteAiProviderDialog,
+  })),
 );
 
 const dialogComponents: {
@@ -58,8 +59,8 @@ const dialogComponents: {
   DELETE_WORKSPACE: DeleteWorkspaceDialog,
   CREATE_TEMPLATE: CreateTemplateDialog,
   DELETE_TEMPLATE: DeleteTemplateDialog,
-  ADD_PROVIDER: AddProviderDialog,
-  EDIT_PROVIDER: EditProviderDialog,
+  ADD_PROVIDER: EmailProviderDialog,
+  EDIT_PROVIDER: EmailProviderDialog,
   DELETE_PROVIDER: DeleteProviderDialog,
   ADD_AI_PROVIDER: AddAiProviderDialog,
   DELETE_AI_PROVIDER: DeleteAiProviderDialog,

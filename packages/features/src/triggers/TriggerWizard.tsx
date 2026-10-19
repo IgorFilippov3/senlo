@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { Button, Card, FormField, Input, Textarea, JsonEditor, PageHeader, Badge } from "@senlo/ui";
 import type { EmailTemplate } from "@senlo/core";
-import { ChevronRight, ChevronLeft, Check, Settings, Layout, Send, AlertCircle } from "lucide-react";
+import { FormErrorBanner } from "../shared";
+import { ChevronRight, ChevronLeft, Check, Settings, Layout, Send } from "lucide-react";
 
 export interface TriggerWizardValues {
   name: string;
@@ -246,9 +247,8 @@ export function TriggerWizard({
         )}
 
         {error && (
-          <div className="mt-8 flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            <span>{error}</span>
+          <div className="mt-8">
+            <FormErrorBanner error={error} />
           </div>
         )}
 

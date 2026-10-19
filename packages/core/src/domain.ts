@@ -179,6 +179,15 @@ export interface EmailProvider {
 
 export type AiProviderType = "OPENAI" | "ANTHROPIC";
 
+/**
+ * A provider as a browser may see it: the config without its credentials,
+ * plus the names of the credential fields that hold a value.
+ */
+export interface PublicEmailProvider extends Omit<EmailProvider, "config"> {
+  config: Record<string, string | number>;
+  secretsSet: string[];
+}
+
 export interface AiProvider {
   id: number;
   userId?: string | null;
@@ -188,6 +197,18 @@ export interface AiProvider {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** The model used when an AI provider form leaves it empty. */
+export const DEFAULT_AI_MODELS: Record<AiProviderType, string> = {
+  OPENAI: "gpt-4o",
+  ANTHROPIC: "claude-3-5-sonnet-20240620",
+};
+
+/** An AI provider as a browser may see it: the model, never the key. */
+export interface PublicAiProvider extends Omit<AiProvider, "config"> {
+  config: { model?: string };
+  secretsSet: string[];
 }
 
 export interface ApiKey {

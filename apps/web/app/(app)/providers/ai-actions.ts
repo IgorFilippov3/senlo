@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { AiProvider } from "@senlo/core";
+import type { PublicAiProvider } from "@senlo/core";
 import type { AiProviderInput } from "@senlo/core/server";
 import {
   ActionResult,
@@ -13,11 +13,11 @@ import { requireUserId } from "apps/web/lib/session";
 import { getServices } from "apps/web/lib/services";
 
 export type CreateAiProviderResult = FormActionResult<
-  AiProvider,
+  PublicAiProvider,
   keyof AiProviderInput | "general"
 >;
 
-export async function listAiProviders(): Promise<ActionResult<AiProvider[]>> {
+export async function listAiProviders(): Promise<ActionResult<PublicAiProvider[]>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
     return getServices().aiProvider.listForUser(userId);
@@ -41,7 +41,7 @@ export async function createAiProviderAction(
 export async function toggleAiProviderAction(
   id: number,
   isActive: boolean,
-): Promise<ActionResult<AiProvider>> {
+): Promise<ActionResult<PublicAiProvider>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
     const provider = await getServices().aiProvider.setActive(userId, id, isActive);

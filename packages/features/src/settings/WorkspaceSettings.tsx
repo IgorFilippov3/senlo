@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import type { Project, EmailProvider } from "@senlo/core";
+import type { Project, PublicEmailProvider } from "@senlo/core";
 import {
   Card,
   Button,
@@ -15,7 +15,7 @@ import { Save, Trash2, AlertTriangle } from "lucide-react";
 
 export interface WorkspaceSettingsProps {
   workspace: Project;
-  emailProviders?: EmailProvider[];
+  emailProviders?: PublicEmailProvider[];
   onUpdate?: (data: {
     name: string;
     description?: string | null;

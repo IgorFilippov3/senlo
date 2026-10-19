@@ -3,8 +3,8 @@ import {
   Campaign,
   Project,
   EmailTemplate,
-  EmailProvider,
-  AiProvider,
+  PublicEmailProvider,
+  PublicAiProvider,
 } from "@senlo/core";
 
 export type DialogType =
@@ -33,8 +33,8 @@ export interface DialogPropsMap {
   CREATE_WORKSPACE: Record<string, never>;
   EDIT_WORKSPACE: {
     project: Project;
-    providers: EmailProvider[];
-    aiProviders: AiProvider[];
+    providers: PublicEmailProvider[];
+    aiProviders: PublicAiProvider[];
   };
   DELETE_WORKSPACE: {
     project: Project;
@@ -48,7 +48,7 @@ export interface DialogPropsMap {
   };
   ADD_PROVIDER: Record<string, never>;
   EDIT_PROVIDER: {
-    provider: EmailProvider;
+    provider: PublicEmailProvider;
   };
   DELETE_PROVIDER: {
     providerId: number;

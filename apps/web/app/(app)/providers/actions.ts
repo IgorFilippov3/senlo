@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { EmailProvider } from "@senlo/core";
+import type { PublicEmailProvider } from "@senlo/core";
 import type { EmailProviderField } from "@senlo/core/server";
 import {
   ActionResult,
@@ -12,11 +12,9 @@ import {
 import { requireUserId } from "apps/web/lib/session";
 import { getServices } from "apps/web/lib/services";
 
-export type CreateProviderResult = FormActionResult<EmailProvider, EmailProviderField>;
-export type CreateProviderError = Extract<CreateProviderResult, { error: unknown }>;
-export type UpdateProviderResult = CreateProviderResult;
+export type ProviderFormResult = FormActionResult<PublicEmailProvider, EmailProviderField>;
 
-export async function listProviders(): Promise<ActionResult<EmailProvider[]>> {
+export async function listProviders(): Promise<ActionResult<PublicEmailProvider[]>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
     return getServices().emailProvider.listForUser(userId);
@@ -25,7 +23,7 @@ export async function listProviders(): Promise<ActionResult<EmailProvider[]>> {
 
 export async function createProviderAction(
   formData: FormData,
-): Promise<CreateProviderResult> {
+): Promise<ProviderFormResult> {
   return withFormErrors(async () => {
     const userId = await requireUserId();
     const provider = await getServices().emailProvider.create(
@@ -40,7 +38,7 @@ export async function createProviderAction(
 export async function updateProviderAction(
   id: number,
   formData: FormData,
-): Promise<UpdateProviderResult> {
+): Promise<ProviderFormResult> {
   return withFormErrors(async () => {
     const userId = await requireUserId();
     const provider = await getServices().emailProvider.update(
@@ -56,7 +54,7 @@ export async function updateProviderAction(
 export async function toggleProviderAction(
   id: number,
   isActive: boolean,
-): Promise<ActionResult<EmailProvider>> {
+): Promise<ActionResult<PublicEmailProvider>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
     const provider = await getServices().emailProvider.setActive(userId, id, isActive);

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { AiProvider, EmailProvider, EmailTemplate, Project } from "@senlo/core";
+import type { EmailTemplate, Project, PublicAiProvider, PublicEmailProvider } from "@senlo/core";
 import { ActionResult, validateId, withErrorHandling } from "apps/web/lib/errors";
 import { requireUserId } from "apps/web/lib/session";
 import { getServices } from "apps/web/lib/services";
@@ -55,14 +55,14 @@ export async function updateWorkspace(id: number, formData: FormData): Promise<v
   revalidatePath("/workspaces");
 }
 
-export async function listProviders(): Promise<ActionResult<EmailProvider[]>> {
+export async function listProviders(): Promise<ActionResult<PublicEmailProvider[]>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
     return getServices().emailProvider.listForUser(userId);
   });
 }
 
-export async function listAiProviders(): Promise<ActionResult<AiProvider[]>> {
+export async function listAiProviders(): Promise<ActionResult<PublicAiProvider[]>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
     return getServices().aiProvider.listForUser(userId);

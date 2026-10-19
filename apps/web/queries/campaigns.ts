@@ -11,25 +11,7 @@ import {
 } from "../app/(app)/workspace/[id]/triggers/actions";
 import { queryKeys } from "../providers";
 import { logger } from "../lib/logger";
-import type { ActionResult, FormActionResult } from "../lib/errors";
-
-function unwrap<T>(result: ActionResult<T>): T {
-  if (!result.success) throw new Error(result.error.message);
-  return result.data;
-}
-
-/** The first message of a failed form action, in the order fields are shown. */
-function formError(
-  result: Exclude<FormActionResult<unknown>, { success: true }>,
-  fields: string[],
-): string {
-  const { fieldErrors, formErrors } = result.error;
-  const errors = fieldErrors as Record<string, string[] | undefined>;
-  for (const field of [...fields, "general"]) {
-    if (errors[field]?.[0]) return errors[field]![0];
-  }
-  return formErrors[0] ?? "Validation failed";
-}
+import { unwrap, unwrapForm } from "./result";
 
 export function useProjectCampaigns(projectId: number) {
   return useQuery({
@@ -81,9 +63,12 @@ export function useCreateTriggeredCampaign() {
 
   return useMutation({
     mutationFn: async (input: Record<string, unknown>): Promise<Campaign> => {
-      const result = await createCampaignAction(input);
-      if ("success" in result) return result.data;
-      throw new Error(formError(result, ["name", "projectId", "templateId", "fromEmail"]));
+      return unwrapForm(await createCampaignAction(input), [
+        "name",
+        "projectId",
+        "templateId",
+        "fromEmail",
+      ]);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.lists() });
@@ -97,9 +82,11 @@ export function useUpdateTriggeredCampaign(campaignId: number) {
 
   return useMutation({
     mutationFn: async (formData: FormData): Promise<Campaign> => {
-      const result = await updateCampaignAction(campaignId, formData);
-      if ("success" in result) return result.data;
-      throw new Error(formError(result, ["name", "fromEmail", "variablesSchema"]));
+      return unwrapForm(await updateCampaignAction(campaignId, formData), [
+        "name",
+        "fromEmail",
+        "variablesSchema",
+      ]);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.all });

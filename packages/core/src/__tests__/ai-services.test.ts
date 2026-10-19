@@ -35,10 +35,21 @@ describe("AiProviderService", () => {
   it("fills the default model per type", async () => {
     const repo = aiRepo([]);
     const s = new AiProviderService(repo);
-    const p = await s.create("alice", { name: "x", type: "OPENAI", apiKey: "k", model: "" });
-    expect(p.config).toEqual({ apiKey: "k", model: DEFAULT_AI_MODELS.OPENAI });
+    await s.create("alice", { name: "x", type: "OPENAI", apiKey: "k", model: "" });
+    expect(repo.rows.get(99)!.config).toEqual({ apiKey: "k", model: DEFAULT_AI_MODELS.OPENAI });
     const q = await s.create("alice", { name: "x", type: "ANTHROPIC", apiKey: "k", model: "claude-y" });
     expect(q.config.model).toBe("claude-y");
+  });
+
+  it("never hands the API key back, only whether one is set", async () => {
+    const s = new AiProviderService(aiRepo([openai]));
+    const [listed] = await s.listForUser("alice");
+    expect(listed.config).toEqual({ model: "gpt-x" });
+    expect(listed.secretsSet).toEqual(["apiKey"]);
+    const created = await s.create("alice", { name: "x", type: "OPENAI", apiKey: "k" });
+    expect(JSON.stringify(created)).not.toContain('"k"');
+    expect(JSON.stringify(await s.setActive("alice", 10, false))).not.toContain("sk");
+    expect((await s.requireOwned("alice", 10)).config.apiKey).toBe("sk");
   });
 
   it("rejects invalid input as field errors", async () => {
