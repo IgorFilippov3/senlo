@@ -4,7 +4,6 @@ import {
   Project,
   EmailTemplate,
   PublicEmailProvider,
-  PublicAiProvider,
 } from "@senlo/core";
 
 export type DialogType =
@@ -33,8 +32,6 @@ export interface DialogPropsMap {
   CREATE_WORKSPACE: Record<string, never>;
   EDIT_WORKSPACE: {
     project: Project;
-    providers: PublicEmailProvider[];
-    aiProviders: PublicAiProvider[];
   };
   DELETE_WORKSPACE: {
     project: Project;

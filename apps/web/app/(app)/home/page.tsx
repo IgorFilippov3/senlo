@@ -3,12 +3,12 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useProjects } from "apps/web/queries/projects";
-import { useWorkspaceStorage } from "apps/web/hooks/use-workspace-storage";
+import { pickStartWorkspace, useRememberedWorkspace, workspaceHomePath } from "@senlo/features";
 import { Loader2 } from "lucide-react";
 
 export default function AppHomePage() {
   const router = useRouter();
-  const { lastWorkspaceId, isLoaded, setWorkspaceId } = useWorkspaceStorage();
+  const { lastWorkspaceId, isLoaded, setWorkspaceId } = useRememberedWorkspace();
   const { data: projects, isLoading } = useProjects();
 
   useEffect(() => {
@@ -19,11 +19,7 @@ export default function AppHomePage() {
     // as someone else, and deleting the workspace it points at — so following
     // it blindly drops a fresh account into a workspace it cannot see and out
     // to an error. Resolve it against what this account actually owns.
-    const remembered =
-      lastWorkspaceId === null
-        ? undefined
-        : projects.find((project) => project.id === lastWorkspaceId);
-    const target = remembered ?? projects[0];
+    const target = pickStartWorkspace(projects, lastWorkspaceId);
 
     if (!target) {
       setWorkspaceId(null);
@@ -35,7 +31,7 @@ export default function AppHomePage() {
       setWorkspaceId(target.id);
     }
 
-    router.replace(`/workspace/${target.id}/dashboard`);
+    router.replace(workspaceHomePath(target.id));
   }, [projects, isLoading, lastWorkspaceId, isLoaded, router, setWorkspaceId]);
 
   return (

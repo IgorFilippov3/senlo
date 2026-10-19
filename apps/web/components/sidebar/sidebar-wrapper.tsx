@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { isSidebarHidden } from "@senlo/features";
 import { Sidebar } from "./sidebar";
 
 export function SidebarWrapper({ children }: { children: React.ReactNode }) {
@@ -12,10 +13,7 @@ export function SidebarWrapper({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  const isEditor = pathname.startsWith("/editor");
-  const isPublic = pathname.startsWith("/unsubscribe");
-  const isWorkspaceSelector = pathname === "/workspaces";
-  const hideSidebar = isEditor || isPublic || isWorkspaceSelector;
+  const hideSidebar = isSidebarHidden(pathname);
 
   // На сервере возвращаем минимальную структуру без сайдбара и лишних отступов
   // Это предотвращает Hydration Mismatch

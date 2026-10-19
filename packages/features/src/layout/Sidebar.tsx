@@ -3,135 +3,165 @@
 import React from "react";
 import { ChevronDown, Globe } from "lucide-react";
 import type { Project } from "@senlo/core";
+import {
+  type NavItem,
+  globalNavItems,
+  isNavItemActive,
+  mainNavItems,
+  workspaceHomePath,
+  workspaceIdFromPath,
+  workspaceNavItems,
+} from "./navigation";
 
-export interface NavItem {
-  href: string;
-  icon: React.ComponentType<{ size?: number }>;
-  label: string;
-  isActive: boolean;
-}
+export type RenderLink = (
+  href: string,
+  children: React.ReactNode,
+  className: string,
+) => React.ReactNode;
 
 export interface SidebarProps {
-  // Brand
   brandName: string;
   brandIcon: React.ReactNode;
-
-  // Workspace Switcher
-  isWorkspaceMode: boolean;
-  currentWorkspace?: Project;
+  pathname: string;
+  /** The user's workspaces, for the switcher. */
   workspaces: Project[];
-  onSwitchWorkspace: (id: number | null) => void;
-  renderWorkspaceLink: (
-    id: number,
-    children: React.ReactNode,
-  ) => React.ReactNode;
-
-  // Navigation
-  workspaceNavItems: NavItem[];
-  globalNavItems: NavItem[];
-  mainNavItems: NavItem[];
-
-  // Callbacks
-  renderLink: (
-    href: string,
-    children: React.ReactNode,
-    className: string,
-  ) => React.ReactNode;
+  /** "All workspaces" in the switcher; the app forgets the remembered workspace and leaves. */
+  onShowAllWorkspaces: () => void;
+  renderLink: RenderLink;
+  /** Override the default items, e.g. to add managed-only pages. */
+  workspaceItems?: (workspaceId: number) => NavItem[];
+  globalItems?: NavItem[];
+  mainItems?: NavItem[];
 }
 
-function NavItemComponent({
-  item,
+function NavSection({
+  title,
+  items,
+  pathname,
   renderLink,
 }: {
-  item: NavItem;
-  renderLink: SidebarProps["renderLink"];
+  title: string;
+  items: NavItem[];
+  pathname: string;
+  renderLink: RenderLink;
 }) {
-  const Icon = item.icon;
-  const className = `flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-    item.isActive
-      ? "bg-zinc-100 text-zinc-900 font-medium"
-      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
-  }`;
+  return (
+    <div>
+      <div className="px-3 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+        {title}
+      </div>
+      {items.map((item) => {
+        const Icon = item.icon;
+        const className = `flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+          isNavItemActive(item, pathname)
+            ? "bg-zinc-100 text-zinc-900 font-medium"
+            : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+        }`;
+        return (
+          <React.Fragment key={item.href}>
+            {renderLink(
+              item.href,
+              <>
+                <Icon size={18} />
+                {item.label}
+              </>,
+              className,
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
 
-  return renderLink(
-    item.href,
-    <>
-      <Icon size={18} />
-      {item.label}
-    </>,
-    className,
+function WorkspaceSwitcher({
+  current,
+  workspaces,
+  onShowAllWorkspaces,
+  renderLink,
+}: {
+  current?: Project;
+  workspaces: Project[];
+  onShowAllWorkspaces: () => void;
+  renderLink: RenderLink;
+}) {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-zinc-100 transition-colors"
+      >
+        <div className="flex items-center gap-2 overflow-hidden">
+          <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+            {current?.name?.[0]?.toUpperCase() || "W"}
+          </div>
+          <span className="text-sm font-semibold truncate">{current?.name || "Workspace"}</span>
+        </div>
+        <ChevronDown size={14} className="text-zinc-400" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 w-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg py-1 z-50">
+          <div className="px-2 py-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+            Switch Workspace
+          </div>
+          {workspaces.slice(0, 5).map((p) => (
+            <div key={p.id} onClick={() => setIsOpen(false)}>
+              {renderLink(
+                workspaceHomePath(p.id),
+                <>
+                  <div className="w-4 h-4 bg-zinc-100 rounded flex items-center justify-center text-[8px]">
+                    {p.name?.[0]?.toUpperCase() || "W"}
+                  </div>
+                  <span className="truncate">{p.name}</span>
+                </>,
+                "flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 cursor-pointer",
+              )}
+            </div>
+          ))}
+          <div className="border-t border-zinc-100 mt-1 pt-1">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                onShowAllWorkspaces();
+              }}
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-blue-600 hover:bg-zinc-50"
+            >
+              <Globe size={14} />
+              All workspaces
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
 export function Sidebar({
   brandName,
   brandIcon,
-  isWorkspaceMode,
-  currentWorkspace,
+  pathname,
   workspaces,
-  onSwitchWorkspace,
-  renderWorkspaceLink,
-  workspaceNavItems,
-  globalNavItems,
-  mainNavItems,
+  onShowAllWorkspaces,
   renderLink,
+  workspaceItems = workspaceNavItems,
+  globalItems = globalNavItems,
+  mainItems = mainNavItems,
 }: SidebarProps) {
-  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = React.useState(false);
+  const workspaceId = workspaceIdFromPath(pathname);
 
   return (
     <aside className="w-64 border-r border-zinc-200 h-screen bg-zinc-50/50 flex flex-col p-4 fixed left-0 top-0">
-      {/* Brand / Workspace Switcher */}
       <div className="mb-8">
-        {isWorkspaceMode ? (
-          <div className="relative">
-            <button
-              onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
-              className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-zinc-100 transition-colors"
-            >
-              <div className="flex items-center gap-2 overflow-hidden">
-                <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                  {currentWorkspace?.name?.[0].toUpperCase() || "W"}
-                </div>
-                <span className="text-sm font-semibold truncate">
-                  {currentWorkspace?.name || "Workspace"}
-                </span>
-              </div>
-              <ChevronDown size={14} className="text-zinc-400" />
-            </button>
-
-            {isWorkspaceMenuOpen && (
-              <div className="absolute top-full left-0 w-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg py-1 z-50">
-                <div className="px-2 py-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
-                  Switch Workspace
-                </div>
-                {workspaces.slice(0, 5).map((p) => (
-                  <div key={p.id} onClick={() => setIsWorkspaceMenuOpen(false)}>
-                    {renderWorkspaceLink(
-                      p.id,
-                      <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 cursor-pointer">
-                        <div className="w-4 h-4 bg-zinc-100 rounded flex items-center justify-center text-[8px]">
-                          {p.name?.[0].toUpperCase() || "W"}
-                        </div>
-                        <span className="truncate">{p.name}</span>
-                      </div>,
-                    )}
-                  </div>
-                ))}
-                <div className="border-t border-zinc-100 mt-1 pt-1">
-                  <button
-                    onClick={() => {
-                      setIsWorkspaceMenuOpen(false);
-                      onSwitchWorkspace(null);
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-blue-600 hover:bg-zinc-50"
-                  >
-                    <Globe size={14} />
-                    All workspaces
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+        {workspaceId !== null ? (
+          <WorkspaceSwitcher
+            current={workspaces.find((p) => p.id === workspaceId)}
+            workspaces={workspaces}
+            onShowAllWorkspaces={onShowAllWorkspaces}
+            renderLink={renderLink}
+          />
         ) : (
           <div className="p-2">
             <h1 className="text-sm font-bold flex items-center gap-2">
@@ -144,39 +174,21 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Navigation */}
       <div className="flex-1 flex flex-col gap-1">
-        {isWorkspaceMode ? (
+        {workspaceId !== null ? (
           <>
-            <div className="px-3 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
-              Workspace
-            </div>
-            {workspaceNavItems.map((item, idx) => (
-              <NavItemComponent key={idx} item={item} renderLink={renderLink} />
-            ))}
-
+            <NavSection
+              title="Workspace"
+              items={workspaceItems(workspaceId)}
+              pathname={pathname}
+              renderLink={renderLink}
+            />
             <div className="mt-6">
-              <div className="px-3 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
-                Global
-              </div>
-              {globalNavItems.map((item, idx) => (
-                <NavItemComponent
-                  key={idx}
-                  item={item}
-                  renderLink={renderLink}
-                />
-              ))}
+              <NavSection title="Global" items={globalItems} pathname={pathname} renderLink={renderLink} />
             </div>
           </>
         ) : (
-          <>
-            <div className="px-3 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
-              Main Menu
-            </div>
-            {mainNavItems.map((item, idx) => (
-              <NavItemComponent key={idx} item={item} renderLink={renderLink} />
-            ))}
-          </>
+          <NavSection title="Main Menu" items={mainItems} pathname={pathname} renderLink={renderLink} />
         )}
       </div>
     </aside>

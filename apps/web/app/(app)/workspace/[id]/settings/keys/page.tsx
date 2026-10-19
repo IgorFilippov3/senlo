@@ -1,7 +1,6 @@
 "use client";
 
 import { PageHeader } from "@senlo/ui";
-import { ApiKeysList } from "@senlo/features";
 import React from "react";
 import { useParams } from "next/navigation";
 import {
@@ -9,12 +8,12 @@ import {
   useCreateApiKey,
   useDeleteApiKey,
 } from "apps/web/queries/api-keys";
-import { useCurrentWorkspace } from "../../layout";
+import { ApiKeysList, useCurrentWorkspace } from "@senlo/features";
 
 export default function ApiKeysPage() {
   const params = useParams();
   const workspaceId = Number(params.id);
-  const { workspace } = useCurrentWorkspace();
+  const workspace = useCurrentWorkspace();
 
   const { data: keys = [], isLoading: keysLoading } = useApiKeys(
     workspaceId,
@@ -59,7 +58,7 @@ export default function ApiKeysPage() {
     <main className="max-w-7xl mx-auto py-10 px-8">
       <PageHeader
         title="API Keys"
-        description={`Manage keys to authenticate your webhook requests for ${workspace?.name || "this workspace"}.`}
+        description={`Manage keys to authenticate your webhook requests for ${workspace.name}.`}
       />
 
       <div className="mt-8">

@@ -4,8 +4,6 @@ import { PageHeader, Button } from "@senlo/ui";
 import Link from "next/link";
 import { useProject } from "apps/web/queries/projects";
 import { useProjectTemplates } from "apps/web/queries/templates";
-import { useProviders } from "apps/web/queries/providers";
-import { useAiProviders } from "apps/web/queries/ai-providers";
 import { TemplatesList } from "@senlo/features";
 import { useDialogStore } from "apps/web/providers/dialogs/store";
 import { Settings2, Plus } from "lucide-react";
@@ -20,7 +18,7 @@ export default function ProjectPage({ projectId }: ProjectPageClientProps) {
     data: project,
     isLoading: projectLoading,
     error: projectError,
-  } = useProject(projectId);
+  } = useProject(Number(projectId));
 
   const openDialog = useDialogStore((state) => state.open);
 
@@ -29,17 +27,7 @@ export default function ProjectPage({ projectId }: ProjectPageClientProps) {
       projectId: project?.id || 0,
     });
 
-  const { data: providers = [], isLoading: providersLoading } = useProviders();
-
-  const { data: aiProviders = [], isLoading: aiProvidersLoading } =
-    useAiProviders();
-
-  if (
-    projectLoading ||
-    providersLoading ||
-    aiProvidersLoading ||
-    templatesLoading
-  ) {
+  if (projectLoading || templatesLoading) {
     return (
       <main className="max-w-7xl mx-auto py-10 px-8">
         <div className="flex items-center justify-center py-12">
@@ -99,11 +87,7 @@ export default function ProjectPage({ projectId }: ProjectPageClientProps) {
             <Button
               variant="outline"
               onClick={() =>
-                openDialog("EDIT_WORKSPACE", {
-                  project,
-                  providers,
-                  aiProviders,
-                })
+openDialog("EDIT_WORKSPACE", { project })
               }
             >
               <Settings2 size={16} />

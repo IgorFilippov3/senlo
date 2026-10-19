@@ -15,14 +15,13 @@ const DeleteTriggerDialog = lazy(
   () => import("../../components/triggers/delete-trigger-dialog"),
 );
 const CreateWorkspaceDialog = lazy(
-  () => import("../../app/(app)/workspace/create-workspace-dialog"),
+  () => import("../../components/workspaces/create-workspace-dialog"),
 );
 const EditWorkspaceDialog = lazy(
-  () =>
-    import("../../app/(app)/workspace/[id]/templates/edit-workspace-dialog"),
+  () => import("../../components/workspaces/edit-workspace-dialog"),
 );
 const DeleteWorkspaceDialog = lazy(
-  () => import("../../app/(app)/workspace/delete-workspace-dialog"),
+  () => import("../../components/workspaces/delete-workspace-dialog"),
 );
 const CreateTemplateDialog = lazy(
   () =>

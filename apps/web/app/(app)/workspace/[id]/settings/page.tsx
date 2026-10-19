@@ -3,10 +3,10 @@
 import { PageHeader, Button, Card } from "@senlo/ui";
 import { LogOut, User, Shield, Bell } from "lucide-react";
 import { logoutAction } from "../../../../(auth)/actions";
-import { useWorkspaceStorage } from "apps/web/hooks/use-workspace-storage";
+import { useRememberedWorkspace } from "@senlo/features";
 
 export default function SettingsPage() {
-  const { setWorkspaceId } = useWorkspaceStorage();
+  const { setWorkspaceId } = useRememberedWorkspace();
 
   // The remembered workspace is stored per browser. Left behind, it points the
   // next person to sign in on this machine at a workspace that is not theirs.

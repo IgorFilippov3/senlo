@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { Project } from "@senlo/core";
-import type { CreateWorkspaceInput } from "@senlo/core/server";
+import type { CreateWorkspaceInput, UpdateWorkspaceInput } from "@senlo/core/server";
 import {
   ActionResult,
   FormActionResult,
@@ -19,12 +19,32 @@ export async function listWorkspaces(): Promise<ActionResult<Project[]>> {
   });
 }
 
+export async function getWorkspace(projectId: number): Promise<ActionResult<Project>> {
+  return withErrorHandling(async () => {
+    const userId = await requireUserId();
+    return getServices().project.require(userId, projectId);
+  });
+}
+
 export async function createWorkspace(
-  formData: FormData,
+  input: CreateWorkspaceInput,
 ): Promise<FormActionResult<Project, keyof CreateWorkspaceInput | "general">> {
   return withFormErrors(async () => {
     const userId = await requireUserId();
-    const project = await getServices().project.create(userId, Object.fromEntries(formData));
+    const project = await getServices().project.create(userId, input);
+    revalidatePath("/workspaces");
+    return project;
+  });
+}
+
+export async function updateWorkspace(
+  projectId: number,
+  input: UpdateWorkspaceInput,
+): Promise<FormActionResult<Project, keyof UpdateWorkspaceInput | "general">> {
+  return withFormErrors(async () => {
+    const userId = await requireUserId();
+    const project = await getServices().project.update(userId, projectId, input);
+    revalidatePath(`/workspace/${projectId}`, "layout");
     revalidatePath("/workspaces");
     return project;
   });
@@ -35,12 +55,5 @@ export async function deleteWorkspace(projectId: number): Promise<ActionResult<v
     const userId = await requireUserId();
     await getServices().project.delete(userId, projectId);
     revalidatePath("/workspaces");
-  });
-}
-
-export async function getWorkspace(projectId: number): Promise<ActionResult<Project>> {
-  return withErrorHandling(async () => {
-    const userId = await requireUserId();
-    return getServices().project.require(userId, projectId);
   });
 }
