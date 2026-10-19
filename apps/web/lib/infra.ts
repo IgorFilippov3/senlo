@@ -7,6 +7,7 @@ import {
 } from "@senlo/core/queue";
 import { mailSettings } from "@senlo/core";
 import { getConfig } from "./config";
+import { logger } from "./logger";
 
 /**
  * The app's connections, created on first use from its config. One Redis
@@ -16,7 +17,7 @@ let redis: Redis | undefined;
 let queues: SenloQueues | undefined;
 
 export function getRedis(): Redis {
-  return (redis ??= createRedisConnection(getConfig().redisUrl));
+  return (redis ??= createRedisConnection(getConfig().redisUrl, logger));
 }
 
 export function queueConnection(): QueueConnection {

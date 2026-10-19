@@ -37,7 +37,7 @@ export function startWorkers({
   logger?: Logger;
 }): RunningWorkers {
   const queues = createQueues(connection);
-  const services = createServices({ repositories, queues, settings });
+  const services = createServices({ repositories, queues, settings, logger });
 
   const emailProcessor = new EmailWorkerProcessor(
     settings,
@@ -49,6 +49,7 @@ export function startWorkers({
     queues.email,
     repositories.sendLogs,
     repositories.suppressions,
+    logger,
   );
   const automationProcessor = new AutomationWorkerProcessor(
     services.automation,

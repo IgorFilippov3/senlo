@@ -138,6 +138,7 @@ export function createServices({
     r.contacts,
     queues.automation,
     trigger,
+    logger,
   );
 
   const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects);

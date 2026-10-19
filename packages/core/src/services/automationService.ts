@@ -7,6 +7,7 @@ import {
 import { TriggerService } from "./triggerService";
 import { AutomationJobData } from "../queue/types";
 import { WorkflowNodeStats, WorkflowEventType } from "../domain";
+import { consoleLogger, type Logger } from "../logger";
 
 export class AutomationService {
   constructor(
@@ -15,6 +16,7 @@ export class AutomationService {
     private readonly contactRepo: ContactRepository,
     private readonly automationQueue: Queue<AutomationJobData>,
     private readonly triggerService: TriggerService,
+    private readonly logger: Logger = consoleLogger,
   ) {}
 
   /**
@@ -157,7 +159,11 @@ export class AutomationService {
           return; // Stop processing and don't schedule next nodes
 
         default:
-          console.warn(`Unknown node type: ${node.type}`);
+          this.logger.warn("Unknown workflow node type", {
+            executionId,
+            nodeId,
+            type: node.type,
+          });
       }
 
       await this.executionRepo.updateStepExecution(stepExecution.id, {
@@ -168,10 +174,11 @@ export class AutomationService {
       // Schedule next steps
       await this.scheduleNextNodes(executionId, nodeId, nextHandle);
     } catch (error) {
-      console.error(
-        `Error processing step ${nodeId} for execution ${executionId}:`,
-        error,
-      );
+      this.logger.error("Workflow step failed", {
+        executionId,
+        nodeId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       await this.executionRepo.updateStepExecution(stepExecution.id, {
         status: "FAILED",
         result: {
@@ -228,9 +235,10 @@ export class AutomationService {
     const contact = await this.contactRepo.findById(execution.contactId);
     if (!contact) throw new Error("Contact not found");
 
-    console.log(`[Automation] API Check for contact ${contact.email}`, {
+    this.logger.debug("API Check request", {
+      executionId: execution.id,
+      contactId: contact.id,
       url,
-      metadata: contact.meta,
     });
 
     const response = await fetch(url, {
@@ -245,9 +253,12 @@ export class AutomationService {
     });
 
     const result = response.status === 200 ? "yes" : "no";
-    console.log(
-      `[Automation] API Check result for ${contact.email}: ${result} (Status: ${response.status})`,
-    );
+    this.logger.debug("API Check result", {
+      executionId: execution.id,
+      contactId: contact.id,
+      result,
+      status: response.status,
+    });
     return result;
   }
 
@@ -308,9 +319,12 @@ export class AutomationService {
         (!handle || e.sourceHandle === handle),
     );
 
-    console.log(
-      `[Automation] Scheduling next nodes for ${sourceNodeId}. Handle: ${handle || "any"}. Found ${nextEdges.length} edges.`,
-    );
+    this.logger.debug("Scheduling next workflow nodes", {
+      executionId,
+      sourceNodeId,
+      handle: handle ?? "any",
+      edges: nextEdges.length,
+    });
 
     if (nextEdges.length === 0) {
       // Check if all branches are finished to mark execution as COMPLETED

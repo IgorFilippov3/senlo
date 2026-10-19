@@ -26,6 +26,7 @@ import type { EmailTemplate } from "../emailTemplate";
 import { renderEmailDesign } from "../renderer/renderEmailDesign";
 import type { EmailDesignDocument } from "../emailDesign";
 import { AutomationService } from "../services/automationService";
+import { consoleLogger, type Logger } from "../logger";
 import {
   AUTOMATION_QUEUE_NAME,
   CAMPAIGN_QUEUE_NAME,
@@ -58,6 +59,7 @@ export class EmailWorkerProcessor {
     private readonly emailQueue: Queue<EmailJobData>,
     private readonly logRepo?: ITriggeredSendLogRepository,
     private readonly suppressionRepo?: ISuppressionRepository,
+    private readonly logger: Logger = consoleLogger,
   ) {}
 
   /**
@@ -189,8 +191,13 @@ export class EmailWorkerProcessor {
     });
 
     if (message.length > EMAIL_CLIPPING_BYTES) {
-      console.warn(
-        `[Worker] Message for ${data.email} is ${message.length} bytes; Gmail clips past ${EMAIL_CLIPPING_BYTES} and hides everything after the cut`,
+      this.logger.warn(
+        "Message exceeds the Gmail clipping size; everything after the cut is hidden",
+        {
+          campaignId: data.campaignId,
+          bytes: message.length,
+          limit: EMAIL_CLIPPING_BYTES,
+        },
       );
     }
 
@@ -221,7 +228,11 @@ export class EmailWorkerProcessor {
 
         if (isSuppressed) {
           const reason = `Recipient is suppressed (Reason: ${isSuppressed.reason})`;
-          console.warn(`[Worker] Skipping email to ${email}: ${reason}`);
+          this.logger.warn("Skipping a suppressed recipient", {
+            campaignId,
+            contactId,
+            reason: isSuppressed.reason,
+          });
 
           if (logId && this.logRepo) {
             await this.logRepo.update(logId, {
@@ -307,7 +318,11 @@ export class EmailWorkerProcessor {
         });
       }
     } catch (error) {
-      console.error(`Failed to process email job ${job.id}:`, error);
+      this.logger.error("Failed to process email job", {
+        jobId: job.id,
+        campaignId,
+        error: error instanceof Error ? error.message : String(error),
+      });
 
       if (campaignId !== 0) {
         await this.campaignRepo.logEvent({
@@ -357,16 +372,17 @@ export class EmailWorkerProcessor {
     const contacts = await this.listRepo.getContacts(campaign.listId, true);
 
     if (contacts.length === 0) {
-      console.warn(
-        `[Worker] Campaign ${campaignId} has no recipients, marking as completed`,
-      );
+      this.logger.warn("Campaign has no recipients, marking as completed", {
+        campaignId,
+      });
       await this.campaignRepo.update(campaignId, { status: "COMPLETED" });
       return;
     }
 
-    console.log(
-      `[Worker] Starting campaign ${campaignId} send to ${contacts.length} recipients`,
-    );
+    this.logger.info("Starting campaign send", {
+      campaignId,
+      recipients: contacts.length,
+    });
 
     await this.campaignRepo.update(campaignId, {
       status: "SENDING",
@@ -431,7 +447,7 @@ export class EmailWorkerProcessor {
     }
 
     await this.campaignRepo.update(campaignId, { status: "COMPLETED" });
-    console.log(`[Worker] Campaign ${campaignId} queued successfully`);
+    this.logger.info("Campaign queued", { campaignId });
   }
 }
 

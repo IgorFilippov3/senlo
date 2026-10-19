@@ -18,7 +18,7 @@ try {
 const workers = startWorkers({
   repositories: createRepositories(createDb(config.databaseUrl)),
   connection: {
-    connection: createRedisConnection(config.redisUrl),
+    connection: createRedisConnection(config.redisUrl, logger),
     prefix: config.queuePrefix,
   },
   settings: mailSettings(config),
