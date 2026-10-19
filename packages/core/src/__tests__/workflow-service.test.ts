@@ -12,7 +12,7 @@ const campaigns = {
     ({ 100: { id: 100, projectId: 1 }, 200: { id: 200, projectId: 2 } } as Record<number, Partial<Campaign>>)[id] as Campaign ?? null,
 };
 
-function fakes() {
+function fakes(graph: { nodes?: any[]; edges?: any[] } = {}) {
   const rows = new Map<number, Workflow>([
     [10, { id: 10, projectId: 1, name: "w", status: "DRAFT", createdAt: new Date(), updatedAt: new Date() }],
     [20, { id: 20, projectId: 2, name: "w", status: "DRAFT", createdAt: new Date(), updatedAt: new Date() }],
@@ -27,8 +27,8 @@ function fakes() {
     }),
     update: vi.fn(async (id: number, d: Partial<Workflow>) => (rows.has(id) ? { ...rows.get(id)!, ...d } : null)),
     delete: vi.fn(async (id: number) => { rows.delete(id); }),
-    getNodes: async () => [],
-    getEdges: async () => [],
+    getNodes: async () => graph.nodes ?? [],
+    getEdges: async () => graph.edges ?? [],
     saveGraph: vi.fn(async () => {}),
   };
   return { service: new WorkflowService({ workflows, projects, campaigns }), workflows };
@@ -45,6 +45,29 @@ describe("WorkflowService", () => {
     await expect(service.setStatus("alice", 20, "ACTIVE")).rejects.toBeInstanceOf(NotFoundError);
     await expect(service.delete("alice", 20)).rejects.toBeInstanceOf(NotFoundError);
     expect((await service.getGraph("alice", 10)).workflow.id).toBe(10);
+  });
+
+  it("refuses to activate a saved graph the builder would not let go live", async () => {
+    const { service, workflows } = fakes({ nodes: [] });
+    const e = await service.setStatus("alice", 10, "ACTIVE").catch((x) => x);
+    expect(e).toBeInstanceOf(ValidationError);
+    expect(e.details.reasons).toContain("Add a trigger before going live.");
+    expect(workflows.update).not.toHaveBeenCalled();
+    // Pausing or drafting never needs a valid graph.
+    await service.setStatus("alice", 10, "PAUSED");
+    expect(workflows.update).toHaveBeenCalledWith(10, { status: "PAUSED" });
+  });
+
+  it("activates a valid saved graph", async () => {
+    const { service, workflows } = fakes({
+      nodes: [
+        { id: "t", type: "trigger", data: {} },
+        { id: "x", type: "exit", data: {} },
+      ],
+      edges: [{ id: "e", sourceNodeId: "t", targetNodeId: "x", sourceHandle: null }],
+    });
+    expect((await service.setStatus("alice", 10, "ACTIVE")).status).toBe("ACTIVE");
+    expect(workflows.update).toHaveBeenCalledWith(10, { status: "ACTIVE" });
   });
 
   it("creates a draft with a trigger node", async () => {

@@ -8,6 +8,7 @@ import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowStatus } from "../do
 import { FormValidationError, ValidationError } from "../errors";
 import type { ICampaignRepository, IProjectRepository, IWorkflowRepository } from "../ports";
 import { parseInput } from "../validation";
+import { validateWorkflowGraph } from "../workflow-graph";
 
 /** A node as the builder holds it: React Flow shape, position as a point. */
 export const GraphNodeSchema = z.object({
@@ -161,10 +162,28 @@ export class WorkflowService {
     );
   }
 
+  /**
+   * Going live checks the saved graph with the builder's own rules, so a
+   * broken flow cannot be activated from the list or by a direct call. A
+   * failure is a `ValidationError` whose `details.reasons` lists every problem.
+   */
   async setStatus(userId: string, id: number, status: WorkflowStatus): Promise<Workflow> {
     const workflow = await this.requireWorkflow(userId, id);
+    if (status === "ACTIVE") {
+      const [nodes, edges] = await Promise.all([
+        this.repos.workflows.getNodes(id),
+        this.repos.workflows.getEdges(id),
+      ]);
+      const check = validateWorkflowGraph(
+        nodes,
+        edges.map((e) => ({ source: e.sourceNodeId, target: e.targetNodeId, sourceHandle: e.sourceHandle })),
+      );
+      if (!check.valid) {
+        throw new ValidationError("This automation cannot go live yet.", { reasons: check.reasons });
+      }
+    }
     await this.repos.workflows.update(id, { status });
-    return workflow;
+    return { ...workflow, status };
   }
 
   async delete(userId: string, id: number): Promise<Workflow> {

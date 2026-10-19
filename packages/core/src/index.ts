@@ -26,6 +26,7 @@ export * from "./api-auth";
 export * from "./config";
 export * from "./logger";
 export * from "./access";
+export * from "./workflow-graph";
 export * from "./rate-limit";
 export * from "./merge-tags";
 export * from "./tracking";

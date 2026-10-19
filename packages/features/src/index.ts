@@ -6,4 +6,5 @@ export * from "./audience";
 export * from "./settings";
 export * from "./layout";
 export * from "./providers";
+export * from "./automations";
 export * from "./shared";
