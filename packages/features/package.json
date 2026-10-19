@@ -1,6 +1,6 @@
 {
   "name": "@senlo/features",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Shared business features for Senlo",
   "type": "module",
   "main": "./src/index.ts",

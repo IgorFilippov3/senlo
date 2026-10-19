@@ -8,6 +8,8 @@ import { getConfig } from "./lib/config";
 import { getServices, repositories } from "./lib/services";
 import { authConfig } from "./auth.config";
 
+const { github } = getConfig();
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: DrizzleAdapter(db),
@@ -35,10 +37,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   providers: [
-    GitHub({
-      clientId: getConfig().github?.clientId,
-      clientSecret: getConfig().github?.clientSecret,
-    }),
+    // Registered only when configured, like the button on the login page.
+    ...(github ? [GitHub(github)] : []),
     Credentials({
       async authorize(credentials) {
         const user = await getServices().user.verifyCredentials(credentials);

@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
+import { PASSWORD_MIN_LENGTH } from "@senlo/core/server";
 import { getConfig } from "apps/web/lib/config";
-import { RegisterForm } from "./register-form";
+import { RegisterForm } from "apps/web/components/auth/register-form";
 
 export default function RegisterPage() {
+  const { allowRegistration, github } = getConfig();
   // Closed registration is a 404, decided per request from the runtime
   // config rather than frozen into the build.
-  if (!getConfig().allowRegistration) {
-    notFound();
-  }
-  return <RegisterForm />;
+  if (!allowRegistration) notFound();
+  return <RegisterForm passwordMinLength={PASSWORD_MIN_LENGTH} githubEnabled={github !== null} />;
 }

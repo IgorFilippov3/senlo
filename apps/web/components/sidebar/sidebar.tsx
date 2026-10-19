@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar as SharedSidebar, useRememberedWorkspace } from "@senlo/features";
+import { logoutAction } from "apps/web/app/(auth)/actions";
 import { useProjects } from "apps/web/queries/projects";
 
 export function Sidebar() {
@@ -20,6 +21,12 @@ export function Sidebar() {
       onShowAllWorkspaces={() => {
         setWorkspaceId(null);
         router.push("/workspaces");
+      }}
+      onSignOut={async () => {
+        // Remembered per browser: left behind, it would point the next
+        // person to sign in here at a workspace that is not theirs.
+        setWorkspaceId(null);
+        await logoutAction();
       }}
       renderLink={(href, children, className) => (
         <Link href={href} className={className}>

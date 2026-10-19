@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ChevronDown, Globe } from "lucide-react";
+import { ChevronDown, Globe, LogOut } from "lucide-react";
 import type { Project } from "@senlo/core";
 import {
   type NavItem,
@@ -28,6 +28,8 @@ export interface SidebarProps {
   /** "All workspaces" in the switcher; the app forgets the remembered workspace and leaves. */
   onShowAllWorkspaces: () => void;
   renderLink: RenderLink;
+  /** Shows "Sign out" at the bottom. */
+  onSignOut?: () => void;
   /** Override the default items, e.g. to add managed-only pages. */
   workspaceItems?: (workspaceId: number) => NavItem[];
   globalItems?: NavItem[];
@@ -146,6 +148,7 @@ export function Sidebar({
   workspaces,
   onShowAllWorkspaces,
   renderLink,
+  onSignOut,
   workspaceItems = workspaceNavItems,
   globalItems = globalNavItems,
   mainItems = mainNavItems,
@@ -191,6 +194,16 @@ export function Sidebar({
           <NavSection title="Main Menu" items={mainItems} pathname={pathname} renderLink={renderLink} />
         )}
       </div>
+
+      {onSignOut && (
+        <button
+          onClick={onSignOut}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors"
+        >
+          <LogOut size={18} />
+          Sign out
+        </button>
+      )}
     </aside>
   );
 }

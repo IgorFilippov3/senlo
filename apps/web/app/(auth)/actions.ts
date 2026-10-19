@@ -1,6 +1,7 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import type { LoginValues, RegisterFieldErrors, RegisterValues } from "@senlo/features";
 import { FormValidationError, RateLimitedError } from "@senlo/core";
 import { RegistrationClosedError } from "@senlo/core/server";
 import { signIn, signOut } from "../../auth";
@@ -12,48 +13,47 @@ import {
   recordLoginFailure,
 } from "../../lib/rate-limit";
 
-type RegisterResult = { success?: true; error?: Record<string, string[] | string> };
+/** What a failed sign-in or sign-up tells the form. A success redirects instead. */
+export interface AuthFormResult {
+  error?: string;
+  fieldErrors?: RegisterFieldErrors;
+}
 
-export async function registerAction(formData: FormData): Promise<RegisterResult | void> {
-  const values = Object.fromEntries(formData);
+/** A message for every Auth.js failure that is not a redirect. */
+function authErrorMessage(error: AuthError): string {
+  return error.type === "CredentialsSignin" ? "Invalid credentials." : "Something went wrong.";
+}
 
+export async function registerAction(values: RegisterValues): Promise<AuthFormResult> {
   try {
     await limitAction("register");
     await getServices().user.register(values, getConfig());
   } catch (error) {
     if (error instanceof RegistrationClosedError || error instanceof RateLimitedError) {
-      return { error: { general: error.message } };
+      return { error: error.message };
     }
     if (error instanceof FormValidationError) {
-      return { error: error.fieldErrors as Record<string, string[]> };
+      const { general, ...fieldErrors } = error.fieldErrors as Record<string, string[] | undefined>;
+      return { error: general?.[0], fieldErrors };
     }
     throw error;
   }
 
   try {
+    // Redirects on success (rethrown below).
     await signIn("credentials", {
       email: values.email,
       password: values.password,
       redirectTo: "/home",
     });
-    return { success: true };
+    return {};
   } catch (error) {
-    if (error instanceof AuthError) {
-      return {
-        error: {
-          general:
-            error.type === "CredentialsSignin" ? "Invalid credentials." : "Something went wrong.",
-        },
-      };
-    }
+    if (error instanceof AuthError) return { error: authErrorMessage(error) };
     throw error;
   }
 }
 
-export async function loginAction(formData: FormData) {
-  const email = String(formData.get("email") ?? "");
-  const password = formData.get("password");
-
+export async function loginAction({ email, password }: LoginValues): Promise<AuthFormResult> {
   // Only failed attempts count: see assertLoginAllowed.
   try {
     await assertLoginAllowed(email);
@@ -63,14 +63,13 @@ export async function loginAction(formData: FormData) {
   }
 
   try {
+    // Redirects on success (rethrown below).
     await signIn("credentials", { email, password, redirectTo: "/home" });
+    return {};
   } catch (error) {
     if (error instanceof AuthError) {
-      if (error.type === "CredentialsSignin") {
-        await recordLoginFailure(email);
-        return { error: "Invalid credentials." };
-      }
-      return { error: "Something went wrong." };
+      if (error.type === "CredentialsSignin") await recordLoginFailure(email);
+      return { error: authErrorMessage(error) };
     }
     throw error;
   }
