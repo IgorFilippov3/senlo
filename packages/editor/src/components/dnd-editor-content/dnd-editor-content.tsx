@@ -22,11 +22,7 @@ import { pointerFirstCollision } from "./collision";
 import { useKeyboardShortcuts } from "../../hooks/use-keyboard-shortcuts";
 import { useUnsavedChanges } from "../../hooks/use-unsaved-changes";
 
-interface DndEditorContentProps {
-  projectId: number;
-}
-
-export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
+export const DndEditorContent = () => {
   useKeyboardShortcuts();
   useUnsavedChanges();
 
@@ -148,7 +144,7 @@ export const DndEditorContent = ({ projectId }: DndEditorContentProps) => {
       onDragCancel={onDragCancel}
     >
       <div className="senlo-editor-container">
-        <EditorHeader projectId={projectId} />
+        <EditorHeader />
         <div className="senlo-editor-root">
           <aside className="senlo-editor-sidebar">
             <Sidebar />

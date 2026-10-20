@@ -2,7 +2,7 @@
 
 import "./styles.css";
 
-import { useEffect, useRef, FC, useState } from "react";
+import { useEffect, useMemo, useRef, FC, useState } from "react";
 import { EmailDesignDocument, MergeTag, SavedRow, RowBlock } from "@senlo/core";
 import { Sidebar } from "./components/sidebar/sidebar";
 import { EmailCanvas } from "./components/email-canvas/email-canvas";
@@ -11,12 +11,11 @@ import { PropsManager } from "./components/props-manager/props-manager";
 
 import { useEditorStore } from "./state/editor.store";
 import { DndEditorContent } from "./components/dnd-editor-content/dnd-editor-content";
+import { EditorHost, EditorHostProvider } from "./host";
 
-interface EditorLayoutProps {
+export interface EditorLayoutProps extends EditorHost {
   initialDesign: EmailDesignDocument;
   templateId: number;
-  projectId: number;
-  hasAiProvider?: boolean;
   templateName: string;
   templateSubject: string;
   templateLocale?: string;
@@ -51,8 +50,6 @@ interface EditorLayoutProps {
 export const EditorLayout: FC<EditorLayoutProps> = ({
   initialDesign,
   templateId,
-  projectId,
-  hasAiProvider = false,
   templateName,
   templateSubject,
   templateLocale = "en",
@@ -63,10 +60,14 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   onListSavedRows,
   onSaveRow,
   onDeleteSavedRow,
+  baseUrl,
+  hasAiProvider = false,
+  onNavigate,
+  uploadImage,
+  generateWithAi,
 }) => {
   const setDesign = useEditorStore((s) => s.setDesign);
   const setTemplateId = useEditorStore((s) => s.setTemplateId);
-  const setProjectInfo = useEditorStore((s) => s.setProjectInfo);
   const setTemplateMetadata = useEditorStore((s) => s.setTemplateMetadata);
   const setCustomMergeTags = useEditorStore((s) => s.setCustomMergeTags);
   const setOnSave = useEditorStore((s) => s.setOnSave);
@@ -87,16 +88,12 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
     templateSubject,
     templateLocale,
     templatePreheader,
-    projectId,
-    hasAiProvider,
   });
   templateMetaRef.current = {
     templateName,
     templateSubject,
     templateLocale,
     templatePreheader,
-    projectId,
-    hasAiProvider,
   };
 
   useEffect(() => {
@@ -104,7 +101,6 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
 
     setDesign(initialDesignRef.current);
     setTemplateId(templateId);
-    setProjectInfo(meta.projectId, meta.hasAiProvider);
     setTemplateMetadata(
       meta.templateName,
       meta.templateSubject,
@@ -116,7 +112,6 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
     templateId,
     setDesign,
     setTemplateId,
-    setProjectInfo,
     setTemplateMetadata,
   ]);
 
@@ -158,24 +153,32 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
     setSavedRowCallbacks,
   ]);
 
-  if (!isMounted) {
-    return (
-      <div className="senlo-editor-container">
-        <EditorHeader projectId={projectId} />
-        <div className="senlo-editor-root">
-          <aside className="senlo-editor-sidebar">
-            <Sidebar />
-          </aside>
-          <main className="senlo-editor-canvas">
-            <EmailCanvas />
-          </main>
-          <aside className="senlo-editor-inspector">
-            <PropsManager />
-          </aside>
-        </div>
-      </div>
-    );
-  }
+  const host = useMemo<EditorHost>(
+    () => ({ baseUrl, hasAiProvider, onNavigate, uploadImage, generateWithAi }),
+    [baseUrl, hasAiProvider, onNavigate, uploadImage, generateWithAi],
+  );
 
-  return <DndEditorContent projectId={projectId} />;
+  return (
+    <EditorHostProvider value={host}>
+      {isMounted ? <DndEditorContent /> : <EditorPlaceholder />}
+    </EditorHostProvider>
+  );
 };
+
+/** Static first paint until the document is in the store (no drag and drop). */
+const EditorPlaceholder = () => (
+  <div className="senlo-editor-container">
+    <EditorHeader />
+    <div className="senlo-editor-root">
+      <aside className="senlo-editor-sidebar">
+        <Sidebar />
+      </aside>
+      <main className="senlo-editor-canvas">
+        <EmailCanvas />
+      </main>
+      <aside className="senlo-editor-inspector">
+        <PropsManager />
+      </aside>
+    </div>
+  </div>
+);

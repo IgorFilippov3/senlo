@@ -77,10 +77,6 @@ export interface EditorState {
   design: EmailDesignDocument;
   /** Database ID of the template being edited, null for new templates */
   templateId: number | null;
-  /** Database ID of the project the template belongs to */
-  projectId: number | null;
-  /** Whether the project has an AI provider configured */
-  hasAiProvider: boolean;
   /** Display name of the template */
   templateName: string;
   /** Email subject line for the template */
@@ -168,8 +164,6 @@ export interface EditorState {
   updateDesignFromAi: (design: EmailDesignDocument) => void;
   /** Set the template database ID */
   setTemplateId: (id: number) => void;
-  /** Set the project database ID and AI provider status */
-  setProjectInfo: (projectId: number, hasAiProvider: boolean) => void;
   /** Update template name and subject line */
   setTemplateMetadata: (
     name: string,
@@ -444,8 +438,6 @@ export const useEditorStore = create<EditorState>()(
   immer((set, get) => ({
     design: EMPTY_EMAIL_DESIGN,
     templateId: null,
-    projectId: null,
-    hasAiProvider: false,
     selection: null,
     activeSidebarTab: "rows",
     isDragActive: false,
@@ -542,13 +534,6 @@ export const useEditorStore = create<EditorState>()(
     setTemplateId: (id) => {
       set((s) => {
         s.templateId = id;
-      });
-    },
-
-    setProjectInfo: (projectId, hasAiProvider) => {
-      set((s) => {
-        s.projectId = projectId;
-        s.hasAiProvider = hasAiProvider;
       });
     },
 

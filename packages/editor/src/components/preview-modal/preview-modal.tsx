@@ -9,6 +9,7 @@ import {
   withProgressPreviewStatus,
 } from "@senlo/core";
 import { useEditorStore } from "../../state/editor.store";
+import { useEditorHost } from "../../host";
 import styles from "./preview-modal.module.css";
 import { cn } from "@senlo/ui";
 
@@ -21,6 +22,7 @@ type ViewMode = "desktop" | "mobile";
 
 export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
   const design = useEditorStore((s) => s.design);
+  const { baseUrl } = useEditorHost();
   const previewContact = useEditorStore((s) => s.previewContact);
   const setPreviewContact = useEditorStore((s) => s.setPreviewContact);
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
@@ -44,8 +46,7 @@ export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
     if (!isOpen) return "";
 
     const options: RenderOptions = {
-      baseUrl:
-        typeof window !== "undefined" ? window.location.origin : undefined,
+      baseUrl,
       // A progress bar whose status the mock data does not carry would be
       // hidden, as in a real message. The preview fills that status in from
       // the step marked active in the canvas, so it shows the bar the author
@@ -64,7 +65,7 @@ export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
     };
 
     return renderEmailDesign(design, options);
-  }, [design, isOpen, previewContact]);
+  }, [baseUrl, design, isOpen, previewContact]);
 
   const viewOptions = [
     { value: "desktop", icon: <Monitor size={18} />, label: "Desktop" },

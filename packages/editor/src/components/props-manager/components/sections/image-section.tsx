@@ -37,6 +37,7 @@ import {
 } from "./defaults/image";
 import { DEFAULT_PADDING } from "./defaults/common";
 import { ConditionSection } from "./condition-section";
+import { useEditorHost } from "../../../../host";
 
 interface ImageSectionProps {
   block: ImageBlock;
@@ -48,36 +49,27 @@ export const ImageSection = ({ block }: ImageSectionProps) => {
     schema: imageSchema,
   });
 
+  const { uploadImage } = useEditorHost();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !uploadImage) return;
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
+    setUploadError(null);
     try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Upload failed");
-      }
-
-      const data = await response.json();
-      setValue("src", data.url as any, {
+      const url = await uploadImage(file);
+      setValue("src", url as any, {
         shouldValidate: true,
         shouldDirty: true,
       });
     } catch (error) {
-      console.error("Upload failed", error);
-      alert(error instanceof Error ? error.message : "Failed to upload image");
+      setUploadError(
+        error instanceof Error && error.message ? error.message : "Failed to upload image",
+      );
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -113,33 +105,40 @@ export const ImageSection = ({ block }: ImageSectionProps) => {
 
   return (
     <FormSection title="Image Settings">
-      <FormField label="Image URL" error={errors.src?.message as string}>
+      <FormField
+        label="Image URL"
+        error={uploadError ?? (errors.src?.message as string)}
+      >
         <div className="flex gap-2">
           <Input
             {...register("src")}
             placeholder="https://example.com/image.jpg"
             className="flex-1"
           />
-          <Button
-            size="icon"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            title="Upload image"
-          >
-            {isUploading ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Upload size={16} />
-            )}
-          </Button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/*"
-            onChange={handleUpload}
-          />
+          {uploadImage && (
+            <>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                title="Upload image"
+              >
+                {isUploading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Upload size={16} />
+                )}
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleUpload}
+              />
+            </>
+          )}
         </div>
       </FormField>
 

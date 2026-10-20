@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { EditorLayout } from "@senlo/editor";
+import { Editor } from "@/components/editor/editor";
 import {
   saveTemplateFromEditor,
   sendTestEmailAction,
@@ -9,6 +9,7 @@ import {
 } from "./actions";
 import { requireUserId } from "@/lib/session";
 import { getServices } from "@/lib/services";
+import { getConfig } from "@/lib/config";
 
 interface EditorPageProps {
   params: Promise<{ id: string }>;
@@ -20,6 +21,7 @@ export default async function EditorIdPage({ params, searchParams }: EditorPageP
   const { campaignId: campaignIdParam } = await searchParams;
 
   const templateId = Number(idParam);
+  const campaignId = campaignIdParam ? Number(campaignIdParam) : null;
   if (!templateId || Number.isNaN(templateId)) {
     notFound();
   }
@@ -31,7 +33,7 @@ export default async function EditorIdPage({ params, searchParams }: EditorPageP
       getServices().template.loadEditorData(
         userId,
         templateId,
-        campaignIdParam ? Number(campaignIdParam) : null,
+        campaignId,
       ),
     )
     .catch(() => null);
@@ -42,10 +44,12 @@ export default async function EditorIdPage({ params, searchParams }: EditorPageP
   const { template, project, design, mergeTags } = data;
 
   return (
-    <EditorLayout
+    <Editor
       initialDesign={design}
       templateId={templateId}
       projectId={template.projectId}
+      campaignId={campaignId}
+      baseUrl={getConfig().appUrl}
       hasAiProvider={!!project.aiProviderId}
       templateName={template.name}
       templateSubject={template.subject}

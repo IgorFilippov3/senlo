@@ -5,13 +5,15 @@ import { Bot } from "lucide-react";
 import { Button, EmptyState } from "@senlo/ui";
 import styles from "./ai-section.module.css";
 import { useEditorStore } from "../../../../state/editor.store";
+import { useEditorHost } from "../../../../host";
+import { useLeaveEditor } from "../../../../hooks/use-leave-editor";
 
 export const AiSection = () => {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const hasAiProvider = useEditorStore((s) => s.hasAiProvider);
-  const projectId = useEditorStore((s) => s.projectId);
+  const { hasAiProvider, generateWithAi } = useEditorHost();
+  const leave = useLeaveEditor();
   const design = useEditorStore((s) => s.design);
   const setDesign = useEditorStore((s) => s.setDesign);
   const updateDesignFromAi = useEditorStore((s) => s.updateDesignFromAi);
@@ -19,7 +21,7 @@ export const AiSection = () => {
 
   const isEditing = design.rows.length > 0;
 
-  if (!hasAiProvider) {
+  if (!hasAiProvider || !generateWithAi) {
     return (
       <div className={styles.aiSection}>
         <div className={styles.title}>AI Assistant</div>
@@ -29,15 +31,15 @@ export const AiSection = () => {
           description="To enable AI template generation and editing, please connect an AI provider in your workspace settings."
           className="border-dashed border-2 py-10"
           action={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                (window.location.href = `/workspace/${projectId}/templates`)
-              }
-            >
-              Configure Workspace
-            </Button>
+            leave && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => leave("ai-settings")}
+              >
+                Configure Workspace
+              </Button>
+            )
           }
         />
       </div>
@@ -52,36 +54,19 @@ export const AiSection = () => {
     setError(null);
 
     try {
-      const response = await fetch("/api/ai/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-          projectId,
-          currentDesign: isEditing ? design : undefined,
-        }),
+      const generated = await generateWithAi({
+        prompt,
+        currentDesign: isEditing ? design : undefined,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate template");
-      }
-
-      if (data.design) {
-        if (isEditing) {
-          updateDesignFromAi(data.design);
-        } else {
-          setDesign(data.design);
-        }
-        setPrompt("");
+      if (isEditing) {
+        updateDesignFromAi(generated);
       } else {
-        throw new Error("Invalid response from AI");
+        setDesign(generated);
       }
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      setPrompt("");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Something went wrong");
     } finally {
       setIsLoading(false);
       setIsAiGenerating(false);

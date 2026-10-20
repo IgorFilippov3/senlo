@@ -3,21 +3,23 @@
 import React, { useMemo } from "react";
 import { RowBlock, renderRow, RenderContext } from "@senlo/core";
 import styles from "./row-thumbnail.module.css";
+import { useEditorHost } from "../../../../host";
 
 interface RowThumbnailProps {
   row: RowBlock;
 }
 
 export const RowThumbnail = ({ row }: RowThumbnailProps) => {
+  const { baseUrl } = useEditorHost();
   const html = useMemo(() => {
     const context: RenderContext = {
       responsiveStyles: [],
       options: {
-        baseUrl: typeof window !== "undefined" ? window.location.origin : undefined,
+        baseUrl,
       },
     };
     return renderRow(row, context);
-  }, [row]);
+  }, [baseUrl, row]);
 
   return (
     <div className={styles.thumbnailContainer}>

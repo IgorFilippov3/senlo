@@ -16,16 +16,13 @@ import { useEditorStore } from "../../state/editor.store";
 import { renderEmailDesign } from "@senlo/core";
 import { Button, Dialog, FormField, Input } from "@senlo/ui";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { ExportModal } from "../export-modal/export-modal";
 import { PreviewModal } from "../preview-modal/preview-modal";
 import { TestSendModal } from "../test-send-modal/test-send-modal";
+import { useEditorHost } from "../../host";
+import { useLeaveEditor } from "../../hooks/use-leave-editor";
 
-interface EditorHeaderProps {
-  projectId: number;
-}
-
-export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
+export const EditorHeader = () => {
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const design = useEditorStore((s) => s.design);
@@ -45,9 +42,8 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
   const previewMode = useEditorStore((s) => s.previewMode);
   const setPreviewMode = useEditorStore((s) => s.setPreviewMode);
 
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const campaignId = searchParams.get("campaignId");
+  const { baseUrl } = useEditorHost();
+  const leave = useLeaveEditor();
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -75,21 +71,6 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
   const canUndo = historyPast.length > 0;
   const canRedo = historyFuture.length > 0;
 
-  const handleBackClick = () => {
-    if (isDirty) {
-      const confirmLeave = window.confirm(
-        "You have unsaved changes. Are you sure you want to leave?",
-      );
-      if (!confirmLeave) return;
-    }
-
-    if (campaignId) {
-      router.push(`/workspace/${projectId}/triggers/${campaignId}`);
-    } else {
-      router.push(`/workspace/${projectId}/templates`);
-    }
-  };
-
   const handleUndoClick = () => {
     undo();
   };
@@ -105,7 +86,7 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
     setSaveError(null);
     try {
       const options = {
-        baseUrl: window.location.origin,
+        baseUrl,
         preheader: templatePreheader,
         title: templateSubject,
       };
@@ -144,7 +125,7 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
     setSettingsError(null);
     try {
       const options = {
-        baseUrl: window.location.origin,
+        baseUrl,
         preheader: editPreheader,
         title: editSubject,
       };
@@ -175,13 +156,15 @@ export const EditorHeader = ({ projectId }: EditorHeaderProps) => {
   return (
     <header className={styles.header}>
       <div className={styles.content}>
-        <button
-          className={styles.backButton}
-          onClick={handleBackClick}
-          title="Go back"
-        >
-          <ArrowLeft size={22} />
-        </button>
+        {leave && (
+          <button
+            className={styles.backButton}
+            onClick={() => leave("back")}
+            title="Go back"
+          >
+            <ArrowLeft size={22} />
+          </button>
+        )}
 
         <h1 className={styles.title}>
           <strong>{templateName || "Untitled Template"}</strong>

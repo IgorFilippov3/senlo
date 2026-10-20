@@ -6,6 +6,7 @@ import { Code, Copy, Check, FileCode } from "lucide-react";
 import styles from "./export-modal.module.css";
 import { renderEmailDesign, renderEmailDesignMJML } from "@senlo/core";
 import { useEditorStore } from "../../state/editor.store";
+import { useEditorHost } from "../../host";
 import { cn } from "@senlo/ui";
 
 interface ExportModalProps {
@@ -15,10 +16,11 @@ interface ExportModalProps {
 
 export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
   const design = useEditorStore((s) => s.design);
+  const { baseUrl } = useEditorHost();
   const [copiedType, setCopiedType] = useState<"html" | "mjml" | null>(null);
 
   const handleCopy = async (type: "html" | "mjml") => {
-    const options = { baseUrl: window.location.origin };
+    const options = { baseUrl };
     const content =
       type === "html"
         ? renderEmailDesign(design, options)

@@ -130,14 +130,11 @@ describe("template metadata", () => {
   });
 });
 
-describe("template and project ids", () => {
-  it("are stored", () => {
+describe("template id", () => {
+  it("is stored", () => {
     store().setTemplateId(42);
-    store().setProjectInfo(7, true);
 
     expect(store().templateId).toBe(42);
-    expect(store().projectId).toBe(7);
-    expect(store().hasAiProvider).toBe(true);
   });
 });
 
@@ -229,17 +226,15 @@ describe("resetEditor", () => {
   });
 
   it("keeps what belongs to the page rather than the document", () => {
-    // Current behaviour: the callbacks, the project and the template's name
+    // Current behaviour: the callbacks and the template's name
     // survive a reset - the layout sets them again on mount.
     const onSave = vi.fn();
     store().setOnSave(onSave as any);
-    store().setProjectInfo(7, true);
     store().setTemplateMetadata("Welcome", "Hi");
 
     store().resetEditor();
 
     expect(store().onSave).toBe(onSave);
-    expect(store().projectId).toBe(7);
     expect(store().templateName).toBe("Welcome");
   });
 });
