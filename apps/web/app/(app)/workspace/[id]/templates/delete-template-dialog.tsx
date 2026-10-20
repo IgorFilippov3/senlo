@@ -3,7 +3,7 @@
 import { Button, Dialog } from "@senlo/ui";
 import { EmailTemplate } from "@senlo/core";
 import { logger } from "apps/web/lib/logger";
-import { useDeleteTemplate } from "apps/web/queries/templates";
+import { useDeleteTemplate } from "@senlo/features";
 
 interface DeleteTemplateDialogProps {
   template: EmailTemplate;
@@ -22,7 +22,7 @@ export default function DeleteTemplateDialog({
 
   const confirmDelete = async () => {
     deleteTemplate(
-      { projectId: projectId.toString(), templateId: template.id },
+      { projectId, templateId: template.id },
       {
         onSuccess: () => {
           onClose();

@@ -1,9 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { TriggerWizard as SharedTriggerWizard, type TriggerWizardValues } from "@senlo/features";
-import { useProjectTemplates } from "apps/web/queries/templates";
-import { useCreateTriggeredCampaign } from "apps/web/queries/campaigns";
+import {
+  TriggerWizard as SharedTriggerWizard,
+  type TriggerWizardValues,
+  useProjectTemplates,
+  useCreateTriggeredCampaign,
+} from "@senlo/features";
 
 interface TriggerWizardProps {
   projectId: number;
@@ -12,7 +15,7 @@ interface TriggerWizardProps {
 
 export function TriggerWizard({ projectId, projectName }: TriggerWizardProps) {
   const router = useRouter();
-  const { data: templates = [], isLoading } = useProjectTemplates({ projectId });
+  const { data: templates = [], isLoading } = useProjectTemplates(projectId);
   const create = useCreateTriggeredCampaign();
 
   const handleSubmit = (values: TriggerWizardValues) => {

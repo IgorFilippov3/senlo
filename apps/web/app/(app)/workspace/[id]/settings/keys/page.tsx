@@ -7,18 +7,16 @@ import {
   useApiKeys,
   useCreateApiKey,
   useDeleteApiKey,
-} from "apps/web/queries/api-keys";
-import { ApiKeysList, useCurrentWorkspace } from "@senlo/features";
+  ApiKeysList,
+  useCurrentWorkspace,
+} from "@senlo/features";
 
 export default function ApiKeysPage() {
   const params = useParams();
   const workspaceId = Number(params.id);
   const workspace = useCurrentWorkspace();
 
-  const { data: keys = [], isLoading: keysLoading } = useApiKeys(
-    workspaceId,
-    !!workspaceId,
-  );
+  const { data: keys = [], isLoading: keysLoading } = useApiKeys(workspaceId);
 
   const createApiKeyMutation = useCreateApiKey();
   const deleteApiKeyMutation = useDeleteApiKey();

@@ -1,8 +1,7 @@
 "use client";
 
 import type { Campaign } from "@senlo/core";
-import { DeleteTriggerDialog as SharedDeleteTriggerDialog } from "@senlo/features";
-import { useDeleteCampaign } from "apps/web/queries/campaigns";
+import { DeleteTriggerDialog as SharedDeleteTriggerDialog, useDeleteCampaign } from "@senlo/features";
 
 interface DeleteTriggerDialogProps {
   campaign: Campaign;

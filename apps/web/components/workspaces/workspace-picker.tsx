@@ -1,14 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { WorkspacePicker as SharedWorkspacePicker, workspaceHomePath } from "@senlo/features";
-import { useDialogStore } from "apps/web/providers/dialogs/store";
-import { useProjects } from "apps/web/queries/projects";
+import {
+  WorkspacePicker as SharedWorkspacePicker,
+  workspaceHomePath,
+  useProjects,
+} from "@senlo/features";
+import { useDialogs } from "apps/web/providers/dialogs/store";
 
 export function WorkspacePicker() {
   const router = useRouter();
   const { data: workspaces = [], isLoading, error, refetch } = useProjects();
-  const openDialog = useDialogStore((state) => state.open);
+  const { open: openDialog } = useDialogs();
 
   return (
     <SharedWorkspacePicker

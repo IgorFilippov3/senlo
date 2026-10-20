@@ -22,13 +22,13 @@ export async function listProviders(): Promise<ActionResult<PublicEmailProvider[
 }
 
 export async function createProviderAction(
-  formData: FormData,
+  input: Record<string, unknown>,
 ): Promise<ProviderFormResult> {
   return withFormErrors(async () => {
     const userId = await requireUserId();
     const provider = await getServices().emailProvider.create(
       userId,
-      Object.fromEntries(formData),
+      input,
     );
     revalidatePath("/providers");
     return provider;
@@ -37,14 +37,14 @@ export async function createProviderAction(
 
 export async function updateProviderAction(
   id: number,
-  formData: FormData,
+  input: Record<string, unknown>,
 ): Promise<ProviderFormResult> {
   return withFormErrors(async () => {
     const userId = await requireUserId();
     const provider = await getServices().emailProvider.update(
       userId,
       id,
-      Object.fromEntries(formData),
+      input,
     );
     revalidatePath("/providers");
     return provider;

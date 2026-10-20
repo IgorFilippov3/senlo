@@ -1,10 +1,12 @@
 "use client";
 
 import type { Project } from "@senlo/core";
-import { EditWorkspaceDialog as SharedEditWorkspaceDialog } from "@senlo/features";
-import { useAiProviders } from "apps/web/queries/ai-providers";
-import { useUpdateProject } from "apps/web/queries/projects";
-import { useProviders } from "apps/web/queries/providers";
+import {
+  EditWorkspaceDialog as SharedEditWorkspaceDialog,
+  useAiProviders,
+  useUpdateProject,
+  useProviders,
+} from "@senlo/features";
 import { renderProvidersLink } from "./providers-link";
 
 interface EditWorkspaceDialogProps {

@@ -1,7 +1,6 @@
 "use client";
 
-import { AiProviderDialog } from "@senlo/features";
-import { useCreateAiProvider } from "apps/web/queries/ai-providers";
+import { AiProviderDialog, useCreateAiProvider } from "@senlo/features";
 
 export default function AddAiProviderDialog({
   isOpen,
@@ -16,7 +15,9 @@ export default function AddAiProviderDialog({
     <AiProviderDialog
       isOpen={isOpen}
       onClose={onClose}
-      onSubmit={(formData) => create.mutate(formData, { onSuccess: onClose })}
+      onSubmit={(formData) =>
+        create.mutate(Object.fromEntries(formData), { onSuccess: onClose })
+      }
       isSubmitting={create.isPending}
       error={create.error?.message}
     />

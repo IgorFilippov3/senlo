@@ -4,7 +4,13 @@
  */
 
 import { NextResponse } from "next/server";
-import { AppError, FormValidationError, ValidationError, type ErrorCode } from "@senlo/core";
+import {
+  AppError,
+  FormValidationError,
+  ValidationError,
+  type ActionResult,
+  type FormActionResult,
+} from "@senlo/core";
 
 // The error classes live in core so services can throw them and every app
 // maps them the same way. Re-exported here for existing imports.
@@ -19,22 +25,8 @@ export {
   type ErrorCode,
 } from "@senlo/core";
 
-/**
- * Serializable error type for client components
- */
-export type SerializableError = {
-  code: ErrorCode;
-  message: string;
-  details?: Record<string, any>;
-  statusCode: number;
-};
-
-/**
- * Result type for Server Actions that can fail
- */
-export type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: SerializableError };
+// Result shapes are shared with the client data layer in features.
+export type { SerializableError, ActionResult, FormActionResult } from "@senlo/core";
 
 /**
  * Wraps Server Action execution with error handling
@@ -67,14 +59,6 @@ export async function withErrorHandling<T>(
     return { success: false, error: appError.toJSON() };
   }
 }
-
-/**
- * Result type for Server Actions behind a form: errors come back per field,
- * in zod's flattened shape, so the form can show them next to the inputs.
- */
-export type FormActionResult<T, F extends string = string> =
-  | { success: true; data: T }
-  | { error: { formErrors: string[]; fieldErrors: Partial<Record<F, string[]>> } };
 
 /**
  * Wraps a form Server Action. A `FormValidationError` from a service keeps

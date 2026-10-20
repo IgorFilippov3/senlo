@@ -2,11 +2,15 @@
 
 import { PageHeader, Button } from "@senlo/ui";
 import Link from "next/link";
-import { useProject } from "apps/web/queries/projects";
-import { useProjectTemplates } from "apps/web/queries/templates";
-import { TemplatesList, PageSkeleton, ErrorScreen } from "@senlo/features";
+import {
+  useProject,
+  useProjectTemplates,
+  TemplatesList,
+  PageSkeleton,
+  ErrorScreen,
+} from "@senlo/features";
 import { renderLink } from "apps/web/components/link";
-import { useDialogStore } from "apps/web/providers/dialogs/store";
+import { useDialogs } from "apps/web/providers/dialogs/store";
 import { Settings2, Plus } from "lucide-react";
 import { EmailTemplate } from "@senlo/core";
 
@@ -21,12 +25,10 @@ export default function ProjectPage({ projectId }: ProjectPageClientProps) {
     error: projectError,
   } = useProject(Number(projectId));
 
-  const openDialog = useDialogStore((state) => state.open);
+  const { open: openDialog } = useDialogs();
 
   const { data: templates = [], isLoading: templatesLoading } =
-    useProjectTemplates({
-      projectId: project?.id || 0,
-    });
+useProjectTemplates(project?.id || 0);
 
   if (projectLoading || templatesLoading) {
     return <PageSkeleton variant="cards" />;
@@ -79,7 +81,7 @@ openDialog("EDIT_WORKSPACE", { project })
               Edit Workspace
             </Button>
             <Button
-              onClick={() => openDialog("CREATE_TEMPLATE", { projectId })}
+              onClick={() => openDialog("CREATE_TEMPLATE", { projectId: project.id })}
             >
               <Plus size={16} />
               New Template

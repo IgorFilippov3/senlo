@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import type { Workflow, WorkflowEdge, WorkflowNode } from "@senlo/core";
 import { validateWorkflowGraph } from "@senlo/core";
 import { AutomationBuilder, useAutomationStore } from "@senlo/automation-builder";
-import { WorkflowEditorShell } from "@senlo/features";
-import { useProjectCampaigns } from "apps/web/queries/campaigns";
 import {
+  WorkflowEditorShell,
+  useProjectCampaigns,
   WorkflowNotReadyError,
   useSaveWorkflowGraph,
   useSetWorkflowStatus,
   useWorkflowStats,
-} from "apps/web/queries/automations";
+} from "@senlo/features";
 
 interface WorkflowEditorProps {
   workflow: Workflow;

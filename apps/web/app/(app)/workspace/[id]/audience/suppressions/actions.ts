@@ -6,15 +6,6 @@ import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
 import { requireUserId } from "apps/web/lib/session";
 import { getServices } from "apps/web/lib/services";
 
-export async function listAllSuppressions(): Promise<
-  ActionResult<(Suppression & { projectName: string })[]>
-> {
-  return withErrorHandling(async () => {
-    const userId = await requireUserId();
-    return getServices().audience.listAllSuppressions(userId);
-  });
-}
-
 export async function listProjectSuppressions(
   projectId: number,
 ): Promise<ActionResult<Suppression[]>> {

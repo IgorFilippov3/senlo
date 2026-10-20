@@ -4,13 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Workflow } from "@senlo/core";
 import { Button } from "@senlo/ui";
-import { DeleteWorkflowDialog, GoLiveErrorsDialog, WorkflowList } from "@senlo/features";
 import {
+  DeleteWorkflowDialog,
+  GoLiveErrorsDialog,
+  WorkflowList,
   WorkflowNotReadyError,
   useDeleteWorkflow,
   useProjectWorkflows,
   useSetWorkflowStatus,
-} from "apps/web/queries/automations";
+} from "@senlo/features";
 
 export function WorkflowsList({ projectId }: { projectId: number }) {
   const { data: workflows = [], isLoading } = useProjectWorkflows(projectId);

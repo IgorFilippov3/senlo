@@ -11,13 +11,11 @@ import {
   TriggerDetailsView,
   type AnalyticsPeriod,
   type DeliveryLogFilter,
-} from "@senlo/features";
-import {
   useCampaignEvents,
   useCampaignLinkStats,
   useCampaignTimeSeries,
-} from "apps/web/queries/campaigns";
-import { useDialogStore } from "apps/web/providers/dialogs/store";
+} from "@senlo/features";
+import { useDialogs } from "apps/web/providers/dialogs/store";
 
 const LOGS_PAGE_SIZE = 30;
 const POLL_INTERVAL_MS = 3000;
@@ -31,7 +29,7 @@ interface TriggerDetailsProps {
 
 export function TriggerDetails({ details, apiEndpointUrl, defaultFromEmail }: TriggerDetailsProps) {
   const { campaign, project, template, stats } = details;
-  const openDialog = useDialogStore((state) => state.open);
+  const { open: openDialog } = useDialogs();
   useRefreshWhileSending(campaign.status);
 
   return (

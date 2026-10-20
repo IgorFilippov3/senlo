@@ -1,24 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Workflow } from "@senlo/core";
-import {
-  createWorkflow,
-  deleteWorkflow,
-  getWorkflowStats,
-  listWorkflows,
-  saveWorkflowGraph,
-  updateWorkflowStatus,
-} from "apps/web/app/(app)/workspace/[id]/automations/actions";
-import type { ActionResult } from "apps/web/lib/errors";
-import { unwrap } from "./result";
+"use client";
 
-export const automationKeys = {
-  all: ["automations"] as const,
-  lists: () => [...automationKeys.all, "list"] as const,
-  list: (projectId: number) => [...automationKeys.lists(), projectId] as const,
-  details: () => [...automationKeys.all, "detail"] as const,
-  detail: (id: number) => [...automationKeys.details(), id] as const,
-  stats: (id: number) => [...automationKeys.detail(id), "stats"] as const,
-};
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ActionResult, Workflow } from "@senlo/core";
+import { useSenloActions } from "./provider";
+import { queryKeys } from "./query-keys";
+import { unwrap } from "./result";
 
 /** The server refused to activate: `reasons` lists what to fix in the graph. */
 export class WorkflowNotReadyError extends Error {
@@ -38,9 +24,10 @@ function unwrapWorkflow<T>(result: ActionResult<T>): T {
 }
 
 export function useProjectWorkflows(projectId: number) {
+  const actions = useSenloActions();
   return useQuery({
-    queryKey: automationKeys.list(projectId),
-    queryFn: async () => unwrap(await listWorkflows(projectId)),
+    queryKey: queryKeys.workflows.byProject(projectId),
+    queryFn: async () => unwrap(await actions.workflows.list(projectId)),
     enabled: !!projectId,
   });
 }
@@ -49,9 +36,10 @@ export function useWorkflowStats(
   workflowId: number,
   options?: { enabled?: boolean; refetchInterval?: number },
 ) {
+  const actions = useSenloActions();
   return useQuery({
-    queryKey: automationKeys.stats(workflowId),
-    queryFn: async () => unwrap(await getWorkflowStats(workflowId)),
+    queryKey: queryKeys.workflows.stats(workflowId),
+    queryFn: async () => unwrap(await actions.workflows.stats(workflowId)),
     enabled: options?.enabled,
     refetchInterval: options?.refetchInterval,
   });
@@ -59,31 +47,34 @@ export function useWorkflowStats(
 
 function useInvalidateWorkflows() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: automationKeys.lists() });
+  return () => queryClient.invalidateQueries({ queryKey: queryKeys.workflows.lists() });
 }
 
 export function useCreateWorkflow(projectId: number) {
+  const actions = useSenloActions();
   const invalidate = useInvalidateWorkflows();
   return useMutation({
     mutationFn: async (name: string): Promise<Workflow> =>
-      unwrapWorkflow(await createWorkflow(projectId, name)),
+      unwrapWorkflow(await actions.workflows.create(projectId, name)),
     onSettled: invalidate,
   });
 }
 
 export function useSaveWorkflowGraph(workflowId: number) {
+  const actions = useSenloActions();
   return useMutation({
     mutationFn: async (graph: { nodes: unknown[]; edges: unknown[] }) =>
-      unwrapWorkflow(await saveWorkflowGraph(workflowId, graph.nodes, graph.edges)),
+      unwrapWorkflow(await actions.workflows.saveGraph(workflowId, graph)),
   });
 }
 
 /** Rejects with `WorkflowNotReadyError` when the saved graph cannot go live. */
 export function useSetWorkflowStatus() {
+  const actions = useSenloActions();
   const invalidate = useInvalidateWorkflows();
   return useMutation({
     mutationFn: async ({ id, status }: { id: number; status: Workflow["status"] }) => {
-      unwrapWorkflow(await updateWorkflowStatus(id, status));
+      unwrapWorkflow(await actions.workflows.setStatus(id, status));
       return status;
     },
     onSettled: invalidate,
@@ -91,9 +82,10 @@ export function useSetWorkflowStatus() {
 }
 
 export function useDeleteWorkflow() {
+  const actions = useSenloActions();
   const invalidate = useInvalidateWorkflows();
   return useMutation({
-    mutationFn: async (id: number) => unwrapWorkflow(await deleteWorkflow(id)),
+    mutationFn: async (id: number) => unwrapWorkflow(await actions.workflows.delete(id)),
     onSettled: invalidate,
   });
 }

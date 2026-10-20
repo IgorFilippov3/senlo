@@ -2,8 +2,7 @@
 
 import React, { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { WorkspaceScope, useRememberedWorkspace } from "@senlo/features";
-import { useProjects } from "apps/web/queries/projects";
+import { WorkspaceScope, useRememberedWorkspace, useProjects } from "@senlo/features";
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();

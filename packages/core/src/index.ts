@@ -20,6 +20,7 @@ export * from "./renderer/types";
 export * from "./ports";
 export * from "./constants";
 export * from "./errors";
+export * from "./action-result";
 export * from "./validation";
 export * from "./routes";
 export * from "./api-auth";

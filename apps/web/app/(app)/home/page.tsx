@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useProjects } from "apps/web/queries/projects";
 import {
+  useProjects,
   LoadingScreen,
   pickStartWorkspace,
   useRememberedWorkspace,

@@ -1,12 +1,8 @@
 "use client";
 
-import React, { lazy, Suspense } from "react";
-import { useDialogStore, DialogType, DialogPropsMap } from "./store";
-
-type DialogComponentProps<T extends DialogType> = DialogPropsMap[T] & {
-  isOpen: boolean;
-  onClose: () => void;
-};
+import { lazy } from "react";
+import type { DialogComponents } from "@senlo/features";
+import { DialogHost, type DialogPropsMap } from "./store";
 
 const EditTriggerConfigDialog = lazy(
   () => import("../../components/triggers/edit-trigger-dialog"),
@@ -48,9 +44,7 @@ const DeleteAiProviderDialog = lazy(() =>
   })),
 );
 
-const dialogComponents: {
-  [K in DialogType]: React.ComponentType<DialogComponentProps<K>>;
-} = {
+const dialogComponents: DialogComponents<DialogPropsMap> = {
   EDIT_TRIGGER_CONFIG: EditTriggerConfigDialog,
   DELETE_TRIGGER: DeleteTriggerDialog,
   CREATE_WORKSPACE: CreateWorkspaceDialog,
@@ -66,16 +60,5 @@ const dialogComponents: {
 };
 
 export function DialogProvider() {
-  const { type, props, isOpen, close } = useDialogStore();
-
-  if (!isOpen || !type || !props) return null;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const Component = dialogComponents[type as DialogType] as any;
-
-  return (
-    <Suspense fallback={null}>
-      <Component {...props} isOpen={isOpen} onClose={close} />
-    </Suspense>
-  );
+  return <DialogHost components={dialogComponents} />;
 }

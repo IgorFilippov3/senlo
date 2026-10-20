@@ -2,8 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { Project } from "@senlo/core";
-import { DeleteWorkspaceDialog as SharedDeleteWorkspaceDialog } from "@senlo/features";
-import { useDeleteProject } from "apps/web/queries/projects";
+import { DeleteWorkspaceDialog as SharedDeleteWorkspaceDialog, useDeleteProject } from "@senlo/features";
 
 interface DeleteWorkspaceDialogProps {
   project: Project;

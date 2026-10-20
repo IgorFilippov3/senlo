@@ -1,11 +1,7 @@
 "use client";
 
 import { PageHeader } from "@senlo/ui";
-import { SuppressionList } from "@senlo/features";
-import {
-  useProjectSuppressions,
-  useDeleteSuppression,
-} from "apps/web/queries/suppressions";
+import { SuppressionList, useProjectSuppressions, useDeleteSuppression } from "@senlo/features";
 import { useParams } from "next/navigation";
 
 export default function SuppressionListPage() {

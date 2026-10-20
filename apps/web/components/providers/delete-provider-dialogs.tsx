@@ -1,9 +1,7 @@
 "use client";
 
 import type { UseMutationResult } from "@tanstack/react-query";
-import { DeleteProviderDialog } from "@senlo/features";
-import { useDeleteProvider } from "apps/web/queries/providers";
-import { useDeleteAiProvider } from "apps/web/queries/ai-providers";
+import { DeleteProviderDialog, useDeleteProvider, useDeleteAiProvider } from "@senlo/features";
 
 interface DeleteDialogProps {
   providerId: number;

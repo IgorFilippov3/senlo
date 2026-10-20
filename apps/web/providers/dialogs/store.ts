@@ -1,25 +1,14 @@
-import { create } from "zustand";
-import {
+"use client";
+
+import { createDialogs } from "@senlo/features";
+import type {
   Campaign,
   Project,
   EmailTemplate,
   PublicEmailProvider,
 } from "@senlo/core";
 
-export type DialogType =
-  | "EDIT_TRIGGER_CONFIG"
-  | "DELETE_TRIGGER"
-  | "CREATE_WORKSPACE"
-  | "EDIT_WORKSPACE"
-  | "DELETE_WORKSPACE"
-  | "CREATE_TEMPLATE"
-  | "DELETE_TEMPLATE"
-  | "ADD_PROVIDER"
-  | "EDIT_PROVIDER"
-  | "DELETE_PROVIDER"
-  | "ADD_AI_PROVIDER"
-  | "DELETE_AI_PROVIDER";
-
+/** Every dialog the app can open, with the props it takes. */
 export interface DialogPropsMap {
   EDIT_TRIGGER_CONFIG: {
     campaign: Campaign;
@@ -37,7 +26,7 @@ export interface DialogPropsMap {
     project: Project;
   };
   CREATE_TEMPLATE: {
-    projectId: string;
+    projectId: number;
   };
   DELETE_TEMPLATE: {
     template: EmailTemplate;
@@ -58,23 +47,6 @@ export interface DialogPropsMap {
   };
 }
 
-interface DialogState<T extends DialogType = DialogType> {
-  type: T | null;
-  props: DialogPropsMap[T] | null;
-  isOpen: boolean;
-  open: <K extends DialogType>(type: K, props: DialogPropsMap[K]) => void;
-  close: () => void;
-}
+export type DialogName = keyof DialogPropsMap;
 
-export const useDialogStore = create<DialogState>((set) => ({
-  type: null,
-  props: null,
-  isOpen: false,
-  open: <K extends DialogType>(type: K, props: DialogPropsMap[K]): void =>
-    set({
-      type: type as DialogType,
-      props: props as DialogPropsMap[DialogType],
-      isOpen: true,
-    }),
-  close: (): void => set({ isOpen: false, type: null, props: null }),
-}));
+export const { useDialogs, DialogHost } = createDialogs<DialogPropsMap>();

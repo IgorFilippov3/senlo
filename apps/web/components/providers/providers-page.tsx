@@ -1,16 +1,20 @@
 "use client";
 
-import { ProvidersView } from "@senlo/features";
-import { useProviders, useToggleProvider } from "apps/web/queries/providers";
-import { useAiProviders, useToggleAiProvider } from "apps/web/queries/ai-providers";
-import { useDialogStore } from "apps/web/providers/dialogs/store";
+import {
+  ProvidersView,
+  useProviders,
+  useToggleProvider,
+  useAiProviders,
+  useToggleAiProvider,
+} from "@senlo/features";
+import { useDialogs } from "apps/web/providers/dialogs/store";
 
 export function ProvidersPage() {
   const email = useProviders();
   const ai = useAiProviders();
   const toggleEmail = useToggleProvider();
   const toggleAi = useToggleAiProvider();
-  const openDialog = useDialogStore((state) => state.open);
+  const { open: openDialog } = useDialogs();
 
   return (
     <ProvidersView

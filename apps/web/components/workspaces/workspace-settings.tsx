@@ -1,10 +1,13 @@
 "use client";
 
-import { WorkspaceSettings as SharedWorkspaceSettings, useCurrentWorkspace } from "@senlo/features";
-import { useDialogStore } from "apps/web/providers/dialogs/store";
-import { useAiProviders } from "apps/web/queries/ai-providers";
-import { useUpdateProject } from "apps/web/queries/projects";
-import { useProviders } from "apps/web/queries/providers";
+import {
+  WorkspaceSettings as SharedWorkspaceSettings,
+  useCurrentWorkspace,
+  useAiProviders,
+  useUpdateProject,
+  useProviders,
+} from "@senlo/features";
+import { useDialogs } from "apps/web/providers/dialogs/store";
 import { renderProvidersLink } from "./providers-link";
 
 export function WorkspaceSettings() {
@@ -12,7 +15,7 @@ export function WorkspaceSettings() {
   const { data: providers = [], isLoading: providersLoading } = useProviders();
   const { data: aiProviders = [], isLoading: aiProvidersLoading } = useAiProviders();
   const update = useUpdateProject();
-  const openDialog = useDialogStore((state) => state.open);
+  const { open: openDialog } = useDialogs();
 
   if (providersLoading || aiProvidersLoading) {
     return (

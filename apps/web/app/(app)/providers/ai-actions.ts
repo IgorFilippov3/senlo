@@ -25,13 +25,13 @@ export async function listAiProviders(): Promise<ActionResult<PublicAiProvider[]
 }
 
 export async function createAiProviderAction(
-  formData: FormData,
+  input: Record<string, unknown>,
 ): Promise<CreateAiProviderResult> {
   return withFormErrors(async () => {
     const userId = await requireUserId();
     const provider = await getServices().aiProvider.create(
       userId,
-      Object.fromEntries(formData),
+      input,
     );
     revalidatePath("/providers");
     return provider;

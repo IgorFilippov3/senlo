@@ -83,11 +83,11 @@ export async function createCampaignAction(
 
 export async function updateCampaignAction(
   id: number,
-  formData: FormData,
+  input: Record<string, unknown>,
 ): Promise<FormActionResult<Campaign, keyof UpdateTriggeredCampaignInput | "general">> {
   return withFormErrors(async () => {
     const userId = await requireUserId();
-    const campaign = await campaigns().updateTriggered(userId, id, Object.fromEntries(formData));
+    const campaign = await campaigns().updateTriggered(userId, id, input);
     revalidatePath(`/workspace/${campaign.projectId}/triggers/${id}`);
     revalidatePath(`/workspace/${campaign.projectId}/triggers`);
     return campaign;

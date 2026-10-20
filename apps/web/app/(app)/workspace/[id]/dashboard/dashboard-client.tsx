@@ -8,29 +8,20 @@ import {
   ActivityChart,
   EventFeed,
   LoadingState,
+  useDashboardData,
 } from "@senlo/features";
-import { useDashboardData } from "apps/web/queries/dashboard";
-import { DashboardStats, DashboardActivity, DashboardEvent } from "@senlo/core";
 
 export function DashboardClient({ projectId }: { projectId?: number }) {
   const [mounted, setMounted] = useState(false);
   const [days, setDays] = useState(7);
 
-  const { data, isLoading } = useDashboardData(projectId!, days, 8);
+  const { data: dashboardData, isLoading } = useDashboardData(projectId!, days, 8);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const dashboardData = data as
-    | {
-        stats: DashboardStats;
-        activity: DashboardActivity[];
-        events: DashboardEvent[];
-      }
-    | undefined;
-
-  if (!mounted || (isLoading && !dashboardData?.stats)) {
+  if (!mounted || isLoading) {
     return <LoadingState className="h-[60vh]" />;
   }
 

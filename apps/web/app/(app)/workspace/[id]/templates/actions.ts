@@ -6,23 +6,23 @@ import { ActionResult, validateId, withErrorHandling } from "apps/web/lib/errors
 import { requireUserId } from "apps/web/lib/session";
 import { getServices } from "apps/web/lib/services";
 
-export async function listProjectTemplates(id: string): Promise<ActionResult<EmailTemplate[]>> {
+export async function listProjectTemplates(projectId: number): Promise<ActionResult<EmailTemplate[]>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
-    return getServices().template.listProjectTemplates(userId, validateId(id, "projectId"));
+    return getServices().template.listProjectTemplates(userId, validateId(projectId, "projectId"));
   });
 }
 
 export async function createTemplate(
-  projectId: string,
-  formData: FormData,
+  projectId: number,
+  input: Record<string, unknown>,
 ): Promise<ActionResult<EmailTemplate>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
     const template = await getServices().template.create(
       userId,
       validateId(projectId, "projectId"),
-      Object.fromEntries(formData),
+      input,
     );
     revalidatePath(`/workspace/${projectId}/templates`);
     return template;
@@ -30,7 +30,7 @@ export async function createTemplate(
 }
 
 export async function deleteTemplate(
-  projectId: string,
+  projectId: number,
   templateId: number,
 ): Promise<ActionResult<void>> {
   return withErrorHandling(async () => {

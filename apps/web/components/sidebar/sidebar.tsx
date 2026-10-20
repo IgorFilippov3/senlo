@@ -1,9 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Sidebar as SharedSidebar, useRememberedWorkspace } from "@senlo/features";
+import { Sidebar as SharedSidebar, useRememberedWorkspace, useProjects } from "@senlo/features";
 import { logoutAction } from "apps/web/app/(auth)/actions";
-import { useProjects } from "apps/web/queries/projects";
 import { renderLink } from "apps/web/components/link";
 
 export function Sidebar() {

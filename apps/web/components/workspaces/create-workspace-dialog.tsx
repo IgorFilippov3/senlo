@@ -1,7 +1,6 @@
 "use client";
 
-import { CreateWorkspaceDialog as SharedCreateWorkspaceDialog } from "@senlo/features";
-import { useCreateProject } from "apps/web/queries/projects";
+import { CreateWorkspaceDialog as SharedCreateWorkspaceDialog, useCreateProject } from "@senlo/features";
 
 interface CreateWorkspaceDialogProps {
   isOpen: boolean;

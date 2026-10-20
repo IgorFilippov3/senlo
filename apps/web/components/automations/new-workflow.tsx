@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { NewWorkflowForm } from "@senlo/features";
-import { useCreateWorkflow } from "apps/web/queries/automations";
+import { NewWorkflowForm, useCreateWorkflow } from "@senlo/features";
 
 export function NewWorkflow({ projectId }: { projectId: number }) {
   const router = useRouter();

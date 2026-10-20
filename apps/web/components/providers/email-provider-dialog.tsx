@@ -1,8 +1,11 @@
 "use client";
 
 import type { PublicEmailProvider } from "@senlo/core";
-import { EmailProviderDialog as SharedEmailProviderDialog } from "@senlo/features";
-import { useCreateProvider, useUpdateProvider } from "apps/web/queries/providers";
+import {
+  EmailProviderDialog as SharedEmailProviderDialog,
+  useCreateProvider,
+  useUpdateProvider,
+} from "@senlo/features";
 
 interface EmailProviderDialogProps {
   /** Edits this provider; creates a new one when absent. */
@@ -18,9 +21,10 @@ export default function EmailProviderDialog({ provider, isOpen, onClose }: Email
   const mutation = provider ? update : create;
 
   const handleSubmit = (formData: FormData) => {
+    const values = Object.fromEntries(formData);
     const options = { onSuccess: onClose };
-    if (provider) update.mutate({ id: provider.id, formData }, options);
-    else create.mutate(formData, options);
+    if (provider) update.mutate({ id: provider.id, values }, options);
+    else create.mutate(values, options);
   };
 
   return (

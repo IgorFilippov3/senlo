@@ -1,11 +1,10 @@
 "use client";
 
-import { CreateTemplateDialog as SharedCreateTemplateDialog } from "@senlo/features";
-import { useCreateTemplate } from "apps/web/queries/templates";
+import { CreateTemplateDialog as SharedCreateTemplateDialog, useCreateTemplate } from "@senlo/features";
 import { logger } from "apps/web/lib/logger";
 
 interface CreateTemplateDialogProps {
-  projectId: string;
+  projectId: number;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -19,7 +18,7 @@ export default function CreateTemplateDialog({
 
   function handleSubmit(formData: FormData) {
     createTemplate(
-      { projectId, formData },
+      { projectId, values: Object.fromEntries(formData) },
       {
         onSuccess: () => {
           onClose();
