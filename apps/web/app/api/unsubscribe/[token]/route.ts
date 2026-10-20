@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServices } from "apps/web/lib/services";
-import { logger } from "apps/web/lib/logger";
-import { limitRequest } from "apps/web/lib/rate-limit";
+import { getServices } from "@/lib/services";
+import { logger } from "@/lib/logger";
+import { limitRequest } from "@/lib/rate-limit";
 
 /**
  * One-click unsubscribe. This is the address the List-Unsubscribe header

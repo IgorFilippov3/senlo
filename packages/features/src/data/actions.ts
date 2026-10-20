@@ -32,7 +32,6 @@ export type FormValues = Record<string, unknown>;
 export interface SenloActions {
   workspaces: {
     list(): Promise<ActionResult<Project[]>>;
-    get(projectId: number): Promise<ActionResult<Project>>;
     create(values: CreateWorkspaceValues): Promise<FormActionResult<Project>>;
     update(projectId: number, values: WorkspaceFormValues): Promise<FormActionResult<Project>>;
     delete(projectId: number): Promise<ActionResult<void>>;

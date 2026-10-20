@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "apps/web/auth";
-import { errorResponse } from "apps/web/lib/errors";
-import { logger } from "apps/web/lib/logger";
-import { limitRequest } from "apps/web/lib/rate-limit";
-import { getServices } from "apps/web/lib/services";
+import { auth } from "@/auth";
+import { errorResponse } from "@/lib/errors";
+import { logger } from "@/lib/logger";
+import { limitRequest } from "@/lib/rate-limit";
+import { getServices } from "@/lib/services";
 
 export async function POST(req: NextRequest) {
   const session = await auth();

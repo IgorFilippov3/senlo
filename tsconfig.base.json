@@ -13,37 +13,36 @@
       "react",
       "react-dom"
     ],
-    "baseUrl": ".",
     "paths": {
       "@senlo/ui": [
-        "packages/ui/src"
+        "./packages/ui/src"
       ],
       "@senlo/ui/*": [
-        "packages/ui/src/*"
+        "./packages/ui/src/*"
       ],
       "@senlo/editor": [
-        "packages/editor/src"
+        "./packages/editor/src"
       ],
       "@senlo/editor/*": [
-        "packages/editor/src/*"
+        "./packages/editor/src/*"
       ],
       "@senlo/core": [
-        "packages/core/src"
+        "./packages/core/src"
       ],
       "@senlo/core/*": [
-        "packages/core/src/*"
+        "./packages/core/src/*"
       ],
       "@senlo/db": [
-        "packages/db/src"
+        "./packages/db/src"
       ],
       "@senlo/db/*": [
-        "packages/db/src/*"
+        "./packages/db/src/*"
       ],
       "@senlo/automation-builder": [
-        "packages/automation-builder/src"
+        "./packages/automation-builder/src"
       ],
       "@senlo/automation-builder/*": [
-        "packages/automation-builder/src/*"
+        "./packages/automation-builder/src/*"
       ]
     }
   }

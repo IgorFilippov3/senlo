@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { confirmLeavingResponse } from "apps/web/lib/tracking";
-import { getServices } from "apps/web/lib/services";
+import { confirmLeavingResponse } from "@/lib/tracking";
+import { getServices } from "@/lib/services";
 
 /**
  * Click link from mail sent before tracking links were signed. Its `url` was

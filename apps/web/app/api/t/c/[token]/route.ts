@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { logger } from "apps/web/lib/logger";
-import { getServices } from "apps/web/lib/services";
-import { confirmLeavingResponse, requestMetadata } from "apps/web/lib/tracking";
+import { logger } from "@/lib/logger";
+import { getServices } from "@/lib/services";
+import { confirmLeavingResponse, requestMetadata } from "@/lib/tracking";
 
 /**
  * Click redirect. The destination is signed together with the recipient

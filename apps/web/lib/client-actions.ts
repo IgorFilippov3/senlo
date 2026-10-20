@@ -1,13 +1,13 @@
 import type { SenloActions } from "@senlo/features";
-import * as workspaces from "apps/web/app/(app)/workspace/actions";
-import * as templates from "apps/web/app/(app)/workspace/[id]/templates/actions";
-import * as campaigns from "apps/web/app/(app)/workspace/[id]/triggers/actions";
-import * as emailProviders from "apps/web/app/(app)/providers/actions";
-import * as aiProviders from "apps/web/app/(app)/providers/ai-actions";
-import * as apiKeys from "apps/web/app/(app)/workspace/[id]/settings/keys/actions";
-import * as suppressions from "apps/web/app/(app)/workspace/[id]/audience/suppressions/actions";
-import * as dashboard from "apps/web/app/(app)/workspace/[id]/dashboard/actions";
-import * as workflows from "apps/web/app/(app)/workspace/[id]/automations/actions";
+import * as workspaces from "@/app/(app)/workspace/actions";
+import * as templates from "@/app/(app)/workspace/[id]/templates/actions";
+import * as campaigns from "@/app/(app)/workspace/[id]/triggers/actions";
+import * as emailProviders from "@/app/(app)/providers/actions";
+import * as aiProviders from "@/app/(app)/providers/ai-actions";
+import * as apiKeys from "@/app/(app)/workspace/[id]/settings/keys/actions";
+import * as suppressions from "@/app/(app)/workspace/[id]/audience/suppressions/actions";
+import * as dashboard from "@/app/(app)/workspace/[id]/dashboard/actions";
+import * as workflows from "@/app/(app)/workspace/[id]/automations/actions";
 
 /**
  * The client data layer's transport in self-hosted: each call is a Server
@@ -16,7 +16,6 @@ import * as workflows from "apps/web/app/(app)/workspace/[id]/automations/action
 export const clientActions: SenloActions = {
   workspaces: {
     list: workspaces.listWorkspaces,
-    get: workspaces.getWorkspace,
     create: workspaces.createWorkspace,
     update: workspaces.updateWorkspace,
     delete: workspaces.deleteWorkspace,

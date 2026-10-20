@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import type { Suppression } from "@senlo/core";
-import { ActionResult, withErrorHandling } from "apps/web/lib/errors";
-import { requireUserId } from "apps/web/lib/session";
-import { getServices } from "apps/web/lib/services";
+import { ActionResult, withErrorHandling } from "@/lib/errors";
+import { requireUserId } from "@/lib/session";
+import { getServices } from "@/lib/services";
 
 export async function listProjectSuppressions(
   projectId: number,

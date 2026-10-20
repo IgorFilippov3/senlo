@@ -13,19 +13,14 @@ const DeleteTriggerDialog = lazy(
 const CreateWorkspaceDialog = lazy(
   () => import("../../components/workspaces/create-workspace-dialog"),
 );
-const EditWorkspaceDialog = lazy(
-  () => import("../../components/workspaces/edit-workspace-dialog"),
-);
 const DeleteWorkspaceDialog = lazy(
   () => import("../../components/workspaces/delete-workspace-dialog"),
 );
 const CreateTemplateDialog = lazy(
-  () =>
-    import("../../app/(app)/workspace/[id]/templates/create-template-dialog"),
+  () => import("../../components/templates/create-template-dialog"),
 );
 const DeleteTemplateDialog = lazy(
-  () =>
-    import("../../app/(app)/workspace/[id]/templates/delete-template-dialog"),
+  () => import("../../components/templates/delete-template-dialog"),
 );
 const EmailProviderDialog = lazy(
   () => import("../../components/providers/email-provider-dialog"),
@@ -48,7 +43,6 @@ const dialogComponents: DialogComponents<DialogPropsMap> = {
   EDIT_TRIGGER_CONFIG: EditTriggerConfigDialog,
   DELETE_TRIGGER: DeleteTriggerDialog,
   CREATE_WORKSPACE: CreateWorkspaceDialog,
-  EDIT_WORKSPACE: EditWorkspaceDialog,
   DELETE_WORKSPACE: DeleteWorkspaceDialog,
   CREATE_TEMPLATE: CreateTemplateDialog,
   DELETE_TEMPLATE: DeleteTemplateDialog,

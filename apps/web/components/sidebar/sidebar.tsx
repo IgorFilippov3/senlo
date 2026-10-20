@@ -2,8 +2,8 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar as SharedSidebar, useRememberedWorkspace, useProjects } from "@senlo/features";
-import { logoutAction } from "apps/web/app/(auth)/actions";
-import { renderLink } from "apps/web/components/link";
+import { logoutAction } from "@/app/(auth)/actions";
+import { renderLink } from "@/components/link";
 
 export function Sidebar() {
   const pathname = usePathname();

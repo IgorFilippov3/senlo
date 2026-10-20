@@ -1,4 +1,4 @@
-import { getConfig } from "apps/web/lib/config";
+import { getConfig } from "@/lib/config";
 
 /**
  * Marks the public demo instance.

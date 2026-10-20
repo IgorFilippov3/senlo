@@ -19,15 +19,6 @@ export function useProjects() {
   });
 }
 
-export function useProject(projectId: number) {
-  const actions = useSenloActions();
-  return useQuery({
-    queryKey: queryKeys.projects.detail(projectId),
-    queryFn: async () => unwrap(await actions.workspaces.get(projectId)),
-    enabled: projectId > 0,
-  });
-}
-
 /** Rejects with the message to show when the form does not validate. */
 export function useCreateProject() {
   const actions = useSenloActions();

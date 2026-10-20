@@ -1,4 +1,4 @@
-import { pixelResponse } from "apps/web/lib/tracking";
+import { pixelResponse } from "@/lib/tracking";
 
 /**
  * Open pixel from mail sent before tracking links were sealed. Its campaign

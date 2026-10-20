@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { LoginForm as SharedLoginForm } from "@senlo/features";
-import { githubLoginAction, loginAction } from "apps/web/app/(auth)/actions";
-import { renderLink } from "apps/web/components/link";
+import { githubLoginAction, loginAction } from "@/app/(auth)/actions";
+import { renderLink } from "@/components/link";
 
 export function LoginForm({
   allowRegistration,

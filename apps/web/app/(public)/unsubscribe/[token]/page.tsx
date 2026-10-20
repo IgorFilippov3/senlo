@@ -1,4 +1,4 @@
-import { Unsubscribe } from "apps/web/components/unsubscribe/unsubscribe";
+import { Unsubscribe } from "@/components/unsubscribe/unsubscribe";
 
 export default async function UnsubscribePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

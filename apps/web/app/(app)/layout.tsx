@@ -1,6 +1,6 @@
-import { SidebarWrapper } from "apps/web/components/sidebar/sidebar-wrapper";
-import { QueryProvider } from "apps/web/providers";
-import { DialogProvider } from "apps/web/providers/dialogs";
+import { SidebarWrapper } from "@/components/sidebar/sidebar-wrapper";
+import { QueryProvider } from "@/providers";
+import { DialogProvider } from "@/providers/dialogs";
 
 export default function AppLayout({
   children,

@@ -1,9 +1,9 @@
 "use server";
 
 import type { DashboardData } from "@senlo/core/server";
-import { requireUserId } from "apps/web/lib/session";
-import { getServices } from "apps/web/lib/services";
-import { withErrorHandling, type ActionResult } from "apps/web/lib/errors";
+import { requireUserId } from "@/lib/session";
+import { getServices } from "@/lib/services";
+import { withErrorHandling, type ActionResult } from "@/lib/errors";
 
 export async function getDashboardData(
   projectId: number,

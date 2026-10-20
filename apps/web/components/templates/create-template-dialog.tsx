@@ -1,7 +1,7 @@
 "use client";
 
 import { CreateTemplateDialog as SharedCreateTemplateDialog, useCreateTemplate } from "@senlo/features";
-import { logger } from "apps/web/lib/logger";
+import { logger } from "@/lib/logger";
 
 interface CreateTemplateDialogProps {
   projectId: number;

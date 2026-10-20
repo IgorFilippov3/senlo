@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button, PageHeader } from "@senlo/ui";
 import { Plus } from "lucide-react";
-import { WorkflowsList } from "apps/web/components/automations/workflows-list";
+import { WorkflowsList } from "@/components/automations/workflows-list";
 
 export default async function AutomationsPage({
   params,

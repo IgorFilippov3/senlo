@@ -1,5 +1,5 @@
-import { getConfig } from "apps/web/lib/config";
-import { LoginForm } from "apps/web/components/auth/login-form";
+import { getConfig } from "@/lib/config";
+import { LoginForm } from "@/components/auth/login-form";
 
 export default function LoginPage() {
   const { allowRegistration, github } = getConfig();

@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { AppError, type EmailDesignDocument, type RowBlock, type SavedRow } from "@senlo/core";
-import { logger } from "apps/web/lib/logger";
-import { requireUserId } from "apps/web/lib/session";
-import { getServices } from "apps/web/lib/services";
+import { logger } from "@/lib/logger";
+import { requireUserId } from "@/lib/session";
+import { getServices } from "@/lib/services";
 
 export async function saveTemplateFromEditor(
   id: number,

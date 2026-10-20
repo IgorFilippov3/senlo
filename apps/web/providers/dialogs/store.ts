@@ -19,9 +19,6 @@ export interface DialogPropsMap {
     campaign: Campaign;
   };
   CREATE_WORKSPACE: Record<string, never>;
-  EDIT_WORKSPACE: {
-    project: Project;
-  };
   DELETE_WORKSPACE: {
     project: Project;
   };

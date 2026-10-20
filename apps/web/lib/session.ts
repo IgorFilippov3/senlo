@@ -1,5 +1,5 @@
 import { UnauthorizedError } from "@senlo/core";
-import { auth } from "apps/web/auth";
+import { auth } from "@/auth";
 
 /**
  * The signed-in user's id, or `UnauthorizedError`. Call it inside

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getConfig } from "apps/web/lib/config";
-import { logger, validateApiKey } from "apps/web/lib";
-import { errorResponse } from "apps/web/lib/errors";
-import { limitRequest } from "apps/web/lib/rate-limit";
-import { getServices } from "apps/web/lib/services";
+import { getConfig } from "@/lib/config";
+import { logger, validateApiKey } from "@/lib";
+import { errorResponse } from "@/lib/errors";
+import { limitRequest } from "@/lib/rate-limit";
+import { getServices } from "@/lib/services";
 
 export async function POST(req: NextRequest) {
   const limited = await limitRequest(req, "api");

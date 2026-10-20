@@ -7,7 +7,7 @@ import {
   useAiProviders,
   useToggleAiProvider,
 } from "@senlo/features";
-import { useDialogs } from "apps/web/providers/dialogs/store";
+import { useDialogs } from "@/providers/dialogs/store";
 
 export function ProvidersPage() {
   const email = useProviders();

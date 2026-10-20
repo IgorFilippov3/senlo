@@ -1,8 +1,8 @@
 "use server";
 
-import { getServices } from "apps/web/lib/services";
-import { withErrorHandling, ActionResult, AppError } from "apps/web/lib/errors";
-import { limitAction } from "apps/web/lib/rate-limit";
+import { getServices } from "@/lib/services";
+import { withErrorHandling, ActionResult, AppError } from "@/lib/errors";
+import { limitAction } from "@/lib/rate-limit";
 
 export async function unsubscribeAction(
   token: string,

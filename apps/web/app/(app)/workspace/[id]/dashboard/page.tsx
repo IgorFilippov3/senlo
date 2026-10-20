@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import React from "react";
-import { DashboardClient } from "./dashboard-client";
+import { Dashboard } from "@/components/dashboard/dashboard";
 
 export const metadata = {
   title: "Dashboard | Senlo",
@@ -19,7 +19,7 @@ export default async function DashboardPage({
   const projectId = Number(id);
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <DashboardClient projectId={projectId} />
+      <Dashboard projectId={projectId} />
     </div>
   );
 }

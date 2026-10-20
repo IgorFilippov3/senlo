@@ -1,6 +1,5 @@
 export * from "./WorkspaceFields";
 export * from "./CreateWorkspaceDialog";
-export * from "./EditWorkspaceDialog";
 export * from "./DeleteWorkspaceDialog";
 export * from "./WorkspaceSettings";
 export * from "./WorkspacePicker";

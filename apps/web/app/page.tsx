@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { getConfig } from "apps/web/lib/config";
+import { getConfig } from "@/lib/config";
 
 export default function HomePage() {
   // Send first-time visitors straight at the sign-up form rather than at the

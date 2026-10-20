@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { db } from "apps/web/lib/db";
+import { db } from "@/lib/db";
 import { resetLoginFailures } from "./lib/rate-limit";
 import { getConfig } from "./lib/config";
 import { getServices, repositories } from "./lib/services";

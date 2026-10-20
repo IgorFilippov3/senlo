@@ -1,4 +1,4 @@
-import { NewWorkflow } from "apps/web/components/automations/new-workflow";
+import { NewWorkflow } from "@/components/automations/new-workflow";
 
 export default async function NewAutomationPage({
   params,

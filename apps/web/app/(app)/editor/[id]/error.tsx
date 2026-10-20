@@ -1,5 +1,5 @@
 "use client";
-import { routeError } from "apps/web/components/route-states";
+import { routeError } from "@/components/route-states";
 // `[id]` here is the template, not a workspace: only the workspace list is a safe way back.
 export default routeError({
   title: "Editor failed to load",

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getWorkspace } from "../../../actions";
-import { TriggerWizard } from "apps/web/components/triggers/trigger-wizard";
+import { TriggerWizard } from "@/components/triggers/trigger-wizard";
 
 export const dynamic = "force-dynamic";
 

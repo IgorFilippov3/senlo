@@ -6,7 +6,7 @@ import {
   workspaceHomePath,
   useProjects,
 } from "@senlo/features";
-import { useDialogs } from "apps/web/providers/dialogs/store";
+import { useDialogs } from "@/providers/dialogs/store";
 
 export function WorkspacePicker() {
   const router = useRouter();

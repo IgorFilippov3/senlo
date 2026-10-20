@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCampaignDetails } from "../actions";
-import { getConfig } from "apps/web/lib/config";
-import { TriggerDetails } from "apps/web/components/triggers/trigger-details";
+import { getConfig } from "@/lib/config";
+import { TriggerDetails } from "@/components/triggers/trigger-details";
 
 interface TriggerDetailsPageProps {
   params: Promise<{ id: string; triggerId: string }>;

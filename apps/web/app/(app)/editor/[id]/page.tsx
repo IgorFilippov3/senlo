@@ -7,8 +7,8 @@ import {
   saveRowAction,
   deleteSavedRowAction,
 } from "./actions";
-import { requireUserId } from "apps/web/lib/session";
-import { getServices } from "apps/web/lib/services";
+import { requireUserId } from "@/lib/session";
+import { getServices } from "@/lib/services";
 
 interface EditorPageProps {
   params: Promise<{ id: string }>;

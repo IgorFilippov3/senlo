@@ -6,8 +6,8 @@ import {
   type AuthFormResult,
   githubLoginAction,
   registerAction,
-} from "apps/web/app/(auth)/actions";
-import { renderLink } from "apps/web/components/link";
+} from "@/app/(auth)/actions";
+import { renderLink } from "@/components/link";
 
 export function RegisterForm({
   passwordMinLength,

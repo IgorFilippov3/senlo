@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { PASSWORD_MIN_LENGTH } from "@senlo/core/server";
-import { getConfig } from "apps/web/lib/config";
-import { RegisterForm } from "apps/web/components/auth/register-form";
+import { getConfig } from "@/lib/config";
+import { RegisterForm } from "@/components/auth/register-form";
 
 export default function RegisterPage() {
   const { allowRegistration, github } = getConfig();

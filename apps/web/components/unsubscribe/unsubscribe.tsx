@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { UnsubscribeView, type UnsubscribeState } from "@senlo/features";
-import { unsubscribeAction } from "apps/web/app/(public)/unsubscribe/actions";
+import { unsubscribeAction } from "@/app/(public)/unsubscribe/actions";
 
 // Answers that a repeat would only get again: a bad link, a wrong address, a limit.
 const FINAL_CODES = new Set(["VALIDATION_ERROR", "NOT_FOUND", "RATE_LIMITED"]);

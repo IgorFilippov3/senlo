@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getWorkflow } from "../actions";
-import { WorkflowEditor } from "apps/web/components/automations/workflow-editor";
+import { WorkflowEditor } from "@/components/automations/workflow-editor";
 
 export default async function WorkflowEditorPage({
   params,

@@ -11,11 +11,11 @@ import {
   useDashboardData,
 } from "@senlo/features";
 
-export function DashboardClient({ projectId }: { projectId?: number }) {
+export function Dashboard({ projectId }: { projectId: number }) {
   const [mounted, setMounted] = useState(false);
   const [days, setDays] = useState(7);
 
-  const { data: dashboardData, isLoading } = useDashboardData(projectId!, days, 8);
+  const { data: dashboardData, isLoading } = useDashboardData(projectId, days, 8);
 
   useEffect(() => {
     setMounted(true);

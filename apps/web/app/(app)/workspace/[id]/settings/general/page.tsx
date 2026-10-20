@@ -1,5 +1,5 @@
 import { PageHeader } from "@senlo/ui";
-import { WorkspaceSettings } from "apps/web/components/workspaces/workspace-settings";
+import { WorkspaceSettings } from "@/components/workspaces/workspace-settings";
 
 export default function GeneralSettingsPage() {
   return (

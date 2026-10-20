@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { SenloDataProvider } from "@senlo/features";
-import { clientActions } from "apps/web/lib/client-actions";
+import { clientActions } from "@/lib/client-actions";
 
 /** The data layer over this app's Server Actions, plus devtools in development. */
 export function QueryProvider({ children }: { children: ReactNode }) {

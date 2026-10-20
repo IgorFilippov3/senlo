@@ -8,9 +8,9 @@ import {
   FormActionResult,
   withErrorHandling,
   withFormErrors,
-} from "apps/web/lib/errors";
-import { requireUserId } from "apps/web/lib/session";
-import { getServices } from "apps/web/lib/services";
+} from "@/lib/errors";
+import { requireUserId } from "@/lib/session";
+import { getServices } from "@/lib/services";
 
 export type ProviderFormResult = FormActionResult<PublicEmailProvider, EmailProviderField>;
 

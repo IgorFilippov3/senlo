@@ -3,8 +3,8 @@
 import { startTransition, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ErrorScreen, workspaceHomePath } from "@senlo/features";
-import { logger } from "apps/web/lib/logger";
-import { renderLink } from "apps/web/components/link";
+import { logger } from "@/lib/logger";
+import { renderLink } from "@/components/link";
 
 /**
  * Where "back" goes. "workspace" and "triggers" read the workspace id from the

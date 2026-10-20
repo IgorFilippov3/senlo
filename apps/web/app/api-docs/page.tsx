@@ -1,6 +1,6 @@
 import { openApiSpec } from "@senlo/core/server";
-import { auth } from "apps/web/auth";
-import { ApiDocs } from "apps/web/components/api-docs/api-docs";
+import { auth } from "@/auth";
+import { ApiDocs } from "@/components/api-docs/api-docs";
 
 export default async function ApiDocsPage() {
   const session = await auth();

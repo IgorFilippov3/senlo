@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bearerToken, type ApiKey } from "@senlo/core";
-import { getServices } from "apps/web/lib/services";
+import { getServices } from "@/lib/services";
 
 export type ApiAuthResult =
   | { success: true; apiKey: ApiKey }
