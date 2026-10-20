@@ -1,7 +1,13 @@
-import { createDb } from "@senlo/db";
-import { loadLocalEnv } from "@senlo/db/src/cli-env";
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+// CLI: marks workflow executions stuck in RUNNING (e.g. after a worker crash)
+// as FAILED. Run with `pnpm db:reset-executions`.
 import { eq } from "drizzle-orm";
-import * as schema from "@senlo/db/src/schema";
+import { createDb } from "./client";
+import { loadLocalEnv } from "./cli-env";
+import * as schema from "./schema";
 
 loadLocalEnv();
 const db = createDb(process.env.DATABASE_URL!);

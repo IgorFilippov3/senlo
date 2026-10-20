@@ -12,38 +12,6 @@
     "types": [
       "react",
       "react-dom"
-    ],
-    "paths": {
-      "@senlo/ui": [
-        "./packages/ui/src"
-      ],
-      "@senlo/ui/*": [
-        "./packages/ui/src/*"
-      ],
-      "@senlo/editor": [
-        "./packages/editor/src"
-      ],
-      "@senlo/editor/*": [
-        "./packages/editor/src/*"
-      ],
-      "@senlo/core": [
-        "./packages/core/src"
-      ],
-      "@senlo/core/*": [
-        "./packages/core/src/*"
-      ],
-      "@senlo/db": [
-        "./packages/db/src"
-      ],
-      "@senlo/db/*": [
-        "./packages/db/src/*"
-      ],
-      "@senlo/automation-builder": [
-        "./packages/automation-builder/src"
-      ],
-      "@senlo/automation-builder/*": [
-        "./packages/automation-builder/src/*"
-      ]
-    }
+    ]
   }
 }
