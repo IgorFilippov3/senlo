@@ -51,12 +51,6 @@ importers:
       '@auth/drizzle-adapter':
         specifier: ^1.7.4
         version: 1.11.2
-      '@scalar/api-reference-react':
-        specifier: 0.8.20
-        version: 0.8.20(react@19.2.1)(storybook@10.3.6(@testing-library/dom@10.4.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(tailwindcss@4.2.4)(typescript@5.9.3)
-      '@scalar/nextjs-api-reference':
-        specifier: 0.9.9
-        version: 0.9.9(next@16.0.8(@babel/core@7.29.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
       '@senlo/automation-builder':
         specifier: workspace:^
         version: link:../../packages/automation-builder
@@ -320,6 +314,9 @@ importers:
 
   packages/features:
     dependencies:
+      '@scalar/api-reference-react':
+        specifier: 0.8.20
+        version: 0.8.20(react@19.2.1)(storybook@10.3.6(@testing-library/dom@10.4.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(tailwindcss@4.2.4)(typescript@5.9.3)
       '@senlo/core':
         specifier: workspace:*
         version: link:../core
@@ -2099,10 +2096,6 @@ packages:
     resolution: {integrity: sha512-fnaQAuGIxKcBnrB/Z0Xtlj1/LNPi6dxSn6eGc6V1z8pF3Omwj/AR8CuMdrwyy3dt/I8JMWL+9/6PF3iYd5ohLQ==}
     engines: {node: '>=20'}
 
-  '@scalar/core@0.3.30':
-    resolution: {integrity: sha512-eBp1phI8u/GZR+yy9SwRTr07n3+Va+xoZJVT6tczG799eynpXiQJuUQ4S2S1cb0cmOV0ZkwHRNG3ldMQHdJgWQ==}
-    engines: {node: '>=20'}
-
   '@scalar/draggable@0.3.0':
     resolution: {integrity: sha512-T/79XY5HGNo9Lte7wlnrH393zjiulom4HuwW4u8RtaafWxIdtXykD2+TgiO0KTreyzCrWyWrESqiqKKJMe2nKg==}
     engines: {node: '>=20'}
@@ -2122,13 +2115,6 @@ packages:
   '@scalar/json-magic@0.8.10':
     resolution: {integrity: sha512-TWdKQ/hcy4erFQDp2MVlFoPesFep2VY96Q69cjLHmx5hxM0ZUBfmNB4lA8Uh3klgx5JmCDfSNIGjPFIpxlosUw==}
     engines: {node: '>=20'}
-
-  '@scalar/nextjs-api-reference@0.9.9':
-    resolution: {integrity: sha512-lF0n7RIHzB3huPKtT/MLCJSMN2R1RbkjmmzKIKdvTWm9vDR0OCGuHXs8GP0eF/Ek66lXm4UwYUeOXT4BBjUDQA==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      next: ^15.0.0 || ^16.0.0
-      react: ^19.0.0
 
   '@scalar/oas-utils@0.6.14':
     resolution: {integrity: sha512-/OStgac9EMdeZ9Th7yb1Y3qPKVLf/c0RklkOfvCV2cJ0rrigXlz11wkBnx6ZUOr5e7Vtc221t0X4hC+GwnBdxA==}
@@ -7626,10 +7612,6 @@ snapshots:
       - supports-color
       - typescript
 
-  '@scalar/core@0.3.30':
-    dependencies:
-      '@scalar/types': 0.5.6
-
   '@scalar/draggable@0.3.0(typescript@5.9.3)':
     dependencies:
       vue: 3.5.33(typescript@5.9.3)
@@ -7656,12 +7638,6 @@ snapshots:
     dependencies:
       '@scalar/helpers': 0.2.6
       yaml: 2.8.4
-
-  '@scalar/nextjs-api-reference@0.9.9(next@16.0.8(@babel/core@7.29.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)':
-    dependencies:
-      '@scalar/core': 0.3.30
-      next: 16.0.8(@babel/core@7.29.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      react: 19.2.1
 
   '@scalar/oas-utils@0.6.14(typescript@5.9.3)':
     dependencies:

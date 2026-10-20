@@ -1,7 +1,8 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  // `api-docs` is its own entry so the Scalar renderer stays out of the root bundle.
+  entry: { index: "src/index.ts", "api-docs": "src/api-docs/index.ts" },
   format: ["cjs", "esm"],
   dts: true,
   splitting: true,
@@ -9,5 +10,6 @@ export default defineConfig({
   clean: true,
   treeshake: true,
   minify: true,
-  external: ["react", "react-dom", "recharts", "date-fns"],
+  // Scalar stays external so its stylesheet import is resolved by the app's bundler.
+  external: ["react", "react-dom", "recharts", "date-fns", "@scalar/api-reference-react"],
 });

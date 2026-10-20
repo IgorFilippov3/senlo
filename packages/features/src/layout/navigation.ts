@@ -32,13 +32,12 @@ export function workspaceIdFromPath(pathname: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-/** Pages that render without the sidebar: the editor, public pages and the workspace picker. */
+/**
+ * Signed-in pages that render without the sidebar: the editor and the
+ * workspace picker. Public pages live outside the app shell altogether.
+ */
 export function isSidebarHidden(pathname: string): boolean {
-  return (
-    pathname.startsWith("/editor") ||
-    pathname.startsWith("/unsubscribe") ||
-    pathname === "/workspaces"
-  );
+  return pathname.startsWith("/editor") || pathname === "/workspaces";
 }
 
 export function workspaceNavItems(workspaceId: number): NavItem[] {

@@ -10,3 +10,4 @@ export * from "./auth";
 export * from "./providers";
 export * from "./automations";
 export * from "./shared";
+export * from "./unsubscribe";
