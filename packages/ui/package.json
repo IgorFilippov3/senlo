@@ -2,6 +2,17 @@
   "name": "@senlo/ui",
   "version": "1.0.5",
   "description": "Senlo UI component library",
+  "license": "AGPL-3.0-or-later",
+  "author": {
+    "name": "Igor Filippov",
+    "url": "https://github.com/IgorFilippov3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IgorFilippov3/senlo.git",
+    "directory": "packages/ui"
+  },
+  "homepage": "https://senlo.io",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",

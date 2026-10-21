@@ -1,6 +1,17 @@
 {
   "name": "@senlo/editor",
   "version": "0.0.27",
+  "license": "AGPL-3.0-or-later",
+  "author": {
+    "name": "Igor Filippov",
+    "url": "https://github.com/IgorFilippov3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IgorFilippov3/senlo.git",
+    "directory": "packages/editor"
+  },
+  "homepage": "https://senlo.io",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "exports": {

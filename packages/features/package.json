@@ -2,6 +2,17 @@
   "name": "@senlo/features",
   "version": "1.0.3",
   "description": "Shared business features for Senlo",
+  "license": "AGPL-3.0-or-later",
+  "author": {
+    "name": "Igor Filippov",
+    "url": "https://github.com/IgorFilippov3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IgorFilippov3/senlo.git",
+    "directory": "packages/features"
+  },
+  "homepage": "https://senlo.io",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
