@@ -18,7 +18,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
-    "./queue": "./src/queue/index.ts"
+    "./queue": "./src/queue/index.ts",
+    "./next": {
+      "types": "./next.d.cts",
+      "default": "./next.cjs"
+    }
   },
   "type": "module",
   "scripts": {
