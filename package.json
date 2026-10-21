@@ -19,6 +19,7 @@
     "db:studio": "drizzle-kit studio",
     "db:provision": "tsx packages/db/src/provision.ts",
     "db:reset-executions": "tsx packages/db/src/reset-executions.ts",
+    "db:reseal-secrets": "tsx packages/db/src/reseal-secrets.ts",
     "test:core": "pnpm --filter @senlo/core test",
     "test:core:update": "pnpm --filter @senlo/core test:update",
     "test:editor": "pnpm --filter @senlo/editor test",

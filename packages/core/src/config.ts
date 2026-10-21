@@ -19,6 +19,8 @@ export interface SenloConfig {
   queuePrefix: string;
   /** Signs and seals unsubscribe and tracking links. */
   linkSigningSecret: string;
+  /** Seals provider credentials at rest. Must not change once providers exist. */
+  secretsKey: string;
   /** Sender when a trigger or campaign does not set one. */
   defaultFromEmail: string;
 }
@@ -54,7 +56,8 @@ function value(env: Env, ...names: string[]): string | undefined {
 /**
  * Builds the config from environment variables and checks it.
  *
- * Required: `DATABASE_URL`, `AUTH_SECRET` (or `LINK_SIGNING_SECRET`), and
+ * Required: `DATABASE_URL`, `AUTH_SECRET` (or `LINK_SIGNING_SECRET`; `SECRETS_KEY`
+ * is optional and falls back to it), and
  * `APP_URL` in production - outside production it falls back to
  * http://localhost:3000. `NEXT_PUBLIC_APP_URL` is still read as the old name
  * of `APP_URL`, so existing .env files keep working.
@@ -92,6 +95,12 @@ export function loadSenloConfig(env: Env): SenloConfig {
     );
   }
 
+  // SECRETS_KEY seals provider credentials in the database. Falling back to
+  // the signing secret keeps an existing install working without a new
+  // variable, at the price that rotating that secret then also needs
+  // `db:reseal-secrets` with both keys. Setting SECRETS_KEY separates them.
+  const secretsKey = value(env, "SECRETS_KEY") ?? linkSigningSecret;
+
   const defaultFromEmail = value(env, "DEFAULT_FROM_EMAIL") ?? "hello@senlo.io";
   if (!SINGLE_ADDRESS.test(defaultFromEmail)) {
     problems.push(
@@ -107,6 +116,7 @@ export function loadSenloConfig(env: Env): SenloConfig {
     redisUrl: value(env, "REDIS_URL") ?? "redis://localhost:6379",
     queuePrefix: value(env, "REDIS_QUEUE_PREFIX") ?? "senlo",
     linkSigningSecret: linkSigningSecret!,
+    secretsKey: secretsKey!,
     defaultFromEmail,
   });
 }

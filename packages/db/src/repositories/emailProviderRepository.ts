@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { emailProviders } from "../schema";
-import type { EmailProvider } from "@senlo/core";
+import { openConfig, sealConfig, type EmailProvider, type SecretCipher } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
@@ -16,7 +16,14 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
 > {
   protected table = emailProviders;
 
-  constructor(db: NodePgDatabase<typeof schema>) {
+  /**
+   * @param secrets - Seals `config` on write and opens it on read, so the
+   * column holds credentials encrypted while callers see them plain.
+   */
+  constructor(
+    db: NodePgDatabase<typeof schema>,
+    private readonly secrets: SecretCipher,
+  ) {
     super(db);
   }
 
@@ -32,11 +39,27 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
       userId: row.userId,
       name: row.name,
       type: row.type,
-      config: row.config as Record<string, any>,
+      // Sealed in the row; `toEntity` opens it. Never returned as is.
+      config: {},
       isActive: row.isActive,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  /** The entity with its config opened (sealed envelope or a legacy plain row). */
+  private async toEntity(row: typeof emailProviders.$inferSelect): Promise<EmailProvider> {
+    return { ...this.mapToEntity(row), config: await openConfig(this.secrets, row.config) };
+  }
+
+  async findById(id: number): Promise<EmailProvider | null> {
+    const [row] = await this.db.select().from(emailProviders).where(eq(emailProviders.id, id));
+    return row ? this.toEntity(row) : null;
+  }
+
+  async findAll(): Promise<EmailProvider[]> {
+    const rows = await this.db.select().from(emailProviders).orderBy(desc(emailProviders.createdAt));
+    return Promise.all(rows.map((row) => this.toEntity(row)));
   }
 
   /**
@@ -51,7 +74,7 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
       .where(eq(emailProviders.userId, userId))
       .orderBy(desc(emailProviders.createdAt));
 
-    return rows.map((row) => this.mapToEntity(row));
+    return Promise.all(rows.map((row) => this.toEntity(row)));
   }
 
   /**
@@ -65,7 +88,7 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
       .where(eq(emailProviders.isActive, true))
       .limit(1);
 
-    return row ? this.mapToEntity(row) : null;
+    return row ? this.toEntity(row) : null;
   }
 
   /**
@@ -80,12 +103,13 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
       .insert(emailProviders)
       .values({
         ...data,
+        config: await sealConfig(this.secrets, data.config),
         createdAt: new Date(),
         updatedAt: new Date(),
       })
       .returning();
 
-    return this.mapToEntity(row);
+    return this.toEntity(row);
   }
 
   /**
@@ -102,11 +126,12 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
       .update(emailProviders)
       .set({
         ...data,
+        ...(data.config ? { config: await sealConfig(this.secrets, data.config) } : {}),
         updatedAt: new Date(),
       })
       .where(eq(emailProviders.id, id))
       .returning();
 
-    return row ? this.mapToEntity(row) : null;
+    return row ? this.toEntity(row) : null;
   }
 }

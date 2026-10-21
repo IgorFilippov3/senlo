@@ -11,6 +11,7 @@ describe("loadSenloConfig", () => {
       redisUrl: "redis://localhost:6379",
       queuePrefix: "senlo",
       linkSigningSecret: "s",
+      secretsKey: "s",
       defaultFromEmail: "hello@senlo.io",
     });
   });
@@ -22,9 +23,11 @@ describe("loadSenloConfig", () => {
       REDIS_URL: "redis://r:6379",
       REDIS_QUEUE_PREFIX: "acme",
       LINK_SIGNING_SECRET: "links",
+      SECRETS_KEY: "vault",
       DEFAULT_FROM_EMAIL: "hi@example.com",
     });
     expect(config).toMatchObject({
+      secretsKey: "vault",
       appUrl: "https://mail.example.com",
       redisUrl: "redis://r:6379",
       queuePrefix: "acme",

@@ -1,7 +1,7 @@
 // First: the environment has to be in place before anything reads it.
 import "./lib/load-env";
 import { createDb, createRepositories } from "@senlo/db";
-import { ConfigError, loadSenloConfig, mailSettings } from "@senlo/core";
+import { aesGcmCipher, ConfigError, loadSenloConfig, mailSettings } from "@senlo/core";
 import { createRedisConnection, startWorkers } from "@senlo/core/queue";
 import { logger } from "./lib/logger";
 
@@ -16,7 +16,9 @@ try {
 }
 
 const workers = startWorkers({
-  repositories: createRepositories(createDb(config.databaseUrl)),
+  repositories: createRepositories(createDb(config.databaseUrl), {
+    secrets: aesGcmCipher(config.secretsKey),
+  }),
   connection: {
     connection: createRedisConnection(config.redisUrl, logger),
     prefix: config.queuePrefix,

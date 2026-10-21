@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { SecretCipher } from "@senlo/core";
 import type { Repositories } from "@senlo/core/server";
 import type { Database } from "./client";
 import { AiProviderRepository } from "./repositories/aiProviderRepository";
@@ -20,14 +21,19 @@ import { UserRepository } from "./repositories/userRepository";
 import { WorkflowExecutionRepository } from "./repositories/workflowExecutionRepository";
 import { WorkflowRepository } from "./repositories/workflowRepository";
 
+export interface RepositoryOptions {
+  /** Seals provider credentials at rest (`aesGcmCipher(config.secretsKey)` in the apps). */
+  secrets: SecretCipher;
+}
+
 /**
  * Every repository over one database handle. The concrete classes, so the app
  * keeps their full API; it also satisfies core's `Repositories`, which is
  * what `createServices` and `startWorkers` take.
  */
-export function createRepositories(db: Database) {
+export function createRepositories(db: Database, { secrets }: RepositoryOptions) {
   const repositories = {
-    aiProviders: new AiProviderRepository(db),
+    aiProviders: new AiProviderRepository(db, secrets),
     apiKeys: new ApiKeyRepository(db),
     campaigns: new CampaignRepository(db),
     contacts: new ContactRepository(db),
@@ -35,7 +41,7 @@ export function createRepositories(db: Database) {
     executions: new WorkflowExecutionRepository(db),
     lists: new RecipientListRepository(db),
     projects: new ProjectRepository(db),
-    providers: new EmailProviderRepository(db),
+    providers: new EmailProviderRepository(db, secrets),
     savedRows: new SavedRowRepository(db),
     sendLogs: new TriggeredSendLogRepository(db),
     suppressions: new SuppressionRepository(db),

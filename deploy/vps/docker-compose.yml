@@ -14,6 +14,7 @@ services:
       - REDIS_QUEUE_PREFIX=${REDIS_QUEUE_PREFIX:-senlo}
       - AUTH_SECRET=${AUTH_SECRET}
       - LINK_SIGNING_SECRET=${LINK_SIGNING_SECRET:-}
+      - SECRETS_KEY=${SECRETS_KEY:-}
       - AUTH_TRUST_HOST=${AUTH_TRUST_HOST:-true}
       # APP_URL, or the old NEXT_PUBLIC_APP_URL from an existing .env.
       - APP_URL=${APP_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}
@@ -48,6 +49,7 @@ services:
       - APP_URL=${APP_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}
       - AUTH_SECRET=${AUTH_SECRET}
       - LINK_SIGNING_SECRET=${LINK_SIGNING_SECRET:-}
+      - SECRETS_KEY=${SECRETS_KEY:-}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-}
     depends_on:
       db:

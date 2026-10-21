@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { aiProviders } from "../schema";
-import type { AiProvider } from "@senlo/core";
+import { openConfig, sealConfig, type AiProvider, type SecretCipher } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
@@ -16,7 +16,14 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
 > {
   protected table = aiProviders;
 
-  constructor(db: NodePgDatabase<typeof schema>) {
+  /**
+   * @param secrets - Seals `config` on write and opens it on read, so the
+   * column holds credentials encrypted while callers see them plain.
+   */
+  constructor(
+    db: NodePgDatabase<typeof schema>,
+    private readonly secrets: SecretCipher,
+  ) {
     super(db);
   }
 
@@ -32,11 +39,27 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
       userId: row.userId,
       name: row.name,
       type: row.type as "OPENAI" | "ANTHROPIC",
-      config: row.config as Record<string, any>,
+      // Sealed in the row; `toEntity` opens it. Never returned as is.
+      config: {},
       isActive: row.isActive,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  /** The entity with its config opened (sealed envelope or a legacy plain row). */
+  private async toEntity(row: typeof aiProviders.$inferSelect): Promise<AiProvider> {
+    return { ...this.mapToEntity(row), config: await openConfig(this.secrets, row.config) };
+  }
+
+  async findById(id: number): Promise<AiProvider | null> {
+    const [row] = await this.db.select().from(aiProviders).where(eq(aiProviders.id, id));
+    return row ? this.toEntity(row) : null;
+  }
+
+  async findAll(): Promise<AiProvider[]> {
+    const rows = await this.db.select().from(aiProviders).orderBy(desc(aiProviders.createdAt));
+    return Promise.all(rows.map((row) => this.toEntity(row)));
   }
 
   /**
@@ -51,7 +74,7 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
       .where(eq(aiProviders.userId, userId))
       .orderBy(desc(aiProviders.createdAt));
 
-    return rows.map((row) => this.mapToEntity(row));
+    return Promise.all(rows.map((row) => this.toEntity(row)));
   }
 
   /**
@@ -65,7 +88,7 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
       .where(eq(aiProviders.isActive, true))
       .limit(1);
 
-    return row ? this.mapToEntity(row) : null;
+    return row ? this.toEntity(row) : null;
   }
 
   /**
@@ -80,12 +103,13 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
       .insert(aiProviders)
       .values({
         ...data,
+        config: await sealConfig(this.secrets, data.config),
         createdAt: new Date(),
         updatedAt: new Date(),
       })
       .returning();
 
-    return this.mapToEntity(row);
+    return this.toEntity(row);
   }
 
   /**
@@ -102,11 +126,12 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
       .update(aiProviders)
       .set({
         ...data,
+        ...(data.config ? { config: await sealConfig(this.secrets, data.config) } : {}),
         updatedAt: new Date(),
       })
       .where(eq(aiProviders.id, id))
       .returning();
 
-    return row ? this.mapToEntity(row) : null;
+    return row ? this.toEntity(row) : null;
   }
 }

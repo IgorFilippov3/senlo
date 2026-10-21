@@ -25,6 +25,7 @@ export * from "./validation";
 export * from "./routes";
 export * from "./api-auth";
 export * from "./config";
+export * from "./secrets";
 export * from "./logger";
 export * from "./access";
 export * from "./workflow-graph";
