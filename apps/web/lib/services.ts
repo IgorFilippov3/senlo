@@ -1,7 +1,7 @@
 import { createRepositories, seedNewUser } from "@senlo/db";
 import { join } from "node:path";
 import { aesGcmCipher } from "@senlo/core";
-import { createServices, LocalDiskStorage, type Services } from "@senlo/core/server";
+import { createServices, storageFromConfig, type Services } from "@senlo/core/server";
 import { getConfig } from "./config";
 import { db } from "./db";
 import { getMailSettings, getQueues } from "./infra";
@@ -25,8 +25,11 @@ export function getServices(): Services {
     queues: getQueues(),
     settings: getMailSettings(),
     logger,
-    // Uploads land in Next's public folder, served as /uploads/<name>.
-    storage: new LocalDiskStorage(join(process.cwd(), "public/uploads"), "/uploads"),
+    // Local disk is Next's public folder, served as /uploads/<name>; STORAGE_DRIVER=s3 sends uploads to a bucket.
+    storage: storageFromConfig(getConfig().storage, {
+      rootDir: join(process.cwd(), "public/uploads"),
+      publicPrefix: "/uploads",
+    }),
     // Fill a new account so the dashboard is not empty on arrival.
     onUserCreated: (user) => seedNewUser(db, user.id, { appUrl: getConfig().appUrl }),
   }));

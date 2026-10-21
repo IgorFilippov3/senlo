@@ -5,3 +5,5 @@
 export * from "./storagePort";
 export * from "./localDiskStorage";
 export * from "./uploadService";
+export * from "./s3Storage";
+export * from "./storageFromConfig";

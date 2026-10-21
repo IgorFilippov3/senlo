@@ -13,6 +13,7 @@ describe("loadSenloConfig", () => {
       linkSigningSecret: "s",
       secretsKey: "s",
       defaultFromEmail: "hello@senlo.io",
+      storage: { driver: "local" },
     });
   });
 
@@ -64,5 +65,33 @@ describe("loadSenloConfig", () => {
 
   it("returns a frozen object", () => {
     expect(Object.isFrozen(loadSenloConfig(base))).toBe(true);
+  });
+
+  describe("storage", () => {
+    const s3 = { ...base, STORAGE_DRIVER: "s3", S3_BUCKET: "b", S3_REGION: "eu-central-1", S3_ACCESS_KEY_ID: "ak", S3_SECRET_ACCESS_KEY: "sk" };
+
+    it("derives the AWS public URL and virtual-hosted style without an endpoint", () => {
+      expect(loadSenloConfig(s3).storage).toEqual({
+        driver: "s3", bucket: "b", region: "eu-central-1", endpoint: null, accessKeyId: "ak", secretAccessKey: "sk",
+        publicUrl: "https://b.s3.eu-central-1.amazonaws.com", keyPrefix: "", forcePathStyle: false,
+      });
+    });
+
+    it("needs a public URL with a custom endpoint and defaults to path style there", () => {
+      expect(() => loadSenloConfig({ ...s3, S3_ENDPOINT: "https://acc.r2.cloudflarestorage.com" })).toThrow(/S3_PUBLIC_URL/);
+      expect(
+        loadSenloConfig({ ...s3, S3_ENDPOINT: "https://acc.r2.cloudflarestorage.com/", S3_PUBLIC_URL: "https://files.example.com/", S3_KEY_PREFIX: "/uploads/" }).storage,
+      ).toMatchObject({ endpoint: "https://acc.r2.cloudflarestorage.com", publicUrl: "https://files.example.com", keyPrefix: "uploads", forcePathStyle: true });
+    });
+
+    it("lists the missing S3 variables and refuses an unknown driver", () => {
+      try {
+        loadSenloConfig({ ...base, STORAGE_DRIVER: "s3" });
+        throw new Error("expected a ConfigError");
+      } catch (error) {
+        expect((error as ConfigError).problems.filter((p) => p.startsWith("S3_"))).toHaveLength(4);
+      }
+      expect(() => loadSenloConfig({ ...base, STORAGE_DRIVER: "gcs" })).toThrow(/STORAGE_DRIVER/);
+    });
   });
 });

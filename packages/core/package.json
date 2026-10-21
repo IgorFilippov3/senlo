@@ -33,6 +33,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.978.0",
     "@aws-sdk/client-ses": "^3.978.0",
     "bcryptjs": "^3.0.2",
     "bullmq": "^5.66.4",

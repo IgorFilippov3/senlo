@@ -23,7 +23,27 @@ export interface SenloConfig {
   secretsKey: string;
   /** Sender when a trigger or campaign does not set one. */
   defaultFromEmail: string;
+  /** Where uploads go. Local disk unless `STORAGE_DRIVER=s3`. */
+  storage: StorageConfig;
 }
+
+export interface S3StorageConfig {
+  driver: "s3";
+  bucket: string;
+  region: string;
+  /** Set for S3-compatible services (Cloudflare R2, MinIO); unset for AWS. */
+  endpoint: string | null;
+  accessKeyId: string;
+  secretAccessKey: string;
+  /** Base of the public URL for stored objects, without a trailing slash. */
+  publicUrl: string;
+  /** Key prefix inside the bucket, e.g. `uploads`; empty for the bucket root. */
+  keyPrefix: string;
+  /** Path-style addressing (`endpoint/bucket/key`); most S3-compatible services need it. */
+  forcePathStyle: boolean;
+}
+
+export type StorageConfig = { driver: "local" } | S3StorageConfig;
 
 /** The part of the config outgoing mail needs. */
 export type MailSettings = Pick<
@@ -108,6 +128,8 @@ export function loadSenloConfig(env: Env): SenloConfig {
     );
   }
 
+  const storage = loadStorageConfig(env, problems);
+
   if (problems.length > 0) throw new ConfigError(problems);
 
   return Object.freeze({
@@ -118,7 +140,64 @@ export function loadSenloConfig(env: Env): SenloConfig {
     linkSigningSecret: linkSigningSecret!,
     secretsKey: secretsKey!,
     defaultFromEmail,
+    storage,
   });
+}
+
+/**
+ * `STORAGE_DRIVER=s3` with `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`,
+ * `S3_SECRET_ACCESS_KEY`; `S3_ENDPOINT` for a compatible service, which then
+ * also needs `S3_PUBLIC_URL` (AWS can derive it). Anything else is local disk.
+ */
+function loadStorageConfig(env: Env, problems: string[]): StorageConfig {
+  const driver = value(env, "STORAGE_DRIVER") ?? "local";
+  if (driver === "local") return { driver: "local" };
+  if (driver !== "s3") {
+    problems.push(`STORAGE_DRIVER must be "local" or "s3", got "${driver}".`);
+    return { driver: "local" };
+  }
+
+  const bucket = value(env, "S3_BUCKET");
+  const region = value(env, "S3_REGION");
+  const accessKeyId = value(env, "S3_ACCESS_KEY_ID");
+  const secretAccessKey = value(env, "S3_SECRET_ACCESS_KEY");
+  const endpoint = value(env, "S3_ENDPOINT")?.replace(/\/+$/, "") ?? null;
+  for (const [name, v] of [
+    ["S3_BUCKET", bucket],
+    ["S3_REGION", region],
+    ["S3_ACCESS_KEY_ID", accessKeyId],
+    ["S3_SECRET_ACCESS_KEY", secretAccessKey],
+  ] as const) {
+    if (!v) problems.push(`${name} is not set (required with STORAGE_DRIVER=s3).`);
+  }
+  if (endpoint && !/^https?:\/\/[^/\s]+/i.test(endpoint)) {
+    problems.push(`S3_ENDPOINT must be an http(s) address, got "${endpoint}".`);
+  }
+
+  let publicUrl = value(env, "S3_PUBLIC_URL")?.replace(/\/+$/, "");
+  if (!publicUrl) {
+    if (endpoint) {
+      problems.push(
+        "S3_PUBLIC_URL is not set. With S3_ENDPOINT the public address of the bucket cannot be derived; set it to where objects are served from, e.g. https://files.example.com.",
+      );
+    } else if (bucket && region) {
+      publicUrl = `https://${bucket}.s3.${region}.amazonaws.com`;
+    }
+  } else if (!/^https?:\/\/[^/\s]+/i.test(publicUrl)) {
+    problems.push(`S3_PUBLIC_URL must be an http(s) address, got "${publicUrl}".`);
+  }
+
+  return {
+    driver: "s3",
+    bucket: bucket ?? "",
+    region: region ?? "",
+    endpoint,
+    accessKeyId: accessKeyId ?? "",
+    secretAccessKey: secretAccessKey ?? "",
+    publicUrl: publicUrl ?? "",
+    keyPrefix: (value(env, "S3_KEY_PREFIX") ?? "").replace(/^\/+|\/+$/g, ""),
+    forcePathStyle: (value(env, "S3_FORCE_PATH_STYLE") ?? (endpoint ? "true" : "false")) === "true",
+  };
 }
 
 export function mailSettings(config: SenloConfig): MailSettings {
