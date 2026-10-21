@@ -305,7 +305,15 @@ export const apiKeys = pgTable("api_keys", {
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  key: text("key").notNull().unique(),
+  /**
+   * The key in the clear: only on rows from before hashing, until
+   * `pnpm db:hash-api-keys` moves them. New rows leave it null.
+   */
+  key: text("key").unique(),
+  /** SHA-256 of the key (`hashApiKey`); what bearer auth looks up. */
+  keyHash: text("key_hash").unique(),
+  /** The first characters of the key, shown in the list. */
+  prefix: text("prefix"),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

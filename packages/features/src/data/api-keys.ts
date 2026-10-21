@@ -21,9 +21,10 @@ export function useCreateApiKey() {
   return useMutation({
     mutationFn: async ({ projectId, name }: { projectId: number; name: string }) =>
       unwrap(await actions.apiKeys.create(projectId, name)),
-    onSuccess: (apiKey, { projectId }) => {
+    onSuccess: ({ key: _key, ...listed }, { projectId }) => {
+      // The plain key stays with the caller; the cached list holds the prefix only.
       queryClient.setQueryData<ApiKey[]>(queryKeys.apiKeys.byProject(projectId), (old) =>
-        old ? [...old, apiKey] : [apiKey],
+        old ? [...old, listed] : [listed],
       );
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.apiKeys.all }),

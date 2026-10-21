@@ -183,9 +183,10 @@ describe("ProjectService", () => {
 });
 
 describe("SettingsService (API keys)", () => {
-  const keys: ApiKey[] = [{ id: 1, projectId: 1, name: "k", key: "sk", createdAt: new Date() }, { id: 2, projectId: 2, name: "k", key: "sk2", createdAt: new Date() }];
+  const keys: ApiKey[] = [{ id: 1, projectId: 1, name: "k", prefix: "snl_aaaaaaaa", createdAt: new Date() }, { id: 2, projectId: 2, name: "k", prefix: "snl_bbbbbbbb", createdAt: new Date() }];
   const repo = {
-    findByKey: async () => null,
+    findByHash: async () => null,
+    findLegacyByKey: async () => null,
     findByProject: async (pid: number) => keys.filter((k) => k.projectId === pid),
     findById: async (id: number) => keys.find((k) => k.id === id) ?? null,
     create: vi.fn(async (d: any) => ({ id: 3, ...d, createdAt: new Date() })),
@@ -201,7 +202,13 @@ describe("SettingsService (API keys)", () => {
     await expect(service.createApiKey("alice", 1, "x".repeat(256))).rejects.toBeInstanceOf(ValidationError);
     const k = await service.createApiKey("alice", 1, " prod ");
     expect(k.name).toBe("prod");
-    expect(k.key).toMatch(/\S{20,}/);
+    expect(k.key).toMatch(/^snl_[a-z2-7]{32}$/);
+    expect(k.prefix).toBe(k.key.slice(0, 12));
+    // The repository never sees the key, only its hash and prefix.
+    const stored = repo.create.mock.calls[0][0];
+    expect(stored.key).toBeUndefined();
+    expect(stored.keyHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(stored.prefix).toBe(k.prefix);
     await expect(service.deleteApiKey("alice", 2)).rejects.toBeInstanceOf(NotFoundError);
     expect(await service.deleteApiKey("alice", 1)).toEqual({ projectId: 1 });
   });

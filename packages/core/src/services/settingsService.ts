@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { AccessGuard } from "../access";
-import { generateApiKey } from "../api-key";
-import type { ApiKey } from "../domain";
+import { apiKeyPrefix, generateApiKey, hashApiKey } from "../api-key";
+import type { ApiKey, IssuedApiKey } from "../domain";
 import { NotFoundError, ValidationError } from "../errors";
 import type { IApiKeyRepository, IProjectRepository } from "../ports";
 
@@ -26,14 +26,22 @@ export class SettingsService {
     return this.apiKeys.findByProject(projectId);
   }
 
-  async createApiKey(userId: string, projectId: number, name: string): Promise<ApiKey> {
+  /** The returned `key` is shown once; only its hash and prefix are stored. */
+  async createApiKey(userId: string, projectId: number, name: string): Promise<IssuedApiKey> {
     await this.access.requireProject(userId, projectId);
     const trimmed = name?.trim() ?? "";
     if (!trimmed) throw new ValidationError("API key name is required");
     if (trimmed.length > API_KEY_NAME_MAX_LENGTH) {
       throw new ValidationError(`API key name too long (max ${API_KEY_NAME_MAX_LENGTH} characters)`);
     }
-    return this.apiKeys.create({ projectId, name: trimmed, key: generateApiKey() });
+    const key = generateApiKey();
+    const stored = await this.apiKeys.create({
+      projectId,
+      name: trimmed,
+      keyHash: hashApiKey(key),
+      prefix: apiKeyPrefix(key),
+    });
+    return { ...stored, key };
   }
 
   /** Returns the key's project id, for the caller to revalidate. */

@@ -184,13 +184,20 @@ export interface RecipientListRepository {
 }
 
 export interface IApiKeyRepository {
-  findByKey(key: string): Promise<ApiKey | null>;
+  /** The key whose stored hash matches (`hashApiKey`). */
+  findByHash(keyHash: string): Promise<ApiKey | null>;
+  /**
+   * A key still stored in the clear, from before hashing. Rows are moved to
+   * hashes by `db:hash-api-keys`; until then this keeps them authenticating.
+   */
+  findLegacyByKey(key: string): Promise<ApiKey | null>;
   findByProject(projectId: number): Promise<ApiKey[]>;
   findById(id: number): Promise<ApiKey | null>;
   create(data: {
     projectId: number;
     name: string;
-    key: string;
+    keyHash: string;
+    prefix: string;
   }): Promise<ApiKey>;
   updateLastUsed(id: number): Promise<void>;
   delete(id: number): Promise<void>;

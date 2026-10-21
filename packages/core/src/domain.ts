@@ -211,13 +211,20 @@ export interface PublicAiProvider extends Omit<AiProvider, "config"> {
   secretsSet: string[];
 }
 
+/** An API key as listed: the key itself is stored hashed and never returned again. */
 export interface ApiKey {
   id: number;
   projectId: number;
   name: string;
-  key: string;
+  /** The first characters of the key, to tell keys apart in a list. */
+  prefix: string;
   lastUsedAt?: Date | null;
   createdAt: Date;
+}
+
+/** A freshly created key: the only time the plain `key` leaves the server. */
+export interface IssuedApiKey extends ApiKey {
+  key: string;
 }
 
 export interface TriggeredSendLog {

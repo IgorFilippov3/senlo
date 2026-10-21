@@ -1,8 +1,9 @@
 "use client";
 
 import { PageHeader } from "@senlo/ui";
-import React from "react";
+import React, { useState } from "react";
 import { useParams } from "next/navigation";
+import type { IssuedApiKey } from "@senlo/core";
 import {
   useApiKeys,
   useCreateApiKey,
@@ -17,6 +18,8 @@ export default function ApiKeysPage() {
   const workspace = useCurrentWorkspace();
 
   const { data: keys = [], isLoading: keysLoading } = useApiKeys(workspaceId);
+  // Kept in page state only: the plain key is never in the query cache.
+  const [issuedKey, setIssuedKey] = useState<IssuedApiKey | null>(null);
 
   const createApiKeyMutation = useCreateApiKey();
   const deleteApiKeyMutation = useDeleteApiKey();
@@ -27,6 +30,7 @@ export default function ApiKeysPage() {
     createApiKeyMutation.mutate(
       { projectId: workspaceId, name },
       {
+        onSuccess: (issued) => setIssuedKey(issued),
         onError: (error) => {
           alert(`Failed to create API key: ${error.message}`);
         },
@@ -67,6 +71,8 @@ export default function ApiKeysPage() {
           onDeleteKey={handleDelete}
           isCreating={createApiKeyMutation.isPending}
           isDeleting={deleteApiKeyMutation.isPending}
+          issuedKey={issuedKey}
+          onDismissIssuedKey={() => setIssuedKey(null)}
         />
       </div>
     </main>

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import type { ApiKey } from "@senlo/core";
+import type { ApiKey, IssuedApiKey } from "@senlo/core";
 import { Card, Button } from "@senlo/ui";
-import { Key, Copy, Check, Trash2, Plus } from "lucide-react";
+import { Key, Copy, Check, Trash2, Plus, X } from "lucide-react";
 import { LoadingState } from "../shared/Loading";
 
 export interface ApiKeysListProps {
@@ -13,6 +13,53 @@ export interface ApiKeysListProps {
   onDeleteKey?: (id: number) => void;
   isCreating?: boolean;
   isDeleting?: boolean;
+  /** The key just created, shown in full once; the list only ever has prefixes. */
+  issuedKey?: IssuedApiKey | null;
+  onDismissIssuedKey?: () => void;
+}
+
+function IssuedKeyNotice({ issued, onDismiss }: { issued: IssuedApiKey; onDismiss?: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(issued.key);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div
+      className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3"
+      role="status"
+      data-testid="issued-api-key"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="font-medium text-amber-900">Copy your new key &ldquo;{issued.name}&rdquo; now</div>
+          <div className="text-sm text-amber-800 mt-1">
+            It is shown only this once. If you lose it, delete it and create a new one.
+          </div>
+        </div>
+        {onDismiss && (
+          <button
+            onClick={onDismiss}
+            className="text-amber-700 hover:text-amber-900 transition-colors"
+            title="Dismiss"
+            aria-label="Dismiss"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 min-w-0 truncate text-sm bg-white border border-amber-200 px-3 py-2 rounded font-mono">
+          {issued.key}
+        </code>
+        <Button onClick={copy} className="gap-2 shrink-0">
+          {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export function ApiKeysList({
@@ -22,20 +69,15 @@ export function ApiKeysList({
   onDeleteKey,
   isCreating,
   isDeleting,
+  issuedKey,
+  onDismissIssuedKey,
 }: ApiKeysListProps) {
   const [newKeyName, setNewKeyName] = useState("");
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleCreate = () => {
     if (!newKeyName.trim()) return;
     onCreateKey?.(newKeyName.trim());
     setNewKeyName("");
-  };
-
-  const copyToClipboard = (key: string) => {
-    navigator.clipboard.writeText(key);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
   };
 
   return (
@@ -68,6 +110,8 @@ export function ApiKeysList({
         </div>
       </Card>
 
+      {issuedKey && <IssuedKeyNotice issued={issuedKey} onDismiss={onDismissIssuedKey} />}
+
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Your Keys</h3>
         {isLoading ? (
@@ -91,20 +135,8 @@ export function ApiKeysList({
                     <div className="font-medium truncate">{key.name}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <code className="text-xs bg-zinc-100 px-2 py-0.5 rounded text-zinc-600 font-mono">
-                        {key.key.substring(0, 8)}...
-                        {key.key.substring(key.key.length - 4)}
+                        {key.prefix}…
                       </code>
-                      <button
-                        onClick={() => copyToClipboard(key.key)}
-                        className="text-zinc-400 hover:text-zinc-600 transition-colors"
-                        title="Copy to clipboard"
-                      >
-                        {copiedKey === key.key ? (
-                          <Check size={14} className="text-green-500" />
-                        ) : (
-                          <Copy size={14} />
-                        )}
-                      </button>
                     </div>
                   </div>
                 </div>

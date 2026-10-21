@@ -1,3 +1,4 @@
+import { hashApiKey } from "../api-key";
 import { IApiKeyRepository } from "../ports";
 import { ApiKey } from "../domain";
 
@@ -10,7 +11,11 @@ export class AuthService {
    * @returns The API key if valid, null otherwise
    */
   async validateApiKey(key: string): Promise<ApiKey | null> {
-    const apiKey = await this.apiKeyRepo.findByKey(key);
+    // Hashed rows first; a row written before hashing is matched in the clear
+    // until `db:hash-api-keys` has moved it.
+    const apiKey =
+      (await this.apiKeyRepo.findByHash(hashApiKey(key))) ??
+      (await this.apiKeyRepo.findLegacyByKey(key));
 
     if (!apiKey) {
       return null;

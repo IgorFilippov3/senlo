@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { ApiKey } from "@senlo/core";
+import type { ApiKey, IssuedApiKey } from "@senlo/core";
 import { ActionResult, validateId, withErrorHandling } from "@/lib/errors";
 import { requireUserId } from "@/lib/session";
 import { getServices } from "@/lib/services";
@@ -13,10 +13,11 @@ export async function listApiKeys(projectId: number): Promise<ActionResult<ApiKe
   });
 }
 
+/** The only response that carries the plain key; the list never does. */
 export async function createApiKey(
   projectId: number,
   name: string,
-): Promise<ActionResult<ApiKey>> {
+): Promise<ActionResult<IssuedApiKey>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
     const id = validateId(projectId, "projectId");
