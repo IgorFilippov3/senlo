@@ -27,7 +27,7 @@
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
     "drizzle-kit": "^0.31.8",
-    "next": "16.0.8",
+    "next": "16.0.11",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "tsx": "^4.21.0",
