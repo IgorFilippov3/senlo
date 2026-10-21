@@ -11,5 +11,12 @@ export default defineConfig({
   treeshake: true,
   minify: true,
   // Scalar stays external so its stylesheet import is resolved by the app's bundler.
-  external: ["react", "react-dom", "recharts", "date-fns", "@scalar/api-reference-react"],
+  external: [
+    "react",
+    "react-dom",
+    "@tanstack/react-query",
+    "recharts",
+    "date-fns",
+    "@scalar/api-reference-react",
+  ],
 });
