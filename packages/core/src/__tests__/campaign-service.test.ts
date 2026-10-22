@@ -22,7 +22,8 @@ function fakes(seed: Campaign[]) {
   const repos = {
     projects: {
       findById: async (id: number) => [p1, p2, p3].find((p) => p.id === id) ?? null,
-      findByUser: async (u: string) => [p1, p2, p3].filter((p) => p.userId === u),
+      listForUser: async (u: string) => [p1, p2, p3].filter((p) => p.userId === u),
+      listForOrganization: async (o: string) => [p1, p2, p3].filter((p) => p.organizationId === o),
     },
     templates: { findById: async (id: number) => [t1, t2].find((t) => t.id === id) ?? null },
     campaigns: {

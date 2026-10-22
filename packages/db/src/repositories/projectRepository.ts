@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc, isNull } from "drizzle-orm";
 import { projects } from "../schema";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -34,6 +34,7 @@ export class ProjectRepository
     return {
       id: row.id,
       userId: row.userId,
+      organizationId: row.organizationId,
       name: row.name,
       description: row.description ?? undefined,
       providerId: row.providerId ?? undefined,
@@ -45,13 +46,14 @@ export class ProjectRepository
 
   /**
    * Create a new project.
-   * @param data - Project data including name, optional description and userId
+   * @param data - Project data including name, optional description, userId and organizationId
    * @returns The created project
    */
   async create(data: {
     name: string;
     description?: string | null;
     userId?: string | null;
+    organizationId?: string | null;
   }): Promise<Project> {
     const [row] = await this.db
       .insert(projects)
@@ -59,22 +61,30 @@ export class ProjectRepository
         name: data.name,
         description: data.description ?? null,
         userId: data.userId ?? null,
+        organizationId: data.organizationId ?? null,
       })
       .returning();
 
     return this.mapToEntity(row);
   }
 
-  /**
-   * Find projects by user ID.
-   * @param userId - The user ID
-   * @returns Array of projects belonging to the user
-   */
-  async findByUser(userId: string): Promise<Project[]> {
+  /** Projects the user owns personally, newest first. */
+  async listForUser(userId: string): Promise<Project[]> {
     const rows = await this.db
       .select()
       .from(projects)
-      .where(eq(projects.userId, userId))
+      .where(and(eq(projects.userId, userId), isNull(projects.organizationId)))
+      .orderBy(desc(projects.createdAt));
+
+    return rows.map((row) => this.mapToEntity(row));
+  }
+
+  /** Projects the organization owns, newest first. */
+  async listForOrganization(organizationId: string): Promise<Project[]> {
+    const rows = await this.db
+      .select()
+      .from(projects)
+      .where(eq(projects.organizationId, organizationId))
       .orderBy(desc(projects.createdAt));
 
     return rows.map((row) => this.mapToEntity(row));
@@ -93,6 +103,7 @@ export class ProjectRepository
       description?: string | null;
       providerId?: number | null;
       aiProviderId?: number | null;
+      organizationId?: string | null;
     },
   ): Promise<Project | null> {
     const [row] = await this.db

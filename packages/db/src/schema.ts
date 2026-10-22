@@ -13,6 +13,7 @@ import {
   pgEnum,
   primaryKey,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 
 // --- Auth Tables (NextAuth) ---
@@ -120,26 +121,38 @@ export const workflowStatusEnum = pgEnum("workflow_status", [
   "ARCHIVED",
 ]);
 
-export const projects = pgTable("projects", {
-  id: serial("id").primaryKey(),
-  userId: text("user_id").references(() => users.id, {
-    onDelete: "cascade",
+export const projects = pgTable(
+  "projects",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    /**
+     * Owning organization in a managed install; null means the row belongs to
+     * `user_id` alone (always, in self-hosted). No foreign key: organizations
+     * live outside this schema.
+     */
+    organizationId: text("organization_id"),
+    name: text("name").notNull(),
+    description: text("description"),
+    providerId: integer("provider_id").references(() => emailProviders.id, {
+      onDelete: "set null",
+    }),
+    aiProviderId: integer("ai_provider_id").references(() => aiProviders.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    organizationIdx: index("projects_organization_id_idx").on(t.organizationId),
   }),
-  name: text("name").notNull(),
-  description: text("description"),
-  providerId: integer("provider_id").references(() => emailProviders.id, {
-    onDelete: "set null",
-  }),
-  aiProviderId: integer("ai_provider_id").references(() => aiProviders.id, {
-    onDelete: "set null",
-  }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+);
 
 export const emailTemplates = pgTable("email_templates", {
   id: serial("id").primaryKey(),
@@ -265,39 +278,55 @@ export const campaignEvents = pgTable("campaign_events", {
     .defaultNow(),
 });
 
-export const emailProviders = pgTable("email_providers", {
-  id: serial("id").primaryKey(),
-  userId: text("user_id").references(() => users.id, {
-    onDelete: "cascade",
+export const emailProviders = pgTable(
+  "email_providers",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    /** See `projects.organizationId`. */
+    organizationId: text("organization_id"),
+    name: text("name").notNull(),
+    type: emailProviderTypeEnum("type").notNull(),
+    config: jsonb("config").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    organizationIdx: index("email_providers_organization_id_idx").on(t.organizationId),
   }),
-  name: text("name").notNull(),
-  type: emailProviderTypeEnum("type").notNull(),
-  config: jsonb("config").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+);
 
-export const aiProviders = pgTable("ai_providers", {
-  id: serial("id").primaryKey(),
-  userId: text("user_id").references(() => users.id, {
-    onDelete: "cascade",
+export const aiProviders = pgTable(
+  "ai_providers",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    /** See `projects.organizationId`. */
+    organizationId: text("organization_id"),
+    name: text("name").notNull(),
+    type: aiProviderTypeEnum("type").notNull(),
+    config: jsonb("config").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    organizationIdx: index("ai_providers_organization_id_idx").on(t.organizationId),
   }),
-  name: text("name").notNull(),
-  type: aiProviderTypeEnum("type").notNull(),
-  config: jsonb("config").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+);
 
 export const apiKeys = pgTable("api_keys", {
   id: serial("id").primaryKey(),

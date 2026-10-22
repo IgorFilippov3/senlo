@@ -157,7 +157,7 @@ export class CampaignService {
 
   /** Every campaign across the user's projects. */
   async listForUser(userId: string): Promise<Campaign[]> {
-    const projects = await this.repos.projects.findByUser(userId);
+    const projects = await this.repos.projects.listForUser(userId);
     const perProject = await Promise.all(
       projects.map((p) => this.repos.campaigns.findByProject(p.id)),
     );

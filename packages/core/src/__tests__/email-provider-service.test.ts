@@ -23,7 +23,8 @@ function fakeRepo(seed: EmailProvider[] = []) {
     rows,
     findById: async (id: number) => rows.get(id) ?? null,
     findAll: async () => [...rows.values()],
-    findByUser: async (userId: string) => [...rows.values()].filter((p) => p.userId === userId),
+    listForUser: async (userId: string) => [...rows.values()].filter((p) => p.userId === userId),
+    listForOrganization: async (o: string) => [...rows.values()].filter((p) => p.organizationId === o),
     create: async (data: Omit<EmailProvider, "id" | "createdAt" | "updatedAt">) => {
       const p = { ...data, id: nextId++, createdAt: new Date(), updatedAt: new Date() };
       rows.set(p.id, p);

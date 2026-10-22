@@ -41,7 +41,7 @@ export class AiProviderService {
   constructor(private readonly providers: IAiProviderRepository) {}
 
   async listForUser(userId: string): Promise<PublicAiProvider[]> {
-    return (await this.providers.findByUser(userId)).map(toPublicAiProvider);
+    return (await this.providers.listForUser(userId)).map(toPublicAiProvider);
   }
 
   /** The provider, if it is this user's; "not found" otherwise. */

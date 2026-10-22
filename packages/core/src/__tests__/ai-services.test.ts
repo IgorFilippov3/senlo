@@ -18,7 +18,8 @@ function aiRepo(seed: AiProvider[]) {
   return {
     rows,
     findById: async (id: number) => rows.get(id) ?? null,
-    findByUser: async (u: string) => [...rows.values()].filter((p) => p.userId === u),
+    listForUser: async (u: string) => [...rows.values()].filter((p) => p.userId === u),
+    listForOrganization: async (o: string) => [...rows.values()].filter((p) => p.organizationId === o),
     create: async (d: Omit<AiProvider, "id" | "createdAt" | "updatedAt">) => {
       const p = { ...d, id: 99, createdAt: new Date(), updatedAt: new Date() };
       rows.set(99, p);

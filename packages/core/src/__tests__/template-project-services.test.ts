@@ -16,7 +16,8 @@ const projectsRepo = () => {
   return {
     rows,
     findById: async (id: number) => rows.get(id) ?? null,
-    findByUser: async (u: string) => [...rows.values()].filter((p) => p.userId === u),
+    listForUser: async (u: string) => [...rows.values()].filter((p) => p.userId === u),
+    listForOrganization: async (o: string) => [...rows.values()].filter((p) => p.organizationId === o),
     findAll: async () => [...rows.values()],
     create: async (d: { name: string; description?: string | null; userId?: string | null }) => {
       const p = { id: 9, ...d, createdAt: new Date(), updatedAt: new Date() } as Project;

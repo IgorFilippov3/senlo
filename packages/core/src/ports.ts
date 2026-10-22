@@ -79,7 +79,10 @@ export interface ISuppressionRepository {
 export interface IEmailProviderRepository {
   findById(id: number): Promise<EmailProvider | null>;
   findAll(): Promise<EmailProvider[]>;
-  findByUser(userId: string): Promise<EmailProvider[]>;
+  /** Rows owned by the user personally (no organization). */
+  listForUser(userId: string): Promise<EmailProvider[]>;
+  /** Rows owned by the organization. */
+  listForOrganization(organizationId: string): Promise<EmailProvider[]>;
   create(
     data: Omit<EmailProvider, "id" | "createdAt" | "updatedAt">,
   ): Promise<EmailProvider>;
@@ -92,7 +95,10 @@ export interface IEmailProviderRepository {
 
 export interface IAiProviderRepository {
   findById(id: number): Promise<AiProvider | null>;
-  findByUser(userId: string): Promise<AiProvider[]>;
+  /** Rows owned by the user personally (no organization). */
+  listForUser(userId: string): Promise<AiProvider[]>;
+  /** Rows owned by the organization. */
+  listForOrganization(organizationId: string): Promise<AiProvider[]>;
   create(
     data: Omit<AiProvider, "id" | "createdAt" | "updatedAt">,
   ): Promise<AiProvider>;
@@ -117,13 +123,17 @@ export interface IProjectRepository {
     name: string;
     description?: string | null;
     userId?: string | null;
+    organizationId?: string | null;
   }): Promise<Project>;
 
   findById(id: number): Promise<Project | null>;
 
   findAll(): Promise<Project[]>;
 
-  findByUser(userId: string): Promise<Project[]>;
+  /** Rows owned by the user personally (no organization). */
+  listForUser(userId: string): Promise<Project[]>;
+  /** Rows owned by the organization. */
+  listForOrganization(organizationId: string): Promise<Project[]>;
   update(
     id: number,
     data: Partial<Omit<Project, "id" | "createdAt" | "updatedAt">>,

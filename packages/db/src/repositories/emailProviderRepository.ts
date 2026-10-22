@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc, isNull } from "drizzle-orm";
 import { emailProviders } from "../schema";
 import { openConfig, sealConfig, type EmailProvider, type SecretCipher } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
@@ -37,6 +37,7 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
     return {
       id: row.id,
       userId: row.userId,
+      organizationId: row.organizationId,
       name: row.name,
       type: row.type,
       // Sealed in the row; `toEntity` opens it. Never returned as is.
@@ -62,16 +63,23 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
     return Promise.all(rows.map((row) => this.toEntity(row)));
   }
 
-  /**
-   * Find providers by user ID.
-   * @param userId - The user ID
-   * @returns Array of providers belonging to the user
-   */
-  async findByUser(userId: string): Promise<EmailProvider[]> {
+  /** Providers the user owns personally, newest first. */
+  async listForUser(userId: string): Promise<EmailProvider[]> {
     const rows = await this.db
       .select()
       .from(emailProviders)
-      .where(eq(emailProviders.userId, userId))
+      .where(and(eq(emailProviders.userId, userId), isNull(emailProviders.organizationId)))
+      .orderBy(desc(emailProviders.createdAt));
+
+    return Promise.all(rows.map((row) => this.toEntity(row)));
+  }
+
+  /** Providers the organization owns, newest first. */
+  async listForOrganization(organizationId: string): Promise<EmailProvider[]> {
+    const rows = await this.db
+      .select()
+      .from(emailProviders)
+      .where(eq(emailProviders.organizationId, organizationId))
       .orderBy(desc(emailProviders.createdAt));
 
     return Promise.all(rows.map((row) => this.toEntity(row)));

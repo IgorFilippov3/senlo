@@ -220,7 +220,7 @@ export class EmailProviderService {
   constructor(private readonly providers: IEmailProviderRepository) {}
 
   async listForUser(userId: string): Promise<PublicEmailProvider[]> {
-    return (await this.providers.findByUser(userId)).map(toPublicEmailProvider);
+    return (await this.providers.listForUser(userId)).map(toPublicEmailProvider);
   }
 
   /** The provider, if it is this user's; "not found" otherwise, so ids leak nothing. */

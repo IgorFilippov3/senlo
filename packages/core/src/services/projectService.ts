@@ -56,7 +56,7 @@ export class ProjectService {
   }
 
   listForUser(userId: string): Promise<Project[]> {
-    return this.repos.projects.findByUser(userId);
+    return this.repos.projects.listForUser(userId);
   }
 
   /** The project, if it is the user's. */

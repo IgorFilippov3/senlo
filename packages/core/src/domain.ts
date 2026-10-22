@@ -9,7 +9,10 @@ export interface User {
 
 export interface Project {
   id: number;
+  /** The creator; the owner while `organizationId` is null. */
   userId?: string | null;
+  /** Owning organization in a managed install; always null in self-hosted. */
+  organizationId?: string | null;
   name: string;
   description?: string | null;
   providerId?: number | null;
@@ -169,6 +172,8 @@ export type EmailProviderType =
 export interface EmailProvider {
   id: number;
   userId?: string | null;
+  /** See `Project.organizationId`. */
+  organizationId?: string | null;
   name: string;
   type: EmailProviderType;
   config: Record<string, any>;
@@ -191,6 +196,8 @@ export interface PublicEmailProvider extends Omit<EmailProvider, "config"> {
 export interface AiProvider {
   id: number;
   userId?: string | null;
+  /** See `Project.organizationId`. */
+  organizationId?: string | null;
   name: string;
   type: AiProviderType;
   config: Record<string, any>;

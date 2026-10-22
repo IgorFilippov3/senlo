@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc, isNull } from "drizzle-orm";
 import { aiProviders } from "../schema";
 import { openConfig, sealConfig, type AiProvider, type SecretCipher } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
@@ -37,6 +37,7 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
     return {
       id: row.id,
       userId: row.userId,
+      organizationId: row.organizationId,
       name: row.name,
       type: row.type as "OPENAI" | "ANTHROPIC",
       // Sealed in the row; `toEntity` opens it. Never returned as is.
@@ -62,16 +63,23 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
     return Promise.all(rows.map((row) => this.toEntity(row)));
   }
 
-  /**
-   * Find providers by user ID.
-   * @param userId - The user ID
-   * @returns Array of AI providers belonging to the user
-   */
-  async findByUser(userId: string): Promise<AiProvider[]> {
+  /** AI providers the user owns personally, newest first. */
+  async listForUser(userId: string): Promise<AiProvider[]> {
     const rows = await this.db
       .select()
       .from(aiProviders)
-      .where(eq(aiProviders.userId, userId))
+      .where(and(eq(aiProviders.userId, userId), isNull(aiProviders.organizationId)))
+      .orderBy(desc(aiProviders.createdAt));
+
+    return Promise.all(rows.map((row) => this.toEntity(row)));
+  }
+
+  /** AI providers the organization owns, newest first. */
+  async listForOrganization(organizationId: string): Promise<AiProvider[]> {
+    const rows = await this.db
+      .select()
+      .from(aiProviders)
+      .where(eq(aiProviders.organizationId, organizationId))
       .orderBy(desc(aiProviders.createdAt));
 
     return Promise.all(rows.map((row) => this.toEntity(row)));
