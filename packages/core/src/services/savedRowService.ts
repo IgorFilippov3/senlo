@@ -14,8 +14,9 @@ export class SavedRowService {
   constructor(
     private readonly savedRows: ISavedRowRepository,
     projects: Pick<IProjectRepository, "findById">,
+    access?: AccessGuard,
   ) {
-    this.access = new AccessGuard(projects);
+    this.access = access ?? new AccessGuard(projects);
   }
 
   list(userId: string): Promise<SavedRow[]> {

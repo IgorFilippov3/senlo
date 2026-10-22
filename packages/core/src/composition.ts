@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Queue } from "bullmq";
+import { AccessGuard, ownerAccessPolicy, type AccessPolicy } from "./access";
 import type { MailSettings } from "./config";
 import { consoleLogger, type Logger } from "./logger";
 import type {
@@ -113,6 +114,7 @@ export function createServices({
   storage,
   logger = consoleLogger,
   onUserCreated,
+  access = ownerAccessPolicy,
 }: {
   repositories: Repositories;
   queues: ServiceQueues;
@@ -122,7 +124,15 @@ export function createServices({
   logger?: Logger;
   /** See `UserServiceOptions.onUserCreated`. */
   onUserCreated?: UserServiceOptions["onUserCreated"];
+  /**
+   * Who may access which project and provider. Defaults to `ownerAccessPolicy`
+   * (a record belongs to the user in its `userId`); managed passes a
+   * membership-based policy.
+   */
+  access?: AccessPolicy;
 }): Services {
+  const guard = new AccessGuard(r.projects, access);
+
   const trigger = new TriggerService(
     r.campaigns,
     r.templates,
@@ -141,28 +151,28 @@ export function createServices({
     logger,
   );
 
-  const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects);
+  const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects, guard);
 
   return {
     trigger,
     automation,
     audience,
     events: new EventIngestionService(r.contacts, audience, automation),
-    aiDesign: new AiDesignService(r.projects, r.aiProviders),
-    aiProvider: new AiProviderService(r.aiProviders),
+    aiDesign: new AiDesignService(r.projects, r.aiProviders, undefined, guard),
+    aiProvider: new AiProviderService(r.aiProviders, guard),
     auth: new AuthService(r.apiKeys),
-    campaign: new CampaignService(r, queues.campaign),
+    campaign: new CampaignService(r, queues.campaign, guard),
     dashboard: new DashboardService(r.dashboard),
-    emailProvider: new EmailProviderService(r.providers),
-    project: new ProjectService(r),
-    settings: new SettingsService(r.apiKeys, r.projects),
-    savedRow: new SavedRowService(r.savedRows, r.projects),
-    template: new TemplateService(r, queues.email, settings),
+    emailProvider: new EmailProviderService(r.providers, guard),
+    project: new ProjectService(r, guard),
+    settings: new SettingsService(r.apiKeys, r.projects, guard),
+    savedRow: new SavedRowService(r.savedRows, r.projects, guard),
+    template: new TemplateService(r, queues.email, settings, guard),
     tracking: new TrackingService(r, settings),
     unsubscribe: new UnsubscribeService(r, settings),
     upload: new UploadService(storage ?? noStorage),
     user: new UserService(r.users, undefined, { onUserCreated, logger }),
     webhook: new WebhookService(r, logger),
-    workflow: new WorkflowService(r),
+    workflow: new WorkflowService(r, guard),
   };
 }

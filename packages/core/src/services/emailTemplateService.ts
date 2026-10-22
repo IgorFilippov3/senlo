@@ -104,8 +104,9 @@ export class TemplateService {
     private readonly repos: TemplateServiceRepositories,
     private readonly emailQueue: Pick<Queue<EmailJobData>, "add" | "getWorkers">,
     private readonly settings: Pick<MailSettings, "appUrl" | "defaultFromEmail">,
+    access?: AccessGuard,
   ) {
-    this.access = new AccessGuard(repos.projects);
+    this.access = access ?? new AccessGuard(repos.projects);
   }
 
   /** The template and its project, if the user may access them. */

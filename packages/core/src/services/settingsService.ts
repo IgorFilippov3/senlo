@@ -17,8 +17,9 @@ export class SettingsService {
   constructor(
     private readonly apiKeys: IApiKeyRepository,
     projects: Pick<IProjectRepository, "findById">,
+    access?: AccessGuard,
   ) {
-    this.access = new AccessGuard(projects);
+    this.access = access ?? new AccessGuard(projects);
   }
 
   async listApiKeys(userId: string, projectId: number): Promise<ApiKey[]> {

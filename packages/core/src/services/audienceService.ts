@@ -17,8 +17,9 @@ export class AudienceService {
     private readonly workflowRepo: IWorkflowRepository,
     private readonly automationService: AutomationService,
     projects: Pick<IProjectRepository, "findById">,
+    access?: AccessGuard,
   ) {
-    this.access = new AccessGuard(projects);
+    this.access = access ?? new AccessGuard(projects);
   }
 
   async createContact(data: {

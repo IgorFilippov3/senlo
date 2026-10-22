@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Worker } from "bullmq";
+import type { AccessPolicy } from "../access";
 import type { MailSettings } from "../config";
 import { createServices, type Repositories } from "../composition";
 import { consoleLogger, type Logger } from "../logger";
@@ -30,14 +31,17 @@ export function startWorkers({
   connection,
   settings,
   logger = consoleLogger,
+  access,
 }: {
   repositories: Repositories;
   connection: QueueConnection;
   settings: MailSettings;
   logger?: Logger;
+  /** Passed to `createServices`; see its `access`. */
+  access?: AccessPolicy;
 }): RunningWorkers {
   const queues = createQueues(connection);
-  const services = createServices({ repositories, queues, settings, logger });
+  const services = createServices({ repositories, queues, settings, logger, access });
 
   const emailProcessor = new EmailWorkerProcessor(
     settings,

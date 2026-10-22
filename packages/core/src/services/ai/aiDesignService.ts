@@ -120,8 +120,9 @@ export class AiDesignService {
     projects: Pick<IProjectRepository, "findById">,
     private readonly aiProviders: Pick<IAiProviderRepository, "findById">,
     clients: JsonCompletionClient[] = [openAiCompletionClient],
+    access?: AccessGuard,
   ) {
-    this.access = new AccessGuard(projects);
+    this.access = access ?? new AccessGuard(projects);
     this.clients = new Map(clients.map((c) => [c.type, c]));
   }
 

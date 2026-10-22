@@ -44,15 +44,18 @@ export interface ProjectServiceRepositories {
 }
 
 /**
- * Workspaces (projects). A project belongs to one user; the providers it
- * points at must be that user's own, or a workspace could be pointed at
- * someone else's credentials.
+ * Workspaces (projects). The providers a project points at must be ones the
+ * user may access too, or a workspace could be pointed at someone else's
+ * credentials.
  */
 export class ProjectService {
   private readonly access: AccessGuard;
 
-  constructor(private readonly repos: ProjectServiceRepositories) {
-    this.access = new AccessGuard(repos.projects);
+  constructor(
+    private readonly repos: ProjectServiceRepositories,
+    access?: AccessGuard,
+  ) {
+    this.access = access ?? new AccessGuard(repos.projects);
   }
 
   listForUser(userId: string): Promise<Project[]> {
@@ -78,14 +81,14 @@ export class ProjectService {
     const input = parseInput(UpdateWorkspaceSchema, rawInput);
 
     if (input.providerId) {
-      this.access.requireUserOwned(
+      await this.access.requireOwned(
         userId,
         await this.repos.providers.findById(input.providerId),
         "Email provider",
       );
     }
     if (input.aiProviderId) {
-      this.access.requireUserOwned(
+      await this.access.requireOwned(
         userId,
         await this.repos.aiProviders.findById(input.aiProviderId),
         "AI provider",

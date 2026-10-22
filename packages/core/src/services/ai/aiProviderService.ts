@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { DEFAULT_AI_MODELS, type AiProvider, type AiProviderType, type PublicAiProvider } from "../../domain";
+import { AccessGuard } from "../../access";
 import { NotFoundError } from "../../errors";
 import type { IAiProviderRepository } from "../../ports";
 import { parseInput } from "../../validation";
@@ -38,19 +39,18 @@ export function toPublicAiProvider(provider: AiProvider): PublicAiProvider {
  * view; only `requireOwned` returns the key, for server-side use.
  */
 export class AiProviderService {
-  constructor(private readonly providers: IAiProviderRepository) {}
+  constructor(
+    private readonly providers: IAiProviderRepository,
+    private readonly access: Pick<AccessGuard, "requireOwned"> = AccessGuard.forOwnedRecords(),
+  ) {}
 
   async listForUser(userId: string): Promise<PublicAiProvider[]> {
     return (await this.providers.listForUser(userId)).map(toPublicAiProvider);
   }
 
-  /** The provider, if it is this user's; "not found" otherwise. */
+  /** The provider, if the user may access it; "not found" otherwise. */
   async requireOwned(userId: string, id: number): Promise<AiProvider> {
-    const provider = await this.providers.findById(id);
-    if (!userId || !provider || provider.userId !== userId) {
-      throw new NotFoundError("AI provider");
-    }
-    return provider;
+    return this.access.requireOwned(userId, await this.providers.findById(id), "AI provider");
   }
 
   async create(userId: string, rawInput: unknown): Promise<PublicAiProvider> {

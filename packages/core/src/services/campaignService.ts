@@ -97,8 +97,9 @@ export class CampaignService {
   constructor(
     private readonly repos: CampaignServiceRepositories,
     private readonly campaignQueue: Pick<Queue<CampaignJobData>, "add">,
+    access?: AccessGuard,
   ) {
-    this.access = new AccessGuard(repos.projects);
+    this.access = access ?? new AccessGuard(repos.projects);
   }
 
   /** The campaign and its project, if the user may access them. */

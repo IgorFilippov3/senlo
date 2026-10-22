@@ -7,6 +7,53 @@ import type { IProjectRepository } from "./ports";
 import { NotFoundError } from "./errors";
 
 /**
+ * Whose records "mine" means for a user: their own (`organizationId: null`,
+ * always the case in self-hosted) or an organization's. `userId` is the
+ * caller either way, kept as the creator of what they add.
+ */
+export interface OwnerScope {
+  userId: string;
+  organizationId: string | null;
+}
+
+/** The ownership fields of a record that can belong to a user or an organization. */
+export interface OwnedRecord {
+  userId?: string | null;
+  organizationId?: string | null;
+}
+
+/**
+ * The access decision, as a port. Self-hosted uses `ownerAccessPolicy`; a
+ * managed install passes a membership-based one to `createServices({ access })`.
+ * `AccessGuard` asks it and turns every "no" into the same `NotFoundError`, so
+ * an implementation cannot leak which ids exist.
+ */
+export interface AccessPolicy {
+  /** The scope the user's lists and new records belong to. */
+  scopeFor(userId: string): Promise<OwnerScope>;
+  /** May the user act on a record owned this way (a project, a provider)? */
+  mayAccess(userId: string, owner: OwnedRecord): Promise<boolean>;
+}
+
+/** Today's rule: a record belongs to the user in its `userId`, and nothing is shared. */
+export const ownerAccessPolicy: AccessPolicy = {
+  async scopeFor(userId) {
+    return { userId, organizationId: null };
+  },
+  async mayAccess(userId, owner) {
+    // An empty user id must never match a record whose owner is also unset.
+    return !!userId && !!owner.userId && owner.userId === userId;
+  },
+};
+
+/** For a guard that never checks projects: every project lookup finds nothing. */
+const noProjects: Pick<IProjectRepository, "findById"> = {
+  async findById() {
+    return null;
+  },
+};
+
+/**
  * The single answer to "may this user touch this?". Every entry point that
  * takes an id from a request - server action, API route - goes through here
  * before reading or changing anything, because a server action can be called
@@ -15,21 +62,33 @@ import { NotFoundError } from "./errors";
  * A missing record and someone else's record fail identically, with
  * `NotFoundError`: telling them apart would let a caller probe which ids exist.
  *
- * Today access means ownership: a project belongs to one user. When projects
- * gain organizations and roles, only this class changes.
+ * Who may access what is the `AccessPolicy`'s call; `createServices` builds
+ * one guard over it and hands it to every service.
  */
 export class AccessGuard {
-  constructor(private readonly projects: Pick<IProjectRepository, "findById">) {}
+  constructor(
+    private readonly projects: Pick<IProjectRepository, "findById">,
+    private readonly policy: AccessPolicy = ownerAccessPolicy,
+  ) {}
+
+  /** A guard for services that check owned records only (providers), never projects. */
+  static forOwnedRecords(policy: AccessPolicy = ownerAccessPolicy): AccessGuard {
+    return new AccessGuard(noProjects, policy);
+  }
+
+  /** See `AccessPolicy.scopeFor`. */
+  scopeFor(userId: string): Promise<OwnerScope> {
+    return this.policy.scopeFor(userId);
+  }
 
   /** The project, if the user may access it. */
   async requireProject(userId: string, projectId: number): Promise<Project> {
-    // An empty user id must never match a project whose owner is also unset.
     if (!userId || !Number.isInteger(projectId) || projectId <= 0) {
       throw new NotFoundError("Project");
     }
 
     const project = await this.projects.findById(projectId);
-    if (!project || !project.userId || project.userId !== userId) {
+    if (!project || !(await this.policy.mayAccess(userId, project))) {
       throw new NotFoundError("Project");
     }
     return project;
@@ -74,8 +133,23 @@ export class AccessGuard {
   }
 
   /**
-   * A record owned by a user directly rather than through a project (email
-   * and AI providers, saved rows).
+   * A record owned by a user or an organization rather than through a
+   * project (email and AI providers), if the policy lets the user act on it.
+   */
+  async requireOwned<T extends OwnedRecord>(
+    userId: string,
+    record: T | null | undefined,
+    resource: string,
+  ): Promise<T> {
+    if (!userId || !record || !(await this.policy.mayAccess(userId, record))) {
+      throw new NotFoundError(resource);
+    }
+    return record;
+  }
+
+  /**
+   * A record that only ever belongs to one user, whatever the policy (saved
+   * rows: a personal snippet library, never shared with an organization).
    */
   requireUserOwned<T extends { userId?: string | null }>(
     userId: string,

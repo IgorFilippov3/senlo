@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from "zod";
+import { AccessGuard } from "../access";
 import type { EmailProvider, EmailProviderType, PublicEmailProvider } from "../domain";
 import { FormValidationError, NotFoundError } from "../errors";
 import { parseInput } from "../validation";
@@ -217,19 +218,18 @@ export function mergeProviderConfig(
  * credentials, for server-side use.
  */
 export class EmailProviderService {
-  constructor(private readonly providers: IEmailProviderRepository) {}
+  constructor(
+    private readonly providers: IEmailProviderRepository,
+    private readonly access: Pick<AccessGuard, "requireOwned"> = AccessGuard.forOwnedRecords(),
+  ) {}
 
   async listForUser(userId: string): Promise<PublicEmailProvider[]> {
     return (await this.providers.listForUser(userId)).map(toPublicEmailProvider);
   }
 
-  /** The provider, if it is this user's; "not found" otherwise, so ids leak nothing. */
+  /** The provider, if the user may access it; "not found" otherwise, so ids leak nothing. */
   async requireOwned(userId: string, id: number): Promise<EmailProvider> {
-    const provider = await this.providers.findById(id);
-    if (!userId || !provider || provider.userId !== userId) {
-      throw new NotFoundError("Provider");
-    }
-    return provider;
+    return this.access.requireOwned(userId, await this.providers.findById(id), "Provider");
   }
 
   /** Raw form fields in; the schema and the per-type rules decide. */

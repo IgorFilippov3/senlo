@@ -71,8 +71,11 @@ export interface WorkflowServiceRepositories {
 export class WorkflowService {
   private readonly access: AccessGuard;
 
-  constructor(private readonly repos: WorkflowServiceRepositories) {
-    this.access = new AccessGuard(repos.projects);
+  constructor(
+    private readonly repos: WorkflowServiceRepositories,
+    access?: AccessGuard,
+  ) {
+    this.access = access ?? new AccessGuard(repos.projects);
   }
 
   /** The workflow, if the user may access its project. */
