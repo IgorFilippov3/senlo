@@ -40,6 +40,8 @@ export function EmailProviderDialog({
   error,
 }: EmailProviderDialogProps) {
   const isEdit = !!provider;
+  // Nothing stored can be kept: every field is required, as for a new provider.
+  const mustReenter = !!provider?.configUnreadable;
   const [type, setType] = useState<EmailProviderType>(provider?.type ?? "RESEND");
   const config = provider?.config ?? {};
   const text = (key: string, fallback = "") =>
@@ -98,9 +100,11 @@ export function EmailProviderDialog({
       disableAnimation={true}
       title={isEdit ? "Edit Email Provider" : "Add Email Provider"}
       description={
-        isEdit
-          ? "Update your email provider configuration."
-          : "Configure a new email sending provider."
+        mustReenter
+          ? "The saved credentials can't be decrypted. Enter them again to use this provider."
+          : isEdit
+            ? "Update your email provider configuration."
+            : "Configure a new email sending provider."
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -158,12 +162,12 @@ export function EmailProviderDialog({
 
         {type === "SES" && (
           <>
-            <FormField label="Access Key ID" required={!isEdit} hint="AWS IAM User Access Key ID">
+            <FormField label="Access Key ID" required={!isEdit || mustReenter} hint="AWS IAM User Access Key ID">
               <Input
                 name="accessKeyId"
                 defaultValue={text("accessKeyId")}
                 placeholder="AKIA..."
-                required={!isEdit}
+                required={!isEdit || mustReenter}
               />
             </FormField>
             {secret(

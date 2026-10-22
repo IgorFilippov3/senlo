@@ -138,6 +138,11 @@ export class AiDesignService {
     if (!provider) {
       throw new NotFoundError("AI provider");
     }
+    if (provider.configUnreadable) {
+      throw new ValidationError(
+        "The AI provider's API key cannot be decrypted. Delete the provider and add it again.",
+      );
+    }
     const client = this.clients.get(provider.type);
     if (!client) {
       throw new AppError(

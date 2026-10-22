@@ -54,9 +54,10 @@ export async function sealConfig(
 
 /** Thrown when a sealed config cannot be opened: the key changed, or the row was altered. */
 export class SealedConfigError extends Error {
-  constructor() {
+  /** `what` names the row, such as "Email provider 12", for the log. */
+  constructor(what?: string) {
     super(
-      "A stored provider config cannot be decrypted. SECRETS_KEY (or the secret it falls back to) is not the one it was sealed with.",
+      `${what ? `${what}: its` : "A"} stored config cannot be decrypted. SECRETS_KEY (or the secret it falls back to) is not the one it was sealed with; re-enter the credentials, or run db:reseal-secrets with OLD_SECRETS_KEY.`,
     );
     this.name = "SealedConfigError";
   }
@@ -82,4 +83,21 @@ export async function openConfig(
     return stored as Record<string, unknown>;
   }
   throw new SealedConfigError();
+}
+
+/**
+ * Like {@link openConfig}, for reading rows into entities: a row that cannot
+ * be opened comes back as an empty config with `unreadable` set instead of
+ * failing, so one row sealed with another key does not take a whole list down.
+ */
+export async function openConfigOrFlag(
+  cipher: SecretCipher,
+  stored: unknown,
+): Promise<{ config: Record<string, unknown>; unreadable: boolean }> {
+  try {
+    return { config: await openConfig(cipher, stored), unreadable: false };
+  } catch (error) {
+    if (error instanceof SealedConfigError) return { config: {}, unreadable: true };
+    throw error;
+  }
 }

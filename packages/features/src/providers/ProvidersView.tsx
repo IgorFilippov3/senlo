@@ -3,7 +3,7 @@
 import React from "react";
 import type { PublicAiProvider, PublicEmailProvider } from "@senlo/core";
 import { Card, Badge, Button, Tabs, TabsList, TabsTrigger, TabsContent } from "@senlo/ui";
-import { Cloud, Trash2, CheckCircle2, Circle, Bot, Plus, Pencil } from "lucide-react";
+import { Cloud, Trash2, CheckCircle2, Circle, Bot, Plus, Pencil, AlertTriangle } from "lucide-react";
 import { ErrorScreen } from "../shared/ErrorScreen";
 import { PageSkeleton } from "../shared/Skeletons";
 
@@ -13,6 +13,8 @@ interface ProviderCardProps {
   isActive: boolean;
   createdAt: Date;
   details: React.ReactNode;
+  /** Shown under the details, e.g. when the stored credentials cannot be read. */
+  warning?: string;
   onToggle: () => void;
   onDelete: () => void;
   onEdit?: () => void;
@@ -24,6 +26,7 @@ function ProviderCard({
   isActive,
   createdAt,
   details,
+  warning,
   onToggle,
   onDelete,
   onEdit,
@@ -55,6 +58,12 @@ function ProviderCard({
 
       <h3 className="font-bold text-lg text-zinc-900">{name}</h3>
       <p className="text-sm text-zinc-500 mt-1 mb-6">{details}</p>
+      {warning && (
+        <p className="-mt-3 mb-6 flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          {warning}
+        </p>
+      )}
 
       <div className="mt-auto pt-4 border-t border-zinc-100 flex items-center justify-between">
         <div className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">
@@ -174,6 +183,11 @@ export function ProvidersView({
                   isActive={provider.isActive}
                   createdAt={provider.createdAt}
                   details={<Field label="Type" value={provider.type} />}
+                  warning={
+                    provider.configUnreadable
+                      ? "Credentials can't be decrypted. Edit the provider and enter them again."
+                      : undefined
+                  }
                   onEdit={() => onEditEmailProvider(provider)}
                   onDelete={() => onDeleteEmailProvider(provider)}
                   onToggle={() => onToggleEmailProvider(provider, !provider.isActive)}
@@ -212,6 +226,11 @@ export function ProvidersView({
                       <br />
                       <Field label="Model" value={provider.config.model} />
                     </>
+                  }
+                  warning={
+                    provider.configUnreadable
+                      ? "API key can't be decrypted. Delete this provider and add it again."
+                      : undefined
                   }
                   onDelete={() => onDeleteAiProvider(provider)}
                   onToggle={() => onToggleAiProvider(provider, !provider.isActive)}

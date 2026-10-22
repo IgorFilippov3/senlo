@@ -1,4 +1,5 @@
 import { EmailProvider } from "../../domain";
+import { SealedConfigError } from "../../secrets";
 import { IMailer } from "../../ports";
 import { ResendMailer } from "./resendMailer";
 import { MailgunMailer } from "./mailgunMailer";
@@ -8,6 +9,9 @@ import { SmtpMailer } from "./smtpMailer";
 
 export class MailerFactory {
   static create(provider: EmailProvider): IMailer {
+    if (provider.configUnreadable) {
+      throw new SealedConfigError(`Email provider ${provider.id}`);
+    }
     switch (provider.type) {
       case "RESEND": {
         const apiKey = provider.config?.apiKey;

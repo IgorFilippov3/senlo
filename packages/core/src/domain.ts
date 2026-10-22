@@ -177,6 +177,12 @@ export interface EmailProvider {
   name: string;
   type: EmailProviderType;
   config: Record<string, any>;
+  /**
+   * The stored config could not be decrypted (sealed with another
+   * `SECRETS_KEY`); `config` is empty. Listed so the credentials can be
+   * re-entered; refused for sending.
+   */
+  configUnreadable?: boolean;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -201,6 +207,12 @@ export interface AiProvider {
   name: string;
   type: AiProviderType;
   config: Record<string, any>;
+  /**
+   * The stored config could not be decrypted (sealed with another
+   * `SECRETS_KEY`); `config` is empty. Listed so the credentials can be
+   * re-entered; refused for sending.
+   */
+  configUnreadable?: boolean;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

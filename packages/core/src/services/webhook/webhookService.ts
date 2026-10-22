@@ -101,6 +101,13 @@ export class WebhookService {
     // Without a secret anyone could post bounces and fill the suppression
     // list, so an unconfigured secret refuses every event rather than
     // accepting them all.
+    if (provider.configUnreadable) {
+      this.logger.error("Webhook refused: the provider's stored config cannot be decrypted", {
+        provider: providerType,
+        providerId: provider.id,
+      });
+      return { status: "rejected", reason: "secret_not_configured" };
+    }
     const secret = provider.config.webhook_secret;
     if (typeof secret !== "string" || !secret) {
       this.logger.error("Webhook secret is not configured for the provider", {

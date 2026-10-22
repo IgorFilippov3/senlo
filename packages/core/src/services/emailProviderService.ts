@@ -213,6 +213,20 @@ export function mergeProviderConfig(
 }
 
 /**
+ * A provider whose stored config cannot be decrypted has nothing to keep, so
+ * an edit has to supply every field its type needs, as a new provider would.
+ */
+function replaceUnreadableConfig(provider: EmailProvider, input: EmailProviderUpdate): ProviderConfig {
+  const outcome = buildProviderConfig({
+    ...input,
+    name: input.name || provider.name,
+    type: input.type ?? provider.type,
+  });
+  if ("fieldErrors" in outcome) throw new FormValidationError(outcome.fieldErrors);
+  return outcome.config;
+}
+
+/**
  * A user's sending providers: create and edit with per-type rules, and the
  * ownership check every other feature needs before it uses a provider.
  * Everything a UI receives is the public view; only `requireOwned` returns
@@ -260,7 +274,9 @@ export class EmailProviderService {
     const updated = await this.providers.update(id, {
       name: input.name || provider.name,
       type: input.type || provider.type,
-      config: mergeProviderConfig(provider, input),
+      config: provider.configUnreadable
+        ? replaceUnreadableConfig(provider, input)
+        : mergeProviderConfig(provider, input),
     });
     if (!updated) throw new NotFoundError("Provider");
     await this.audit(userId, "updated", id);

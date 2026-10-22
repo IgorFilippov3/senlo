@@ -1,6 +1,6 @@
 import { and, eq, desc, isNull } from "drizzle-orm";
 import { aiProviders } from "../schema";
-import { openConfig, sealConfig, type AiProvider, type SecretCipher } from "@senlo/core";
+import { openConfigOrFlag, sealConfig, type AiProvider, type SecretCipher } from "@senlo/core";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
@@ -50,7 +50,10 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
 
   /** The entity with its config opened (sealed envelope or a legacy plain row). */
   private async toEntity(row: typeof aiProviders.$inferSelect): Promise<AiProvider> {
-    return { ...this.mapToEntity(row), config: await openConfig(this.secrets, row.config) };
+    // A row sealed with another key is flagged rather than thrown: a list
+    // shows it as needing new credentials, and senders refuse it.
+    const { config, unreadable } = await openConfigOrFlag(this.secrets, row.config);
+    return { ...this.mapToEntity(row), config, ...(unreadable ? { configUnreadable: true } : {}) };
   }
 
   async findById(id: number): Promise<AiProvider | null> {
