@@ -347,14 +347,8 @@ export class EmailWorkerProcessor {
           type: "SENT",
           metadata: { provider: provider.type, messageId: result.messageId },
         });
-
-        await this.campaignRepo.logEvent({
-          campaignId,
-          contactId: contactId && contactId !== 0 ? contactId : null,
-          email,
-          type: "DELIVERED",
-          metadata: { deliveryTime: "0.1s" },
-        });
+        // No DELIVERED here: the provider accepting a message is not a
+        // delivery. It comes from the provider's webhook, as for triggered sends.
       }
     } catch (error) {
       this.logger.error("Failed to process email job", {

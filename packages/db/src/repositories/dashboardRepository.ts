@@ -36,14 +36,18 @@ export class DashboardRepository implements IDashboardRepository {
       };
     }
 
+    // Sends, deliveries, bounces and suppressed sends of a trigger are counted
+    // from its send log below; the worker also writes them as campaign events,
+    // so only regular campaigns' events count here. Opens and clicks exist only
+    // as events, for both kinds.
     const [stats] = await this.db
       .select({
-        totalSent: sql<number>`count(*) filter (where ${campaignEvents.type} = 'SENT')`,
-        delivered: sql<number>`count(*) filter (where ${campaignEvents.type} = 'DELIVERED')`,
-        bounced: sql<number>`count(*) filter (where ${campaignEvents.type} = 'BOUNCE')`,
+        totalSent: sql<number>`count(*) filter (where ${campaignEvents.type} = 'SENT' AND ${campaigns.type} = 'STANDARD')`,
+        delivered: sql<number>`count(*) filter (where ${campaignEvents.type} = 'DELIVERED' AND ${campaigns.type} = 'STANDARD')`,
+        bounced: sql<number>`count(*) filter (where ${campaignEvents.type} = 'BOUNCE' AND ${campaigns.type} = 'STANDARD')`,
         opened: sql<number>`count(*) filter (where ${campaignEvents.type} = 'OPEN')`,
         clicked: sql<number>`count(*) filter (where ${campaignEvents.type} = 'CLICK')`,
-        savedSends: sql<number>`count(*) filter (where ${campaignEvents.type} = 'FAILED' AND ${campaignEvents.metadata}->>'error' LIKE 'Recipient is suppressed%')`,
+        savedSends: sql<number>`count(*) filter (where ${campaignEvents.type} = 'FAILED' AND ${campaigns.type} = 'STANDARD' AND ${campaignEvents.metadata}->>'error' LIKE 'Recipient is suppressed%')`,
       })
       .from(campaignEvents)
       .innerJoin(campaigns, eq(campaignEvents.campaignId, campaigns.id))
@@ -95,11 +99,12 @@ export class DashboardRepository implements IDashboardRepository {
       event_stats AS (
         SELECT
           date_trunc('day', occurred_at) AS bucket,
-          count(*) FILTER (WHERE ${campaignEvents.type} IN ('SENT', 'DELIVERED')) as success,
+          count(*) FILTER (WHERE ${campaignEvents.type} = 'SENT') as success,
           count(*) FILTER (WHERE ${campaignEvents.type} = 'FAILED' AND ${campaignEvents.metadata}->>'error' LIKE 'Recipient is suppressed%') as suppressed
         FROM ${campaignEvents}
         JOIN ${campaigns} ON ${campaignEvents.campaignId} = ${campaigns.id}
         WHERE ${campaigns.projectId} IN (${sql.raw(projectIds.join(","))})
+          AND ${campaigns.type} = 'STANDARD'
           AND occurred_at >= now() - interval '${sql.raw(days.toString())} days'
         GROUP BY 1
       ),
