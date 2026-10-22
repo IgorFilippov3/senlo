@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getConfig } from "@/lib/config";
 import { logger, validateApiKey } from "@/lib";
 import { errorResponse } from "@/lib/errors";
 import { limitRequest } from "@/lib/rate-limit";
@@ -14,11 +13,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const result = await getServices().trigger.sendFromRequest(
-      auth.apiKey.projectId,
-      body,
-      getConfig().appUrl,
-    );
+    const result = await getServices().trigger.sendFromRequest(auth.apiKey.projectId, body);
 
     logger.info("Triggered email queued via API", {
       projectId: auth.apiKey.projectId,

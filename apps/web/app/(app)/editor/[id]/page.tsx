@@ -9,7 +9,6 @@ import {
 } from "./actions";
 import { requireUserId } from "@/lib/session";
 import { getServices } from "@/lib/services";
-import { getConfig } from "@/lib/config";
 
 interface EditorPageProps {
   params: Promise<{ id: string }>;
@@ -41,7 +40,7 @@ export default async function EditorIdPage({ params, searchParams }: EditorPageP
     notFound();
   }
 
-  const { template, project, design, mergeTags } = data;
+  const { template, project, design, mergeTags, baseUrl } = data;
 
   return (
     <Editor
@@ -49,7 +48,7 @@ export default async function EditorIdPage({ params, searchParams }: EditorPageP
       templateId={templateId}
       projectId={template.projectId}
       campaignId={campaignId}
-      baseUrl={getConfig().appUrl}
+      baseUrl={baseUrl}
       hasAiProvider={!!project.aiProviderId}
       templateName={template.name}
       templateSubject={template.subject}

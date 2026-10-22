@@ -123,11 +123,11 @@ describe("services call the ports once per action", () => {
       projects,
       logs as never,
       { add: vi.fn() } as never,
-      { linkSigningSecret: "s".repeat(32), defaultFromEmail: "a@x.test" },
+      { linkSigningSecret: "s".repeat(32), defaultFromEmail: "a@x.test", appUrl: "https://app.test" },
       p.hooks,
     );
     await expect(
-      trigger.sendTriggeredEmail({ campaignId: 5, projectId: 1, to: "r@x.test", baseUrl: "https://app.test" }),
+      trigger.sendTriggeredEmail({ campaignId: 5, projectId: 1, to: "r@x.test" }),
     ).rejects.toThrow(QuotaExceededError);
     expect(p.checks).toEqual([{ type: "email.send", projectId: 1 }]);
     expect(logs.create).not.toHaveBeenCalled();

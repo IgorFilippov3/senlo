@@ -129,7 +129,7 @@ export class AutomationService {
       switch (node.type) {
         case "action":
         case "action_email":
-          await this.handleEmailAction(execution, node.data, baseUrl);
+          await this.handleEmailAction(execution, node.data);
           break;
 
         case "condition":
@@ -192,11 +192,7 @@ export class AutomationService {
     }
   }
 
-  private async handleEmailAction(
-    execution: any,
-    data: any,
-    baseUrl: string,
-  ): Promise<void> {
+  private async handleEmailAction(execution: any, data: any): Promise<void> {
     const campaignId = data.triggerId || data.campaignId || data.templateId;
     if (!campaignId)
       throw new Error(
@@ -215,7 +211,6 @@ export class AutomationService {
       to: contact.email,
       data: (contact.meta as any) || {},
       locale: contact.locale || undefined,
-      baseUrl,
     });
   }
 

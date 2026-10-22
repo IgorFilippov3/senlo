@@ -6,6 +6,7 @@ import type { Worker } from "bullmq";
 import type { AccessPolicy } from "../access";
 import type { MailSettings } from "../config";
 import { ServiceHooks, type AuditLog, type QuotaPolicy, type UsageMeter } from "../hooks";
+import { fixedBaseUrl, type ResolveBaseUrl } from "../base-url";
 import { createServices, type Repositories } from "../composition";
 import { consoleLogger, type Logger } from "../logger";
 import { createQueues, type QueueConnection } from "./queue";
@@ -36,6 +37,7 @@ export function startWorkers({
   usage,
   quota,
   audit,
+  resolveBaseUrl = fixedBaseUrl(settings.appUrl),
 }: {
   repositories: Repositories;
   connection: QueueConnection;
@@ -47,9 +49,11 @@ export function startWorkers({
   usage?: UsageMeter;
   quota?: QuotaPolicy;
   audit?: AuditLog;
+  /** See `createServices`; campaign sends and triggered sends build their links with it. */
+  resolveBaseUrl?: ResolveBaseUrl;
 }): RunningWorkers {
   const queues = createQueues(connection);
-  const services = createServices({ repositories, queues, settings, logger, access, usage, quota, audit });
+  const services = createServices({ repositories, queues, settings, logger, access, usage, quota, audit, resolveBaseUrl });
 
   const emailProcessor = new EmailWorkerProcessor(
     settings,
@@ -63,6 +67,7 @@ export function startWorkers({
     repositories.suppressions,
     logger,
     new ServiceHooks({ usage, quota }, logger),
+    resolveBaseUrl,
   );
   const automationProcessor = new AutomationWorkerProcessor(
     services.automation,

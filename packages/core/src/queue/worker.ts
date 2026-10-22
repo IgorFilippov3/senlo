@@ -29,6 +29,7 @@ import { AutomationService } from "../services/automationService";
 import { consoleLogger, type Logger } from "../logger";
 import { QuotaExceededError } from "../errors";
 import { ServiceHooks } from "../hooks";
+import { fixedBaseUrl, resolveProjectBaseUrl, type ResolveBaseUrl } from "../base-url";
 import {
   AUTOMATION_QUEUE_NAME,
   CAMPAIGN_QUEUE_NAME,
@@ -63,6 +64,8 @@ export class EmailWorkerProcessor {
     private readonly suppressionRepo?: ISuppressionRepository,
     private readonly logger: Logger = consoleLogger,
     private readonly hooks: ServiceHooks = ServiceHooks.none,
+    /** Where each project's links point; see `ResolveBaseUrl`. */
+    private readonly resolveBaseUrl: ResolveBaseUrl = fixedBaseUrl(settings.appUrl),
   ) {}
 
   /**
@@ -431,7 +434,7 @@ export class EmailWorkerProcessor {
       sentAt: new Date(),
     });
 
-    const baseUrl = this.settings.appUrl;
+    const baseUrl = await resolveProjectBaseUrl(this.resolveBaseUrl, project.id);
     const signingSecret = this.settings.linkSigningSecret;
     const fromEmail = campaign.fromEmail || this.settings.defaultFromEmail;
     const fromAddress = campaign.fromName

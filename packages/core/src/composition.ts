@@ -6,6 +6,7 @@ import type { Queue } from "bullmq";
 import { AccessGuard, ownerAccessPolicy, type AccessPolicy } from "./access";
 import type { MailSettings } from "./config";
 import { ServiceHooks, type AuditLog, type QuotaPolicy, type UsageMeter } from "./hooks";
+import { fixedBaseUrl, type ResolveBaseUrl } from "./base-url";
 import { consoleLogger, type Logger } from "./logger";
 import type {
   ContactRepository,
@@ -119,6 +120,7 @@ export function createServices({
   usage,
   quota,
   audit,
+  resolveBaseUrl = fixedBaseUrl(settings.appUrl),
 }: {
   repositories: Repositories;
   queues: ServiceQueues;
@@ -140,6 +142,8 @@ export function createServices({
   quota?: QuotaPolicy;
   /** Receives every change to projects, providers, API keys, workflows and templates. Default: drops it. */
   audit?: AuditLog;
+  /** Where a project's links point (tracking, unsubscribe, editor). Default: `settings.appUrl` for every project. */
+  resolveBaseUrl?: ResolveBaseUrl;
 }): Services {
   const guard = new AccessGuard(r.projects, access);
   const hooks = new ServiceHooks({ usage, quota, audit }, logger);
@@ -153,6 +157,7 @@ export function createServices({
     queues.email,
     settings,
     hooks,
+    resolveBaseUrl,
   );
   const automation = new AutomationService(
     r.workflows,
@@ -179,7 +184,7 @@ export function createServices({
     project: new ProjectService(r, guard, hooks),
     settings: new SettingsService(r.apiKeys, r.projects, guard, hooks),
     savedRow: new SavedRowService(r.savedRows, r.projects, guard),
-    template: new TemplateService(r, queues.email, settings, guard, hooks),
+    template: new TemplateService(r, queues.email, settings, guard, hooks, resolveBaseUrl),
     tracking: new TrackingService(r, settings),
     unsubscribe: new UnsubscribeService(r, settings),
     upload: new UploadService(storage ?? noStorage),

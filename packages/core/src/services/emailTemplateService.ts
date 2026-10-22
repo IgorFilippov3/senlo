@@ -6,6 +6,7 @@ import type { Queue } from "bullmq";
 import { z } from "zod";
 import { AccessGuard } from "../access";
 import { ServiceHooks } from "../hooks";
+import { fixedBaseUrl, resolveProjectBaseUrl, type ResolveBaseUrl } from "../base-url";
 import type { MailSettings } from "../config";
 import { EMPTY_EMAIL_DESIGN } from "../constants";
 import type { Campaign, Project } from "../domain";
@@ -62,6 +63,8 @@ export interface EditorData {
   campaign: Campaign | null;
   design: EmailDesignDocument;
   mergeTags: MergeTag[];
+  /** The project's public address, for the editor's preview, export and relative images. */
+  baseUrl: string;
 }
 
 /**
@@ -107,6 +110,8 @@ export class TemplateService {
     private readonly settings: Pick<MailSettings, "appUrl" | "defaultFromEmail">,
     access?: AccessGuard,
     private readonly hooks: ServiceHooks = ServiceHooks.none,
+    /** Where a project's links and relative images point; see `ResolveBaseUrl`. */
+    private readonly resolveBaseUrl: ResolveBaseUrl = fixedBaseUrl(settings.appUrl),
   ) {
     this.access = access ?? new AccessGuard(repos.projects);
   }
@@ -188,6 +193,7 @@ export class TemplateService {
       campaign,
       design: template.designJson ?? EMPTY_EMAIL_DESIGN,
       mergeTags: mergeTagsFromVariables(campaign?.variablesSchema),
+      baseUrl: await resolveProjectBaseUrl(this.resolveBaseUrl, project.id),
     };
   }
 
@@ -233,13 +239,16 @@ export class TemplateService {
         "No email provider configured for this project. Please set one in Project Settings.",
       );
     }
-    const provider = await this.repos.providers.findById(project.providerId);
-    if (!provider || provider.userId !== userId) {
-      throw new NotFoundError("Email provider");
-    }
+    // Through the policy, like every provider check: an organization's
+    // provider is usable by its members.
+    await this.access.requireOwned(
+      userId,
+      await this.repos.providers.findById(project.providerId),
+      "Email provider",
+    );
 
     const html = renderEmailDesign(input.design, {
-      baseUrl: this.settings.appUrl,
+      baseUrl: await resolveProjectBaseUrl(this.resolveBaseUrl, project.id),
       data: {
         contact: {
           email: input.to,

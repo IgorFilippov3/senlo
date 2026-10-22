@@ -17,6 +17,7 @@ import { z } from "zod";
 import { NotFoundError, ValidationError } from "../errors";
 import { parseInput } from "../validation";
 import { ServiceHooks } from "../hooks";
+import { fixedBaseUrl, resolveProjectBaseUrl, type ResolveBaseUrl } from "../base-url";
 
 export interface TriggeredEmailOptions {
   campaignId: number;
@@ -25,7 +26,6 @@ export interface TriggeredEmailOptions {
   data?: Record<string, unknown>;
   locale?: string;
   subject?: string;
-  baseUrl: string;
 }
 
 /** Body of `POST /api/triggered`. `id` wins over its older alias `campaignId`. */
@@ -60,19 +60,21 @@ export class TriggerService {
     private readonly emailQueue: Queue,
     private readonly settings: Pick<
       MailSettings,
-      "linkSigningSecret" | "defaultFromEmail"
+      "linkSigningSecret" | "defaultFromEmail" | "appUrl"
     >,
     private readonly hooks: ServiceHooks = ServiceHooks.none,
+    /** Where this project's links point; see `ResolveBaseUrl`. */
+    private readonly resolveBaseUrl: ResolveBaseUrl = fixedBaseUrl(settings.appUrl),
   ) {}
 
   /** The public API entry: the body as received, the project from the API key. */
-  async sendFromRequest(projectId: number, rawBody: unknown, baseUrl: string) {
+  async sendFromRequest(projectId: number, rawBody: unknown) {
     const request = parseInput(TriggeredEmailRequestSchema, rawBody);
-    return this.sendTriggeredEmail({ ...request, projectId, baseUrl });
+    return this.sendTriggeredEmail({ ...request, projectId });
   }
 
   async sendTriggeredEmail(options: TriggeredEmailOptions) {
-    const { campaignId, to, data, locale, subject: subjectOverride, baseUrl } = options;
+    const { campaignId, to, data, locale, subject: subjectOverride } = options;
 
     const campaign = await this.campaignRepo.findById(campaignId);
     if (!campaign || campaign.projectId !== options.projectId) {
@@ -123,6 +125,7 @@ export class TriggerService {
       { projectId: project.id, email: to, campaignId: campaign.id },
       this.settings.linkSigningSecret,
     );
+    const baseUrl = await resolveProjectBaseUrl(this.resolveBaseUrl, project.id);
     const unsubscribe = unsubscribeUrls(baseUrl, unsubscribeToken);
 
     const fromEmail = campaign.fromEmail || this.settings.defaultFromEmail;
