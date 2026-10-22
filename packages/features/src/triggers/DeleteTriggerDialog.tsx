@@ -3,6 +3,7 @@
 import React from "react";
 import { Button, Dialog } from "@senlo/ui";
 import type { Campaign } from "@senlo/core";
+import { FormErrorBanner } from "../shared/FormErrorBanner";
 
 export interface DeleteTriggerDialogProps {
   campaign: Campaign;
@@ -10,6 +11,8 @@ export interface DeleteTriggerDialogProps {
   onClose: () => void;
   onConfirm: () => void;
   isDeleting?: boolean;
+  /** A delete failure, shown in the dialog. */
+  error?: string | null;
 }
 
 export function DeleteTriggerDialog({
@@ -18,6 +21,7 @@ export function DeleteTriggerDialog({
   onClose,
   onConfirm,
   isDeleting = false,
+  error,
 }: DeleteTriggerDialogProps) {
   return (
     <Dialog
@@ -40,6 +44,9 @@ export function DeleteTriggerDialog({
       <p className="text-sm text-zinc-500">
         This will permanently remove the trigger and all its history.
       </p>
+      <div className="mt-4">
+        <FormErrorBanner error={error} />
+      </div>
     </Dialog>
   );
 }

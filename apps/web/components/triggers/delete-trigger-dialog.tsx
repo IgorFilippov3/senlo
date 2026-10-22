@@ -10,21 +10,22 @@ interface DeleteTriggerDialogProps {
 }
 
 export default function DeleteTriggerDialog({ campaign, isOpen, onClose }: DeleteTriggerDialogProps) {
-  const { mutate: deleteTrigger, isPending } = useDeleteCampaign();
+  const { mutate: deleteTrigger, isPending, error, reset } = useDeleteCampaign();
 
-  const confirm = () =>
-    deleteTrigger(campaign.id, {
-      onSuccess: onClose,
-      onError: () => alert("Failed to delete trigger. Please try again."),
-    });
+  const close = () => {
+    reset();
+    onClose();
+  };
+  const confirm = () => deleteTrigger(campaign.id, { onSuccess: close });
 
   return (
     <SharedDeleteTriggerDialog
       campaign={campaign}
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={close}
       onConfirm={confirm}
       isDeleting={isPending}
+      error={error ? "Failed to delete trigger. Please try again." : null}
     />
   );
 }

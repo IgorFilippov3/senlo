@@ -24,12 +24,18 @@ export default function EditTriggerDialog({
   const { data: templates = [] } = useProjectTemplates(project.id);
   const update = useUpdateTriggeredCampaign(campaign.id);
 
+  // Clears a failed save, so the dialog does not reopen with an old error.
+  const close = () => {
+    update.reset();
+    onClose();
+  };
+
   const handleSave = async (formData: FormData) => {
     try {
       await update.mutateAsync(Object.fromEntries(formData));
-      onClose();
-    } catch (error) {
-      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      close();
+    } catch {
+      // Shown in the dialog from `update.error`.
     }
   };
 
@@ -39,9 +45,10 @@ export default function EditTriggerDialog({
       project={project}
       templates={templates}
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={close}
       onSave={handleSave}
       isSaving={update.isPending}
+      error={update.error?.message}
     />
   );
 }

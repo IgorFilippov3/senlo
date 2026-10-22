@@ -11,6 +11,10 @@ import {
 } from "@senlo/ui";
 import { Save, X, Plus, Trash2 } from "lucide-react";
 import type { Campaign, Project, EmailTemplate } from "@senlo/core";
+import { FormErrorBanner } from "../shared/FormErrorBanner";
+
+/** "de", "pt-br", "zh-hant": a language, optionally a region or script. */
+const LOCALE_CODE = /^[a-z]{2,3}(-[a-z0-9]{2,8})?$/;
 
 export interface EditTriggerDialogProps {
   campaign: Campaign;
@@ -20,6 +24,8 @@ export interface EditTriggerDialogProps {
   onClose: () => void;
   onSave: (formData: FormData) => Promise<void>;
   isSaving?: boolean;
+  /** A save failure from the server, shown above the footer. */
+  error?: string | null;
 }
 
 export function EditTriggerDialog({
@@ -30,6 +36,7 @@ export function EditTriggerDialog({
   onClose,
   onSave,
   isSaving = false,
+  error,
 }: EditTriggerDialogProps) {
   const [formData, setFormData] = useState({
     name: campaign.name,
@@ -39,6 +46,26 @@ export function EditTriggerDialog({
     variablesSchema: JSON.stringify(campaign.variablesSchema || {}, null, 2),
     localeTemplates: campaign.localeTemplates || {},
   });
+  const [newLocale, setNewLocale] = useState("");
+  const [localeError, setLocaleError] = useState<string | null>(null);
+
+  const addLocale = () => {
+    const code = newLocale.trim().toLowerCase();
+    if (!LOCALE_CODE.test(code)) {
+      setLocaleError("Use a locale code such as de, es or pt-br.");
+      return;
+    }
+    if (code in formData.localeTemplates) {
+      setLocaleError(`"${code}" is already in the list.`);
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      localeTemplates: { ...prev.localeTemplates, [code]: campaign.templateId },
+    }));
+    setNewLocale("");
+    setLocaleError(null);
+  };
 
   const handleSaveClick = async () => {
     const data = new FormData();
@@ -144,29 +171,38 @@ export function EditTriggerDialog({
                     Map specific templates to languages
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  onClick={() => {
-                    const locale = prompt(
-                      "Enter locale code (e.g. ru, es, de):",
-                    );
-                    if (locale) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        localeTemplates: {
-                          ...prev.localeTemplates,
-                          [locale.toLowerCase()]: campaign.templateId,
-                        },
-                      }));
-                    }
-                  }}
-                >
-                  <Plus size={14} className="mr-1" />
-                  Add Locale
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newLocale}
+                    onChange={(e) => {
+                      setNewLocale(e.target.value);
+                      setLocaleError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addLocale();
+                      }
+                    }}
+                    placeholder="de"
+                    aria-label="Locale code"
+                    className="w-24 h-8"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={addLocale}
+                    disabled={!newLocale.trim()}
+                  >
+                    <Plus size={14} className="mr-1" />
+                    Add Locale
+                  </Button>
+                </div>
               </div>
+              {localeError && (
+                <p className="-mt-2 mb-3 text-xs text-red-600">{localeError}</p>
+              )}
 
               <div className="space-y-3">
                 {Object.entries(formData.localeTemplates).map(
@@ -240,6 +276,8 @@ export function EditTriggerDialog({
             </div>
           </>
         )}
+
+        <FormErrorBanner error={error} />
       </div>
     </Dialog>
   );
