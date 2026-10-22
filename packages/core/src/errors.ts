@@ -15,6 +15,7 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "DUPLICATE_ENTRY"
   | "RATE_LIMITED"
+  | "QUOTA_EXCEEDED"
   | "EXTERNAL_SERVICE_ERROR"
   | "DATABASE_ERROR"
   | "UNKNOWN_ERROR";
@@ -26,6 +27,7 @@ const DEFAULT_STATUS: Record<ErrorCode, number> = {
   NOT_FOUND: 404,
   DUPLICATE_ENTRY: 409,
   RATE_LIMITED: 429,
+  QUOTA_EXCEEDED: 402,
   EXTERNAL_SERVICE_ERROR: 502,
   DATABASE_ERROR: 500,
   UNKNOWN_ERROR: 500,
@@ -113,6 +115,14 @@ export class RateLimitedError extends AppError {
       429,
     );
     this.name = "RateLimitedError";
+  }
+}
+
+/** A plan limit (managed `QuotaPolicy`) forbids the action; the reason is shown as is. */
+export class QuotaExceededError extends AppError {
+  constructor(reason: string) {
+    super("QUOTA_EXCEEDED", reason, undefined, 402);
+    this.name = "QuotaExceededError";
   }
 }
 

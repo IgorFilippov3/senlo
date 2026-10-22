@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { DEFAULT_AI_MODELS, type AiProvider, type AiProviderType, type PublicAiProvider } from "../../domain";
 import { AccessGuard, listInScope } from "../../access";
+import { ServiceHooks } from "../../hooks";
 import { NotFoundError } from "../../errors";
 import type { IAiProviderRepository } from "../../ports";
 import { parseInput } from "../../validation";
@@ -42,6 +43,7 @@ export class AiProviderService {
   constructor(
     private readonly providers: IAiProviderRepository,
     private readonly access: Pick<AccessGuard, "requireOwned" | "scopeFor"> = AccessGuard.forOwnedRecords(),
+    private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {}
 
   /** The providers in the user's scope (their own, or their organization's). */
@@ -64,6 +66,7 @@ export class AiProviderService {
       userId,
       organizationId: (await this.access.scopeFor(userId)).organizationId,
     });
+    await this.audit(userId, "created", created.id, { type: created.type });
     return toPublicAiProvider(created);
   }
 
@@ -71,11 +74,22 @@ export class AiProviderService {
     await this.requireOwned(userId, id);
     const updated = await this.providers.update(id, { isActive });
     if (!updated) throw new NotFoundError("AI provider");
+    await this.audit(userId, isActive ? "activated" : "deactivated", id);
     return toPublicAiProvider(updated);
   }
 
   async delete(userId: string, id: number): Promise<void> {
     await this.requireOwned(userId, id);
     await this.providers.delete(id);
+    await this.audit(userId, "deleted", id);
+  }
+
+  private audit(userId: string, verb: string, id: number, details?: Record<string, unknown>) {
+    return this.hooks.audit({
+      actor: { userId },
+      action: `ai_provider.${verb}`,
+      target: { type: "ai_provider", id },
+      details,
+    });
   }
 }

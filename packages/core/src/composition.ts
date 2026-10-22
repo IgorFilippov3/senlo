@@ -5,6 +5,7 @@
 import type { Queue } from "bullmq";
 import { AccessGuard, ownerAccessPolicy, type AccessPolicy } from "./access";
 import type { MailSettings } from "./config";
+import { ServiceHooks, type AuditLog, type QuotaPolicy, type UsageMeter } from "./hooks";
 import { consoleLogger, type Logger } from "./logger";
 import type {
   ContactRepository,
@@ -115,6 +116,9 @@ export function createServices({
   logger = consoleLogger,
   onUserCreated,
   access = ownerAccessPolicy,
+  usage,
+  quota,
+  audit,
 }: {
   repositories: Repositories;
   queues: ServiceQueues;
@@ -130,8 +134,15 @@ export function createServices({
    * membership-based policy.
    */
   access?: AccessPolicy;
+  /** Counts sends, new contacts and new projects (and feeds billing). Default: records nothing. */
+  usage?: UsageMeter;
+  /** Plan limits on sends, contacts and projects. Default: allows everything. */
+  quota?: QuotaPolicy;
+  /** Receives every change to projects, providers, API keys, workflows and templates. Default: drops it. */
+  audit?: AuditLog;
 }): Services {
   const guard = new AccessGuard(r.projects, access);
+  const hooks = new ServiceHooks({ usage, quota, audit }, logger);
 
   const trigger = new TriggerService(
     r.campaigns,
@@ -141,6 +152,7 @@ export function createServices({
     r.sendLogs,
     queues.email,
     settings,
+    hooks,
   );
   const automation = new AutomationService(
     r.workflows,
@@ -151,7 +163,7 @@ export function createServices({
     logger,
   );
 
-  const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects, guard);
+  const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects, guard, hooks);
 
   return {
     trigger,
@@ -159,20 +171,20 @@ export function createServices({
     audience,
     events: new EventIngestionService(r.contacts, audience, automation),
     aiDesign: new AiDesignService(r.projects, r.aiProviders, undefined, guard),
-    aiProvider: new AiProviderService(r.aiProviders, guard),
+    aiProvider: new AiProviderService(r.aiProviders, guard, hooks),
     auth: new AuthService(r.apiKeys),
     campaign: new CampaignService(r, queues.campaign, guard),
     dashboard: new DashboardService(r.dashboard, r.projects, guard),
-    emailProvider: new EmailProviderService(r.providers, guard),
-    project: new ProjectService(r, guard),
-    settings: new SettingsService(r.apiKeys, r.projects, guard),
+    emailProvider: new EmailProviderService(r.providers, guard, hooks),
+    project: new ProjectService(r, guard, hooks),
+    settings: new SettingsService(r.apiKeys, r.projects, guard, hooks),
     savedRow: new SavedRowService(r.savedRows, r.projects, guard),
-    template: new TemplateService(r, queues.email, settings, guard),
+    template: new TemplateService(r, queues.email, settings, guard, hooks),
     tracking: new TrackingService(r, settings),
     unsubscribe: new UnsubscribeService(r, settings),
     upload: new UploadService(storage ?? noStorage),
     user: new UserService(r.users, undefined, { onUserCreated, logger }),
     webhook: new WebhookService(r, logger),
-    workflow: new WorkflowService(r, guard),
+    workflow: new WorkflowService(r, guard, hooks),
   };
 }

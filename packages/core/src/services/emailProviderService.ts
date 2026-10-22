@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { AccessGuard, listInScope } from "../access";
+import { ServiceHooks } from "../hooks";
 import type { EmailProvider, EmailProviderType, PublicEmailProvider } from "../domain";
 import { FormValidationError, NotFoundError } from "../errors";
 import { parseInput } from "../validation";
@@ -221,6 +222,7 @@ export class EmailProviderService {
   constructor(
     private readonly providers: IEmailProviderRepository,
     private readonly access: Pick<AccessGuard, "requireOwned" | "scopeFor"> = AccessGuard.forOwnedRecords(),
+    private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {}
 
   /** The providers in the user's scope (their own, or their organization's). */
@@ -248,6 +250,7 @@ export class EmailProviderService {
       userId,
       organizationId: (await this.access.scopeFor(userId)).organizationId,
     });
+    await this.audit(userId, "created", created.id, { type: created.type });
     return toPublicEmailProvider(created);
   }
 
@@ -260,6 +263,7 @@ export class EmailProviderService {
       config: mergeProviderConfig(provider, input),
     });
     if (!updated) throw new NotFoundError("Provider");
+    await this.audit(userId, "updated", id);
     return toPublicEmailProvider(updated);
   }
 
@@ -267,11 +271,22 @@ export class EmailProviderService {
     await this.requireOwned(userId, id);
     const updated = await this.providers.update(id, { isActive });
     if (!updated) throw new NotFoundError("Provider");
+    await this.audit(userId, isActive ? "activated" : "deactivated", id);
     return toPublicEmailProvider(updated);
   }
 
   async delete(userId: string, id: number): Promise<void> {
     await this.requireOwned(userId, id);
     await this.providers.delete(id);
+    await this.audit(userId, "deleted", id);
+  }
+
+  private audit(userId: string, verb: string, id: number, details?: Record<string, unknown>) {
+    return this.hooks.audit({
+      actor: { userId },
+      action: `email_provider.${verb}`,
+      target: { type: "email_provider", id },
+      details,
+    });
   }
 }

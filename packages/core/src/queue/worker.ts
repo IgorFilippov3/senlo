@@ -27,6 +27,8 @@ import { renderEmailDesign } from "../renderer/renderEmailDesign";
 import type { EmailDesignDocument } from "../emailDesign";
 import { AutomationService } from "../services/automationService";
 import { consoleLogger, type Logger } from "../logger";
+import { QuotaExceededError } from "../errors";
+import { ServiceHooks } from "../hooks";
 import {
   AUTOMATION_QUEUE_NAME,
   CAMPAIGN_QUEUE_NAME,
@@ -60,6 +62,7 @@ export class EmailWorkerProcessor {
     private readonly logRepo?: ITriggeredSendLogRepository,
     private readonly suppressionRepo?: ISuppressionRepository,
     private readonly logger: Logger = consoleLogger,
+    private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {}
 
   /**
@@ -255,6 +258,26 @@ export class EmailWorkerProcessor {
         }
       }
 
+      // A plan limit is final for this message: it is recorded as failed and
+      // not retried (a retry would hit the same limit).
+      const quota = await this.quotaRefusal(projectId);
+      if (quota) {
+        this.logger.warn("Skipping a send over quota", { campaignId, contactId, reason: quota });
+        if (logId && this.logRepo) {
+          await this.logRepo.update(logId, { status: "FAILED", error: quota });
+        }
+        if (campaignId !== 0) {
+          await this.campaignRepo.logEvent({
+            campaignId,
+            contactId: contactId && contactId !== 0 ? contactId : null,
+            email,
+            type: "FAILED",
+            metadata: { error: quota },
+          });
+        }
+        return;
+      }
+
       const provider = await this.providerRepo.findById(providerId);
       if (!provider) throw new Error(`Provider ${providerId} not found`);
 
@@ -283,6 +306,14 @@ export class EmailWorkerProcessor {
       if (!result.success) {
         throw new Error(result.error || "Failed to send email");
       }
+
+      // Never throws: a failing meter must not make the queue retry a send that went out.
+      await this.hooks.recordUsage({
+        type: "email.sent",
+        projectId,
+        campaignId: campaignId !== 0 ? campaignId : null,
+        provider: provider.type,
+      });
 
       // Update log with provider message ID if it's a triggered send
       if (logId && this.logRepo) {
@@ -337,6 +368,17 @@ export class EmailWorkerProcessor {
       }
 
       throw error; // Rethrow to let BullMQ handle retries
+    }
+  }
+
+  /** The reason a plan forbids this project's send, or null. */
+  private async quotaRefusal(projectId: number): Promise<string | null> {
+    try {
+      await this.hooks.requireQuota({ type: "email.send", projectId });
+      return null;
+    } catch (error) {
+      if (error instanceof QuotaExceededError) return error.message;
+      throw error;
     }
   }
 

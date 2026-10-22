@@ -5,6 +5,7 @@
 import type { Worker } from "bullmq";
 import type { AccessPolicy } from "../access";
 import type { MailSettings } from "../config";
+import { ServiceHooks, type AuditLog, type QuotaPolicy, type UsageMeter } from "../hooks";
 import { createServices, type Repositories } from "../composition";
 import { consoleLogger, type Logger } from "../logger";
 import { createQueues, type QueueConnection } from "./queue";
@@ -32,6 +33,9 @@ export function startWorkers({
   settings,
   logger = consoleLogger,
   access,
+  usage,
+  quota,
+  audit,
 }: {
   repositories: Repositories;
   connection: QueueConnection;
@@ -39,9 +43,13 @@ export function startWorkers({
   logger?: Logger;
   /** Passed to `createServices`; see its `access`. */
   access?: AccessPolicy;
+  /** See `createServices`; the email worker records each send and checks the plan before it. */
+  usage?: UsageMeter;
+  quota?: QuotaPolicy;
+  audit?: AuditLog;
 }): RunningWorkers {
   const queues = createQueues(connection);
-  const services = createServices({ repositories, queues, settings, logger, access });
+  const services = createServices({ repositories, queues, settings, logger, access, usage, quota, audit });
 
   const emailProcessor = new EmailWorkerProcessor(
     settings,
@@ -54,6 +62,7 @@ export function startWorkers({
     repositories.sendLogs,
     repositories.suppressions,
     logger,
+    new ServiceHooks({ usage, quota }, logger),
   );
   const automationProcessor = new AutomationWorkerProcessor(
     services.automation,

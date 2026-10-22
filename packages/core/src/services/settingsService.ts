@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { AccessGuard } from "../access";
+import { ServiceHooks } from "../hooks";
 import { apiKeyPrefix, generateApiKey, hashApiKey } from "../api-key";
 import type { ApiKey, IssuedApiKey } from "../domain";
 import { NotFoundError, ValidationError } from "../errors";
@@ -18,6 +19,7 @@ export class SettingsService {
     private readonly apiKeys: IApiKeyRepository,
     projects: Pick<IProjectRepository, "findById">,
     access?: AccessGuard,
+    private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {
     this.access = access ?? new AccessGuard(projects);
   }
@@ -42,6 +44,12 @@ export class SettingsService {
       keyHash: hashApiKey(key),
       prefix: apiKeyPrefix(key),
     });
+    await this.hooks.audit({
+      actor: { userId },
+      action: "api_key.created",
+      target: { type: "api_key", id: stored.id, projectId },
+      details: { name: stored.name, prefix: stored.prefix },
+    });
     return { ...stored, key };
   }
 
@@ -53,6 +61,12 @@ export class SettingsService {
       "API key",
     );
     await this.apiKeys.delete(id);
+    await this.hooks.audit({
+      actor: { userId },
+      action: "api_key.deleted",
+      target: { type: "api_key", id, projectId: apiKey.projectId },
+      details: { name: apiKey.name, prefix: apiKey.prefix },
+    });
     return { projectId: apiKey.projectId };
   }
 }

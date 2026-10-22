@@ -5,6 +5,7 @@
 import type { Queue } from "bullmq";
 import { z } from "zod";
 import { AccessGuard } from "../access";
+import { ServiceHooks } from "../hooks";
 import type { MailSettings } from "../config";
 import { EMPTY_EMAIL_DESIGN } from "../constants";
 import type { Campaign, Project } from "../domain";
@@ -105,6 +106,7 @@ export class TemplateService {
     private readonly emailQueue: Pick<Queue<EmailJobData>, "add" | "getWorkers">,
     private readonly settings: Pick<MailSettings, "appUrl" | "defaultFromEmail">,
     access?: AccessGuard,
+    private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {
     this.access = access ?? new AccessGuard(repos.projects);
   }
@@ -132,7 +134,7 @@ export class TemplateService {
   async create(userId: string, projectId: number, rawInput: unknown): Promise<EmailTemplate> {
     await this.access.requireProject(userId, projectId);
     const input = parseInput(CreateTemplateSchema, rawInput);
-    return this.repos.templates.create({
+    const template = await this.repos.templates.create({
       projectId,
       name: input.name,
       subject: input.subject,
@@ -140,6 +142,8 @@ export class TemplateService {
       html: HTML_PLACEHOLDER,
       designJson: EMPTY_EMAIL_DESIGN,
     });
+    await this.audit(userId, "created", template.id, projectId);
+    return template;
   }
 
   /** The template must be in the project the caller named, which must be theirs. */
@@ -151,6 +155,15 @@ export class TemplateService {
       "Template",
     );
     await this.repos.templates.delete(templateId);
+    await this.audit(userId, "deleted", templateId, projectId);
+  }
+
+  private audit(userId: string, verb: string, templateId: number, projectId: number) {
+    return this.hooks.audit({
+      actor: { userId },
+      action: `template.${verb}`,
+      target: { type: "template", id: templateId, projectId },
+    });
   }
 
   /**
@@ -183,7 +196,7 @@ export class TemplateService {
     templateId: number,
     input: EditorSaveInput,
   ): Promise<EmailTemplate> {
-    await this.requireTemplate(userId, templateId);
+    const { template } = await this.requireTemplate(userId, templateId);
     const updated = await this.repos.templates.update({
       id: templateId,
       designJson: input.design,
@@ -194,6 +207,7 @@ export class TemplateService {
       preheader: input.metadata?.preheader,
     });
     if (!updated) throw new NotFoundError("Template");
+    await this.audit(userId, "saved", templateId, template.projectId);
     return updated;
   }
 

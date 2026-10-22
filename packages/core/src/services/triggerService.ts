@@ -16,6 +16,7 @@ import { Queue } from "bullmq";
 import { z } from "zod";
 import { NotFoundError, ValidationError } from "../errors";
 import { parseInput } from "../validation";
+import { ServiceHooks } from "../hooks";
 
 export interface TriggeredEmailOptions {
   campaignId: number;
@@ -61,6 +62,7 @@ export class TriggerService {
       MailSettings,
       "linkSigningSecret" | "defaultFromEmail"
     >,
+    private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {}
 
   /** The public API entry: the body as received, the project from the API key. */
@@ -102,7 +104,9 @@ export class TriggerService {
       throw new NotFoundError("Template");
     }
     if (!project) throw new NotFoundError("Project");
-    
+    // Refused here, before a send log exists, so the API caller gets the reason.
+    await this.hooks.requireQuota({ type: "email.send", projectId: project.id });
+
     if (!project.providerId) {
       throw new ValidationError("No email provider configured for this project");
     }

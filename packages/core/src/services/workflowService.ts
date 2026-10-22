@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { AccessGuard } from "../access";
+import { ServiceHooks } from "../hooks";
 import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowStatus } from "../domain";
 import { FormValidationError, ValidationError } from "../errors";
 import type { ICampaignRepository, IProjectRepository, IWorkflowRepository } from "../ports";
@@ -74,6 +75,7 @@ export class WorkflowService {
   constructor(
     private readonly repos: WorkflowServiceRepositories,
     access?: AccessGuard,
+    private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {
     this.access = access ?? new AccessGuard(repos.projects);
   }
@@ -102,6 +104,7 @@ export class WorkflowService {
       status: "DRAFT",
     });
     await this.repos.workflows.saveGraph(workflow.id, [defaultTriggerNode()], []);
+    await this.audit(userId, "created", workflow);
     return workflow;
   }
 
@@ -163,6 +166,7 @@ export class WorkflowService {
         sourceHandle: e.sourceHandle ?? null,
       })),
     );
+    await this.audit(userId, "graph_saved", workflow, { nodes: graph.nodes.length, edges: graph.edges.length });
   }
 
   /**
@@ -186,12 +190,23 @@ export class WorkflowService {
       }
     }
     await this.repos.workflows.update(id, { status });
+    await this.audit(userId, "status_changed", workflow, { from: workflow.status, to: status });
     return { ...workflow, status };
   }
 
   async delete(userId: string, id: number): Promise<Workflow> {
     const workflow = await this.requireWorkflow(userId, id);
     await this.repos.workflows.delete(id);
+    await this.audit(userId, "deleted", workflow);
     return workflow;
+  }
+
+  private audit(userId: string, verb: string, workflow: Workflow, details?: Record<string, unknown>) {
+    return this.hooks.audit({
+      actor: { userId },
+      action: `workflow.${verb}`,
+      target: { type: "workflow", id: workflow.id, projectId: workflow.projectId },
+      details,
+    });
   }
 }

@@ -28,6 +28,7 @@ export * from "./config";
 export * from "./secrets";
 export * from "./logger";
 export * from "./access";
+export * from "./hooks";
 export * from "./workflow-graph";
 export * from "./rate-limit";
 export * from "./merge-tags";

@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { AccessGuard, listInScope } from "../access";
+import { ServiceHooks } from "../hooks";
 import type { Project } from "../domain";
 import { NotFoundError } from "../errors";
 import type {
@@ -54,6 +55,7 @@ export class ProjectService {
   constructor(
     private readonly repos: ProjectServiceRepositories,
     access?: AccessGuard,
+    private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {
     this.access = access ?? new AccessGuard(repos.projects);
   }
@@ -71,12 +73,20 @@ export class ProjectService {
   async create(userId: string, rawInput: unknown): Promise<Project> {
     const input = parseInput(CreateWorkspaceSchema, rawInput);
     const scope = await this.access.scopeFor(userId);
-    return this.repos.projects.create({
+    await this.hooks.requireQuota({ type: "project.create", scope });
+    const project = await this.repos.projects.create({
       name: input.name,
       description: input.description,
       userId,
       organizationId: scope.organizationId,
     });
+    await this.hooks.recordUsage({ type: "project.created", projectId: project.id, scope });
+    await this.hooks.audit({
+      actor: { userId },
+      action: "project.created",
+      target: { type: "project", id: project.id, projectId: project.id },
+    });
+    return project;
   }
 
   async update(userId: string, projectId: number, rawInput: unknown): Promise<Project> {
@@ -105,11 +115,22 @@ export class ProjectService {
       aiProviderId: input.aiProviderId,
     });
     if (!updated) throw new NotFoundError("Project");
+    await this.hooks.audit({
+      actor: { userId },
+      action: "project.updated",
+      target: { type: "project", id: projectId, projectId },
+      details: { providerId: input.providerId, aiProviderId: input.aiProviderId },
+    });
     return updated;
   }
 
   async delete(userId: string, projectId: number): Promise<void> {
     await this.access.requireProject(userId, projectId);
     await this.repos.projects.delete(projectId);
+    await this.hooks.audit({
+      actor: { userId },
+      action: "project.deleted",
+      target: { type: "project", id: projectId, projectId },
+    });
   }
 }
