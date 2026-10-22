@@ -181,7 +181,6 @@ export class TriggerService {
         },
         unsubscribePageUrl: unsubscribe.page,
         unsubscribeOneClickUrl: unsubscribe.oneClick,
-        html: template.designJson ? undefined : template.html,
       },
     );
 

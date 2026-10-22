@@ -7,9 +7,9 @@ export type EmailJobData = {
   from: string;
   subject: string;
   /**
-   * The finished message. Only set by senders that cannot describe the render -
-   * a template with no designJson - and by jobs queued before rendering moved
-   * into this worker.
+   * The finished message, sent as is: no merge tags, tracking or unsubscribe
+   * link are applied. Only the editor's test send sets it; campaigns and
+   * triggered sends always queue `templateId`, imported HTML templates too.
    */
   html?: string;
   /**

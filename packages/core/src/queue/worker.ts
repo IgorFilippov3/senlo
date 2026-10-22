@@ -122,7 +122,10 @@ export class EmailWorkerProcessor {
     if (!template) throw new Error(`Template ${templateId} not found`);
 
     if (!template.designJson) {
-      // Nothing to render: an imported template is already HTML.
+      // Nothing to render: an imported template is already HTML. It still goes
+      // through personalization like any other, for merge tags, tracking and
+      // the unsubscribe link.
+      this.cacheRender(cacheKey, template.html);
       return { html: template.html, recipientIndependent: true };
     }
 
@@ -148,7 +151,9 @@ export class EmailWorkerProcessor {
    * to render the document once per contact and put the result into the job, so
    * Redis held one full copy of the email per recipient; the job now carries an
    * id and this recipient's values, and the shared part of the work is done
-   * once. A job queued the old way still carries `html` and is sent as-is.
+   * once. A job with `html` is sent as is: the editor's test send, which
+   * renders with sample data itself, and jobs queued before this worker
+   * rendered (including imported templates queued before 7.6).
    */
   private async buildMessageHtml(data: EmailJobData): Promise<string> {
     if (data.html) return data.html;
@@ -483,8 +488,6 @@ export class EmailWorkerProcessor {
               },
               unsubscribePageUrl: unsubscribe.page,
               unsubscribeOneClickUrl: unsubscribe.oneClick,
-              // An imported template has no document to render from.
-              html: template.designJson ? undefined : template.html,
             },
           );
         }),

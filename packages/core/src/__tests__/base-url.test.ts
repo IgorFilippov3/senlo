@@ -71,10 +71,9 @@ describe("a project's own base URL in its links", () => {
     expect(job.baseUrl).toBe("https://mail.acme.test");
     expect(job.unsubscribePageUrl).toMatch(/^https:\/\/mail\.acme\.test\/unsubscribe\//);
 
-    // Render through the template path (a job with `html` is sent as is, see
-    // the 7.6 finding in the plan): the tracked links come from `job.baseUrl`.
-    const { html: _prerendered, ...toRender } = job;
-    const html: string = await (worker as any).buildMessageHtml(toRender);
+    // The tracked links come from `job.baseUrl`.
+    expect(job.html).toBeUndefined();
+    const html: string = await (worker as any).buildMessageHtml(job);
     expect(html).toContain("https://mail.acme.test/api/t/c/");
     expect(html).toContain("https://mail.acme.test/api/t/o/");
     expect(html).not.toContain("https://app.test");
