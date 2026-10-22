@@ -51,11 +51,11 @@ class DefaultLogger implements Logger {
     console.log(JSON.stringify(entry));
   }
 
+  // A stack is logged only when the caller passes one (the error's own
+  // `error.stack`). One made here would point at this logger and the route
+  // that called it, not at where the error came from.
   error(message: string, context?: LogContext): void {
-    const entry = this.formatLog("error", message, {
-      ...context,
-      ...(context?.stack ? {} : { stack: new Error().stack }),
-    });
+    const entry = this.formatLog("error", message, context);
     this.log(entry);
   }
 
