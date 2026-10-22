@@ -5,8 +5,10 @@ services:
       dockerfile: deploy/vps/Dockerfile
     container_name: senlo-app
     restart: always
+    # Localhost only by default: the app is meant to sit behind a reverse
+    # proxy (see README.md). APP_BIND=0.0.0.0:3000 publishes it directly.
     ports:
-      - "3000:3000"
+      - "${APP_BIND:-127.0.0.1:3000}:3000"
     # Read at start, not at build: one image for every install.
     environment:
       - DATABASE_URL=${DATABASE_URL}
