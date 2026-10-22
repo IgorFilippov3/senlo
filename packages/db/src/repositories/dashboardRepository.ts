@@ -21,31 +21,9 @@ import * as schema from "../schema";
 
 export class DashboardRepository implements IDashboardRepository {
   constructor(private readonly db: NodePgDatabase<typeof schema>) {}
-  private async getProjectIds(
-    userId: string,
-    projectId?: number,
-  ): Promise<number[]> {
-    if (projectId) {
-      // Validate that the project belongs to the user
-      const [project] = await this.db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(and(eq(projects.id, projectId), eq(projects.userId, userId)));
-      return project ? [project.id] : [];
-    }
-
-    const userProjects = await this.db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.userId, userId));
-    return userProjects.map((p) => p.id);
-  }
-
-  async getGlobalStats(
-    userId: string,
-    projectId?: number,
-  ): Promise<DashboardStats> {
-    const projectIds = await this.getProjectIds(userId, projectId);
+  // Every method takes the project ids already scoped by `DashboardService`
+  // (one checked project, or the caller's whole scope).
+  async getGlobalStats(projectIds: number[]): Promise<DashboardStats> {
 
     if (projectIds.length === 0) {
       return {
@@ -98,11 +76,9 @@ export class DashboardRepository implements IDashboardRepository {
   }
 
   async getActivityStats(
-    userId: string,
+    projectIds: number[],
     days: number,
-    projectId?: number,
   ): Promise<DashboardActivity[]> {
-    const projectIds = await this.getProjectIds(userId, projectId);
 
     if (projectIds.length === 0) {
       return [];
@@ -158,11 +134,9 @@ export class DashboardRepository implements IDashboardRepository {
   }
 
   async getRecentEvents(
-    userId: string,
+    projectIds: number[],
     limit: number,
-    projectId?: number,
   ): Promise<DashboardEvent[]> {
-    const projectIds = await this.getProjectIds(userId, projectId);
 
     if (projectIds.length === 0) {
       return [];

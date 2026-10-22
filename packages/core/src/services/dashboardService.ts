@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { AccessGuard, listInScope } from "../access";
 import type { DashboardActivity, DashboardEvent, DashboardStats } from "../domain";
-import type { IDashboardRepository } from "../ports";
+import type { IDashboardRepository, IProjectRepository } from "../ports";
 
 export interface DashboardData {
   stats: DashboardStats;
@@ -11,20 +12,40 @@ export interface DashboardData {
   events: DashboardEvent[];
 }
 
-/** The home and workspace dashboards. The repository scopes every query to the user's projects. */
+/**
+ * The home and workspace dashboards. Which projects count is decided here:
+ * one project the user may access, or every project in their scope; the
+ * repository only aggregates over the ids it is given.
+ */
 export class DashboardService {
-  constructor(private readonly dashboard: IDashboardRepository) {}
+  private readonly access: AccessGuard;
 
-  getStats(userId: string, projectId?: number): Promise<DashboardStats> {
-    return this.dashboard.getGlobalStats(userId, projectId);
+  constructor(
+    private readonly dashboard: IDashboardRepository,
+    private readonly projects: Pick<IProjectRepository, "findById" | "listForUser" | "listForOrganization">,
+    access?: AccessGuard,
+  ) {
+    this.access = access ?? new AccessGuard(projects);
   }
 
-  getActivity(userId: string, days = 7, projectId?: number): Promise<DashboardActivity[]> {
-    return this.dashboard.getActivityStats(userId, days, projectId);
+  /** The one project, checked, or the whole scope. */
+  private async projectIds(userId: string, projectId?: number): Promise<number[]> {
+    if (projectId !== undefined) {
+      return [(await this.access.requireProject(userId, projectId)).id];
+    }
+    return (await listInScope(await this.access.scopeFor(userId), this.projects)).map((p) => p.id);
   }
 
-  getRecentEvents(userId: string, limit = 10, projectId?: number): Promise<DashboardEvent[]> {
-    return this.dashboard.getRecentEvents(userId, limit, projectId);
+  async getStats(userId: string, projectId?: number): Promise<DashboardStats> {
+    return this.dashboard.getGlobalStats(await this.projectIds(userId, projectId));
+  }
+
+  async getActivity(userId: string, days = 7, projectId?: number): Promise<DashboardActivity[]> {
+    return this.dashboard.getActivityStats(await this.projectIds(userId, projectId), days);
+  }
+
+  async getRecentEvents(userId: string, limit = 10, projectId?: number): Promise<DashboardEvent[]> {
+    return this.dashboard.getRecentEvents(await this.projectIds(userId, projectId), limit);
   }
 
   async getData(
@@ -32,10 +53,11 @@ export class DashboardService {
     projectId: number,
     options: { days?: number; eventLimit?: number } = {},
   ): Promise<DashboardData> {
+    const projectIds = await this.projectIds(userId, projectId);
     const [stats, activity, events] = await Promise.all([
-      this.getStats(userId, projectId),
-      this.getActivity(userId, options.days ?? 7, projectId),
-      this.getRecentEvents(userId, options.eventLimit ?? 10, projectId),
+      this.dashboard.getGlobalStats(projectIds),
+      this.dashboard.getActivityStats(projectIds, options.days ?? 7),
+      this.dashboard.getRecentEvents(projectIds, options.eventLimit ?? 10),
     ]);
     return { stats, activity, events };
   }

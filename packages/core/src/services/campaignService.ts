@@ -4,7 +4,7 @@
 
 import type { Queue } from "bullmq";
 import { z } from "zod";
-import { AccessGuard } from "../access";
+import { AccessGuard, listInScope } from "../access";
 import type {
   Campaign,
   CampaignStats,
@@ -158,7 +158,7 @@ export class CampaignService {
 
   /** Every campaign across the user's projects. */
   async listForUser(userId: string): Promise<Campaign[]> {
-    const projects = await this.repos.projects.listForUser(userId);
+    const projects = await listInScope(await this.access.scopeFor(userId), this.repos.projects);
     const perProject = await Promise.all(
       projects.map((p) => this.repos.campaigns.findByProject(p.id)),
     );

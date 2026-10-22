@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from "zod";
-import { AccessGuard } from "../access";
+import { AccessGuard, listInScope } from "../access";
 import type { Project } from "../domain";
 import { NotFoundError } from "../errors";
 import type {
@@ -58,8 +58,9 @@ export class ProjectService {
     this.access = access ?? new AccessGuard(repos.projects);
   }
 
-  listForUser(userId: string): Promise<Project[]> {
-    return this.repos.projects.listForUser(userId);
+  /** The projects in the user's scope (their own, or their organization's). */
+  async listForUser(userId: string): Promise<Project[]> {
+    return listInScope(await this.access.scopeFor(userId), this.repos.projects);
   }
 
   /** The project, if it is the user's. */
@@ -69,10 +70,12 @@ export class ProjectService {
 
   async create(userId: string, rawInput: unknown): Promise<Project> {
     const input = parseInput(CreateWorkspaceSchema, rawInput);
+    const scope = await this.access.scopeFor(userId);
     return this.repos.projects.create({
       name: input.name,
       description: input.description,
       userId,
+      organizationId: scope.organizationId,
     });
   }
 

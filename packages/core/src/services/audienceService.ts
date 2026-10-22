@@ -42,12 +42,6 @@ export class AudienceService {
     return contact;
   }
 
-  async listAllSuppressions(
-    userId: string,
-  ): Promise<(Suppression & { projectName: string })[]> {
-    return await this.suppressionRepo.findAllByUser(userId);
-  }
-
   async listProjectSuppressions(userId: string, projectId: number): Promise<Suppression[]> {
     await this.access.requireProject(userId, projectId);
     return await this.suppressionRepo.findByProject(projectId);

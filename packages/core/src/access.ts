@@ -46,6 +46,19 @@ export const ownerAccessPolicy: AccessPolicy = {
   },
 };
 
+/** A repository whose rows can belong to a user or to an organization. */
+export interface ScopedListing<T> {
+  listForUser(userId: string): Promise<T[]>;
+  listForOrganization(organizationId: string): Promise<T[]>;
+}
+
+/** The rows "mine" means in this scope: the organization's, or the user's own. */
+export function listInScope<T>(scope: OwnerScope, repository: ScopedListing<T>): Promise<T[]> {
+  return scope.organizationId
+    ? repository.listForOrganization(scope.organizationId)
+    : repository.listForUser(scope.userId);
+}
+
 /** For a guard that never checks projects: every project lookup finds nothing. */
 const noProjects: Pick<IProjectRepository, "findById"> = {
   async findById() {

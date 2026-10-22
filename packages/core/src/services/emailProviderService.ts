@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from "zod";
-import { AccessGuard } from "../access";
+import { AccessGuard, listInScope } from "../access";
 import type { EmailProvider, EmailProviderType, PublicEmailProvider } from "../domain";
 import { FormValidationError, NotFoundError } from "../errors";
 import { parseInput } from "../validation";
@@ -220,11 +220,12 @@ export function mergeProviderConfig(
 export class EmailProviderService {
   constructor(
     private readonly providers: IEmailProviderRepository,
-    private readonly access: Pick<AccessGuard, "requireOwned"> = AccessGuard.forOwnedRecords(),
+    private readonly access: Pick<AccessGuard, "requireOwned" | "scopeFor"> = AccessGuard.forOwnedRecords(),
   ) {}
 
+  /** The providers in the user's scope (their own, or their organization's). */
   async listForUser(userId: string): Promise<PublicEmailProvider[]> {
-    return (await this.providers.listForUser(userId)).map(toPublicEmailProvider);
+    return (await listInScope(await this.access.scopeFor(userId), this.providers)).map(toPublicEmailProvider);
   }
 
   /** The provider, if the user may access it; "not found" otherwise, so ids leak nothing. */
@@ -245,6 +246,7 @@ export class EmailProviderService {
       config: outcome.config,
       isActive: true,
       userId,
+      organizationId: (await this.access.scopeFor(userId)).organizationId,
     });
     return toPublicEmailProvider(created);
   }

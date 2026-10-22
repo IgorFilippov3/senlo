@@ -162,7 +162,7 @@ export function createServices({
     aiProvider: new AiProviderService(r.aiProviders, guard),
     auth: new AuthService(r.apiKeys),
     campaign: new CampaignService(r, queues.campaign, guard),
-    dashboard: new DashboardService(r.dashboard),
+    dashboard: new DashboardService(r.dashboard, r.projects, guard),
     emailProvider: new EmailProviderService(r.providers, guard),
     project: new ProjectService(r, guard),
     settings: new SettingsService(r.apiKeys, r.projects, guard),

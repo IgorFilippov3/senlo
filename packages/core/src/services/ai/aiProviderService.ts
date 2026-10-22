@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { DEFAULT_AI_MODELS, type AiProvider, type AiProviderType, type PublicAiProvider } from "../../domain";
-import { AccessGuard } from "../../access";
+import { AccessGuard, listInScope } from "../../access";
 import { NotFoundError } from "../../errors";
 import type { IAiProviderRepository } from "../../ports";
 import { parseInput } from "../../validation";
@@ -41,11 +41,12 @@ export function toPublicAiProvider(provider: AiProvider): PublicAiProvider {
 export class AiProviderService {
   constructor(
     private readonly providers: IAiProviderRepository,
-    private readonly access: Pick<AccessGuard, "requireOwned"> = AccessGuard.forOwnedRecords(),
+    private readonly access: Pick<AccessGuard, "requireOwned" | "scopeFor"> = AccessGuard.forOwnedRecords(),
   ) {}
 
+  /** The providers in the user's scope (their own, or their organization's). */
   async listForUser(userId: string): Promise<PublicAiProvider[]> {
-    return (await this.providers.listForUser(userId)).map(toPublicAiProvider);
+    return (await listInScope(await this.access.scopeFor(userId), this.providers)).map(toPublicAiProvider);
   }
 
   /** The provider, if the user may access it; "not found" otherwise. */
@@ -61,6 +62,7 @@ export class AiProviderService {
       config: { apiKey: input.apiKey, model: input.model || DEFAULT_AI_MODELS[input.type] },
       isActive: true,
       userId,
+      organizationId: (await this.access.scopeFor(userId)).organizationId,
     });
     return toPublicAiProvider(created);
   }

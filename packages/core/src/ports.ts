@@ -69,9 +69,6 @@ export interface ISuppressionRepository {
     email: string,
   ): Promise<Suppression | null>;
   findByProject(projectId: number): Promise<Suppression[]>;
-  findAllByUser(
-    userId: string,
-  ): Promise<(Suppression & { projectName: string })[]>;
   findById(id: number): Promise<Suppression | null>;
   delete(id: number): Promise<void>;
 }
@@ -279,18 +276,11 @@ export interface ITriggeredSendLogRepository {
   }>;
 }
 
+/** Dashboard figures over a set of projects the caller was already allowed to see. */
 export interface IDashboardRepository {
-  getGlobalStats(userId: string, projectId?: number): Promise<DashboardStats>;
-  getActivityStats(
-    userId: string,
-    days: number,
-    projectId?: number,
-  ): Promise<DashboardActivity[]>;
-  getRecentEvents(
-    userId: string,
-    limit: number,
-    projectId?: number,
-  ): Promise<DashboardEvent[]>;
+  getGlobalStats(projectIds: number[]): Promise<DashboardStats>;
+  getActivityStats(projectIds: number[], days: number): Promise<DashboardActivity[]>;
+  getRecentEvents(projectIds: number[], limit: number): Promise<DashboardEvent[]>;
 }
 
 export interface IWorkflowRepository {

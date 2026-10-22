@@ -77,23 +77,4 @@ export class SuppressionRepository
     return rows.map((r) => this.mapToEntity(r));
   }
 
-  async findAllByUser(userId: string): Promise<(Suppression & { projectName: string })[]> {
-    const { projects } = await import("../schema");
-    const { eq, desc } = await import("drizzle-orm");
-    
-    const rows = await this.db
-      .select({
-        suppression: suppressions,
-        projectName: projects.name
-      })
-      .from(suppressions)
-      .innerJoin(projects, eq(suppressions.projectId, projects.id))
-      .where(eq(projects.userId, userId))
-      .orderBy(desc(suppressions.createdAt));
-
-    return rows.map((row) => ({
-      ...this.mapToEntity(row.suppression),
-      projectName: row.projectName
-    }));
-  }
 }
