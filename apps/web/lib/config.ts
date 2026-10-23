@@ -12,7 +12,7 @@ import { loadSenloConfig, type Env, type SenloConfig } from "@senlo/core";
 export interface AppConfig extends SenloConfig {
   authSecret: string;
   allowRegistration: boolean;
-  /** The public demo instance: shows the demo banner and loads analytics. */
+  /** The public demo instance: loads analytics (with `umamiWebsiteId`). */
   demoMode: boolean;
   github: { clientId: string; clientSecret: string } | null;
   umamiWebsiteId: string | null;
