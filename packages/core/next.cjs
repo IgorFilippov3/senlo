@@ -14,6 +14,7 @@ const SENLO_TRANSPILE_PACKAGES = [
   "@senlo/db",
   "@senlo/editor",
   "@senlo/features",
+  "@senlo/next",
   "@senlo/ui",
 ];
 

@@ -17,6 +17,7 @@
     "@senlo/db": "workspace:^",
     "@senlo/editor": "workspace:^",
     "@senlo/features": "workspace:^",
+    "@senlo/next": "workspace:^",
     "@senlo/ui": "workspace:^",
     "@tanstack/react-query": "^5.90.16",
     "@tanstack/react-query-devtools": "^5.91.2",

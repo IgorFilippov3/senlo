@@ -11,6 +11,7 @@
 @source "../../../packages/features/src";
 @source "../../../packages/editor/src";
 @source "../../../packages/automation-builder/src";
+@source "../../../packages/next/src";
 
 html {
   font-size: 112.5%; /* Increases base font size from 16px to 18px (everything in rem will scale) */

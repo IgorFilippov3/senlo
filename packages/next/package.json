@@ -1,0 +1,43 @@
+{
+  "name": "@senlo/next",
+  "version": "0.0.1",
+  "description": "Next.js adapter for Senlo hosts: route handlers, the action transport, page loaders and Next-bound client glue",
+  "license": "AGPL-3.0-or-later",
+  "author": {
+    "name": "Igor Filippov",
+    "url": "https://github.com/IgorFilippov3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IgorFilippov3/senlo.git",
+    "directory": "packages/next"
+  },
+  "homepage": "https://senlo.io",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch"
+  },
+  "dependencies": {
+    "@senlo/core": "workspace:*",
+    "@senlo/features": "workspace:*",
+    "@senlo/ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}
