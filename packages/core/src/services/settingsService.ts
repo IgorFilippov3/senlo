@@ -25,13 +25,13 @@ export class SettingsService {
   }
 
   async listApiKeys(userId: string, projectId: number): Promise<ApiKey[]> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "read");
     return this.apiKeys.findByProject(projectId);
   }
 
   /** The returned `key` is shown once; only its hash and prefix are stored. */
   async createApiKey(userId: string, projectId: number, name: string): Promise<IssuedApiKey> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "write");
     const trimmed = name?.trim() ?? "";
     if (!trimmed) throw new ValidationError("API key name is required");
     if (trimmed.length > API_KEY_NAME_MAX_LENGTH) {
@@ -59,6 +59,7 @@ export class SettingsService {
       userId,
       await this.apiKeys.findById(id),
       "API key",
+      "write",
     );
     await this.apiKeys.delete(id);
     await this.hooks.audit({

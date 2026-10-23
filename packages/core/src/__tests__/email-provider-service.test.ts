@@ -162,7 +162,7 @@ describe("EmailProviderService", () => {
     await expect(service.setActive("alice", 2, false)).rejects.toBeInstanceOf(NotFoundError);
     await expect(service.delete("alice", 2)).rejects.toBeInstanceOf(NotFoundError);
     await expect(service.delete("alice", 999)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(service.requireOwned("", 1)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.requireOwned("", 1, "read")).rejects.toBeInstanceOf(NotFoundError);
     expect(repo.rows.has(2)).toBe(true);
   });
 

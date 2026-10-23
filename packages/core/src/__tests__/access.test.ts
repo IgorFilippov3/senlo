@@ -25,28 +25,28 @@ const guard = new AccessGuard({
 
 describe("AccessGuard.requireProject", () => {
   it("returns the user's own project", async () => {
-    await expect(guard.requireProject("alice", 1)).resolves.toMatchObject({ id: 1 });
+    await expect(guard.requireProject("alice", 1, "read")).resolves.toMatchObject({ id: 1 });
   });
 
   it("refuses another user's project", async () => {
-    await expect(guard.requireProject("alice", 2)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(guard.requireProject("alice", 2, "read")).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("fails a missing project exactly like a foreign one", async () => {
-    const foreign = await guard.requireProject("alice", 2).catch((e) => e);
-    const missing = await guard.requireProject("alice", 999).catch((e) => e);
+    const foreign = await guard.requireProject("alice", 2, "read").catch((e) => e);
+    const missing = await guard.requireProject("alice", 999, "read").catch((e) => e);
     expect(missing).toBeInstanceOf(NotFoundError);
     expect(missing.message).toBe(foreign.message);
   });
 
   it("never matches an ownerless project, even with an empty user id", async () => {
-    await expect(guard.requireProject("", 3)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(guard.requireProject("alice", 3)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(guard.requireProject("", 3, "read")).rejects.toBeInstanceOf(NotFoundError);
+    await expect(guard.requireProject("alice", 3, "read")).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("rejects ids that are not positive integers", async () => {
     for (const id of [0, -1, Number.NaN, 1.5]) {
-      await expect(guard.requireProject("alice", id)).rejects.toBeInstanceOf(NotFoundError);
+      await expect(guard.requireProject("alice", id, "read")).rejects.toBeInstanceOf(NotFoundError);
     }
   });
 });
@@ -54,21 +54,21 @@ describe("AccessGuard.requireProject", () => {
 describe("AccessGuard.requireInProject", () => {
   it("passes a record in the user's project", async () => {
     const record = { id: 10, projectId: 1 };
-    await expect(guard.requireInProject("alice", record, "Workflow")).resolves.toBe(record);
+    await expect(guard.requireInProject("alice", record, "Workflow", "read")).resolves.toBe(record);
   });
 
   it("refuses a record in another user's project, naming the record", async () => {
     const error = await guard
-      .requireInProject("alice", { id: 11, projectId: 2 }, "Workflow")
+      .requireInProject("alice", { id: 11, projectId: 2 }, "Workflow", "read")
       .catch((e) => e);
     expect(error).toBeInstanceOf(NotFoundError);
     expect(error.message).toBe("Workflow not found");
   });
 
   it("refuses a missing record or one without a project", async () => {
-    await expect(guard.requireInProject("alice", null, "Workflow")).rejects.toBeInstanceOf(NotFoundError);
+    await expect(guard.requireInProject("alice", null, "Workflow", "read")).rejects.toBeInstanceOf(NotFoundError);
     await expect(
-      guard.requireInProject("alice", { id: 12, projectId: null }, "Workflow"),
+      guard.requireInProject("alice", { id: 12, projectId: null }, "Workflow", "read"),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -107,7 +107,7 @@ describe("AccessGuard with a membership policy", () => {
     },
     async mayAccess(userId, owner) {
       if (owner.organizationId) return members.get(owner.organizationId)?.has(userId) ?? false;
-      return ownerAccessPolicy.mayAccess(userId, owner);
+      return ownerAccessPolicy.mayAccess(userId, owner, "write");
     },
   };
 
@@ -122,20 +122,20 @@ describe("AccessGuard with a membership policy", () => {
   const orgGuard = new AccessGuard(projectRepo, membership);
 
   it("lets a member reach a project another member created", async () => {
-    await expect(orgGuard.requireProject("bob", 10)).resolves.toBe(orgProject);
+    await expect(orgGuard.requireProject("bob", 10, "read")).resolves.toBe(orgProject);
     await expect(
-      orgGuard.requireInProject("bob", { id: 5, projectId: 10 }, "Template"),
+      orgGuard.requireInProject("bob", { id: 5, projectId: 10 }, "Template", "read"),
     ).resolves.toEqual({ id: 5, projectId: 10 });
   });
 
   it("refuses a non-member the same way as a missing project", async () => {
-    await expect(orgGuard.requireProject("carol", 10)).rejects.toThrow(NotFoundError);
-    await expect(orgGuard.requireProject("carol", 404)).rejects.toThrow(NotFoundError);
+    await expect(orgGuard.requireProject("carol", 10, "read")).rejects.toThrow(NotFoundError);
+    await expect(orgGuard.requireProject("carol", 404, "read")).rejects.toThrow(NotFoundError);
   });
 
   it("keeps personal projects personal", async () => {
-    await expect(orgGuard.requireProject("bob", 1)).rejects.toThrow(NotFoundError);
-    await expect(orgGuard.requireProject("alice", 1)).resolves.toMatchObject({ id: 1 });
+    await expect(orgGuard.requireProject("bob", 1, "read")).rejects.toThrow(NotFoundError);
+    await expect(orgGuard.requireProject("alice", 1, "read")).resolves.toMatchObject({ id: 1 });
   });
 
   it("lets a member use an organization's provider, through the services", async () => {
@@ -143,8 +143,8 @@ describe("AccessGuard with a membership policy", () => {
       { findById: async (id: number) => (id === 20 ? orgProvider : null) } as never,
       orgGuard,
     );
-    await expect(providers.requireOwned("bob", 20)).resolves.toBe(orgProvider);
-    await expect(providers.requireOwned("carol", 20)).rejects.toThrow(NotFoundError);
+    await expect(providers.requireOwned("bob", 20, "read")).resolves.toBe(orgProvider);
+    await expect(providers.requireOwned("carol", 20, "read")).rejects.toThrow(NotFoundError);
 
     const update = async (_id: number, d: Partial<Project>) => ({ ...orgProject, ...d });
     const service = new ProjectService(
@@ -171,8 +171,8 @@ describe("AccessGuard with a membership policy", () => {
 
 describe("ownerAccessPolicy", () => {
   it("ignores organizations: the owner is the user in userId", async () => {
-    expect(await ownerAccessPolicy.mayAccess("alice", { userId: "alice", organizationId: "acme" })).toBe(true);
-    expect(await ownerAccessPolicy.mayAccess("bob", { userId: "alice", organizationId: "acme" })).toBe(false);
-    expect(await ownerAccessPolicy.mayAccess("", { userId: null })).toBe(false);
+    expect(await ownerAccessPolicy.mayAccess("alice", { userId: "alice", organizationId: "acme" }, "read")).toBe(true);
+    expect(await ownerAccessPolicy.mayAccess("bob", { userId: "alice", organizationId: "acme" }, "read")).toBe(false);
+    expect(await ownerAccessPolicy.mayAccess("", { userId: null }, "read")).toBe(false);
   });
 });

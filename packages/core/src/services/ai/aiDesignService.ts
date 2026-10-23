@@ -129,7 +129,8 @@ export class AiDesignService {
   /** `rawRequest` is the request body as received. */
   async generate(userId: string, rawRequest: unknown): Promise<EmailDesignDocumentDTO> {
     const request = parseInput(AiGenerateRequestSchema, rawRequest);
-    const project = await this.access.requireProject(userId, request.projectId);
+    // Generation returns a design and stores nothing: reading the project is enough.
+    const project = await this.access.requireProject(userId, request.projectId, "read");
 
     if (!project.aiProviderId) {
       throw new ValidationError("No AI provider configured for this project");

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from "zod";
-import { AccessGuard, listInScope } from "../access";
+import { AccessGuard, listInScope, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
 import type { Project } from "../domain";
 import { NotFoundError } from "../errors";
@@ -66,8 +66,8 @@ export class ProjectService {
   }
 
   /** The project, if it is the user's. */
-  require(userId: string, projectId: number): Promise<Project> {
-    return this.access.requireProject(userId, projectId);
+  require(userId: string, projectId: number, action: AccessAction): Promise<Project> {
+    return this.access.requireProject(userId, projectId, action);
   }
 
   async create(userId: string, rawInput: unknown): Promise<Project> {
@@ -90,7 +90,7 @@ export class ProjectService {
   }
 
   async update(userId: string, projectId: number, rawInput: unknown): Promise<Project> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "write");
     const input = parseInput(UpdateWorkspaceSchema, rawInput);
 
     if (input.providerId) {
@@ -98,6 +98,8 @@ export class ProjectService {
         userId,
         await this.repos.providers.findById(input.providerId),
         "Email provider",
+        // Linking uses the provider; it does not change it.
+        "read",
       );
     }
     if (input.aiProviderId) {
@@ -105,6 +107,7 @@ export class ProjectService {
         userId,
         await this.repos.aiProviders.findById(input.aiProviderId),
         "AI provider",
+        "read",
       );
     }
 
@@ -125,7 +128,7 @@ export class ProjectService {
   }
 
   async delete(userId: string, projectId: number): Promise<void> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "write");
     await this.repos.projects.delete(projectId);
     await this.hooks.audit({
       actor: { userId },

@@ -31,7 +31,7 @@ export class DashboardService {
   /** The one project, checked, or the whole scope. */
   private async projectIds(userId: string, projectId?: number): Promise<number[]> {
     if (projectId !== undefined) {
-      return [(await this.access.requireProject(userId, projectId)).id];
+      return [(await this.access.requireProject(userId, projectId, "read")).id];
     }
     return (await listInScope(await this.access.scopeFor(userId), this.projects)).map((p) => p.id);
   }

@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { DEFAULT_AI_MODELS, type AiProvider, type AiProviderType, type PublicAiProvider } from "../../domain";
-import { AccessGuard, listInScope } from "../../access";
+import { AccessGuard, listInScope, type AccessAction } from "../../access";
 import { ServiceHooks } from "../../hooks";
 import { NotFoundError } from "../../errors";
 import type { IAiProviderRepository } from "../../ports";
@@ -52,8 +52,8 @@ export class AiProviderService {
   }
 
   /** The provider, if the user may access it; "not found" otherwise. */
-  async requireOwned(userId: string, id: number): Promise<AiProvider> {
-    return this.access.requireOwned(userId, await this.providers.findById(id), "AI provider");
+  async requireOwned(userId: string, id: number, action: AccessAction): Promise<AiProvider> {
+    return this.access.requireOwned(userId, await this.providers.findById(id), "AI provider", action);
   }
 
   async create(userId: string, rawInput: unknown): Promise<PublicAiProvider> {
@@ -71,7 +71,7 @@ export class AiProviderService {
   }
 
   async setActive(userId: string, id: number, isActive: boolean): Promise<PublicAiProvider> {
-    await this.requireOwned(userId, id);
+    await this.requireOwned(userId, id, "write");
     const updated = await this.providers.update(id, { isActive });
     if (!updated) throw new NotFoundError("AI provider");
     await this.audit(userId, isActive ? "activated" : "deactivated", id);
@@ -79,7 +79,7 @@ export class AiProviderService {
   }
 
   async delete(userId: string, id: number): Promise<void> {
-    await this.requireOwned(userId, id);
+    await this.requireOwned(userId, id, "write");
     await this.providers.delete(id);
     await this.audit(userId, "deleted", id);
   }

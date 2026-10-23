@@ -50,7 +50,7 @@ describe("AiProviderService", () => {
     const created = await s.create("alice", { name: "x", type: "OPENAI", apiKey: "k" });
     expect(JSON.stringify(created)).not.toContain('"k"');
     expect(JSON.stringify(await s.setActive("alice", 10, false))).not.toContain("sk");
-    expect((await s.requireOwned("alice", 10)).config.apiKey).toBe("sk");
+    expect((await s.requireOwned("alice", 10, "read")).config.apiKey).toBe("sk");
   });
 
   it("rejects invalid input as field errors", async () => {

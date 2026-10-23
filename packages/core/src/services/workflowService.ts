@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from "zod";
-import { AccessGuard } from "../access";
+import { AccessGuard, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
 import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowStatus } from "../domain";
 import { FormValidationError, ValidationError } from "../errors";
@@ -81,12 +81,12 @@ export class WorkflowService {
   }
 
   /** The workflow, if the user may access its project. */
-  async requireWorkflow(userId: string, id: number): Promise<Workflow> {
-    return this.access.requireInProject(userId, await this.repos.workflows.findById(id), "Workflow");
+  async requireWorkflow(userId: string, id: number, action: AccessAction): Promise<Workflow> {
+    return this.access.requireInProject(userId, await this.repos.workflows.findById(id), "Workflow", action);
   }
 
   async listForProject(userId: string, projectId: number): Promise<Workflow[]> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "read");
     return this.repos.workflows.findByProject(projectId);
   }
 
@@ -96,7 +96,7 @@ export class WorkflowService {
    * editable, empty workflow rather than none.
    */
   async create(userId: string, projectId: number, rawInput: unknown): Promise<Workflow> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "write");
     const input = parseInput(CreateWorkflowSchema, rawInput);
     const workflow = await this.repos.workflows.create({
       projectId,
@@ -112,7 +112,7 @@ export class WorkflowService {
     userId: string,
     id: number,
   ): Promise<{ workflow: Workflow; nodes: WorkflowNode[]; edges: WorkflowEdge[] }> {
-    const workflow = await this.requireWorkflow(userId, id);
+    const workflow = await this.requireWorkflow(userId, id, "read");
     const [nodes, edges] = await Promise.all([
       this.repos.workflows.getNodes(id),
       this.repos.workflows.getEdges(id),
@@ -127,7 +127,7 @@ export class WorkflowService {
    * fail at save, where the user can fix it.
    */
   async saveGraph(userId: string, id: number, rawGraph: unknown): Promise<void> {
-    const workflow = await this.requireWorkflow(userId, id);
+    const workflow = await this.requireWorkflow(userId, id, "write");
     const graph = parseInput(WorkflowGraphSchema, rawGraph);
 
     const nodeIds = new Set(graph.nodes.map((n) => n.id));
@@ -175,7 +175,7 @@ export class WorkflowService {
    * failure is a `ValidationError` whose `details.reasons` lists every problem.
    */
   async setStatus(userId: string, id: number, status: WorkflowStatus): Promise<Workflow> {
-    const workflow = await this.requireWorkflow(userId, id);
+    const workflow = await this.requireWorkflow(userId, id, "write");
     if (status === "ACTIVE") {
       const [nodes, edges] = await Promise.all([
         this.repos.workflows.getNodes(id),
@@ -195,7 +195,7 @@ export class WorkflowService {
   }
 
   async delete(userId: string, id: number): Promise<Workflow> {
-    const workflow = await this.requireWorkflow(userId, id);
+    const workflow = await this.requireWorkflow(userId, id, "write");
     await this.repos.workflows.delete(id);
     await this.audit(userId, "deleted", workflow);
     return workflow;

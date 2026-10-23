@@ -4,7 +4,7 @@
 
 import type { Project } from "./domain";
 import type { IProjectRepository } from "./ports";
-import { NotFoundError } from "./errors";
+import { ForbiddenError, NotFoundError } from "./errors";
 
 /**
  * Whose records "mine" means for a user: their own (`organizationId: null`,
@@ -23,6 +23,13 @@ export interface OwnedRecord {
 }
 
 /**
+ * What the caller is about to do with a record. `read` covers everything that
+ * changes nothing stored (viewing, stats, previews, AI generation); `write`
+ * is creating inside it, editing, deleting, sending.
+ */
+export type AccessAction = "read" | "write";
+
+/**
  * The access decision, as a port. Self-hosted uses `ownerAccessPolicy`; a
  * managed install passes a membership-based one to `createServices({ access })`.
  * `AccessGuard` asks it and turns every "no" into the same `NotFoundError`, so
@@ -31,11 +38,14 @@ export interface OwnedRecord {
 export interface AccessPolicy {
   /** The scope the user's lists and new records belong to. */
   scopeFor(userId: string): Promise<OwnerScope>;
-  /** May the user act on a record owned this way (a project, a provider)? */
-  mayAccess(userId: string, owner: OwnedRecord): Promise<boolean>;
+  /**
+   * May the user do `action` on a record owned this way (a project, a
+   * provider)? A role that reads but does not write answers per action.
+   */
+  mayAccess(userId: string, owner: OwnedRecord, action: AccessAction): Promise<boolean>;
 }
 
-/** Today's rule: a record belongs to the user in its `userId`, and nothing is shared. */
+/** Today's rule: a record belongs to the user in its `userId`, nothing is shared, and the owner may do anything. */
 export const ownerAccessPolicy: AccessPolicy = {
   async scopeFor(userId) {
     return { userId, organizationId: null };
@@ -94,38 +104,55 @@ export class AccessGuard {
     return this.policy.scopeFor(userId);
   }
 
-  /** The project, if the user may access it. */
-  async requireProject(userId: string, projectId: number): Promise<Project> {
+  /**
+   * Passes when the policy allows `action`. A refused write on a record the
+   * user may read is `ForbiddenError`; every other refusal is `NotFoundError`,
+   * the same as a missing record.
+   */
+  private async decide(
+    userId: string,
+    owner: OwnedRecord,
+    action: AccessAction,
+    resource: string,
+  ): Promise<void> {
+    if (await this.policy.mayAccess(userId, owner, action)) return;
+    if (action === "write" && (await this.policy.mayAccess(userId, owner, "read"))) {
+      throw new ForbiddenError(resource);
+    }
+    throw new NotFoundError(resource);
+  }
+
+  /** The project, if the user may do `action` on it. */
+  async requireProject(userId: string, projectId: number, action: AccessAction): Promise<Project> {
     if (!userId || !Number.isInteger(projectId) || projectId <= 0) {
       throw new NotFoundError("Project");
     }
 
     const project = await this.projects.findById(projectId);
-    if (!project || !(await this.policy.mayAccess(userId, project))) {
-      throw new NotFoundError("Project");
-    }
+    if (!project) throw new NotFoundError("Project");
+    await this.decide(userId, project, action, "Project");
     return project;
   }
 
   /**
    * A record that lives inside a project (template, campaign, workflow,
-   * suppression...), if the user may access its project. Pass the record as
-   * loaded; `null` fails the same way as a foreign one.
+   * suppression...), if the user may do `action` on its project. Pass the
+   * record as loaded; `null` fails the same way as a foreign one. Errors name
+   * the record, not the project.
    */
   async requireInProject<T extends { projectId?: number | null }>(
     userId: string,
     record: T | null | undefined,
     resource: string,
+    action: AccessAction,
   ): Promise<T> {
-    if (!record || record.projectId == null) {
+    if (!userId || !record || record.projectId == null) {
       throw new NotFoundError(resource);
     }
 
-    try {
-      await this.requireProject(userId, record.projectId);
-    } catch {
-      throw new NotFoundError(resource);
-    }
+    const project = await this.projects.findById(record.projectId);
+    if (!project) throw new NotFoundError(resource);
+    await this.decide(userId, project, action, resource);
     return record;
   }
 
@@ -147,16 +174,16 @@ export class AccessGuard {
 
   /**
    * A record owned by a user or an organization rather than through a
-   * project (email and AI providers), if the policy lets the user act on it.
+   * project (email and AI providers), if the policy lets the user do `action`.
    */
   async requireOwned<T extends OwnedRecord>(
     userId: string,
     record: T | null | undefined,
     resource: string,
+    action: AccessAction,
   ): Promise<T> {
-    if (!userId || !record || !(await this.policy.mayAccess(userId, record))) {
-      throw new NotFoundError(resource);
-    }
+    if (!userId || !record) throw new NotFoundError(resource);
+    await this.decide(userId, record, action, resource);
     return record;
   }
 

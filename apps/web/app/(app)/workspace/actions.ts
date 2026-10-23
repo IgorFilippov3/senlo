@@ -22,7 +22,7 @@ export async function listWorkspaces(): Promise<ActionResult<Project[]>> {
 export async function getWorkspace(projectId: number): Promise<ActionResult<Project>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
-    return getServices().project.require(userId, projectId);
+    return getServices().project.require(userId, projectId, "read");
   });
 }
 

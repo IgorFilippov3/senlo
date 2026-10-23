@@ -29,7 +29,8 @@ export class SavedRowService {
   ): Promise<SavedRow> {
     const name = input.name?.trim();
     if (!name) throw new ValidationError("Name is required");
-    if (input.projectId) await this.access.requireProject(userId, input.projectId);
+    // Saving a row to one's own library: reading the project it came from is enough.
+    if (input.projectId) await this.access.requireProject(userId, input.projectId, "read");
     return this.savedRows.create({
       userId,
       projectId: input.projectId || null,

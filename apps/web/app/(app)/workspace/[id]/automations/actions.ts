@@ -69,7 +69,7 @@ export async function getWorkflowStats(
 ): Promise<ActionResult<WorkflowNodeStats[]>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();
-    await getServices().workflow.requireWorkflow(userId, workflowId);
+    await getServices().workflow.requireWorkflow(userId, workflowId, "read");
     return getServices().automation.getWorkflowStats(workflowId);
   });
 }

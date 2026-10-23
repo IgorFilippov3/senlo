@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from "zod";
-import { AccessGuard, listInScope } from "../access";
+import { AccessGuard, listInScope, type AccessAction } from "../access";
 import type {
   Campaign,
   CampaignStats,
@@ -99,23 +99,25 @@ export class CampaignService {
     this.access = access ?? new AccessGuard(repos.projects);
   }
 
-  /** The campaign and its project, if the user may access them. */
+  /** The campaign and its project, if the user may do `action` on them. */
   async requireCampaign(
     userId: string,
     campaignId: number,
+    action: AccessAction,
   ): Promise<{ campaign: Campaign; project: Project }> {
     const campaign = await this.access.requireInProject(
       userId,
       await this.repos.campaigns.findById(campaignId),
       "Trigger",
+      action,
     );
-    const project = await this.access.requireProject(userId, campaign.projectId);
+    const project = await this.access.requireProject(userId, campaign.projectId, action);
     return { campaign, project };
   }
 
   /** Null when the campaign's template is gone. */
   async getDetails(userId: string, campaignId: number): Promise<CampaignDetails | null> {
-    const { campaign, project } = await this.requireCampaign(userId, campaignId);
+    const { campaign, project } = await this.requireCampaign(userId, campaignId, "read");
     const [template, eventStats, sendStats] = await Promise.all([
       this.repos.templates.findById(campaign.templateId),
       this.repos.campaigns.getEventStatsByCampaign(campaignId),
@@ -135,12 +137,12 @@ export class CampaignService {
     campaignId: number,
     options: { page: number; pageSize: number; type?: string; search?: string },
   ): Promise<{ events: CampaignEvent[]; total: number }> {
-    await this.requireCampaign(userId, campaignId);
+    await this.requireCampaign(userId, campaignId, "read");
     return this.repos.campaigns.getPaginatedEventsByCampaign(campaignId, options);
   }
 
   async getLinkStats(userId: string, campaignId: number): Promise<LinkStat[]> {
-    await this.requireCampaign(userId, campaignId);
+    await this.requireCampaign(userId, campaignId, "read");
     return this.repos.campaigns.getLinkStatsByCampaign(campaignId);
   }
 
@@ -149,7 +151,7 @@ export class CampaignService {
     campaignId: number,
     options: { interval: "hour" | "day"; days?: number },
   ): Promise<TimeSeriesData[]> {
-    await this.requireCampaign(userId, campaignId);
+    await this.requireCampaign(userId, campaignId, "read");
     return this.repos.campaigns.getTimeSeriesStatsByCampaign(campaignId, options);
   }
 
@@ -163,14 +165,14 @@ export class CampaignService {
   }
 
   async listForProject(userId: string, projectId: number): Promise<Campaign[]> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "read");
     return this.repos.campaigns.findByProject(projectId);
   }
 
   /** Raw form fields in. */
   async createTriggered(userId: string, rawInput: unknown): Promise<Campaign> {
     const input = parseInput(CreateTriggeredCampaignSchema, rawInput);
-    await this.access.requireProject(userId, input.projectId);
+    await this.access.requireProject(userId, input.projectId, "write");
     await this.requireProjectTemplates(input.projectId, [input.templateId]);
 
     return this.repos.campaigns.create({
@@ -188,7 +190,7 @@ export class CampaignService {
   }
 
   async updateTriggered(userId: string, campaignId: number, rawInput: unknown): Promise<Campaign> {
-    const { project } = await this.requireCampaign(userId, campaignId);
+    const { project } = await this.requireCampaign(userId, campaignId, "write");
     const input = parseInput(UpdateTriggeredCampaignSchema, rawInput);
 
     const localeTemplates = input.localeTemplates as Record<string, number> | null;
@@ -209,7 +211,7 @@ export class CampaignService {
   }
 
   async delete(userId: string, campaignId: number): Promise<{ project: Project }> {
-    const { project } = await this.requireCampaign(userId, campaignId);
+    const { project } = await this.requireCampaign(userId, campaignId, "write");
     await this.repos.campaigns.delete(campaignId);
     return { project };
   }

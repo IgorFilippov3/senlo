@@ -53,7 +53,7 @@ export class AudienceService {
   }
 
   async listProjectSuppressions(userId: string, projectId: number): Promise<Suppression[]> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "read");
     return await this.suppressionRepo.findByProject(projectId);
   }
 
@@ -63,6 +63,7 @@ export class AudienceService {
       userId,
       await this.suppressionRepo.findById(id),
       "Suppression",
+      "write",
     );
     await this.suppressionRepo.delete(id);
     return { projectId: suppression.projectId };

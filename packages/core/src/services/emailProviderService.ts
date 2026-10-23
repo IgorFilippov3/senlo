@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from "zod";
-import { AccessGuard, listInScope } from "../access";
+import { AccessGuard, listInScope, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
 import type { EmailProvider, EmailProviderType, PublicEmailProvider } from "../domain";
 import { FormValidationError, NotFoundError } from "../errors";
@@ -245,8 +245,8 @@ export class EmailProviderService {
   }
 
   /** The provider, if the user may access it; "not found" otherwise, so ids leak nothing. */
-  async requireOwned(userId: string, id: number): Promise<EmailProvider> {
-    return this.access.requireOwned(userId, await this.providers.findById(id), "Provider");
+  async requireOwned(userId: string, id: number, action: AccessAction): Promise<EmailProvider> {
+    return this.access.requireOwned(userId, await this.providers.findById(id), "Provider", action);
   }
 
   /** Raw form fields in; the schema and the per-type rules decide. */
@@ -269,7 +269,7 @@ export class EmailProviderService {
   }
 
   async update(userId: string, id: number, rawInput: unknown): Promise<PublicEmailProvider> {
-    const provider = await this.requireOwned(userId, id);
+    const provider = await this.requireOwned(userId, id, "write");
     const input = parseInput(EmailProviderUpdateSchema, rawInput);
     const updated = await this.providers.update(id, {
       name: input.name || provider.name,
@@ -284,7 +284,7 @@ export class EmailProviderService {
   }
 
   async setActive(userId: string, id: number, isActive: boolean): Promise<PublicEmailProvider> {
-    await this.requireOwned(userId, id);
+    await this.requireOwned(userId, id, "write");
     const updated = await this.providers.update(id, { isActive });
     if (!updated) throw new NotFoundError("Provider");
     await this.audit(userId, isActive ? "activated" : "deactivated", id);
@@ -292,7 +292,7 @@ export class EmailProviderService {
   }
 
   async delete(userId: string, id: number): Promise<void> {
-    await this.requireOwned(userId, id);
+    await this.requireOwned(userId, id, "write");
     await this.providers.delete(id);
     await this.audit(userId, "deleted", id);
   }

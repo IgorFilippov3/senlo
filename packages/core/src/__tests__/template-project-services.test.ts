@@ -179,7 +179,7 @@ describe("ProjectService", () => {
     const s = make();
     await expect(s.delete("alice", 2)).rejects.toBeInstanceOf(NotFoundError);
     await s.delete("alice", 1);
-    await expect(s.require("alice", 1)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(s.require("alice", 1, "read")).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 

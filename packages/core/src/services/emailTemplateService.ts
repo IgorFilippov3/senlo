@@ -4,7 +4,7 @@
 
 import type { Queue } from "bullmq";
 import { z } from "zod";
-import { AccessGuard } from "../access";
+import { AccessGuard, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
 import { fixedBaseUrl, resolveProjectBaseUrl, type ResolveBaseUrl } from "../base-url";
 import type { MailSettings } from "../config";
@@ -116,28 +116,30 @@ export class TemplateService {
     this.access = access ?? new AccessGuard(repos.projects);
   }
 
-  /** The template and its project, if the user may access them. */
+  /** The template and its project, if the user may do `action` on them. */
   async requireTemplate(
     userId: string,
     templateId: number,
+    action: AccessAction,
   ): Promise<{ template: EmailTemplate; project: Project }> {
     const template = await this.access.requireInProject(
       userId,
       await this.repos.templates.findById(templateId),
       "Template",
+      action,
     );
-    const project = await this.access.requireProject(userId, template.projectId);
+    const project = await this.access.requireProject(userId, template.projectId, action);
     return { template, project };
   }
 
   async listProjectTemplates(userId: string, projectId: number): Promise<EmailTemplate[]> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "read");
     return this.repos.templates.findByProject(projectId);
   }
 
   /** A new, empty template from form fields. */
   async create(userId: string, projectId: number, rawInput: unknown): Promise<EmailTemplate> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "write");
     const input = parseInput(CreateTemplateSchema, rawInput);
     const template = await this.repos.templates.create({
       projectId,
@@ -153,7 +155,7 @@ export class TemplateService {
 
   /** The template must be in the project the caller named, which must be theirs. */
   async delete(userId: string, projectId: number, templateId: number): Promise<void> {
-    await this.access.requireProject(userId, projectId);
+    await this.access.requireProject(userId, projectId, "write");
     this.access.requireSameProject(
       projectId,
       await this.repos.templates.findById(templateId),
@@ -180,7 +182,7 @@ export class TemplateService {
     templateId: number,
     campaignId?: number | null,
   ): Promise<EditorData> {
-    const { template, project } = await this.requireTemplate(userId, templateId);
+    const { template, project } = await this.requireTemplate(userId, templateId, "read");
 
     let campaign = campaignId
       ? await this.repos.campaigns.findById(campaignId)
@@ -202,7 +204,7 @@ export class TemplateService {
     templateId: number,
     input: EditorSaveInput,
   ): Promise<EmailTemplate> {
-    const { template } = await this.requireTemplate(userId, templateId);
+    const { template } = await this.requireTemplate(userId, templateId, "write");
     const updated = await this.repos.templates.update({
       id: templateId,
       designJson: input.design,
@@ -226,7 +228,7 @@ export class TemplateService {
     templateId: number,
     input: TestSendInput,
   ): Promise<{ jobId: string | undefined; activeWorkers: number }> {
-    const { template, project } = await this.requireTemplate(userId, templateId);
+    const { template, project } = await this.requireTemplate(userId, templateId, "write");
 
     if (!SINGLE_ADDRESS.test(input.to)) {
       throw new ValidationError("Enter a single valid recipient address.");
@@ -240,11 +242,13 @@ export class TemplateService {
       );
     }
     // Through the policy, like every provider check: an organization's
-    // provider is usable by its members.
+    // provider is usable by its members. Sending through it changes nothing
+    // about the provider, so reading it is enough (the template needed write).
     await this.access.requireOwned(
       userId,
       await this.repos.providers.findById(project.providerId),
       "Email provider",
+      "read",
     );
 
     const html = renderEmailDesign(input.design, {

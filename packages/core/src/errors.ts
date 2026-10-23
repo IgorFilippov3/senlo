@@ -99,6 +99,18 @@ export class NotFoundError extends AppError {
   }
 }
 
+/**
+ * The user may see the record but not change it (a managed viewer role).
+ * Only thrown where a read is allowed, so it reveals nothing the user cannot
+ * already see; anything they may not read fails with `NotFoundError`.
+ */
+export class ForbiddenError extends AppError {
+  constructor(resource: string) {
+    super("FORBIDDEN", `You can view this ${resource.toLowerCase()} but not change it`, { resource }, 403);
+    this.name = "ForbiddenError";
+  }
+}
+
 export class UnauthorizedError extends AppError {
   constructor(message = "Unauthorized") {
     super("UNAUTHORIZED", message, undefined, 401);
