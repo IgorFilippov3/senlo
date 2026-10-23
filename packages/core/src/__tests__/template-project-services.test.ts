@@ -24,7 +24,12 @@ const projectsRepo = () => {
       rows.set(9, p);
       return p;
     },
-    update: async (id: number, d: Partial<Project>) => (rows.has(id) ? { ...rows.get(id)!, ...d } : null),
+    update: async (id: number, d: Partial<Project>) => {
+      if (!rows.has(id)) return null;
+      const u = { ...rows.get(id)!, ...d };
+      rows.set(id, u);
+      return u;
+    },
     delete: async (id: number) => { rows.delete(id); },
   };
 };
@@ -173,6 +178,23 @@ describe("ProjectService", () => {
     await expect(s.update("alice", 1, { name: "x", aiProviderId: "8" })).rejects.toBeInstanceOf(NotFoundError);
     const p = await s.update("alice", 1, { name: "Renamed", description: "", providerId: "none", aiProviderId: "7" });
     expect(p).toMatchObject({ name: "Renamed", description: null, providerId: null, aiProviderId: 7 });
+  });
+
+  it("keeps what an update leaves out, and clears only on an explicit empty value", async () => {
+    const s = make();
+    await s.update("alice", 1, { name: "Linked", description: "About", providerId: "5", aiProviderId: "7" });
+
+    const renamed = await s.update("alice", 1, { name: "Only the name" });
+    expect(renamed).toMatchObject({ name: "Only the name", description: "About", providerId: 5, aiProviderId: 7 });
+
+    const unlinked = await s.update("alice", 1, { aiProviderId: null });
+    expect(unlinked).toMatchObject({ name: "Only the name", description: "About", providerId: 5, aiProviderId: null });
+
+    const cleared = await s.update("alice", 1, { description: "", providerId: "" });
+    expect(cleared).toMatchObject({ description: null, providerId: null });
+
+    const e = await s.update("alice", 1, { name: "" }).catch((x) => x);
+    expect(e).toBeInstanceOf(FormValidationError);
   });
 
   it("deletes only the user's project", async () => {

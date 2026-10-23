@@ -14,12 +14,6 @@ import type {
 } from "../ports";
 import { parseInput } from "../validation";
 
-/** A select whose "no choice" option arrives as "", "none" or nothing. */
-const optionalReference = z.preprocess(
-  (val) => (val === "" || val === "none" || val === null || val === undefined ? null : val),
-  z.coerce.number().int().positive().nullable(),
-);
-
 export const CreateWorkspaceSchema = z.object({
   name: z.string().trim().min(1, "Project name is required").max(255),
   description: z
@@ -30,9 +24,32 @@ export const CreateWorkspaceSchema = z.object({
     .transform((v) => v || null),
 });
 
-export const UpdateWorkspaceSchema = CreateWorkspaceSchema.extend({
-  providerId: optionalReference,
-  aiProviderId: optionalReference,
+/**
+ * A reference in an update: absent keeps the stored one; "", "none" or null
+ * clears it. (It used to clear on absent too, so a form that did not send a
+ * picker unlinked that provider.)
+ */
+const referenceUpdate = z.preprocess(
+  (val) => (val === "" || val === "none" ? null : val),
+  z.coerce.number().int().positive().nullable().optional(),
+);
+
+/**
+ * A partial update: every field may be left out, and a left-out field keeps
+ * its stored value. Clearing is explicit: "" for the description, "", "none"
+ * or null for a provider.
+ */
+export const UpdateWorkspaceSchema = z.object({
+  name: CreateWorkspaceSchema.shape.name.optional(),
+  description: z
+    .string()
+    .trim()
+    .max(1000)
+    .nullable()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v || null)),
+  providerId: referenceUpdate,
+  aiProviderId: referenceUpdate,
 });
 
 export type CreateWorkspaceInput = z.input<typeof CreateWorkspaceSchema>;
@@ -111,18 +128,28 @@ export class ProjectService {
       );
     }
 
-    const updated = await this.repos.projects.update(projectId, {
-      name: input.name,
-      description: input.description,
-      providerId: input.providerId,
-      aiProviderId: input.aiProviderId,
-    });
+    // Absent fields are left out, not passed as undefined: a repository
+    // should not have to know that undefined means "keep".
+    const changes = Object.fromEntries(
+      Object.entries({
+        name: input.name,
+        description: input.description,
+        providerId: input.providerId,
+        aiProviderId: input.aiProviderId,
+      }).filter(([, v]) => v !== undefined),
+    );
+    const updated = await this.repos.projects.update(projectId, changes);
     if (!updated) throw new NotFoundError("Project");
     await this.hooks.audit({
       actor: { userId },
       action: "project.updated",
       target: { type: "project", id: projectId, projectId },
-      details: { providerId: input.providerId, aiProviderId: input.aiProviderId },
+      // Only what the update named: an absent field was not touched.
+      details: Object.fromEntries(
+        Object.entries({ providerId: input.providerId, aiProviderId: input.aiProviderId }).filter(
+          ([, v]) => v !== undefined,
+        ),
+      ),
     });
     return updated;
   }
