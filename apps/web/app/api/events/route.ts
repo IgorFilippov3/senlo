@@ -2,30 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { NextRequest, NextResponse } from "next/server";
-import { logError } from "@senlo/core";
-import { errorResponse, validateApiKey } from "@senlo/next";
-import { host } from "@/lib/host";
+import { routes } from "@/lib/routes";
 
-export async function POST(req: NextRequest) {
-  const limited = await host.rateLimit.limitRequest(req, "api");
-  if (limited) return limited;
-
-  const auth = await validateApiKey(host, req);
-  if (!auth.success) return auth.response;
-
-  try {
-    const body = await req.json().catch(() => ({}));
-    const { event, contact } = await host.getServices().events.ingest(auth.apiKey.projectId, body);
-
-    host.logger.info("Event processed via API", {
-      event: event.event,
-      projectId: auth.apiKey.projectId,
-    });
-
-    return NextResponse.json({ success: true, data: contact });
-  } catch (error) {
-    logError(host.logger, "Event API error", error, { projectId: auth.apiKey.projectId });
-    return errorResponse(error);
-  }
-}
+export const { POST } = routes.events;

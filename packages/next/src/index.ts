@@ -31,3 +31,4 @@ export {
 export { confirmLeavingResponse, pixelResponse, requestMetadata } from "./tracking";
 export { handleProviderWebhook } from "./webhooks";
 export { validateApiKey, type ApiAuthResult } from "./api-auth";
+export { createSenloRoutes, type SenloRoutes } from "./routes";

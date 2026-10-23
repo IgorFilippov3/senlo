@@ -2,10 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { NextRequest } from "next/server";
-import { handleProviderWebhook } from "@senlo/next";
-import { host } from "@/lib/host";
+import { routes } from "@/lib/routes";
 
-export async function POST(req: NextRequest) {
-  return handleProviderWebhook(host, req, "POSTMARK");
-}
+export const { POST } = routes.webhookPostmark;

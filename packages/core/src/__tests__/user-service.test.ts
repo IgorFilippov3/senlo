@@ -109,4 +109,13 @@ describe("routes", () => {
     expect(isApiKeyPath("/api/v1/anything")).toBe(true);
     expect(isApiKeyPath("/api/ai/generate")).toBe(false);
   });
+
+  it("adds a host's own public prefixes without touching Senlo's", () => {
+    const extra = ["/invite/", "/api/billing/webhook"];
+    expect(isPublicPath("/invite/abc", extra)).toBe(true);
+    expect(isPublicPath("/api/billing/webhook", extra)).toBe(true);
+    expect(isPublicPath("/invite/abc")).toBe(false);
+    expect(isPublicPath("/unsubscribe/abc", extra)).toBe(true);
+    expect(isPublicPath("/home", extra)).toBe(false);
+  });
 });

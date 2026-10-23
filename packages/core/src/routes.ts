@@ -36,10 +36,16 @@ export const AUTH_PATH_PREFIXES = ["/login", "/register"] as const;
 /** Routes authenticated by an API key in the Authorization header instead of a session. */
 export const API_KEY_PATH_PREFIXES = ["/api/v1/", "/api/events", "/api/triggered"] as const;
 
-export function isPublicPath(pathname: string): boolean {
+/**
+ * Whether `pathname` needs no session. `extraPrefixes` are the host's own
+ * public paths on top of Senlo's (the managed app: invite acceptance, its
+ * billing webhook, marketing pages); they never make a Senlo path private.
+ */
+export function isPublicPath(pathname: string, extraPrefixes: readonly string[] = []): boolean {
   return (
     (PUBLIC_PATHS as readonly string[]).includes(pathname) ||
-    PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+    PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    extraPrefixes.some((prefix) => pathname.startsWith(prefix))
   );
 }
 
