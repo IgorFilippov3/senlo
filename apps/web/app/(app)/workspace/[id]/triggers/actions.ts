@@ -17,7 +17,7 @@ import {
   FormActionResult,
   withErrorHandling,
   withFormErrors,
-} from "@/lib/errors";
+} from "@senlo/next";
 import { requireUserId } from "@/lib/session";
 import { getServices } from "@/lib/services";
 

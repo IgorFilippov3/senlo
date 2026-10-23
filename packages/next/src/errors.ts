@@ -1,7 +1,6 @@
-/**
- * Structured error system for Server Actions and API routes.
- * Provides consistent error handling across the application.
- */
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { NextResponse } from "next/server";
 import {
@@ -12,28 +11,14 @@ import {
   type FormActionResult,
 } from "@senlo/core";
 
-// The error classes live in core so services can throw them and every app
-// maps them the same way. Re-exported here for existing imports.
-export {
-  AppError,
-  FormValidationError,
-  ValidationError,
-  NotFoundError,
-  UnauthorizedError,
-  RateLimitedError,
-  DatabaseError,
-  type ErrorCode,
-} from "@senlo/core";
-
-// Result shapes are shared with the client data layer in features.
-export type { SerializableError, ActionResult, FormActionResult } from "@senlo/core";
+export type { ActionResult, FormActionResult } from "@senlo/core";
 
 /**
- * Wraps Server Action execution with error handling
+ * Runs a Server Action body and returns its result as an `ActionResult`:
+ * an `AppError` as itself, anything else as `UNKNOWN_ERROR` with its
+ * message. The stack stays in the server log (and in development).
  */
-export async function withErrorHandling<T>(
-  action: () => Promise<T>
-): Promise<ActionResult<T>> {
+export async function withErrorHandling<T>(action: () => Promise<T>): Promise<ActionResult<T>> {
   try {
     const data = await action();
     return { success: true, data };
@@ -44,16 +29,15 @@ export async function withErrorHandling<T>(
       return { success: false, error: error.toJSON() };
     }
 
-    // Convert unknown errors to AppError. The message stays: actions throw
-    // plain Errors with text meant for the user. The stack does not - it is
-    // in the server log above, and in a response it hands out file paths and
+    // The message stays: actions throw plain Errors with text meant for the
+    // user. The stack does not: in a response it hands out file paths and
     // driver internals. Kept in development, where it saves a trip to the log.
     const appError = new AppError(
-      'UNKNOWN_ERROR',
-      error instanceof Error ? error.message : 'An unknown error occurred',
-      process.env.NODE_ENV === 'development'
+      "UNKNOWN_ERROR",
+      error instanceof Error ? error.message : "An unknown error occurred",
+      process.env.NODE_ENV === "development"
         ? { originalError: error instanceof Error ? error.stack : String(error) }
-        : undefined
+        : undefined,
     );
 
     return { success: false, error: appError.toJSON() };
@@ -80,15 +64,17 @@ export async function withFormErrors<T, F extends string = string>(
     }
     console.error("SERVER ACTION ERROR:", error);
     const message = error instanceof Error ? error.message : "Something went wrong";
-    return { error: { formErrors: [], fieldErrors: { general: [message] } as Partial<Record<F, string[]>> } };
+    return {
+      error: { formErrors: [], fieldErrors: { general: [message] } as Partial<Record<F, string[]>> },
+    };
   }
 }
 
 /**
  * Maps a failure inside an API route to a JSON response: an `AppError`
  * answers with its own status and message (a form error with its first
- * field message), anything else is a 500 with `fallback`, logged by the
- * caller.
+ * field message), anything else is a 500 with `fallback`. Logging is the
+ * caller's (`logError` from core picks the level).
  */
 export function errorResponse(error: unknown, fallback = "Internal server error"): NextResponse {
   if (error instanceof FormValidationError) {
@@ -107,16 +93,14 @@ export function errorResponse(error: unknown, fallback = "Internal server error"
   return NextResponse.json({ error: fallback }, { status: 500 });
 }
 
-/**
- * Validates that a number is valid and positive
- */
-export function validateId(id: unknown, fieldName: string = 'id'): number {
+/** A positive integer id, or `ValidationError`. */
+export function validateId(id: unknown, fieldName: string = "id"): number {
   const numId = Number(id);
   if (!id || isNaN(numId) || numId <= 0) {
-    throw new ValidationError(
-      `Invalid ${fieldName}: must be a positive number`,
-      { provided: id, field: fieldName }
-    );
+    throw new ValidationError(`Invalid ${fieldName}: must be a positive number`, {
+      provided: id,
+      field: fieldName,
+    });
   }
   return numId;
 }

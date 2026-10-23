@@ -1,4 +1,4 @@
-import { pixelResponse } from "@/lib/tracking";
+import { pixelResponse } from "@senlo/next";
 
 /**
  * Open pixel from mail sent before tracking links were sealed. Its campaign

@@ -1,17 +1,19 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { errorResponse } from "@/lib/errors";
-import { logger } from "@/lib/logger";
-import { limitRequest } from "@/lib/rate-limit";
-import { getServices } from "@/lib/services";
+import { logError } from "@senlo/core";
+import { errorResponse } from "@senlo/next";
+import { host } from "@/lib/host";
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const userId = await host.currentUserId();
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = await limitRequest(req, "upload", `user:${session.user.id}`);
+  const limited = await host.rateLimit.limitRequest(req, "upload", `user:${userId}`);
   if (limited) return limited;
 
   try {
@@ -21,15 +23,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    const upload = getServices().upload;
+    const upload = host.getServices().upload;
     // Size first, before the whole file is read into memory.
     upload.assertSize(file.size);
     const { url } = await upload.storeImage(new Uint8Array(await file.arrayBuffer()));
     return NextResponse.json({ url });
   } catch (error) {
-    logger.error("Upload failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logError(host.logger, "Upload failed", error, { userId });
     return errorResponse(error);
   }
 }

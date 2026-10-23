@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/lib/db";
-import { resetLoginFailures } from "./lib/rate-limit";
+import { rateLimit } from "./lib/rate-limit";
 import { getConfig } from "./lib/config";
 import { getServices, repositories } from "./lib/services";
 import { authConfig } from "./auth.config";
@@ -44,7 +44,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await getServices().user.verifyCredentials(credentials);
         if (user) {
           // A correct password clears this address's failed attempts.
-          await resetLoginFailures(user.email);
+          await rateLimit.resetLoginFailures(user.email);
         }
         return user;
       },

@@ -24,6 +24,7 @@
     "test:core": "pnpm --filter @senlo/core test",
     "test:core:update": "pnpm --filter @senlo/core test:update",
     "test:editor": "pnpm --filter @senlo/editor test",
+    "test:next": "pnpm --filter @senlo/next test",
     "test:editor:update": "pnpm --filter @senlo/editor test:update"
   },
   "dependencies": {

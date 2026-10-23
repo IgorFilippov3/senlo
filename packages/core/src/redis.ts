@@ -4,6 +4,7 @@
 
 import { Redis } from "ioredis";
 import { consoleLogger, type Logger } from "./logger";
+import type { RateLimitStore } from "./rate-limit";
 
 /**
  * A Redis connection for queues, workers and the rate limiter. Nothing
@@ -23,4 +24,26 @@ export function createRedisConnection(
   });
 
   return connection;
+}
+
+/**
+ * Rate limit counters in Redis. Takes a getter, so the connection is still
+ * created on first use: a host builds its limiter at import time, before
+ * anything should connect.
+ */
+export function redisRateLimitStore(redis: () => Redis): RateLimitStore {
+  return {
+    async increment(key, ttlSeconds) {
+      const results = await redis().multi().incr(key).expire(key, ttlSeconds).exec();
+      const [error, count] = results?.[0] ?? [];
+      if (error) throw error;
+      return Number(count);
+    },
+    async get(key) {
+      return Number((await redis().get(key)) ?? 0);
+    },
+    async delete(key) {
+      await redis().del(key);
+    },
+  };
 }

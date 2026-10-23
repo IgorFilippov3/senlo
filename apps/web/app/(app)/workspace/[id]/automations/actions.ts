@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowNodeStats } from "@senlo/core";
-import { ActionResult, withErrorHandling } from "@/lib/errors";
+import { ActionResult, withErrorHandling } from "@senlo/next";
 import { requireUserId } from "@/lib/session";
 import { getServices } from "@/lib/services";
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { confirmLeavingResponse } from "@/lib/tracking";
+import { confirmLeavingResponse } from "@senlo/next";
 import { getServices } from "@/lib/services";
 
 /**

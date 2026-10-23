@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { logger } from "@/lib/logger";
 import { getServices } from "@/lib/services";
-import { pixelResponse, requestMetadata } from "@/lib/tracking";
+import { pixelResponse, requestMetadata } from "@senlo/next";
 
 /** Open pixel. The token is sealed, so a forged one records nothing. */
 export async function GET(

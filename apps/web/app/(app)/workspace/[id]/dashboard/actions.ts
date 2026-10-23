@@ -3,7 +3,7 @@
 import type { DashboardData } from "@senlo/core/server";
 import { requireUserId } from "@/lib/session";
 import { getServices } from "@/lib/services";
-import { withErrorHandling, type ActionResult } from "@/lib/errors";
+import { withErrorHandling, type ActionResult } from "@senlo/next";
 
 export async function getDashboardData(
   projectId: number,

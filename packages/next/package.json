@@ -1,6 +1,6 @@
 {
   "name": "@senlo/next",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Next.js adapter for Senlo hosts: route handlers, the action transport, page loaders and Next-bound client glue",
   "license": "AGPL-3.0-or-later",
   "author": {
@@ -22,7 +22,9 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "dev": "tsc --noEmit --watch"
+    "dev": "tsc --noEmit --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@senlo/core": "workspace:*",
@@ -38,6 +40,7 @@
   "devDependencies": {
     "typescript": "^5.0.0",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
+    "@types/react-dom": "^19.0.0",
+    "vitest": "^5.0.0"
   }
 }

@@ -1,0 +1,28 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import type { Logger } from "@senlo/core";
+import type { Services } from "@senlo/core/server";
+import type { SenloRateLimit } from "./rate-limit";
+
+/**
+ * What every server piece of this package needs from the host app. Built
+ * once in the host's composition root and passed in; nothing here reads the
+ * host's modules or its environment.
+ */
+export interface SenloHost {
+  /** The host's services, built on first use (they need Redis). */
+  getServices(): Services;
+  /** The signed-in user's id; throws `UnauthorizedError` without a session. */
+  requireUserId(): Promise<string>;
+  /** The signed-in user's id, or null. */
+  currentUserId(): Promise<string | null>;
+  logger: Logger;
+  rateLimit: SenloRateLimit;
+}
+
+/** Typed identity: checks the host object where it is built. */
+export function createSenloHost(host: SenloHost): SenloHost {
+  return host;
+}

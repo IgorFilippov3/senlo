@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServices } from "@/lib/services";
-import { logger } from "@/lib/logger";
-import { limitRequest } from "@/lib/rate-limit";
+import { logError } from "@senlo/core";
+import { host } from "@/lib/host";
 
 /**
  * One-click unsubscribe. This is the address the List-Unsubscribe header
@@ -12,13 +11,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
-  const limited = await limitRequest(request, "oneClick");
+  const limited = await host.rateLimit.limitRequest(request, "oneClick");
   if (limited) return limited;
 
   const { token } = await params;
 
   try {
-    const result = await getServices().unsubscribe.process(token);
+    const result = await host.getServices().unsubscribe.process(token);
 
     if (!result.ok) {
       if (result.reason === "confirm_email") {
@@ -37,9 +36,7 @@ export async function POST(
 
     return new NextResponse("Unsubscribed", { status: 200 });
   } catch (error) {
-    logger.error("One-click unsubscribe failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logError(host.logger, "One-click unsubscribe failed", error);
     return new NextResponse("Unsubscribe failed", { status: 500 });
   }
 }

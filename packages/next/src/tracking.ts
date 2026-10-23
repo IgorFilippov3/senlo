@@ -1,4 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { NextResponse } from "next/server";
 
 // 1x1 transparent GIF
 const TRANSPARENT_PIXEL = Buffer.from(
@@ -6,6 +10,7 @@ const TRANSPARENT_PIXEL = Buffer.from(
   "base64",
 );
 
+/** The open pixel, never cached: every fetch is an open. */
 export function pixelResponse(): NextResponse {
   return new NextResponse(TRANSPARENT_PIXEL, {
     headers: {
@@ -17,7 +22,8 @@ export function pixelResponse(): NextResponse {
   });
 }
 
-export function requestMetadata(request: NextRequest) {
+/** User agent and IP recorded with an open or click (analytics only, not trusted). */
+export function requestMetadata(request: Request) {
   return {
     userAgent: request.headers.get("user-agent") || "unknown",
     ip:
