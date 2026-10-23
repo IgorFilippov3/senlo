@@ -21,6 +21,19 @@ export interface AiGenerateRequest {
 }
 
 /**
+ * Sample values for merge tags the preview has no recipient for. Each one
+ * left out keeps the editor's default ("Sample Workspace" and so on).
+ */
+export interface EditorPreviewData {
+  /** `{{workspace.name}}`; the self-hosted app passes the real project name. */
+  workspaceName?: string;
+  /** `{{trigger.name}}`. */
+  triggerName?: string;
+  /** `{{unsubscribe_url}}`: where the preview's unsubscribe link points. */
+  unsubscribeUrl?: string;
+}
+
+/**
  * What the editor needs from the application around it. The editor knows no
  * routes, endpoints or origins: each host (self-hosted app, managed app)
  * supplies its own. Every member is optional; a missing one hides the feature.
@@ -36,6 +49,8 @@ export interface EditorHost {
   uploadImage?: (file: File) => Promise<string>;
   /** Resolves to the generated document. Throws with a message. */
   generateWithAi?: (request: AiGenerateRequest) => Promise<EmailDesignDocument>;
+  /** Sample merge tag values for the preview; see `EditorPreviewData`. */
+  previewData?: EditorPreviewData;
 }
 
 const EditorHostContext = createContext<EditorHost>({});

@@ -13,6 +13,7 @@ import { ColumnView } from "../column-view/column-view";
 import { RowDropZones } from "../row-drop-zones/row-drop-zones";
 import { RowViewMenu } from "../row-view-menu/row-view-menu";
 import { useEditorStore } from "../../../../state/editor.store";
+import { usePreviewData } from "../../../../hooks/use-preview-data";
 import { cn } from "@senlo/ui";
 import { GitBranch, Repeat } from "lucide-react";
 
@@ -54,7 +55,7 @@ export const RowView = memo(
     const activeDragType = useEditorStore((s) => s.activeDragType);
     const contentWidth = useEditorStore((s) => s.design.settings?.contentWidth);
     const previewMode = useEditorStore((s) => s.previewMode);
-    const previewContact = useEditorStore((s) => s.previewContact);
+    const previewData = usePreviewData();
 
     if (!row) return null;
 
@@ -63,13 +64,7 @@ export const RowView = memo(
         responsiveStyles: [],
         localData,
         options: {
-          data: {
-            contact: previewContact || {},
-            custom: previewContact || {},
-            workspace: { name: "Sample Workspace" },
-            trigger: { name: "Sample Trigger" },
-            unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
-          },
+          data: previewData,
         },
       });
 

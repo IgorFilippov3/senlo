@@ -65,6 +65,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   onNavigate,
   uploadImage,
   generateWithAi,
+  previewData,
 }) => {
   const setDesign = useEditorStore((s) => s.setDesign);
   const setTemplateId = useEditorStore((s) => s.setTemplateId);
@@ -154,8 +155,8 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   ]);
 
   const host = useMemo<EditorHost>(
-    () => ({ baseUrl, hasAiProvider, onNavigate, uploadImage, generateWithAi }),
-    [baseUrl, hasAiProvider, onNavigate, uploadImage, generateWithAi],
+    () => ({ baseUrl, hasAiProvider, onNavigate, uploadImage, generateWithAi, previewData }),
+    [baseUrl, hasAiProvider, onNavigate, uploadImage, generateWithAi, previewData],
   );
 
   return (

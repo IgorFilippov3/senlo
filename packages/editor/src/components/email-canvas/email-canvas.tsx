@@ -4,6 +4,7 @@ import styles from "./email-canvas.module.css";
 
 import { RowView } from "./components/row-view/row-view";
 import { useEditorStore } from "../../state/editor.store";
+import { usePreviewData } from "../../hooks/use-preview-data";
 import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@senlo/ui";
 import { resolveVariable } from "@senlo/core";
@@ -14,7 +15,7 @@ export const EmailCanvas = () => {
   const activeDragType = useEditorStore((s) => s.activeDragType);
   const isDragActive = useEditorStore((s) => s.isDragActive);
   const previewMode = useEditorStore((s) => s.previewMode);
-  const previewContact = useEditorStore((s) => s.previewContact);
+  const previewData = usePreviewData();
   const settings = design.settings;
 
   const { isOver, setNodeRef } = useDroppable({
@@ -44,14 +45,7 @@ export const EmailCanvas = () => {
 
     return design.rows.flatMap((row, index) => {
       if (previewMode && row.loop) {
-        const data = {
-          contact: previewContact || {},
-          custom: previewContact || {},
-          workspace: { name: "Sample Workspace" },
-          trigger: { name: "Sample Trigger" },
-          unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
-        };
-        const loopData = resolveVariable(row.loop.variable, data);
+        const loopData = resolveVariable(row.loop.variable, previewData);
 
         if (Array.isArray(loopData)) {
           return loopData.map((item, iteration) => (

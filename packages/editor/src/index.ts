@@ -3,5 +3,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 export * from "./EditorLayout";
-export type { EditorHost, EditorNavigationTarget, AiGenerateRequest } from "./host";
+export type { EditorHost, EditorNavigationTarget, AiGenerateRequest, EditorPreviewData } from "./host";
 export * from "./components/email-canvas/email-canvas";

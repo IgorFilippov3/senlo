@@ -10,6 +10,7 @@ import {
 } from "@senlo/core";
 import { useEditorStore } from "../../state/editor.store";
 import { useEditorHost } from "../../host";
+import { usePreviewData } from "../../hooks/use-preview-data";
 import styles from "./preview-modal.module.css";
 import { cn } from "@senlo/ui";
 
@@ -24,6 +25,7 @@ export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
   const design = useEditorStore((s) => s.design);
   const { baseUrl } = useEditorHost();
   const previewContact = useEditorStore((s) => s.previewContact);
+  const previewData = usePreviewData();
   const setPreviewContact = useEditorStore((s) => s.setPreviewContact);
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
   const [showMockData, setShowMockData] = useState(false);
@@ -53,19 +55,13 @@ export const PreviewModal = ({ isOpen, onClose }: PreviewModalProps) => {
       // just styled. A status typed into the mock data wins; this never
       // touches the mock data itself.
       data: withProgressPreviewStatus(
-        {
-          contact: previewContact || {},
-          custom: previewContact || {}, // Pass mock data as custom variables too
-          workspace: { name: "Sample Workspace" },
-          trigger: { name: "Sample Trigger" },
-          unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
-        },
+        previewData,
         design,
       ),
     };
 
     return renderEmailDesign(design, options);
-  }, [baseUrl, design, isOpen, previewContact]);
+  }, [baseUrl, design, isOpen, previewData]);
 
   const viewOptions = [
     { value: "desktop", icon: <Monitor size={18} />, label: "Desktop" },

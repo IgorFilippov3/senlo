@@ -50,6 +50,7 @@ export default async function EditorIdPage({ params, searchParams }: EditorPageP
       campaignId={campaignId}
       baseUrl={baseUrl}
       hasAiProvider={!!project.aiProviderId}
+      previewData={{ workspaceName: project.name }}
       templateName={template.name}
       templateSubject={template.subject}
       templateLocale={template.locale}

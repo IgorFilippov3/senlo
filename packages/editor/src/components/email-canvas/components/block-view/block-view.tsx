@@ -10,6 +10,7 @@ import {
   type RowId,
 } from "@senlo/core";
 import { useEditorStore } from "../../../../state/editor.store";
+import { usePreviewData } from "../../../../hooks/use-preview-data";
 import { cn } from "@senlo/ui";
 import { useDraggable } from "@dnd-kit/core";
 import { BlockDropZones } from "../block-drop-zones/block-drop-zones";
@@ -26,14 +27,6 @@ interface BlockViewProps {
   localData?: Record<string, any>;
 }
 
-/** Sample values shown where a merge tag sits, in preview mode. */
-const previewDataFor = (previewContact: Record<string, any> | null) => ({
-  contact: previewContact || {},
-  custom: previewContact || {},
-  workspace: { name: "Sample Workspace" },
-  trigger: { name: "Sample Trigger" },
-  unsubscribeUrl: "https://senlo.io/unsubscribe/sample-token",
-});
 
 export const BlockView = memo(
   ({ blockId, columnId, rowId, index, localData }: BlockViewProps) => {
@@ -57,10 +50,10 @@ export const BlockView = memo(
     const isDragActive = useEditorStore((s) => s.isDragActive);
     const activeDragType = useEditorStore((s) => s.activeDragType);
     const previewMode = useEditorStore((s) => s.previewMode);
-    const previewContact = useEditorStore((s) => s.previewContact);
     const settings = useEditorStore((s) => s.design.settings);
 
-    const previewData = previewDataFor(previewContact);
+    // Sample values shown where a merge tag sits, in preview mode.
+    const previewData = usePreviewData();
 
     // Only computed here - the early return has to happen after every hook
     // call, otherwise flipping a block's visibility changes the number of hooks
