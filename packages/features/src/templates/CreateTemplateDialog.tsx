@@ -2,12 +2,23 @@
 
 import React from "react";
 import { Button, Dialog, FormField, Input } from "@senlo/ui";
+import { FormErrorBanner } from "../shared/FormErrorBanner";
+import { readForm } from "../shared/readForm";
+
+/** What the form submits; `EmailTemplateService.create` validates it. */
+export interface CreateTemplateValues {
+  name: string;
+  subject: string;
+  locale: string;
+}
 
 export interface CreateTemplateDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (formData: FormData) => void;
+  onSubmit: (values: CreateTemplateValues) => void;
   isLoading?: boolean;
+  /** A create failure, shown above the buttons. */
+  error?: string | null;
 }
 
 export function CreateTemplateDialog({
@@ -15,11 +26,16 @@ export function CreateTemplateDialog({
   onClose,
   onSubmit,
   isLoading = false,
+  error,
 }: CreateTemplateDialogProps) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    onSubmit(formData);
+    const fields = readForm(e.currentTarget);
+    onSubmit({
+      name: fields.name ?? "",
+      subject: fields.subject ?? "",
+      locale: fields.locale ?? "",
+    });
   };
 
   return (
@@ -59,6 +75,8 @@ export function CreateTemplateDialog({
         >
           <Input name="locale" defaultValue="en" placeholder="en" required />
         </FormField>
+
+        <FormErrorBanner error={error} />
 
         <div className="flex justify-end gap-3 mt-6">
           <Button

@@ -15,9 +15,7 @@ export default function AddAiProviderDialog({
     <AiProviderDialog
       isOpen={isOpen}
       onClose={onClose}
-      onSubmit={(formData) =>
-        create.mutate(Object.fromEntries(formData), { onSuccess: onClose })
-      }
+      onSubmit={(values) => create.mutate(values, { onSuccess: onClose })}
       isSubmitting={create.isPending}
       error={create.error?.message}
     />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { FormValues } from "./actions";
+import type { CreateTemplateValues } from "../templates/CreateTemplateDialog";
 import { useSenloActions } from "./provider";
 import { queryKeys } from "./query-keys";
 import { unwrap } from "./result";
@@ -19,7 +19,7 @@ export function useCreateTemplate() {
   const actions = useSenloActions();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ projectId, values }: { projectId: number; values: FormValues }) =>
+    mutationFn: async ({ projectId, values }: { projectId: number; values: CreateTemplateValues }) =>
       unwrap(await actions.templates.create(projectId, values)),
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.templates.lists() }),
   });

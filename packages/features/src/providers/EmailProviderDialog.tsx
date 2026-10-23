@@ -14,14 +14,53 @@ import {
 } from "@senlo/ui";
 import type { EmailProviderType, PublicEmailProvider } from "@senlo/core";
 import { FormErrorBanner } from "../shared";
+import { readForm } from "../shared/readForm";
+
+/**
+ * What the form submits: the fields of the chosen type only, as typed (the
+ * services coerce the port and validate everything). On edit an empty secret
+ * means "keep the saved one".
+ */
+export interface EmailProviderValues {
+  name: string;
+  type: EmailProviderType;
+  apiKey?: string;
+  webhookSecret?: string;
+  /** Edit only: remove the saved webhook secret. */
+  clearWebhookSecret?: boolean;
+  domain?: string;
+  region?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  serverToken?: string;
+  host?: string;
+  port?: string;
+  encryption?: string;
+  username?: string;
+  password?: string;
+}
+
+const TEXT_FIELDS = [
+  "apiKey",
+  "webhookSecret",
+  "domain",
+  "region",
+  "accessKeyId",
+  "secretAccessKey",
+  "serverToken",
+  "host",
+  "port",
+  "encryption",
+  "username",
+  "password",
+] as const;
 
 export interface EmailProviderDialogProps {
   isOpen: boolean;
   onClose: () => void;
   /** The provider being edited; a new provider is created when absent. */
   provider?: PublicEmailProvider;
-  /** Receives the form's fields as the provider services expect them. */
-  onSubmit: (formData: FormData) => void;
+  onSubmit: (values: EmailProviderValues) => void;
   isSubmitting?: boolean;
   /** A message from the server, shown above the buttons. */
   error?: string | null;
@@ -90,7 +129,13 @@ export function EmailProviderDialog({
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    onSubmit(new FormData(e.currentTarget));
+    const fields = readForm(e.currentTarget);
+    const values: EmailProviderValues = { name: fields.name ?? "", type };
+    for (const key of TEXT_FIELDS) {
+      if (fields[key] !== undefined) values[key] = fields[key];
+    }
+    if (fields.clearWebhookSecret !== undefined) values.clearWebhookSecret = true;
+    onSubmit(values);
   };
 
   return (

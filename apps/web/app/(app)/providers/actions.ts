@@ -22,7 +22,7 @@ export async function listProviders(): Promise<ActionResult<PublicEmailProvider[
 }
 
 export async function createProviderAction(
-  input: Record<string, unknown>,
+  input: unknown,
 ): Promise<ProviderFormResult> {
   return withFormErrors(async () => {
     const userId = await requireUserId();
@@ -37,7 +37,7 @@ export async function createProviderAction(
 
 export async function updateProviderAction(
   id: number,
-  input: Record<string, unknown>,
+  input: unknown,
 ): Promise<ProviderFormResult> {
   return withFormErrors(async () => {
     const userId = await requireUserId();

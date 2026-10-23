@@ -20,6 +20,9 @@ import type {
 } from "@senlo/core";
 import type { CreateWorkspaceValues } from "../workspaces/CreateWorkspaceDialog";
 import type { WorkspaceFormValues } from "../workspaces/WorkspaceFields";
+import type { CreateTemplateValues } from "../templates/CreateTemplateDialog";
+import type { EmailProviderValues } from "../providers/EmailProviderDialog";
+import type { AiProviderValues } from "../providers/AiProviderDialog";
 
 /** Raw form values; the server validates them. */
 export type FormValues = Record<string, unknown>;
@@ -39,7 +42,7 @@ export interface SenloActions {
   };
   templates: {
     list(projectId: number): Promise<ActionResult<EmailTemplate[]>>;
-    create(projectId: number, values: FormValues): Promise<ActionResult<EmailTemplate>>;
+    create(projectId: number, values: CreateTemplateValues): Promise<ActionResult<EmailTemplate>>;
     delete(projectId: number, templateId: number): Promise<ActionResult<void>>;
   };
   campaigns: {
@@ -59,14 +62,14 @@ export interface SenloActions {
   };
   emailProviders: {
     list(): Promise<ActionResult<PublicEmailProvider[]>>;
-    create(values: FormValues): Promise<FormActionResult<PublicEmailProvider>>;
-    update(providerId: number, values: FormValues): Promise<FormActionResult<PublicEmailProvider>>;
+    create(values: EmailProviderValues): Promise<FormActionResult<PublicEmailProvider>>;
+    update(providerId: number, values: EmailProviderValues): Promise<FormActionResult<PublicEmailProvider>>;
     toggle(providerId: number, isActive: boolean): Promise<ActionResult<PublicEmailProvider>>;
     delete(providerId: number): Promise<ActionResult<void>>;
   };
   aiProviders: {
     list(): Promise<ActionResult<PublicAiProvider[]>>;
-    create(values: FormValues): Promise<FormActionResult<PublicAiProvider>>;
+    create(values: AiProviderValues): Promise<FormActionResult<PublicAiProvider>>;
     toggle(providerId: number, isActive: boolean): Promise<ActionResult<PublicAiProvider>>;
     delete(providerId: number): Promise<ActionResult<void>>;
   };

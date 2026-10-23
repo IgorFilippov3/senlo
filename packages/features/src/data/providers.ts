@@ -2,7 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { PublicAiProvider, PublicEmailProvider } from "@senlo/core";
-import type { FormValues } from "./actions";
+import type { EmailProviderValues } from "../providers/EmailProviderDialog";
+import type { AiProviderValues } from "../providers/AiProviderDialog";
 import { useSenloActions } from "./provider";
 import { queryKeys } from "./query-keys";
 import { unwrap, unwrapForm } from "./result";
@@ -46,7 +47,7 @@ export function useCreateProvider() {
   const actions = useSenloActions();
   const invalidate = useInvalidate(queryKeys.emailProviders.all);
   return useMutation({
-    mutationFn: async (values: FormValues) =>
+    mutationFn: async (values: EmailProviderValues) =>
       unwrapForm(await actions.emailProviders.create(values), PROVIDER_FIELDS),
     onSettled: invalidate,
   });
@@ -57,7 +58,7 @@ export function useUpdateProvider() {
   const actions = useSenloActions();
   const invalidate = useInvalidate(queryKeys.emailProviders.all);
   return useMutation({
-    mutationFn: async ({ id, values }: { id: number; values: FormValues }) =>
+    mutationFn: async ({ id, values }: { id: number; values: EmailProviderValues }) =>
       unwrapForm(await actions.emailProviders.update(id, values), PROVIDER_FIELDS),
     onSettled: invalidate,
   });
@@ -106,7 +107,7 @@ export function useCreateAiProvider() {
   const actions = useSenloActions();
   const invalidate = useInvalidate(queryKeys.aiProviders.all);
   return useMutation({
-    mutationFn: async (values: FormValues) =>
+    mutationFn: async (values: AiProviderValues) =>
       unwrapForm(await actions.aiProviders.create(values), AI_PROVIDER_FIELDS),
     onSettled: invalidate,
   });

@@ -14,11 +14,21 @@ import {
 } from "@senlo/ui";
 import { DEFAULT_AI_MODELS, type AiProviderType } from "@senlo/core";
 import { FormErrorBanner } from "../shared";
+import { readForm } from "../shared/readForm";
+
+/** What the form submits; `AiProviderService.create` validates it. */
+export interface AiProviderValues {
+  name: string;
+  type: AiProviderType;
+  apiKey: string;
+  /** Empty: the type's default model. */
+  model: string;
+}
 
 export interface AiProviderDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (formData: FormData) => void;
+  onSubmit: (values: AiProviderValues) => void;
   isSubmitting?: boolean;
   error?: string | null;
 }
@@ -34,7 +44,13 @@ export function AiProviderDialog({
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    onSubmit(new FormData(e.currentTarget));
+    const fields = readForm(e.currentTarget);
+    onSubmit({
+      name: fields.name ?? "",
+      type,
+      apiKey: fields.apiKey ?? "",
+      model: fields.model ?? "",
+    });
   };
 
   return (

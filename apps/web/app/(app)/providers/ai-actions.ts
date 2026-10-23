@@ -25,7 +25,7 @@ export async function listAiProviders(): Promise<ActionResult<PublicAiProvider[]
 }
 
 export async function createAiProviderAction(
-  input: Record<string, unknown>,
+  input: unknown,
 ): Promise<CreateAiProviderResult> {
   return withFormErrors(async () => {
     const userId = await requireUserId();

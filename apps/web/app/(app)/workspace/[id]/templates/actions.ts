@@ -15,7 +15,7 @@ export async function listProjectTemplates(projectId: number): Promise<ActionRes
 
 export async function createTemplate(
   projectId: number,
-  input: Record<string, unknown>,
+  input: unknown,
 ): Promise<ActionResult<EmailTemplate>> {
   return withErrorHandling(async () => {
     const userId = await requireUserId();

@@ -1,7 +1,10 @@
 "use client";
 
-import { CreateTemplateDialog as SharedCreateTemplateDialog, useCreateTemplate } from "@senlo/features";
-import { logger } from "@/lib/logger";
+import {
+  CreateTemplateDialog as SharedCreateTemplateDialog,
+  useCreateTemplate,
+  type CreateTemplateValues,
+} from "@senlo/features";
 
 interface CreateTemplateDialogProps {
   projectId: number;
@@ -14,32 +17,25 @@ export default function CreateTemplateDialog({
   isOpen,
   onClose,
 }: CreateTemplateDialogProps) {
-  const { mutate: createTemplate, isPending: isCreating } = useCreateTemplate();
+  const create = useCreateTemplate();
 
-  function handleSubmit(formData: FormData) {
-    createTemplate(
-      { projectId, values: Object.fromEntries(formData) },
-      {
-        onSuccess: () => {
-          onClose();
-        },
-        onError: (error) => {
-          logger.error("Failed to create template", {
-            projectId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          alert("Failed to create template. Please try again.");
-        },
-      },
-    );
+  // Clears a failed attempt, so the dialog does not reopen with an old error.
+  const close = () => {
+    create.reset();
+    onClose();
+  };
+
+  function handleSubmit(values: CreateTemplateValues) {
+    create.mutate({ projectId, values }, { onSuccess: close });
   }
 
   return (
     <SharedCreateTemplateDialog
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={close}
       onSubmit={handleSubmit}
-      isLoading={isCreating}
+      isLoading={create.isPending}
+      error={create.error?.message}
     />
   );
 }
