@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { fixedBaseUrl, resolveProjectBaseUrl, type ResolveBaseUrl } from "../base-url";
-import type { Campaign, Contact, EmailProvider, Project } from "../domain";
+import type { Campaign, EmailProvider, Project } from "../domain";
 import type { EmailTemplate } from "../emailTemplate";
 import type { Logger } from "../logger";
 import { ServiceHooks } from "../hooks";
@@ -50,29 +50,31 @@ describe("a project's own base URL in its links", () => {
     expect(job.unsubscribeOneClickUrl).toMatch(/^https:\/\/mail\.acme\.test\/api\/unsubscribe\//);
   });
 
-  it("campaign send: jobs carry the domain, and the rendered mail tracks through it", async () => {
-    const queue = { add: vi.fn(async () => ({})) };
-    const worker = new EmailWorkerProcessor(
-      settings as never,
-      { findById: async () => campaign, update: async () => campaign } as never,
-      { findById: async () => provider } as never,
+  it("the rendered triggered mail tracks through the project's domain", async () => {
+    const queue = { add: vi.fn(async () => ({ id: "j1" })) };
+    const trigger = new TriggerService(
+      { findById: async () => campaign } as never,
       { findById: async () => template } as never,
+      { findById: async () => provider } as never,
       { findById: async () => project } as never,
-      { getContacts: async () => [{ id: 2, email: "r@x.test", projectId: 1 } as Contact] } as never,
+      { create: async () => ({ id: 11 }) } as never,
       queue as never,
-      undefined,
-      undefined,
-      silent,
+      settings,
       ServiceHooks.none,
       resolve,
     );
-    await worker.processCampaignJob({ data: { campaignId: 5 } } as never);
+    await trigger.sendTriggeredEmail({ campaignId: 5, projectId: 1, to: "r@x.test" });
     const job = (queue.add.mock.calls[0] as any)[1];
-    expect(job.baseUrl).toBe("https://mail.acme.test");
-    expect(job.unsubscribePageUrl).toMatch(/^https:\/\/mail\.acme\.test\/unsubscribe\//);
 
-    // The tracked links come from `job.baseUrl`.
-    expect(job.html).toBeUndefined();
+    const worker = new EmailWorkerProcessor(
+      settings as never,
+      {} as never,
+      {} as never,
+      { findById: async () => template } as never,
+      undefined,
+      undefined,
+      silent,
+    );
     const html: string = await (worker as any).buildMessageHtml(job);
     expect(html).toContain("https://mail.acme.test/api/t/c/");
     expect(html).toContain("https://mail.acme.test/api/t/o/");

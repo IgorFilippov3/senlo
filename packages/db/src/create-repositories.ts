@@ -13,7 +13,6 @@ import { DashboardRepository } from "./repositories/dashboardRepository";
 import { EmailProviderRepository } from "./repositories/emailProviderRepository";
 import { EmailTemplateRepository } from "./repositories/emailTemplateRepository";
 import { ProjectRepository } from "./repositories/projectRepository";
-import { RecipientListRepository } from "./repositories/recipientListRepository";
 import { SavedRowRepository } from "./repositories/savedRowRepository";
 import { SuppressionRepository } from "./repositories/suppressionRepository";
 import { TriggeredSendLogRepository } from "./repositories/triggeredSendLogRepository";
@@ -39,7 +38,6 @@ export function createRepositories(db: Database, { secrets }: RepositoryOptions)
     contacts: new ContactRepository(db),
     dashboard: new DashboardRepository(db),
     executions: new WorkflowExecutionRepository(db),
-    lists: new RecipientListRepository(db),
     projects: new ProjectRepository(db),
     providers: new EmailProviderRepository(db, secrets),
     savedRows: new SavedRowRepository(db),

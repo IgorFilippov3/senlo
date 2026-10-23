@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Queue } from "bullmq";
 import { z } from "zod";
 import { AccessGuard, listInScope } from "../access";
 import type {
@@ -14,14 +13,13 @@ import type {
   TimeSeriesData,
 } from "../domain";
 import type { EmailTemplate } from "../emailTemplate";
-import { NotFoundError, ValidationError } from "../errors";
+import { NotFoundError } from "../errors";
 import type {
   ICampaignRepository,
   IEmailTemplateRepository,
   IProjectRepository,
   ITriggeredSendLogRepository,
 } from "../ports";
-import type { CampaignJobData } from "../queue/types";
 import { parseInput } from "../validation";
 
 const optionalId = z.preprocess(
@@ -88,15 +86,14 @@ export interface CampaignServiceRepositories {
 
 /**
  * Campaigns and triggers as the UI works with them: everything checks that
- * the campaign's project is the caller's, template ids named by a form must
- * live in that project, and sending is a status change plus a queue job.
+ * the campaign's project is the caller's, and template ids named by a form
+ * must live in that project. Sending is `TriggerService`'s.
  */
 export class CampaignService {
   private readonly access: AccessGuard;
 
   constructor(
     private readonly repos: CampaignServiceRepositories,
-    private readonly campaignQueue: Pick<Queue<CampaignJobData>, "add">,
     access?: AccessGuard,
   ) {
     this.access = access ?? new AccessGuard(repos.projects);
@@ -209,28 +206,6 @@ export class CampaignService {
     });
     if (!updated) throw new NotFoundError("Trigger");
     return updated;
-  }
-
-  /**
-   * Marks the campaign as sending and queues the dispatch; the worker loads
-   * the contacts and renders the mail.
-   */
-  async send(userId: string, campaignId: number): Promise<{ campaign: Campaign; project: Project }> {
-    const { campaign, project } = await this.requireCampaign(userId, campaignId);
-
-    if (!project.providerId) {
-      throw new ValidationError("No email provider configured for this workspace");
-    }
-    if (!campaign.listId) {
-      throw new ValidationError("No recipient list selected for this campaign");
-    }
-
-    await this.repos.campaigns.update(campaignId, { status: "SENDING", sentAt: new Date() });
-    await this.campaignQueue.add(`dispatch-campaign-${campaignId}-${Date.now()}`, {
-      campaignId,
-      userId,
-    });
-    return { campaign, project };
   }
 
   async delete(userId: string, campaignId: number): Promise<{ project: Project }> {

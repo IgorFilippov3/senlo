@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { CampaignService } from "../services/campaignService";
-import { FormValidationError, NotFoundError, ValidationError } from "../errors";
+import { FormValidationError, NotFoundError } from "../errors";
 import type { Campaign, Project } from "../domain";
 import type { EmailTemplate } from "../emailTemplate";
 
@@ -18,7 +18,6 @@ function campaign(over: Partial<Campaign>): Campaign {
 function fakes(seed: Campaign[]) {
   const rows = new Map(seed.map((c) => [c.id, c]));
   const updates: { id: number; data: Partial<Campaign> }[] = [];
-  const queue = { add: vi.fn(async () => ({}) as never) };
   const repos = {
     projects: {
       findById: async (id: number) => [p1, p2, p3].find((p) => p.id === id) ?? null,
@@ -50,8 +49,8 @@ function fakes(seed: Campaign[]) {
     },
     sendLogs: { getStatsByCampaign: async () => ({ sent: 10, delivered: 9, errors: 1 }) },
   };
-  const service = new CampaignService(repos as never, queue);
-  return { service, rows, updates, queue };
+  const service = new CampaignService(repos as never);
+  return { service, rows, updates };
 }
 
 describe("CampaignService access", () => {
@@ -66,7 +65,6 @@ describe("CampaignService access", () => {
     expect(foreign.message).toBe(missing.message);
     await expect(service.getEvents("alice", 200, { page: 1, pageSize: 10 })).rejects.toBeInstanceOf(NotFoundError);
     await expect(service.getLinkStats("alice", 200)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(service.send("alice", 200)).rejects.toBeInstanceOf(NotFoundError);
     await expect(service.delete("alice", 200)).rejects.toBeInstanceOf(NotFoundError);
     await expect(service.listForProject("alice", 2)).rejects.toBeInstanceOf(NotFoundError);
   });
@@ -135,23 +133,6 @@ describe("CampaignService.updateTriggered", () => {
     const c = await service.updateTriggered("alice", 100, { name: "n", variablesSchema: "{bad", localeTemplates: "" });
     expect(c.variablesSchema).toBeNull();
     expect(c.localeTemplates).toBeNull();
-  });
-});
-
-describe("CampaignService.send", () => {
-  it("needs a provider on the workspace and a list on the campaign", async () => {
-    const { service, queue } = fakes([campaign({ id: 100, projectId: 3, listId: 7 }), campaign({ id: 101, projectId: 1, listId: null })]);
-    await expect(service.send("alice", 100)).rejects.toBeInstanceOf(ValidationError);
-    await expect(service.send("alice", 101)).rejects.toBeInstanceOf(ValidationError);
-    expect(queue.add).not.toHaveBeenCalled();
-  });
-
-  it("marks the campaign sending and queues the dispatch", async () => {
-    const { service, queue, updates } = fakes([campaign({ id: 100, listId: 7 })]);
-    const { project } = await service.send("alice", 100);
-    expect(project.id).toBe(1);
-    expect(updates[0]).toMatchObject({ id: 100, data: { status: "SENDING", sentAt: expect.any(Date) } });
-    expect(queue.add).toHaveBeenCalledWith(expect.stringMatching(/^dispatch-campaign-100-/), { campaignId: 100, userId: "alice" });
   });
 });
 

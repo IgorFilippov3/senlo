@@ -33,14 +33,6 @@ export interface Contact {
   createdAt: Date;
 }
 
-export interface RecipientList {
-  id: number;
-  projectId: number;
-  name: string;
-  description?: string | null;
-  createdAt: Date;
-}
-
 export type CampaignStatus =
   | "DRAFT"
   | "SCHEDULED"

@@ -1,20 +1,14 @@
-import { Worker, Job, Queue } from "bullmq";
-import type { EmailJobData, CampaignJobData, AutomationJobData } from "./types";
+import { Worker, Job } from "bullmq";
+import type { EmailJobData, AutomationJobData } from "./types";
 import {
   ICampaignRepository,
   IEmailProviderRepository,
   ITriggeredSendLogRepository,
   ISuppressionRepository,
   IEmailTemplateRepository,
-  IProjectRepository,
-  RecipientListRepository,
 } from "../ports";
 import { MailerFactory } from "../services/mail/index";
-import {
-  encodeUnsubscribeToken,
-  buildUnsubscribeHeaders,
-  unsubscribeUrls,
-} from "../unsubscribe-token";
+import { buildUnsubscribeHeaders } from "../unsubscribe-token";
 import type { MailSettings } from "../config";
 import { sealTrackingToken, trackingUrls } from "../tracking-token";
 import { htmlToPlainText, EMAIL_CLIPPING_BYTES } from "../renderer/htmlToText";
@@ -29,10 +23,8 @@ import { AutomationService } from "../services/automationService";
 import { consoleLogger, type Logger } from "../logger";
 import { QuotaExceededError } from "../errors";
 import { ServiceHooks } from "../hooks";
-import { fixedBaseUrl, resolveProjectBaseUrl, type ResolveBaseUrl } from "../base-url";
 import {
   AUTOMATION_QUEUE_NAME,
-  CAMPAIGN_QUEUE_NAME,
   EMAIL_QUEUE_NAME,
   type QueueConnection,
 } from "./queue";
@@ -57,15 +49,10 @@ export class EmailWorkerProcessor {
     private readonly campaignRepo: ICampaignRepository,
     private readonly providerRepo: IEmailProviderRepository,
     private readonly templateRepo: IEmailTemplateRepository,
-    private readonly projectRepo: IProjectRepository,
-    private readonly listRepo: RecipientListRepository,
-    private readonly emailQueue: Queue<EmailJobData>,
     private readonly logRepo?: ITriggeredSendLogRepository,
     private readonly suppressionRepo?: ISuppressionRepository,
     private readonly logger: Logger = consoleLogger,
     private readonly hooks: ServiceHooks = ServiceHooks.none,
-    /** Where each project's links point; see `ResolveBaseUrl`. */
-    private readonly resolveBaseUrl: ResolveBaseUrl = fixedBaseUrl(settings.appUrl),
   ) {}
 
   /**
@@ -383,114 +370,6 @@ export class EmailWorkerProcessor {
       throw error;
     }
   }
-
-  async processCampaignJob(job: Job<CampaignJobData>) {
-    const { campaignId } = job.data;
-
-    const campaign = await this.campaignRepo.findById(campaignId);
-    if (!campaign) throw new Error(`Campaign ${campaignId} not found`);
-
-    if (campaign.status === "COMPLETED") return;
-
-    const project = await this.projectRepo.findById(campaign.projectId);
-    if (!project) throw new Error(`Project ${campaign.projectId} not found`);
-
-    if (!project.providerId) {
-      throw new Error("No email provider configured for this workspace");
-    }
-
-    const [template, provider] = await Promise.all([
-      this.templateRepo.findById(campaign.templateId),
-      this.providerRepo.findById(project.providerId),
-    ]);
-
-    if (!template || template.projectId !== campaign.projectId) {
-      throw new Error("Template not found");
-    }
-    if (!provider) throw new Error("Email provider not found");
-
-    if (!campaign.listId) {
-      throw new Error("No recipient list selected for this campaign");
-    }
-
-    const contacts = await this.listRepo.getContacts(campaign.listId, true);
-
-    if (contacts.length === 0) {
-      this.logger.warn("Campaign has no recipients, marking as completed", {
-        campaignId,
-      });
-      await this.campaignRepo.update(campaignId, { status: "COMPLETED" });
-      return;
-    }
-
-    this.logger.info("Starting campaign send", {
-      campaignId,
-      recipients: contacts.length,
-    });
-
-    await this.campaignRepo.update(campaignId, {
-      status: "SENDING",
-      sentAt: new Date(),
-    });
-
-    const baseUrl = await resolveProjectBaseUrl(this.resolveBaseUrl, project.id);
-    const signingSecret = this.settings.linkSigningSecret;
-    const fromEmail = campaign.fromEmail || this.settings.defaultFromEmail;
-    const fromAddress = campaign.fromName
-      ? `${campaign.fromName} <${fromEmail}>`
-      : fromEmail;
-
-    // Queue jobs in chunks to avoid memory issues and BullMQ limits
-    const CHUNK_SIZE = 100;
-    for (let i = 0; i < contacts.length; i += CHUNK_SIZE) {
-      const chunk = contacts.slice(i, i + CHUNK_SIZE);
-
-      await Promise.all(
-        chunk.map(async (contact) => {
-          const unsubscribeToken = await encodeUnsubscribeToken(
-            {
-              contactId: contact.id,
-              projectId: project.id,
-              email: contact.email,
-              campaignId: campaign.id,
-            },
-            signingSecret,
-          );
-          const unsubscribe = unsubscribeUrls(baseUrl, unsubscribeToken);
-
-          return this.emailQueue.add(
-            `campaign-${campaign.id}-${contact.id}-${Date.now()}`,
-            {
-              projectId: project.id,
-              campaignId: campaign.id,
-              contactId: contact.id,
-              email: contact.email,
-              from: fromAddress,
-              subject: campaign.subject || template.subject,
-              providerId: project.providerId!,
-              // What to render, rather than the render itself. The document is
-              // rendered in the send worker: once for the whole campaign when
-              // it looks the same for everyone, and per message when a
-              // condition or a loop makes it depend on the recipient.
-              templateId: template.id,
-              baseUrl,
-              preheader: campaign.preheader || template.preheader || undefined,
-              title: campaign.subject || template.subject,
-              renderData: {
-                contact,
-                unsubscribeUrl: unsubscribe.page,
-              },
-              unsubscribePageUrl: unsubscribe.page,
-              unsubscribeOneClickUrl: unsubscribe.oneClick,
-            },
-          );
-        }),
-      );
-    }
-
-    await this.campaignRepo.update(campaignId, { status: "COMPLETED" });
-    this.logger.info("Campaign queued", { campaignId });
-  }
 }
 
 export function createEmailWorker(
@@ -503,19 +382,6 @@ export function createEmailWorker(
       await processor.processEmailJob(job);
     },
     // Cast: BullMQ bundles its own ioredis types, which differ from ours.
-    { connection: connection as any, prefix },
-  );
-}
-
-export function createCampaignWorker(
-  processor: EmailWorkerProcessor,
-  { connection, prefix }: QueueConnection,
-) {
-  return new Worker(
-    CAMPAIGN_QUEUE_NAME,
-    async (job: Job<CampaignJobData>) => {
-      await processor.processCampaignJob(job);
-    },
     { connection: connection as any, prefix },
   );
 }

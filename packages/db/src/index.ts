@@ -19,7 +19,6 @@ export * from "./seed-new-user";
 export * from "./repositories/projectRepository";
 export * from "./repositories/emailTemplateRepository";
 export * from "./repositories/campaignRepository";
-export * from "./repositories/recipientListRepository";
 export * from "./repositories/contactRepository";
 export * from "./repositories/emailProviderRepository";
 export * from "./repositories/aiProviderRepository";

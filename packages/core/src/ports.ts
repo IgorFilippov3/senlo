@@ -3,7 +3,6 @@ import type {
   User,
   Project,
   Contact,
-  RecipientList,
   Campaign,
   CampaignEvent,
   EmailProvider,
@@ -175,19 +174,6 @@ export interface ContactRepository {
     id: number,
     data: Partial<Omit<Contact, "id" | "projectId" | "createdAt">>,
   ): Promise<Contact | null>;
-}
-
-export interface RecipientListRepository {
-  create(data: {
-    projectId: number;
-    name: string;
-    description?: string | null;
-  }): Promise<RecipientList>;
-
-  addContacts(listId: number, contactIds: number[]): Promise<void>;
-
-  findByProject(projectId: number): Promise<RecipientList[]>;
-  getContacts(listId: number, onlyActive?: boolean): Promise<Contact[]>;
 }
 
 export interface IApiKeyRepository {

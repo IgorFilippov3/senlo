@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type { Campaign, Contact, EmailProvider, Project } from "../domain";
+import type { Campaign, EmailProvider, Project } from "../domain";
 import type { EmailTemplate } from "../emailTemplate";
 import type { Logger } from "../logger";
 import { ServiceHooks } from "../hooks";
@@ -30,15 +30,12 @@ const imported = {
 const campaign = { id: 5, projectId: 1, templateId: 9, listId: 3, type: "TRIGGERED", status: "DRAFT" } as Campaign;
 const provider = { id: 7, type: "RESEND" } as EmailProvider;
 
-function worker(queue: { add: ReturnType<typeof vi.fn> }) {
+function worker() {
   return new EmailWorkerProcessor(
     settings as never,
-    { findById: async () => campaign, update: async () => campaign } as never,
+    {} as never,
     { findById: async () => provider } as never,
     { findById: async () => imported } as never,
-    { findById: async () => project } as never,
-    { getContacts: async () => [{ id: 2, email: "r@x.test", projectId: 1 } as Contact] } as never,
-    queue as never,
     undefined,
     undefined,
     silent,
@@ -55,17 +52,7 @@ function expectPersonalized(html: string, job: { unsubscribePageUrl: string }) {
   expect(html).toContain("https://app.test/api/t/o/");
 }
 
-describe("imported HTML templates are personalized like designed ones", () => {
-  it("campaign send: queued by templateId, rendered with merge tags, tracking and unsubscribe", async () => {
-    const queue = { add: vi.fn(async () => ({})) };
-    const w = worker(queue);
-    await w.processCampaignJob({ data: { campaignId: 5 } } as never);
-    const job = (queue.add.mock.calls[0] as any)[1];
-    expect(job.html).toBeUndefined();
-    expect(job.templateId).toBe(9);
-    expectPersonalized(await (w as any).buildMessageHtml(job), job);
-  });
-
+describe("imported HTML templates are personalized like designed ones (triggered sends)", () => {
   it("triggered send: queued by templateId, rendered the same way", async () => {
     const queue = { add: vi.fn(async () => ({ id: "j1" })) };
     const trigger = new TriggerService(
@@ -81,11 +68,11 @@ describe("imported HTML templates are personalized like designed ones", () => {
     const job = (queue.add.mock.calls[0] as any)[1];
     expect(job.html).toBeUndefined();
     expect(job.templateId).toBe(9);
-    expectPersonalized(await (worker({ add: vi.fn() }) as any).buildMessageHtml(job), job);
+    expectPersonalized(await (worker() as any).buildMessageHtml(job), job);
   });
 
   it("a job that carries html (the test send) is still sent as is", async () => {
-    const w = worker({ add: vi.fn() });
+    const w = worker();
     const html = "<p>{{contact.email}}</p>";
     expect(await (w as any).buildMessageHtml({ html, campaignId: 0, email: "r@x.test" })).toBe(html);
   });

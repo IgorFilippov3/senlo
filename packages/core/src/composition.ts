@@ -23,9 +23,8 @@ import type {
   ITriggeredSendLogRepository,
   IWorkflowExecutionRepository,
   IWorkflowRepository,
-  RecipientListRepository,
 } from "./ports";
-import type { AutomationJobData, CampaignJobData, EmailJobData } from "./queue/types";
+import type { AutomationJobData, EmailJobData } from "./queue/types";
 import { AiDesignService, AiProviderService } from "./services/ai";
 import { AudienceService } from "./services/audienceService";
 import { AuthService } from "./services/authService";
@@ -58,7 +57,6 @@ export interface Repositories {
   contacts: ContactRepository;
   dashboard: IDashboardRepository;
   executions: IWorkflowExecutionRepository;
-  lists: RecipientListRepository;
   projects: IProjectRepository;
   providers: IEmailProviderRepository;
   savedRows: ISavedRowRepository;
@@ -72,7 +70,6 @@ export interface Repositories {
 export interface ServiceQueues {
   email: Queue<EmailJobData>;
   automation: Queue<AutomationJobData>;
-  campaign: Queue<CampaignJobData>;
 }
 
 export interface Services {
@@ -178,7 +175,7 @@ export function createServices({
     aiDesign: new AiDesignService(r.projects, r.aiProviders, undefined, guard),
     aiProvider: new AiProviderService(r.aiProviders, guard, hooks),
     auth: new AuthService(r.apiKeys),
-    campaign: new CampaignService(r, queues.campaign, guard),
+    campaign: new CampaignService(r, guard),
     dashboard: new DashboardService(r.dashboard, r.projects, guard),
     emailProvider: new EmailProviderService(r.providers, guard, hooks),
     project: new ProjectService(r, guard, hooks),

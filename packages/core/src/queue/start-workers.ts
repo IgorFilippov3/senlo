@@ -14,7 +14,6 @@ import {
   AutomationWorkerProcessor,
   EmailWorkerProcessor,
   createAutomationWorker,
-  createCampaignWorker,
   createEmailWorker,
 } from "./worker";
 
@@ -24,7 +23,7 @@ export interface RunningWorkers {
 }
 
 /**
- * Starts the email, campaign and automation workers. Everything an app's
+ * Starts the email and automation workers. Everything an app's
  * worker process used to assemble by hand - queues, services, processors,
  * logging - so a second app runs the same workers with one call.
  */
@@ -49,7 +48,7 @@ export function startWorkers({
   usage?: UsageMeter;
   quota?: QuotaPolicy;
   audit?: AuditLog;
-  /** See `createServices`; campaign sends and triggered sends build their links with it. */
+  /** See `createServices`; triggered sends build their links with it. */
   resolveBaseUrl?: ResolveBaseUrl;
 }): RunningWorkers {
   const queues = createQueues(connection);
@@ -60,14 +59,10 @@ export function startWorkers({
     repositories.campaigns,
     repositories.providers,
     repositories.templates,
-    repositories.projects,
-    repositories.lists,
-    queues.email,
     repositories.sendLogs,
     repositories.suppressions,
     logger,
     new ServiceHooks({ usage, quota }, logger),
-    resolveBaseUrl,
   );
   const automationProcessor = new AutomationWorkerProcessor(
     services.automation,
@@ -76,7 +71,6 @@ export function startWorkers({
 
   const workers: Array<[string, Worker]> = [
     ["email", createEmailWorker(emailProcessor, connection)],
-    ["campaign", createCampaignWorker(emailProcessor, connection)],
     ["automation", createAutomationWorker(automationProcessor, connection)],
   ];
 

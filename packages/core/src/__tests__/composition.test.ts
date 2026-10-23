@@ -6,7 +6,7 @@ import { AutomationService } from "../services/automationService";
 // Services only store their dependencies when built, so empty stand-ins are
 // enough to check the wiring.
 const repositories = new Proxy({}, { get: () => ({}) }) as unknown as Repositories;
-const queues = { email: {}, automation: {}, campaign: {} } as any;
+const queues = { email: {}, automation: {} } as any;
 const settings = {
   appUrl: "https://mail.example.com",
   linkSigningSecret: "s",
