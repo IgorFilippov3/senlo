@@ -1,6 +1,6 @@
 {
   "name": "@senlo/next",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Next.js adapter for Senlo hosts: route handlers, the action transport, page loaders and Next-bound client glue",
   "license": "AGPL-3.0-or-later",
   "author": {
@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@senlo/core": "workspace:*",
+    "@senlo/editor": "workspace:*",
     "@senlo/features": "workspace:*",
     "@senlo/ui": "workspace:*"
   },

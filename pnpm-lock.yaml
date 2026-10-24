@@ -321,6 +321,9 @@ importers:
       '@senlo/core':
         specifier: workspace:*
         version: link:../core
+      '@senlo/editor':
+        specifier: workspace:*
+        version: link:../editor
       '@senlo/features':
         specifier: workspace:*
         version: link:../features

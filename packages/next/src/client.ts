@@ -4,30 +4,13 @@
 
 "use client";
 
-import type { ActionTransport } from "@senlo/features";
-import type { SenloEditorActions } from "./actions";
-
 /**
  * Client side of the Next.js adapter. Nothing here may import the server
  * entry at runtime (it pulls `next/headers`); types only.
  */
 
-/** The editor's server callbacks, as `EditorLayout` props, over the host's action transport. */
-export function createEditorActions(call: ActionTransport) {
-  const send =
-    <K extends keyof SenloEditorActions>(name: K) =>
-    (...args: Parameters<SenloEditorActions[K]>): ReturnType<SenloEditorActions[K]> =>
-      call(`editor.${name}`, args) as ReturnType<SenloEditorActions[K]>;
-
-  return {
-    onSave: send("save"),
-    onSendTest: send("sendTest"),
-    onListSavedRows: send("listSavedRows"),
-    onSaveRow: send("saveRow"),
-    onDeleteSavedRow: send("deleteSavedRow"),
-  };
-}
-
+export { createEditorActions } from "./editor-actions";
 export { NextNavigationProvider } from "./navigation";
 export { routeError, type RouteErrorBack, type RouteErrorOptions } from "./route-error";
 export { SenloAppProvider } from "./app-provider";
+export { EditorScreen, type EditorEndpoints, type EditorScreenProps } from "./editor-screen";

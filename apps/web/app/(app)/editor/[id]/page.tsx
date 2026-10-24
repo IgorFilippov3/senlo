@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { Editor } from "@/components/editor/editor";
+import { EditorScreen } from "@senlo/next/client";
+import { senloAction } from "@/lib/actions";
 import { requireUserId } from "@/lib/session";
 import { getServices } from "@/lib/services";
 
@@ -36,7 +37,8 @@ export default async function EditorIdPage({ params, searchParams }: EditorPageP
   const { template, project, design, mergeTags, baseUrl } = data;
 
   return (
-    <Editor
+    <EditorScreen
+      call={senloAction}
       initialDesign={design}
       templateId={templateId}
       projectId={template.projectId}
