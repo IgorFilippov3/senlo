@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { LoginForm as SharedLoginForm } from "@senlo/features";
 import { githubLoginAction, loginAction } from "@/app/(auth)/actions";
-import { renderLink } from "@/components/link";
+import { nextRenderLink as renderLink } from "@senlo/next/link";
 
 export function LoginForm({
   allowRegistration,

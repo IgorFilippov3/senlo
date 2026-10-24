@@ -29,6 +29,10 @@ export interface SidebarProps {
   renderLink: RenderLink;
   /** Shows "Sign out" at the bottom. */
   onSignOut?: () => void;
+  /** Above the workspace switcher (managed: an organization switcher). */
+  header?: React.ReactNode;
+  /** Above "Sign out" (managed: plan and billing). */
+  footer?: React.ReactNode;
   /** The host's URLs; self-hosted's by default. */
   paths?: SenloPaths;
   /** Override the default items, e.g. to add managed-only pages. */
@@ -152,6 +156,8 @@ export function Sidebar({
   onShowAllWorkspaces,
   renderLink,
   onSignOut,
+  header,
+  footer,
   paths = defaultSenloPaths,
   workspaceItems = (id) => workspaceNavItems(id, paths),
   globalItems = globalNavItemsFor(paths),
@@ -161,6 +167,7 @@ export function Sidebar({
 
   return (
     <aside className="w-64 border-r border-zinc-200 h-screen bg-zinc-50/50 flex flex-col p-4 fixed left-0 top-0">
+      {header && <div className="mb-4">{header}</div>}
       <div className="mb-8">
         {workspaceId !== null ? (
           <WorkspaceSwitcher
@@ -200,6 +207,7 @@ export function Sidebar({
         )}
       </div>
 
+      {footer && <div className="mb-2">{footer}</div>}
       {onSignOut && (
         <button
           onClick={onSignOut}

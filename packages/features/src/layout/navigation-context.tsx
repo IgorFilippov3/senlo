@@ -43,3 +43,8 @@ export function useSenloNavigation(): SenloNavigation {
   }
   return navigation;
 }
+
+/** The host's navigation when the screen is under a provider; null on pages outside the app shell. */
+export function useOptionalSenloNavigation(): SenloNavigation | null {
+  return useContext(NavigationContext);
+}

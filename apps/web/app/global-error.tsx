@@ -2,7 +2,7 @@
 
 import "./globals.css";
 import "@senlo/ui/styles.css";
-import { routeError } from "@/components/route-states";
+import { routeError } from "@senlo/next/client";
 
 const RootError = routeError({ fullScreen: true });
 

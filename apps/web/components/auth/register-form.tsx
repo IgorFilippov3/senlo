@@ -7,7 +7,7 @@ import {
   githubLoginAction,
   registerAction,
 } from "@/app/(auth)/actions";
-import { renderLink } from "@/components/link";
+import { nextRenderLink as renderLink } from "@senlo/next/link";
 
 export function RegisterForm({
   passwordMinLength,

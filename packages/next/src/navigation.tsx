@@ -5,22 +5,14 @@
 "use client";
 
 import React, { useMemo } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   SenloNavigationProvider,
   senloPaths,
-  type RenderLink,
   type SenloNavigation,
   type SenloPaths,
 } from "@senlo/features";
-
-/** How features components render a link in a Next.js host: through `next/link`. */
-export const nextRenderLink: RenderLink = (href, children, className) => (
-  <Link href={href} className={className}>
-    {children}
-  </Link>
-);
+import { nextRenderLink } from "./link";
 
 /**
  * The features navigation port on the App Router. `paths` are the host's

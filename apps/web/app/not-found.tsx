@@ -1,6 +1,6 @@
 import { NotFoundScreen } from "@senlo/features";
 import { auth } from "@/auth";
-import { renderLink } from "@/components/link";
+import { nextRenderLink as renderLink } from "@senlo/next/link";
 
 /** Every `notFound()` and unknown URL. Outside the app shell, so a recipient's bad link gets it too. */
 export default async function NotFound() {

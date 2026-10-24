@@ -1,6 +1,6 @@
 {
   "name": "@senlo/next",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Next.js adapter for Senlo hosts: route handlers, the action transport, page loaders and Next-bound client glue",
   "license": "AGPL-3.0-or-later",
   "author": {
@@ -18,7 +18,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./link": "./src/link.tsx"
   },
   "scripts": {
     "build": "tsc --noEmit",
