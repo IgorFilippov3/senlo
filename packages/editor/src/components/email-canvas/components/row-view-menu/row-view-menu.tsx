@@ -21,6 +21,12 @@ export const RowViewMenu = ({ rowId }: RowViewMenuProps) => {
   const [isSaveDialogOpen, setIsSaveDialogVisible] = useState(false);
   const [rowName, setRowName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+
+  const closeSaveDialog = () => {
+    setIsSaveDialogVisible(false);
+    setSaveFailed(false);
+  };
 
   const rowIndex = rows.findIndex((r) => r.id === rowId);
   const isFirst = rowIndex === 0;
@@ -49,6 +55,7 @@ export const RowViewMenu = ({ rowId }: RowViewMenuProps) => {
   const handleSaveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setRowName(`Row ${rowIndex + 1}`);
+    setSaveFailed(false);
     setIsSaveDialogVisible(true);
   };
 
@@ -57,13 +64,11 @@ export const RowViewMenu = ({ rowId }: RowViewMenuProps) => {
     if (!rowName.trim()) return;
 
     setIsSaving(true);
+    setSaveFailed(false);
     try {
       const success = await saveRowToLibrary(rowName, rowId);
-      if (success) {
-        setIsSaveDialogVisible(false);
-      } else {
-        alert("Failed to save row to library");
-      }
+      if (success) closeSaveDialog();
+      else setSaveFailed(true);
     } finally {
       setIsSaving(false);
     }
@@ -115,7 +120,7 @@ export const RowViewMenu = ({ rowId }: RowViewMenuProps) => {
 
       <Dialog
         isOpen={isSaveDialogOpen}
-        onClose={() => setIsSaveDialogVisible(false)}
+        onClose={closeSaveDialog}
         disableAnimation={true}
         title="Save Row to Library"
         description="Saved rows can be reused in other templates."
@@ -130,11 +135,16 @@ export const RowViewMenu = ({ rowId }: RowViewMenuProps) => {
               autoFocus
             />
           </FormField>
+          {saveFailed && (
+            <p className="text-sm text-red-600" role="alert">
+              Failed to save the row to the library. Please try again.
+            </p>
+          )}
           <div className="flex justify-end gap-3 pt-4">
             <Button
               variant="secondary"
               type="button"
-              onClick={() => setIsSaveDialogVisible(false)}
+              onClick={closeSaveDialog}
               disabled={isSaving}
             >
               Cancel

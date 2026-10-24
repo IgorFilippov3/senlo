@@ -4,7 +4,11 @@ import styles from "./rows-section.module.css";
 import { useEditorStore } from "../../../../state/editor.store";
 import { PaletteItem } from "../palette-item/palette-item";
 import { SidebarSection } from "../sidebar-section/sidebar-section";
+import { useState } from "react";
+import type { SavedRow } from "@senlo/core";
 import {
+  Button,
+  Dialog,
   Select,
   SelectContent,
   SelectItem,
@@ -22,6 +26,28 @@ export const RowsSection = () => {
   const isLoading = useEditorStore((s) => s.isLoadingSavedRows);
   const deleteRow = useEditorStore((s) => s.deleteSavedRow);
   const addSavedRowToDesign = useEditorStore((s) => s.addSavedRowToDesign);
+
+  // Asked in a dialog, not with `confirm()`; a failed delete says so there.
+  const [toDelete, setToDelete] = useState<SavedRow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFailed, setDeleteFailed] = useState(false);
+
+  const closeDelete = () => {
+    setToDelete(null);
+    setDeleteFailed(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setIsDeleting(true);
+    setDeleteFailed(false);
+    try {
+      if (await deleteRow(toDelete.id)) closeDelete();
+      else setDeleteFailed(true);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -62,13 +88,7 @@ export const RowsSection = () => {
                 <SavedRowCard
                   key={row.id}
                   row={row}
-                  onDelete={(id) => {
-                    if (
-                      confirm("Are you sure you want to delete this saved row?")
-                    ) {
-                      deleteRow(id);
-                    }
-                  }}
+                  onDelete={() => setToDelete(row)}
                   onClick={() => addSavedRowToDesign(row)}
                 />
               ))
@@ -76,6 +96,30 @@ export const RowsSection = () => {
           </div>
         )}
       </div>
+
+      <Dialog
+        isOpen={toDelete !== null}
+        onClose={closeDelete}
+        disableAnimation={true}
+        title="Delete saved row"
+        description={`Are you sure you want to delete "${toDelete?.name ?? ""}"? Templates that already use it keep their copy.`}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={closeDelete} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void confirmDelete()} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete Row"}
+            </Button>
+          </div>
+        }
+      >
+        {deleteFailed && (
+          <p className="text-sm text-red-600" role="alert">
+            Failed to delete the saved row. Please try again.
+          </p>
+        )}
+      </Dialog>
     </div>
   );
 };
