@@ -1,16 +1,9 @@
-import { PageHeader } from "@senlo/ui";
-import { WorkspaceSettings } from "@/components/workspaces/workspace-settings";
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { WorkspaceSettingsScreen } from "@senlo/features";
 
 export default function GeneralSettingsPage() {
-  return (
-    <main className="max-w-7xl mx-auto py-10 px-8">
-      <PageHeader
-        title="General Settings"
-        description="Manage your workspace details and configuration."
-      />
-      <div className="mt-8">
-        <WorkspaceSettings />
-      </div>
-    </main>
-  );
+  return <WorkspaceSettingsScreen />;
 }

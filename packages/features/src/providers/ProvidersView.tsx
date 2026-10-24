@@ -6,6 +6,7 @@ import { Card, Badge, Button, Tabs, TabsList, TabsTrigger, TabsContent } from "@
 import { Cloud, Trash2, CheckCircle2, Circle, Bot, Plus, Pencil, AlertTriangle } from "lucide-react";
 import { ErrorScreen } from "../shared/ErrorScreen";
 import { PageSkeleton } from "../shared/Skeletons";
+import { FormErrorBanner } from "../shared/FormErrorBanner";
 
 interface ProviderCardProps {
   icon: React.ReactNode;
@@ -113,6 +114,8 @@ export interface ProvidersViewProps {
   /** Set when loading failed; replaces the lists. */
   error?: string | null;
   onRetry?: () => void;
+  /** Why the last change on the page (a toggle) failed; shown above the lists. */
+  actionError?: string | null;
   onAddEmailProvider: () => void;
   onEditEmailProvider: (provider: PublicEmailProvider) => void;
   onDeleteEmailProvider: (provider: PublicEmailProvider) => void;
@@ -129,6 +132,7 @@ export function ProvidersView({
   isLoading,
   error,
   onRetry,
+  actionError,
   onAddEmailProvider,
   onEditEmailProvider,
   onDeleteEmailProvider,
@@ -158,6 +162,11 @@ export function ProvidersView({
             <TabsTrigger value="ai">AI Models</TabsTrigger>
           </TabsList>
         </div>
+        {actionError && (
+          <div className="mb-6">
+            <FormErrorBanner error={actionError} />
+          </div>
+        )}
 
         <TabsContent value="email">
           <div className="flex justify-between items-center mb-6">

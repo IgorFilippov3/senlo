@@ -1,5 +1,9 @@
-import { WorkspacePicker } from "@/components/workspaces/workspace-picker";
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { WorkspacePickerScreen } from "@senlo/features";
 
 export default function WorkspacesPage() {
-  return <WorkspacePicker />;
+  return <WorkspacePickerScreen footer={<p className="text-right">&copy; 2026 Senlo Email Platform</p>} />;
 }
