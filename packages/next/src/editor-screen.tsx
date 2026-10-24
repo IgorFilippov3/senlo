@@ -58,7 +58,9 @@ function errorMessage(data: Record<string, unknown>, fallback: string): string {
  * The editor wired to a host: its server calls through the action
  * transport, image upload and AI generation through the host's routes
  * (`createSenloRoutes` serves both), Back and "AI settings" through the
- * navigation port. Needs a navigation provider above it.
+ * navigation port. Needs a navigation provider above it. Its own entry
+ * (`@senlo/next/editor`), so the editor stays out of the bundle of every
+ * page that only needs `@senlo/next/client`.
  */
 export function EditorScreen({ projectId, campaignId, call, endpoints, ...props }: EditorScreenProps) {
   const { paths, push } = useSenloNavigation();

@@ -1,8 +1,13 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  // `api-docs` is its own entry so the Scalar renderer stays out of the root bundle.
-  entry: { index: "src/index.ts", "api-docs": "src/api-docs/index.ts" },
+  // `api-docs` and `workflow-editor` are their own entries so the Scalar renderer
+  // and the canvas library stay out of the root bundle.
+  entry: {
+    index: "src/index.ts",
+    "api-docs": "src/api-docs/index.ts",
+    "workflow-editor": "src/workflow-editor/index.ts",
+  },
   format: ["cjs", "esm"],
   dts: true,
   splitting: true,

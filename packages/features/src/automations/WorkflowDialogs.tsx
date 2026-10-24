@@ -2,12 +2,15 @@
 
 import React from "react";
 import { Button, Dialog } from "@senlo/ui";
+import { FormErrorBanner } from "../shared/FormErrorBanner";
 
 export interface DeleteWorkflowDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
   isDeleting?: boolean;
+  /** Why the last attempt failed. */
+  error?: string | null;
 }
 
 export function DeleteWorkflowDialog({
@@ -15,6 +18,7 @@ export function DeleteWorkflowDialog({
   onClose,
   onConfirm,
   isDeleting = false,
+  error,
 }: DeleteWorkflowDialogProps) {
   return (
     <Dialog
@@ -36,6 +40,9 @@ export function DeleteWorkflowDialog({
       <p className="text-sm text-gray-500">
         This will permanently remove the automation and stop all active journeys.
       </p>
+      <div className="mt-4">
+        <FormErrorBanner error={error} />
+      </div>
     </Dialog>
   );
 }

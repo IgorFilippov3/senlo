@@ -30,9 +30,6 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.978.0
         version: 3.1155.0
-      '@senlo/automation-builder':
-        specifier: workspace:^
-        version: link:../../packages/automation-builder
       '@senlo/core':
         specifier: workspace:^
         version: link:../../packages/core
@@ -278,6 +275,9 @@ importers:
       '@scalar/api-reference-react':
         specifier: 0.8.20
         version: 0.8.20(react@19.2.1)(storybook@10.3.6(@testing-library/dom@10.4.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(tailwindcss@4.2.4)(typescript@5.9.3)
+      '@senlo/automation-builder':
+        specifier: workspace:*
+        version: link:../automation-builder
       '@senlo/core':
         specifier: workspace:*
         version: link:../core

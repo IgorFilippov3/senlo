@@ -1,31 +1,9 @@
-import Link from "next/link";
-import { Button, PageHeader } from "@senlo/ui";
-import { Plus } from "lucide-react";
-import { WorkflowsList } from "@/components/automations/workflows-list";
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-export default async function AutomationsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
+import { AutomationsScreen } from "@senlo/features";
 
-  return (
-    <div className="max-w-7xl mx-auto py-10 px-8 space-y-8">
-      <PageHeader
-        title="Automations"
-        description="Build automated email sequences and lifecycle triggers."
-        actions={
-          <Link href={`/workspace/${id}/automations/new`}>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Automation
-            </Button>
-          </Link>
-        }
-      />
-
-      <WorkflowsList projectId={Number(id)} />
-    </div>
-  );
+export default function AutomationsPage() {
+  return <AutomationsScreen />;
 }

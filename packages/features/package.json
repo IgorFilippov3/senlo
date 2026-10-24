@@ -1,6 +1,6 @@
 {
   "name": "@senlo/features",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "Shared business features for Senlo",
   "license": "AGPL-3.0-or-later",
   "author": {
@@ -19,7 +19,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./api-docs": "./src/api-docs/index.ts"
+    "./api-docs": "./src/api-docs/index.ts",
+    "./workflow-editor": "./src/workflow-editor/index.ts"
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -35,6 +36,11 @@
         "types": "./dist/api-docs.d.ts",
         "import": "./dist/api-docs.mjs",
         "require": "./dist/api-docs.js"
+      },
+      "./workflow-editor": {
+        "types": "./dist/workflow-editor.d.ts",
+        "import": "./dist/workflow-editor.mjs",
+        "require": "./dist/workflow-editor.js"
       }
     }
   },
@@ -47,6 +53,7 @@
   },
   "dependencies": {
     "@scalar/api-reference-react": "0.8.20",
+    "@senlo/automation-builder": "workspace:*",
     "@senlo/core": "workspace:*",
     "@senlo/ui": "workspace:*",
     "date-fns": "^4.1.0",

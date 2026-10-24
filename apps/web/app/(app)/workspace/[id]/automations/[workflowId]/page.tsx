@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { host } from "@/lib/host";
-import { WorkflowEditor } from "@/components/automations/workflow-editor";
+import { WorkflowEditorScreen } from "@senlo/features/workflow-editor";
 
 export default async function WorkflowEditorPage({
   params,
@@ -15,5 +15,5 @@ export default async function WorkflowEditorPage({
   if (!graph) notFound();
 
   const { workflow, nodes, edges } = graph;
-  return <WorkflowEditor workflow={workflow} nodes={nodes} edges={edges} />;
+  return <WorkflowEditorScreen workflow={workflow} nodes={nodes} edges={edges} />;
 }

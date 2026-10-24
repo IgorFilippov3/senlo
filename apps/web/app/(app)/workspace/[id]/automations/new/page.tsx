@@ -1,10 +1,9 @@
-import { NewWorkflow } from "@/components/automations/new-workflow";
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-export default async function NewAutomationPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  return <NewWorkflow projectId={Number(id)} />;
+import { NewWorkflowScreen } from "@senlo/features";
+
+export default function NewAutomationPage() {
+  return <NewWorkflowScreen />;
 }

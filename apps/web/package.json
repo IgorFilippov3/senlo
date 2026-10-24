@@ -12,7 +12,6 @@
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",
     "@aws-sdk/client-s3": "^3.978.0",
-    "@senlo/automation-builder": "workspace:^",
     "@senlo/core": "workspace:^",
     "@senlo/db": "workspace:^",
     "@senlo/editor": "workspace:^",
