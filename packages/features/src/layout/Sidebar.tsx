@@ -5,13 +5,12 @@ import { ChevronDown, Globe, LogOut } from "lucide-react";
 import type { Project } from "@senlo/core";
 import {
   type NavItem,
-  globalNavItems,
+  globalNavItemsFor,
   isNavItemActive,
-  mainNavItems,
-  workspaceHomePath,
-  workspaceIdFromPath,
+  mainNavItemsFor,
   workspaceNavItems,
 } from "./navigation";
+import { defaultSenloPaths, type SenloPaths } from "./paths";
 
 export type RenderLink = (
   href: string,
@@ -30,6 +29,8 @@ export interface SidebarProps {
   renderLink: RenderLink;
   /** Shows "Sign out" at the bottom. */
   onSignOut?: () => void;
+  /** The host's URLs; self-hosted's by default. */
+  paths?: SenloPaths;
   /** Override the default items, e.g. to add managed-only pages. */
   workspaceItems?: (workspaceId: number) => NavItem[];
   globalItems?: NavItem[];
@@ -81,11 +82,13 @@ function WorkspaceSwitcher({
   workspaces,
   onShowAllWorkspaces,
   renderLink,
+  paths,
 }: {
   current?: Project;
   workspaces: Project[];
   onShowAllWorkspaces: () => void;
   renderLink: RenderLink;
+  paths: SenloPaths;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
 
@@ -112,7 +115,7 @@ function WorkspaceSwitcher({
           {workspaces.slice(0, 5).map((p) => (
             <div key={p.id} onClick={() => setIsOpen(false)}>
               {renderLink(
-                workspaceHomePath(p.id),
+                paths.dashboard(p.id),
                 <>
                   <div className="w-4 h-4 bg-zinc-100 rounded flex items-center justify-center text-[8px]">
                     {p.name?.[0]?.toUpperCase() || "W"}
@@ -149,11 +152,12 @@ export function Sidebar({
   onShowAllWorkspaces,
   renderLink,
   onSignOut,
-  workspaceItems = workspaceNavItems,
-  globalItems = globalNavItems,
-  mainItems = mainNavItems,
+  paths = defaultSenloPaths,
+  workspaceItems = (id) => workspaceNavItems(id, paths),
+  globalItems = globalNavItemsFor(paths),
+  mainItems = mainNavItemsFor(paths),
 }: SidebarProps) {
-  const workspaceId = workspaceIdFromPath(pathname);
+  const workspaceId = paths.workspaceIdFrom(pathname);
 
   return (
     <aside className="w-64 border-r border-zinc-200 h-screen bg-zinc-50/50 flex flex-col p-4 fixed left-0 top-0">
@@ -164,6 +168,7 @@ export function Sidebar({
             workspaces={workspaces}
             onShowAllWorkspaces={onShowAllWorkspaces}
             renderLink={renderLink}
+            paths={paths}
           />
         ) : (
           <div className="p-2">

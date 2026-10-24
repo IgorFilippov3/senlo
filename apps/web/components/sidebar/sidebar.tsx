@@ -1,13 +1,19 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import { Sidebar as SharedSidebar, useRememberedWorkspace, useProjects } from "@senlo/features";
+import {
+  Sidebar as SharedSidebar,
+  useProjects,
+  useRememberedWorkspace,
+  useSenloNavigation,
+} from "@senlo/features";
 import { logoutAction } from "@/app/(auth)/actions";
-import { renderLink } from "@/components/link";
 
 export function Sidebar() {
-  const pathname = usePathname();
-  const router = useRouter();
+  const { pathname, paths, push, renderLink } = useSenloNavigation();
   const { data: projects = [] } = useProjects();
   const { setWorkspaceId } = useRememberedWorkspace();
 
@@ -16,10 +22,11 @@ export function Sidebar() {
       brandName="Senlo Email"
       brandIcon="S"
       pathname={pathname}
+      paths={paths}
       workspaces={projects}
       onShowAllWorkspaces={() => {
         setWorkspaceId(null);
-        router.push("/workspaces");
+        push(paths.workspaces());
       }}
       onSignOut={async () => {
         // Remembered per browser: left behind, it would point the next

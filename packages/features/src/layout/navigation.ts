@@ -11,6 +11,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { defaultSenloPaths, type SenloPaths } from "./paths";
 
 export interface NavItem {
   href: string;
@@ -24,60 +25,63 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
   return item.isActive ? item.isActive(pathname) : pathname.startsWith(item.href);
 }
 
-export const workspaceHomePath = (workspaceId: number) => `/workspace/${workspaceId}/dashboard`;
+/** A workspace's home page at self-hosted's URLs; `paths.dashboard` in a host-aware screen. */
+export const workspaceHomePath = (workspaceId: number) => defaultSenloPaths.dashboard(workspaceId);
 
-/** The workspace id in a `/workspace/:id/...` path, or null outside one. */
-export function workspaceIdFromPath(pathname: string): number | null {
-  const match = /^\/workspace\/(\d+)(\/|$)/.exec(pathname);
-  return match ? Number(match[1]) : null;
-}
+/** The workspace id in a self-hosted `/workspace/:id/...` path; `paths.workspaceIdFrom` in a host-aware screen. */
+export const workspaceIdFromPath = (pathname: string) => defaultSenloPaths.workspaceIdFrom(pathname);
 
-/**
- * Signed-in pages that render without the sidebar: the editor and the
- * workspace picker. Public pages live outside the app shell altogether.
- */
-export function isSidebarHidden(pathname: string): boolean {
-  return pathname.startsWith("/editor") || pathname === "/workspaces";
-}
+/** At self-hosted's URLs; `paths.hidesSidebar` in a host-aware screen. */
+export const isSidebarHidden = (pathname: string) => defaultSenloPaths.hidesSidebar(pathname);
 
-export function workspaceNavItems(workspaceId: number): NavItem[] {
-  const base = `/workspace/${workspaceId}`;
+/** The items of a workspace's own section. */
+export function workspaceNavItems(workspaceId: number, paths: SenloPaths = defaultSenloPaths): NavItem[] {
+  const dashboard = paths.dashboard(workspaceId);
+  const settings = paths.settings(workspaceId);
+  const apiKeys = paths.apiKeys(workspaceId);
   return [
     {
-      href: `${base}/dashboard`,
+      href: dashboard,
       label: "Dashboard",
       icon: LayoutDashboard,
-      isActive: (pathname) => pathname === `${base}/dashboard`,
+      isActive: (pathname) => pathname === dashboard,
     },
-    { href: `${base}/templates`, label: "Templates", icon: Folder },
-    { href: `${base}/triggers`, label: "Triggers", icon: Zap },
-    { href: `${base}/automations`, label: "Automations", icon: GitBranch },
-    { href: `${base}/audience`, label: "Audience", icon: Users },
+    { href: paths.templates(workspaceId), label: "Templates", icon: Folder },
+    { href: paths.triggers(workspaceId), label: "Triggers", icon: Zap },
+    { href: paths.automations(workspaceId), label: "Automations", icon: GitBranch },
+    { href: paths.audience(workspaceId), label: "Audience", icon: Users },
     {
-      href: `${base}/settings/general`,
+      href: settings,
       label: "Settings",
       icon: Settings,
-      isActive: (pathname) =>
-        pathname.startsWith(`${base}/settings`) && !pathname.startsWith(`${base}/settings/keys`),
+      isActive: (pathname) => pathname.startsWith(settings),
     },
-    { href: `${base}/settings/keys`, label: "API Keys", icon: Key },
+    { href: apiKeys, label: "API Keys", icon: Key },
   ];
 }
 
-const providersItem: NavItem = { href: "/providers", label: "Providers", icon: Cloud };
-const apiDocsItem: NavItem = { href: "/api-docs", label: "API Docs", icon: FileCode };
-const isWorkspacesPage = (pathname: string) => pathname === "/workspaces";
+/** "Global" inside a workspace: all workspaces, providers, API docs. */
+export function globalNavItemsFor(paths: SenloPaths): NavItem[] {
+  const workspaces = paths.workspaces();
+  return [
+    { href: workspaces, label: "All Workspaces", icon: Globe, isActive: (p) => p === workspaces },
+    { href: paths.providers(), label: "Providers", icon: Cloud },
+    { href: paths.apiDocs(), label: "API Docs", icon: FileCode },
+  ];
+}
 
-/** Shown under "Global" inside a workspace. */
-export const globalNavItems: NavItem[] = [
-  { href: "/workspaces", label: "All Workspaces", icon: Globe, isActive: isWorkspacesPage },
-  providersItem,
-  apiDocsItem,
-];
+/** Outside a workspace. */
+export function mainNavItemsFor(paths: SenloPaths): NavItem[] {
+  const workspaces = paths.workspaces();
+  return [
+    { href: workspaces, label: "Workspaces", icon: Folder, isActive: (p) => p === workspaces },
+    { href: paths.providers(), label: "Providers", icon: Cloud },
+    { href: paths.apiDocs(), label: "API Docs", icon: FileCode },
+  ];
+}
 
-/** Shown outside a workspace. */
-export const mainNavItems: NavItem[] = [
-  { href: "/workspaces", label: "Workspaces", icon: Folder, isActive: isWorkspacesPage },
-  providersItem,
-  apiDocsItem,
-];
+/** Shown under "Global" inside a workspace, at self-hosted's URLs. */
+export const globalNavItems: NavItem[] = globalNavItemsFor(defaultSenloPaths);
+
+/** Shown outside a workspace, at self-hosted's URLs. */
+export const mainNavItems: NavItem[] = mainNavItemsFor(defaultSenloPaths);

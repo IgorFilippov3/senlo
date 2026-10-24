@@ -1,9 +1,6 @@
-import Link from "next/link";
-import type { RenderLink } from "@senlo/features";
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-/** How features components render a link in this app: through Next.js `Link`. */
-export const renderLink: RenderLink = (href, children, className) => (
-  <Link href={href} className={className}>
-    {children}
-  </Link>
-);
+/** Until the route error screens move (8.5b): the same `next/link` renderer the navigation port uses. */
+export { nextRenderLink as renderLink } from "@senlo/next/client";

@@ -1,19 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
-import { isSidebarHidden } from "@senlo/features";
+import { useSenloNavigation } from "@senlo/features";
 import { Sidebar } from "./sidebar";
 
 export function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
-  const pathname = usePathname();
+  const { pathname, paths } = useSenloNavigation();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const hideSidebar = isSidebarHidden(pathname);
+  const hideSidebar = paths.hidesSidebar(pathname);
 
   // На сервере возвращаем минимальную структуру без сайдбара и лишних отступов
   // Это предотвращает Hydration Mismatch
