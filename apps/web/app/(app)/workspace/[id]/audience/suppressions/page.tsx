@@ -1,32 +1,9 @@
-"use client";
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { PageHeader } from "@senlo/ui";
-import { SuppressionList, useProjectSuppressions, useDeleteSuppression } from "@senlo/features";
-import { useParams } from "next/navigation";
+import { SuppressionsScreen } from "@senlo/features";
 
 export default function SuppressionListPage() {
-  const params = useParams();
-  const projectId = Number(params.id);
-  const { data: suppressions = [], isLoading } =
-    useProjectSuppressions(projectId);
-  const { mutate: deleteSuppression, isPending: isDeleting } =
-    useDeleteSuppression();
-
-  return (
-    <div className="max-w-7xl mx-auto py-10 px-8">
-      <PageHeader
-        title="Suppression List"
-        description="Emails that are blocked from receiving messages due to bounces or spam complaints."
-      />
-
-      <div className="mt-8">
-        <SuppressionList
-          suppressions={suppressions}
-          isLoading={isLoading}
-          onDelete={(id) => deleteSuppression(id)}
-          isDeleting={isDeleting}
-        />
-      </div>
-    </div>
-  );
+  return <SuppressionsScreen />;
 }

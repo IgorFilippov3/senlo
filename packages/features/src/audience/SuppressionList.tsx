@@ -10,6 +10,7 @@ import { LoadingState } from "../shared/Loading";
 export interface SuppressionListProps {
   suppressions: Suppression[];
   isLoading?: boolean;
+  /** Removes the address; called at once, so the caller asks for confirmation first. */
   onDelete?: (id: number) => void;
   isDeleting?: boolean;
   showProjectColumn?: boolean;
@@ -32,15 +33,8 @@ export function SuppressionList({
     return emailMatch || projectMatch;
   });
 
-  const handleDelete = (id: number) => {
-    if (
-      confirm(
-        "Are you sure you want to remove this email from the suppression list? This will allow future emails to be sent to this address.",
-      )
-    ) {
-      onDelete?.(id);
-    }
-  };
+  // Asking first is the caller's: `SuppressionsScreen` opens a confirm dialog.
+  const handleDelete = (id: number) => onDelete?.(id);
 
   return (
     <div className="space-y-6">

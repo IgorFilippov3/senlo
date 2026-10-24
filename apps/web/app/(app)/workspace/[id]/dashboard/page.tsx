@@ -2,24 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import React from "react";
-import { Dashboard } from "@/components/dashboard/dashboard";
+import { DashboardScreen } from "@senlo/features";
 
 export const metadata = {
   title: "Dashboard | Senlo",
   description: "System performance and reputation protection overview",
 };
 
-export default async function DashboardPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const projectId = Number(id);
-  return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <Dashboard projectId={projectId} />
-    </div>
-  );
+export default function DashboardPage() {
+  return <DashboardScreen />;
 }

@@ -4,3 +4,4 @@ export * from "./ActivityChart";
 export * from "./EventFeed";
 export * from "./DashboardHeader";
 export * from "./EngagementStats";
+export * from "./DashboardScreen";

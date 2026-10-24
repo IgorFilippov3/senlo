@@ -13,3 +13,4 @@ export { createEditorActions } from "./editor-actions";
 export { NextNavigationProvider } from "./navigation";
 export { routeError, type RouteErrorBack, type RouteErrorOptions } from "./route-error";
 export { SenloAppProvider } from "./app-provider";
+export { UnsubscribeScreen, type UnsubscribeScreenProps } from "./unsubscribe-screen";
