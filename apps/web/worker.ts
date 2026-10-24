@@ -1,8 +1,8 @@
 // First: the environment has to be in place before anything reads it.
 import "./lib/load-env";
 import { createDb, createRepositories } from "@senlo/db";
-import { aesGcmCipher, ConfigError, loadSenloConfig, mailSettings } from "@senlo/core";
-import { createRedisConnection, startWorkers } from "@senlo/core/queue";
+import { aesGcmCipher, ConfigError, loadSenloConfig } from "@senlo/core";
+import { runSenloWorker } from "@senlo/core/queue";
 import { logger } from "./lib/logger";
 
 // Checked before anything connects: a broken config stops the worker with
@@ -15,20 +15,10 @@ try {
   process.exit(1);
 }
 
-const workers = startWorkers({
+runSenloWorker({
+  config,
   repositories: createRepositories(createDb(config.databaseUrl), {
     secrets: aesGcmCipher(config.secretsKey),
   }),
-  connection: {
-    connection: createRedisConnection(config.redisUrl, logger),
-    prefix: config.queuePrefix,
-  },
-  settings: mailSettings(config),
   logger,
-});
-
-process.on("SIGTERM", async () => {
-  logger.info("Shutting down workers");
-  await workers.close();
-  process.exit(0);
 });
