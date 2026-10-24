@@ -20,6 +20,11 @@ export interface SenloHost {
   currentUserId(): Promise<string | null>;
   logger: Logger;
   rateLimit: SenloRateLimit;
+  /**
+   * Called after an action that changed data succeeded, with its name
+   * (`"templates.create"`). A Next.js host revalidates its pages here.
+   */
+  onMutated?(action: string): void | Promise<void>;
 }
 
 /** Typed identity: checks the host object where it is built. */

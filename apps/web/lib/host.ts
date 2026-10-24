@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { revalidatePath } from "next/cache";
 import { createSenloHost } from "@senlo/next";
 import { logger } from "./logger";
 import { rateLimit } from "./rate-limit";
@@ -15,4 +16,8 @@ export const host = createSenloHost({
   currentUserId,
   logger,
   rateLimit,
+  // After a change, every page renders fresh data on its next visit (and
+  // the current one at once): the server-rendered pages read services
+  // directly, the client cache is react-query's and invalidates itself.
+  onMutated: () => revalidatePath("/", "layout"),
 });

@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { UnsubscribeView, type UnsubscribeState } from "@senlo/features";
-import { unsubscribeAction } from "@/app/(public)/unsubscribe/actions";
+import type { SenloPublicActions } from "@senlo/next";
+import { senloPublicAction } from "@/lib/actions";
+
+type UnsubscribeResult = Awaited<ReturnType<SenloPublicActions["unsubscribe"]["process"]>>;
+
+const unsubscribe = (token: string, email?: string) =>
+  senloPublicAction("unsubscribe.process", [token, email]) as Promise<UnsubscribeResult>;
 
 // Answers that a repeat would only get again: a bad link, a wrong address, a limit.
 const FINAL_CODES = new Set(["VALIDATION_ERROR", "NOT_FOUND", "RATE_LIMITED"]);
@@ -15,7 +21,7 @@ export function Unsubscribe({ token }: { token: string }) {
     async (email?: string) => {
       setState({ status: "pending" });
       for (let attempt = 1; ; attempt++) {
-        const result = await unsubscribeAction(token, email).catch(() => null);
+        const result = await unsubscribe(token, email).catch(() => null);
         if (result?.success) {
           setState(
             result.data.needsEmail

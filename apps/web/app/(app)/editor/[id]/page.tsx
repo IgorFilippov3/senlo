@@ -1,12 +1,5 @@
 import { notFound } from "next/navigation";
 import { Editor } from "@/components/editor/editor";
-import {
-  saveTemplateFromEditor,
-  sendTestEmailAction,
-  listSavedRowsAction,
-  saveRowAction,
-  deleteSavedRowAction,
-} from "./actions";
 import { requireUserId } from "@/lib/session";
 import { getServices } from "@/lib/services";
 
@@ -26,7 +19,7 @@ export default async function EditorIdPage({ params, searchParams }: EditorPageP
   }
 
   // The page renders the template's design and its trigger's variables, so it
-  // goes through the same access check as the actions it hands to the editor.
+  // goes through the same access check as the editor's save and test send.
   const data = await requireUserId()
     .then((userId) =>
       getServices().template.loadEditorData(
@@ -56,11 +49,6 @@ export default async function EditorIdPage({ params, searchParams }: EditorPageP
       templateLocale={template.locale}
       templatePreheader={template.preheader}
       mergeTags={mergeTags}
-      onSave={saveTemplateFromEditor}
-      onSendTest={sendTestEmailAction}
-      onListSavedRows={listSavedRowsAction}
-      onSaveRow={saveRowAction}
-      onDeleteSavedRow={deleteSavedRowAction}
     />
   );
 }

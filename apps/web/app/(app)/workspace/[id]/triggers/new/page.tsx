@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { getWorkspace } from "../../../actions";
+import { NotFoundError } from "@senlo/core";
+import { host } from "@/lib/host";
 import { TriggerWizard } from "@/components/triggers/trigger-wizard";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +14,14 @@ export default async function NewTriggerPage({
   const projectId = Number(id);
   if (!Number.isInteger(projectId)) notFound();
 
-  const result = await getWorkspace(projectId);
-  if (!result.success) {
-    if (result.error.code === "NOT_FOUND") notFound();
-    throw new Error(result.error.message);
-  }
+  const userId = await host.requireUserId();
+  const project = await host
+    .getServices()
+    .project.require(userId, projectId, "read")
+    .catch((error) => {
+      if (error instanceof NotFoundError) notFound();
+      throw error;
+    });
 
-  return <TriggerWizard projectId={projectId} projectName={result.data.name} />;
+  return <TriggerWizard projectId={projectId} projectName={project.name} />;
 }

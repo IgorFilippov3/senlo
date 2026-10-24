@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { getCampaignDetails } from "../actions";
 import { getConfig } from "@/lib/config";
+import { host } from "@/lib/host";
 import { TriggerDetails } from "@/components/triggers/trigger-details";
 
 interface TriggerDetailsPageProps {
@@ -12,7 +12,8 @@ export default async function TriggerDetailsPage({ params }: TriggerDetailsPageP
   const id = Number(triggerId);
   if (isNaN(id)) notFound();
 
-  const details = await getCampaignDetails(id);
+  const userId = await host.requireUserId();
+  const details = await host.getServices().campaign.getDetails(userId, id);
   if (!details) notFound();
 
   const { appUrl, defaultFromEmail } = getConfig();

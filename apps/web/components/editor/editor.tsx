@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   EditorLayout,
@@ -9,8 +9,18 @@ import {
   type EditorNavigationTarget,
 } from "@senlo/editor";
 import type { EmailDesignDocument } from "@senlo/core";
+import { createEditorActions } from "@senlo/next/client";
+import { senloAction } from "@/lib/actions";
 
-type HostCallbacks = "onNavigate" | "uploadImage" | "generateWithAi";
+type HostCallbacks =
+  | "onNavigate"
+  | "uploadImage"
+  | "generateWithAi"
+  | "onSave"
+  | "onSendTest"
+  | "onListSavedRows"
+  | "onSaveRow"
+  | "onDeleteSavedRow";
 
 export interface EditorProps extends Omit<EditorLayoutProps, HostCallbacks> {
   projectId: number;
@@ -33,6 +43,8 @@ function errorMessage(data: Record<string, unknown>, fallback: string): string {
 /** The self-hosted app's routes and endpoints for the editor. */
 export function Editor({ projectId, campaignId, ...props }: EditorProps) {
   const router = useRouter();
+  // Save, test send and saved rows: the server calls, through the app's one Server Action.
+  const serverActions = useMemo(() => createEditorActions(senloAction), []);
 
   const onNavigate = useCallback(
     (target: EditorNavigationTarget) => {
@@ -80,6 +92,7 @@ export function Editor({ projectId, campaignId, ...props }: EditorProps) {
   return (
     <EditorLayout
       {...props}
+      {...serverActions}
       onNavigate={onNavigate}
       uploadImage={uploadImage}
       generateWithAi={generateWithAi}

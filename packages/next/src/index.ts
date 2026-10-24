@@ -32,3 +32,12 @@ export { confirmLeavingResponse, pixelResponse, requestMetadata } from "./tracki
 export { handleProviderWebhook } from "./webhooks";
 export { validateApiKey, type ApiAuthResult } from "./api-auth";
 export { createSenloRoutes, type SenloRoutes } from "./routes";
+export {
+  dispatchPublicAction,
+  dispatchSenloAction,
+  type SenloEditorActions,
+  type SenloPublicActionName,
+  type SenloPublicActions,
+  type SenloServerActionName,
+  type SenloServerActions,
+} from "./actions";
