@@ -18,6 +18,7 @@ function fakeHost(services: Record<string, unknown> = {}, overrides: Partial<Sen
     getServices: () => services as never,
     requireUserId: async () => "u1",
     currentUserId: async () => "u1",
+    getConfig: () => ({ appUrl: "http://localhost:3000", defaultFromEmail: "hello@senlo.io" }),
     logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     rateLimit,
     onMutated,

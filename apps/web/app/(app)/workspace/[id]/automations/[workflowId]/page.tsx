@@ -1,19 +1,7 @@
-import { notFound } from "next/navigation";
-import { host } from "@/lib/host";
 import { WorkflowEditorScreen } from "@senlo/features/workflow-editor";
+import { loadWorkflowPage, type WorkflowPageProps } from "@senlo/next";
+import { host } from "@/lib/host";
 
-export default async function WorkflowEditorPage({
-  params,
-}: {
-  params: Promise<{ workflowId: string }>;
-}) {
-  const { workflowId } = await params;
-  const graph = await host
-    .requireUserId()
-    .then((userId) => host.getServices().workflow.getGraph(userId, Number(workflowId)))
-    .catch(() => null);
-  if (!graph) notFound();
-
-  const { workflow, nodes, edges } = graph;
-  return <WorkflowEditorScreen workflow={workflow} nodes={nodes} edges={edges} />;
+export default async function WorkflowEditorPage(props: WorkflowPageProps) {
+  return <WorkflowEditorScreen {...await loadWorkflowPage(host, props)} />;
 }

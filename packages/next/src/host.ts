@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Logger } from "@senlo/core";
+import type { Logger, SenloConfig } from "@senlo/core";
 import type { Services } from "@senlo/core/server";
 import type { SenloRateLimit } from "./rate-limit";
 
@@ -18,6 +18,12 @@ export interface SenloHost {
   requireUserId(): Promise<string>;
   /** The signed-in user's id, or null. */
   currentUserId(): Promise<string | null>;
+  /**
+   * The parts of the host's config that pages show: the app URL (the send
+   * endpoint on the trigger page) and the default sender. A function, like
+   * `getServices`, so building the host reads no environment.
+   */
+  getConfig(): Pick<SenloConfig, "appUrl" | "defaultFromEmail">;
   logger: Logger;
   rateLimit: SenloRateLimit;
   /**

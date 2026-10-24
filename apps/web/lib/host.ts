@@ -4,16 +4,18 @@
 
 import { revalidatePath } from "next/cache";
 import { createSenloHost } from "@senlo/next";
+import { getConfig } from "./config";
 import { logger } from "./logger";
 import { rateLimit } from "./rate-limit";
 import { getServices } from "./services";
 import { currentUserId, requireUserId } from "./session";
 
-/** What `@senlo/next` gets from this app: services, the session, logger and rate limits. */
+/** What `@senlo/next` gets from this app: services, the session, config, logger and rate limits. */
 export const host = createSenloHost({
   getServices,
   requireUserId,
   currentUserId,
+  getConfig,
   logger,
   rateLimit,
   // After a change, every page renders fresh data on its next visit (and

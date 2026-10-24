@@ -23,6 +23,7 @@ function fakeHost(services: Record<string, unknown> = {}, overrides: Partial<Sen
       }) as never,
     requireUserId: async () => "u1",
     currentUserId: async () => "u1",
+    getConfig: () => ({ appUrl: "http://localhost:3000", defaultFromEmail: "hello@senlo.io" }),
     logger,
     rateLimit,
     ...overrides,
