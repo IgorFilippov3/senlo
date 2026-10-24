@@ -1,26 +1,21 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 "use client";
 
-import type { Campaign, Project, EmailTemplate } from "@senlo/core";
-import {
-  EditTriggerDialog as SharedEditTriggerDialog,
-  useProjectTemplates,
-  useUpdateTriggeredCampaign,
-} from "@senlo/features";
+import React from "react";
+import { useProjectTemplates, useUpdateTriggeredCampaign } from "../data";
+import { EditTriggerDialog } from "../triggers";
+import type { DialogControlProps } from "../shared/dialogs";
+import type { SenloDialogProps } from "./registry";
 
-interface EditTriggerDialogProps {
-  campaign: Campaign;
-  project: Project;
-  template: EmailTemplate;
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export default function EditTriggerDialog({
+export default function EditTriggerConfigDialog({
   campaign,
   project,
   isOpen,
   onClose,
-}: EditTriggerDialogProps) {
+}: SenloDialogProps["EDIT_TRIGGER_CONFIG"] & DialogControlProps) {
   const { data: templates = [] } = useProjectTemplates(project.id);
   const update = useUpdateTriggeredCampaign(campaign.id);
 
@@ -40,7 +35,7 @@ export default function EditTriggerDialog({
   };
 
   return (
-    <SharedEditTriggerDialog
+    <EditTriggerDialog
       campaign={campaign}
       project={project}
       templates={templates}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Campaign } from "@senlo/core";
 import { TriggersList as SharedTriggersList, useProjectCampaigns } from "@senlo/features";
-import { useDialogs } from "@/providers/dialogs/store";
+import { useSenloDialogs as useDialogs } from "@senlo/features";
 
 export function TriggersList({ projectId }: { projectId: number }) {
   const { data: campaigns = [], isLoading } = useProjectCampaigns(projectId);

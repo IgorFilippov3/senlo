@@ -11,7 +11,7 @@ import {
   useCurrentWorkspace,
   useProjectTemplates,
 } from "@senlo/features";
-import { useDialogs } from "@/providers/dialogs/store";
+import { useSenloDialogs as useDialogs } from "@senlo/features";
 
 export function TemplatesPage() {
   const workspace = useCurrentWorkspace();

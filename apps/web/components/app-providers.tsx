@@ -10,16 +10,14 @@ import { AppShell, AppSidebar } from "@senlo/features";
 import { SenloAppProvider } from "@senlo/next/client";
 import { logoutAction } from "@/app/(auth)/actions";
 import { clientActions } from "@/lib/client-actions";
-import { DialogProvider } from "@/providers/dialogs";
 
-/** The signed-in app around every page: navigation, data, sidebar, dialogs, devtools in development. */
+/** The signed-in app around every page: navigation, data and dialogs, sidebar, devtools in development. */
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <SenloAppProvider actions={clientActions}>
       <AppShell sidebar={<AppSidebar brandName="Senlo Email" brandIcon="S" onSignOut={logoutAction} />}>
         {children}
       </AppShell>
-      <DialogProvider />
       {process.env.NODE_ENV === "development" && <ReactQueryDevtools initialIsOpen={false} />}
     </SenloAppProvider>
   );

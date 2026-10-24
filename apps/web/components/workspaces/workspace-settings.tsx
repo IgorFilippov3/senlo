@@ -7,7 +7,7 @@ import {
   useUpdateProject,
   useProviders,
 } from "@senlo/features";
-import { useDialogs } from "@/providers/dialogs/store";
+import { useSenloDialogs as useDialogs } from "@senlo/features";
 import { renderProvidersLink } from "./providers-link";
 
 export function WorkspaceSettings() {

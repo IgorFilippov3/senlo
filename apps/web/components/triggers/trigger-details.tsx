@@ -15,7 +15,7 @@ import {
   useCampaignLinkStats,
   useCampaignTimeSeries,
 } from "@senlo/features";
-import { useDialogs } from "@/providers/dialogs/store";
+import { useSenloDialogs as useDialogs } from "@senlo/features";
 
 const LOGS_PAGE_SIZE = 30;
 const POLL_INTERVAL_MS = 3000;

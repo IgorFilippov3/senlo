@@ -5,14 +5,16 @@
 "use client";
 
 import React from "react";
-import { SenloDataProvider, type SenloActions, type SenloPaths } from "@senlo/features";
+import { SenloDataProvider, SenloDialogHost, type SenloActions, type SenloPaths } from "@senlo/features";
 import { NextNavigationProvider } from "./navigation";
 
 /**
  * Everything the screens need from a Next.js host, in one provider: its
- * navigation (`paths` overrides) and its data layer (`actions`, usually
- * `createClientActions(senloAction)`). Rendered from a client module of the
- * host, since `actions` holds functions.
+ * navigation (`paths` overrides), its data layer (`actions`, usually
+ * `createClientActions(senloAction)`) and the dialog host. Rendered from a
+ * client module of the host, since `actions` holds functions. A host with
+ * dialogs of its own renders its own `DialogHost` (from `createDialogs`)
+ * among the children.
  */
 export function SenloAppProvider({
   actions,
@@ -26,7 +28,10 @@ export function SenloAppProvider({
 }) {
   return (
     <NextNavigationProvider paths={paths}>
-      <SenloDataProvider actions={actions}>{children}</SenloDataProvider>
+      <SenloDataProvider actions={actions}>
+        {children}
+        <SenloDialogHost />
+      </SenloDataProvider>
     </NextNavigationProvider>
   );
 }

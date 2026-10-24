@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Button, Dialog } from "@senlo/ui";
+import { FormErrorBanner } from "../shared/FormErrorBanner";
 
 export interface DeleteProviderDialogProps {
   /** Which list the provider is from; only changes the wording. */
@@ -11,6 +12,8 @@ export interface DeleteProviderDialogProps {
   onClose: () => void;
   onConfirm: () => void;
   isDeleting?: boolean;
+  /** Why the last attempt failed. */
+  error?: string | null;
 }
 
 export function DeleteProviderDialog({
@@ -20,6 +23,7 @@ export function DeleteProviderDialog({
   onClose,
   onConfirm,
   isDeleting = false,
+  error,
 }: DeleteProviderDialogProps) {
   const noun = kind === "ai" ? "AI Provider" : "Provider";
 
@@ -44,6 +48,9 @@ export function DeleteProviderDialog({
       <p className="text-sm text-zinc-500">
         This will permanently remove the {kind === "ai" ? "AI provider" : "provider"} configuration.
       </p>
+      <div className="mt-4">
+        <FormErrorBanner error={error} />
+      </div>
     </Dialog>
   );
 }
