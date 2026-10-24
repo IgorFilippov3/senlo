@@ -20,6 +20,8 @@ export interface SenloNavigation {
   renderLink: RenderLink;
   push(href: string): void;
   replace(href: string): void;
+  /** The previous page in the history (a wizard's Cancel). */
+  back(): void;
   /** Re-fetches what the server rendered for the current page. */
   refresh(): void;
 }

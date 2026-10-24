@@ -38,6 +38,7 @@ export function NextNavigationProvider({
       renderLink: nextRenderLink,
       push: (href) => router.push(href),
       replace: (href) => router.replace(href),
+      back: () => router.back(),
       refresh: () => router.refresh(),
     }),
     [resolved, pathname, router],

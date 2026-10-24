@@ -1,31 +1,9 @@
-import { PageHeader, Button } from "@senlo/ui";
-import { Plus } from "lucide-react";
-import Link from "next/link";
-import { TriggersList } from "@/components/triggers/triggers-list";
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-export default async function TriggersPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const projectId = Number(id);
-  return (
-    <main className="max-w-7xl mx-auto py-10 px-8">
-      <PageHeader
-        title="Email Triggers"
-        description="Monitor and manage all your email triggers in one place."
-        actions={
-          <Link href={`/workspace/${projectId}/triggers/new`}>
-            <Button>
-              <Plus size={16} />
-              New Trigger
-            </Button>
-          </Link>
-        }
-      />
+import { TriggersScreen } from "@senlo/features";
 
-      <TriggersList projectId={projectId} />
-    </main>
-  );
+export default function TriggersPage() {
+  return <TriggersScreen />;
 }

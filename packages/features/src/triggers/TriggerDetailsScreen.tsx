@@ -1,35 +1,36 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useRef, useState } from "react";
 import type { CampaignDetails } from "@senlo/core/server";
-import {
-  DEFAULT_ANALYTICS_PERIOD,
-  DeliveryLogs,
-  TriggerAnalytics,
-  TriggerDetailsView,
-  type AnalyticsPeriod,
-  type DeliveryLogFilter,
-  useCampaignEvents,
-  useCampaignLinkStats,
-  useCampaignTimeSeries,
-} from "@senlo/features";
-import { useSenloDialogs as useDialogs } from "@senlo/features";
+import { useCampaignEvents, useCampaignLinkStats, useCampaignTimeSeries } from "../data/campaigns";
+import { useSenloDialogs } from "../dialogs/registry";
+import { useSenloNavigation } from "../layout/navigation-context";
+import { DeliveryLogs, type DeliveryLogFilter } from "./DeliveryLogs";
+import { DEFAULT_ANALYTICS_PERIOD, TriggerAnalytics, type AnalyticsPeriod } from "./TriggerAnalytics";
+import { TriggerDetailsView } from "./TriggerDetailsView";
 
 const LOGS_PAGE_SIZE = 30;
 const POLL_INTERVAL_MS = 3000;
 const POLL_FOR_MS = 120_000;
 
-interface TriggerDetailsProps {
+export interface TriggerDetailsScreenProps {
+  /** Loaded on the server (`CampaignService.getDetails`): the page is rendered with its stats. */
   details: CampaignDetails;
+  /** Full URL of the send endpoint, from the server's configured app URL. */
   apiEndpointUrl: string;
+  /** Sender address used when the trigger sets none (server config). */
   defaultFromEmail: string;
 }
 
-export function TriggerDetails({ details, apiEndpointUrl, defaultFromEmail }: TriggerDetailsProps) {
+/** One trigger: configuration, API snippet, delivery logs, analytics. */
+export function TriggerDetailsScreen({ details, apiEndpointUrl, defaultFromEmail }: TriggerDetailsScreenProps) {
   const { campaign, project, template, stats } = details;
-  const { open: openDialog } = useDialogs();
+  const { paths, renderLink } = useSenloNavigation();
+  const { open: openDialog } = useSenloDialogs();
   useRefreshWhileSending(campaign.status);
 
   return (
@@ -40,14 +41,10 @@ export function TriggerDetails({ details, apiEndpointUrl, defaultFromEmail }: Tr
       stats={stats}
       apiEndpointUrl={apiEndpointUrl}
       defaultFromEmail={defaultFromEmail}
-      renderBackLink={(children) => (
-        <Link href={`/workspace/${project.id}/triggers`}>{children}</Link>
-      )}
-      renderTemplateLink={(templateId, children) => (
-        <Link href={`/editor/${templateId}?campaignId=${campaign.id}`} className="block">
-          {children}
-        </Link>
-      )}
+      renderBackLink={(children) => renderLink(paths.triggers(project.id), children, "")}
+      renderTemplateLink={(templateId, children) =>
+        renderLink(paths.editor(templateId, { campaignId: campaign.id }), children, "block")
+      }
       onEdit={() => openDialog("EDIT_TRIGGER_CONFIG", { campaign, project, template })}
       deliveryLogs={<TriggerDeliveryLogs campaignId={campaign.id} />}
       analytics={<TriggerAnalyticsTab campaignId={campaign.id} totalDelivered={stats.delivered} />}
@@ -57,17 +54,20 @@ export function TriggerDetails({ details, apiEndpointUrl, defaultFromEmail }: Tr
 
 /** Server-rendered stats go stale while a send runs; refresh them for a while. */
 function useRefreshWhileSending(status: string) {
-  const router = useRouter();
+  const { refresh } = useSenloNavigation();
+  // The latest `refresh` (it changes with the path); only the status restarts the polling.
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
 
   useEffect(() => {
     if (status !== "SENDING" && status !== "COMPLETED") return;
-    const interval = setInterval(() => router.refresh(), POLL_INTERVAL_MS);
+    const interval = setInterval(() => refreshRef.current(), POLL_INTERVAL_MS);
     const timeout = setTimeout(() => clearInterval(interval), POLL_FOR_MS);
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [status, router]);
+  }, [status]);
 }
 
 function TriggerDeliveryLogs({ campaignId }: { campaignId: number }) {
@@ -104,13 +104,7 @@ function TriggerDeliveryLogs({ campaignId }: { campaignId: number }) {
   );
 }
 
-function TriggerAnalyticsTab({
-  campaignId,
-  totalDelivered,
-}: {
-  campaignId: number;
-  totalDelivered: number;
-}) {
+function TriggerAnalyticsTab({ campaignId, totalDelivered }: { campaignId: number; totalDelivered: number }) {
   const [period, setPeriod] = useState<AnalyticsPeriod>(DEFAULT_ANALYTICS_PERIOD);
   const timeSeries = useCampaignTimeSeries(campaignId, period);
   const linkStats = useCampaignLinkStats(campaignId);
