@@ -42,7 +42,7 @@ export function toPublicAiProvider(provider: AiProvider): PublicAiProvider {
 export class AiProviderService {
   constructor(
     private readonly providers: IAiProviderRepository,
-    private readonly access: Pick<AccessGuard, "requireOwned" | "scopeFor"> = AccessGuard.forOwnedRecords(),
+    private readonly access: Pick<AccessGuard, "requireOwned" | "requireCreate" | "scopeFor"> = AccessGuard.forOwnedRecords(),
     private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {}
 
@@ -58,13 +58,14 @@ export class AiProviderService {
 
   async create(userId: string, rawInput: unknown): Promise<PublicAiProvider> {
     const input = parseInput(AiProviderInputSchema, rawInput);
+    const scope = await this.access.requireCreate(userId, "Provider");
     const created = await this.providers.create({
       name: input.name,
       type: input.type,
       config: { apiKey: input.apiKey, model: input.model || DEFAULT_AI_MODELS[input.type] },
       isActive: true,
       userId,
-      organizationId: (await this.access.scopeFor(userId)).organizationId,
+      organizationId: scope.organizationId,
     });
     await this.audit(userId, "created", created.id, { type: created.type });
     return toPublicAiProvider(created);

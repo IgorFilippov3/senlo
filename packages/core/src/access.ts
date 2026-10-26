@@ -43,6 +43,12 @@ export interface AccessPolicy {
    * provider)? A role that reads but does not write answers per action.
    */
   mayAccess(userId: string, owner: OwnedRecord, action: AccessAction): Promise<boolean>;
+  /**
+   * May the user add a top-level record (a project, a provider) to `scope`?
+   * Absent means yes: in self-hosted the owner may always create. A managed
+   * policy answers by role, so a viewer cannot create through any entry point.
+   */
+  mayCreate?(userId: string, scope: OwnerScope): Promise<boolean>;
 }
 
 /** Today's rule: a record belongs to the user in its `userId`, nothing is shared, and the owner may do anything. */
@@ -102,6 +108,20 @@ export class AccessGuard {
   /** See `AccessPolicy.scopeFor`. */
   scopeFor(userId: string): Promise<OwnerScope> {
     return this.policy.scopeFor(userId);
+  }
+
+  /**
+   * The scope a new top-level record goes into, if the policy lets the user
+   * create there; `ForbiddenError` otherwise. Every `create` of a project or
+   * provider takes its scope from here, not from `scopeFor`.
+   */
+  async requireCreate(userId: string, resource: string): Promise<OwnerScope> {
+    if (!userId) throw new NotFoundError(resource);
+    const scope = await this.policy.scopeFor(userId);
+    if (this.policy.mayCreate && !(await this.policy.mayCreate(userId, scope))) {
+      throw new ForbiddenError(resource, `You cannot create a ${resource.toLowerCase()} here`);
+    }
+    return scope;
   }
 
   /**

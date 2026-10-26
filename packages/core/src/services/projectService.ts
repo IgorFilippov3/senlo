@@ -89,7 +89,7 @@ export class ProjectService {
 
   async create(userId: string, rawInput: unknown): Promise<Project> {
     const input = parseInput(CreateWorkspaceSchema, rawInput);
-    const scope = await this.access.scopeFor(userId);
+    const scope = await this.access.requireCreate(userId, "Project");
     await this.hooks.requireQuota({ type: "project.create", scope });
     const project = await this.repos.projects.create({
       name: input.name,

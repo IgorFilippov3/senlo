@@ -90,6 +90,51 @@ describe("services under a viewer role", () => {
   });
 });
 
+describe("AccessGuard.requireCreate", () => {
+  const createPolicy: AccessPolicy = {
+    ...viewerPolicy,
+    async mayCreate(userId) {
+      return roles[userId] === "editor";
+    },
+  };
+  const createGuard = new AccessGuard(projects, createPolicy);
+
+  it("gives an editor the scope and refuses a viewer with ForbiddenError", async () => {
+    await expect(createGuard.requireCreate("alice", "Project")).resolves.toEqual({
+      userId: "alice",
+      organizationId: "acme",
+    });
+    const error = await createGuard.requireCreate("vic", "Project").catch((e) => e);
+    expect(error).toBeInstanceOf(ForbiddenError);
+    expect(error.message).toBe("You cannot create a project here");
+  });
+
+  it("allows everyone when the policy has no mayCreate", async () => {
+    await expect(guard.requireCreate("vic", "Project")).resolves.toEqual({ userId: "vic", organizationId: "acme" });
+  });
+
+  it("stops a viewer from creating a project or a provider through the services", async () => {
+    const created: unknown[] = [];
+    const service = new ProjectService(
+      {
+        projects: { ...projects, create: async (d: unknown) => (created.push(d), orgProject) } as never,
+        providers: { findById: async () => null },
+        aiProviders: { findById: async () => null },
+      },
+      createGuard,
+    );
+    await expect(service.create("vic", { name: "New" })).rejects.toBeInstanceOf(ForbiddenError);
+    const providers = new EmailProviderService(
+      { create: async (d: unknown) => (created.push(d), orgProvider) } as never,
+      createGuard,
+    );
+    await expect(
+      providers.create("vic", { name: "x", type: "RESEND", apiKey: "re_123456789" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(created).toEqual([]);
+  });
+});
+
 describe("ownerAccessPolicy", () => {
   it("gives the owner both actions and everyone else neither", async () => {
     for (const action of ["read", "write"] as const) {

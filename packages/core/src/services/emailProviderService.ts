@@ -235,7 +235,7 @@ function replaceUnreadableConfig(provider: EmailProvider, input: EmailProviderUp
 export class EmailProviderService {
   constructor(
     private readonly providers: IEmailProviderRepository,
-    private readonly access: Pick<AccessGuard, "requireOwned" | "scopeFor"> = AccessGuard.forOwnedRecords(),
+    private readonly access: Pick<AccessGuard, "requireOwned" | "requireCreate" | "scopeFor"> = AccessGuard.forOwnedRecords(),
     private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {}
 
@@ -256,13 +256,14 @@ export class EmailProviderService {
     if ("fieldErrors" in outcome) {
       throw new FormValidationError(outcome.fieldErrors);
     }
+    const scope = await this.access.requireCreate(userId, "Provider");
     const created = await this.providers.create({
       name: input.name,
       type: input.type,
       config: outcome.config,
       isActive: true,
       userId,
-      organizationId: (await this.access.scopeFor(userId)).organizationId,
+      organizationId: scope.organizationId,
     });
     await this.audit(userId, "created", created.id, { type: created.type });
     return toPublicEmailProvider(created);

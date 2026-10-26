@@ -105,8 +105,8 @@ export class NotFoundError extends AppError {
  * already see; anything they may not read fails with `NotFoundError`.
  */
 export class ForbiddenError extends AppError {
-  constructor(resource: string) {
-    super("FORBIDDEN", `You can view this ${resource.toLowerCase()} but not change it`, { resource }, 403);
+  constructor(resource: string, message = `You can view this ${resource.toLowerCase()} but not change it`) {
+    super("FORBIDDEN", message, { resource }, 403);
     this.name = "ForbiddenError";
   }
 }
