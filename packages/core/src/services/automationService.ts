@@ -7,6 +7,7 @@ import {
 import { TriggerService } from "./triggerService";
 import { AutomationJobData } from "../queue/types";
 import { WorkflowNodeStats, WorkflowEventType } from "../domain";
+import { ServiceHooks } from "../hooks";
 import { consoleLogger, type Logger } from "../logger";
 
 export class AutomationService {
@@ -17,6 +18,7 @@ export class AutomationService {
     private readonly automationQueue: Queue<AutomationJobData>,
     private readonly triggerService: TriggerService,
     private readonly logger: Logger = consoleLogger,
+    private readonly hooks: ServiceHooks = ServiceHooks.none,
   ) {}
 
   /**
@@ -47,10 +49,21 @@ export class AutomationService {
       return existing;
     }
 
+    // A run is the unit a plan counts: refused here, before the execution
+    // row exists, so a re-trigger of a running contact (above) is free and
+    // the caller gets the reason (`QuotaExceededError`, 402 on the API).
+    await this.hooks.requireQuota({ type: "automation.start", projectId, workflowId });
+
     const execution = await this.executionRepo.create({
       workflowId,
       contactId,
       status: "RUNNING",
+    });
+    await this.hooks.recordUsage({
+      type: "automation.started",
+      projectId,
+      workflowId,
+      executionId: execution.id,
     });
 
     // Find trigger node (assume there is only one for now)
@@ -73,7 +86,10 @@ export class AutomationService {
   }
 
   /**
-   * Trigger workflows for a specific event.
+   * Trigger workflows for a specific event. A plan refusal
+   * (`QuotaExceededError`) comes out of the first run it stops: the runs
+   * before it have started, and the caller (events API, contact creation)
+   * reports the reason.
    */
   async triggerEvent(options: {
     event: WorkflowEventType;

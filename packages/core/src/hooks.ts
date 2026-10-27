@@ -27,21 +27,24 @@ export type UsageEvent =
       provider: EmailProviderType;
     }
   | { type: "contact.created"; projectId: number; contactId: number }
-  | { type: "project.created"; projectId: number; scope: OwnerScope };
+  | { type: "project.created"; projectId: number; scope: OwnerScope }
+  /** A workflow run started for a contact (one execution, however many steps it has). */
+  | { type: "automation.started"; projectId: number; workflowId: number; executionId: number };
 
 export interface UsageMeter {
   record(event: UsageEvent): Promise<void>;
 }
 
 /**
- * Something about to happen that a plan may forbid. Sends and contacts name
- * their project (a send has no user behind it); a new project names the
- * scope it will belong to.
+ * Something about to happen that a plan may forbid. Sends, contacts and
+ * workflow runs name their project (none has a user behind it); a new
+ * project names the scope it will belong to.
  */
 export type QuotaAction =
   | { type: "email.send"; projectId: number }
   | { type: "contact.create"; projectId: number }
-  | { type: "project.create"; scope: OwnerScope };
+  | { type: "project.create"; scope: OwnerScope }
+  | { type: "automation.start"; projectId: number; workflowId: number };
 
 export type QuotaDecision = { allowed: true } | { allowed: false; reason: string };
 

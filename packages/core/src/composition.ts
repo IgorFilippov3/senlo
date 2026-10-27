@@ -163,6 +163,7 @@ export function createServices({
     queues.automation,
     trigger,
     logger,
+    hooks,
   );
 
   const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects, guard, hooks);

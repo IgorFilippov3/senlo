@@ -7,6 +7,7 @@ import { ServiceHooks, type AuditEntry, type QuotaAction, type UsageEvent } from
 import type { Logger } from "../logger";
 import { EmailWorkerProcessor } from "../queue/worker";
 import { AudienceService } from "../services/audienceService";
+import { AutomationService } from "../services/automationService";
 import { EmailProviderService } from "../services/emailProviderService";
 import { ProjectService } from "../services/projectService";
 import { TriggerService } from "../services/triggerService";
@@ -111,6 +112,34 @@ describe("services call the ports once per action", () => {
     await audience.createContact({ projectId: 1, email: "new@x.test" });
     expect(p.checks).toEqual([{ type: "contact.create", projectId: 1 }]);
     expect(p.usage).toEqual([{ type: "contact.created", projectId: 1, contactId: 2 }]);
+  });
+
+  it("workflow run: counted once per execution, refused before the row exists", async () => {
+    const workflow = { id: 10, projectId: 1, status: "ACTIVE" } as Workflow;
+    const running = new Set<number>();
+    const executions = {
+      create: vi.fn(async () => ({ id: 42, workflowId: 10, contactId: 3, status: "RUNNING" })),
+      findRunningByContact: async (_w: number, contactId: number) => (running.has(contactId) ? { id: 1 } : null),
+      updateStatus: vi.fn(),
+    };
+    const workflows = { findById: async () => workflow, getNodes: async () => [], findByProject: async () => [workflow] };
+    const make = (p: ReturnType<typeof ports>) =>
+      new AutomationService(workflows as never, executions as never, {} as never, {} as never, {} as never, silent, p.hooks);
+
+    const p = ports();
+    await make(p).triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+    running.add(3);
+    await make(p).triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+    expect(p.checks).toEqual([{ type: "automation.start", projectId: 1, workflowId: 10 }]);
+    expect(p.usage).toEqual([{ type: "automation.started", projectId: 1, workflowId: 10, executionId: 42 }]);
+
+    const refused = ports("Out of runs");
+    executions.create.mockClear();
+    await expect(make(refused).triggerWorkflow({ workflowId: 10, contactId: 4, projectId: 1 })).rejects.toThrow(
+      QuotaExceededError,
+    );
+    expect(executions.create).not.toHaveBeenCalled();
+    expect(refused.usage).toEqual([]);
   });
 
   it("triggered send: refused before a send log exists", async () => {
