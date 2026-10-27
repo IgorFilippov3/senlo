@@ -6,9 +6,11 @@ import { MailgunMailer } from "./mailgunMailer";
 import { SesMailer } from "./sesMailer";
 import { PostmarkMailer } from "./postmarkMailer";
 import { SmtpMailer } from "./smtpMailer";
+import { allowAllOutbound, type OutboundPolicy } from "../../outbound";
 
 export class MailerFactory {
-  static create(provider: EmailProvider): IMailer {
+  /** `outbound` reaches the one adapter that connects where the user says (SMTP). */
+  static create(provider: EmailProvider, outbound: OutboundPolicy = allowAllOutbound): IMailer {
     if (provider.configUnreadable) {
       throw new SealedConfigError(`Email provider ${provider.id}`);
     }
@@ -57,13 +59,16 @@ export class MailerFactory {
         if (!host || !port) {
           throw new Error("SMTP host and port are required in provider config");
         }
-        return new SmtpMailer({
-          host,
-          port: Number(port),
-          encryption,
-          username,
-          password,
-        });
+        return new SmtpMailer(
+          {
+            host,
+            port: Number(port),
+            encryption,
+            username,
+            password,
+          },
+          outbound,
+        );
       }
 
       default:

@@ -9,6 +9,7 @@ import { ServiceHooks, type AuditLog, type QuotaPolicy, type UsageMeter } from "
 import { fixedBaseUrl, type ResolveBaseUrl } from "../base-url";
 import { createServices, type Repositories } from "../composition";
 import { consoleLogger, type Logger } from "../logger";
+import { allowAllOutbound, type OutboundPolicy } from "../outbound";
 import { createQueues, type QueueConnection } from "./queue";
 import {
   AutomationWorkerProcessor,
@@ -37,6 +38,7 @@ export function startWorkers({
   quota,
   audit,
   resolveBaseUrl = fixedBaseUrl(settings.appUrl),
+  outbound = allowAllOutbound,
 }: {
   repositories: Repositories;
   connection: QueueConnection;
@@ -50,9 +52,11 @@ export function startWorkers({
   audit?: AuditLog;
   /** See `createServices`; triggered sends build their links with it. */
   resolveBaseUrl?: ResolveBaseUrl;
+  /** See `createServices`; the API condition node and SMTP sends go through it. */
+  outbound?: OutboundPolicy;
 }): RunningWorkers {
   const queues = createQueues(connection);
-  const services = createServices({ repositories, queues, settings, logger, access, usage, quota, audit, resolveBaseUrl });
+  const services = createServices({ repositories, queues, settings, logger, access, usage, quota, audit, resolveBaseUrl, outbound });
 
   const emailProcessor = new EmailWorkerProcessor(
     settings,
@@ -63,6 +67,7 @@ export function startWorkers({
     repositories.suppressions,
     logger,
     new ServiceHooks({ usage, quota }, logger),
+    outbound,
   );
   const automationProcessor = new AutomationWorkerProcessor(
     services.automation,

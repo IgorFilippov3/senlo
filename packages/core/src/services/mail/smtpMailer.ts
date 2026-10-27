@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 import { IMailer, SendMailOptions, SendMailResult } from "../../ports";
+import { allowAllOutbound, assertOutbound, type OutboundPolicy } from "../../outbound";
 
 export type SmtpEncryption = "ssl" | "starttls" | "none";
 
@@ -71,10 +72,16 @@ function transporterFor(config: SmtpConfig): Transporter {
 }
 
 export class SmtpMailer implements IMailer {
-  constructor(private readonly config: SmtpConfig) {}
+  constructor(
+    private readonly config: SmtpConfig,
+    /** Where the user's SMTP host may be; a shared instance refuses internal addresses. */
+    private readonly outbound: OutboundPolicy = allowAllOutbound,
+  ) {}
 
   async send(options: SendMailOptions): Promise<SendMailResult> {
     try {
+      // Before the pooled transporter: a refused host never opens a connection.
+      await assertOutbound(this.outbound, { host: this.config.host, port: this.config.port });
       const info = await transporterFor(this.config).sendMail({
         from: options.from,
         to: options.to,

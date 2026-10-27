@@ -22,6 +22,7 @@ import type { EmailDesignDocument } from "../emailDesign";
 import { AutomationService } from "../services/automationService";
 import { consoleLogger, type Logger } from "../logger";
 import { QuotaExceededError } from "../errors";
+import { allowAllOutbound, type OutboundPolicy } from "../outbound";
 import { ServiceHooks } from "../hooks";
 import {
   AUTOMATION_QUEUE_NAME,
@@ -53,6 +54,8 @@ export class EmailWorkerProcessor {
     private readonly suppressionRepo?: ISuppressionRepository,
     private readonly logger: Logger = consoleLogger,
     private readonly hooks: ServiceHooks = ServiceHooks.none,
+    /** Handed to the SMTP mailer: where a user's SMTP host may be. */
+    private readonly outbound: OutboundPolicy = allowAllOutbound,
   ) {}
 
   /**
@@ -278,7 +281,7 @@ export class EmailWorkerProcessor {
 
       const html = await this.buildMessageHtml(job.data);
 
-      const mailer = MailerFactory.create(provider);
+      const mailer = MailerFactory.create(provider, this.outbound);
 
       const result = await mailer.send({
         from,

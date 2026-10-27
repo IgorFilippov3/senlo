@@ -27,6 +27,7 @@ export * from "./services/triggerService";
 export * from "./services/unsubscribeService";
 export * from "./services/userService";
 export * from "./services/mail";
+export * from "./outbound-public";
 export * from "./services/webhook";
 export * from "./services/workflowService";
 export { generateApiKey, hashApiKey, apiKeyPrefix, API_KEY_PREFIX_LENGTH } from "./api-key";

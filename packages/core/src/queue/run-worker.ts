@@ -7,6 +7,7 @@ import { mailSettings, type SenloConfig } from "../config";
 import type { Repositories } from "../composition";
 import type { ResolveBaseUrl } from "../base-url";
 import type { AuditLog, QuotaPolicy, UsageMeter } from "../hooks";
+import type { OutboundPolicy } from "../outbound";
 import { consoleLogger, type Logger } from "../logger";
 import { createRedisConnection } from "../redis";
 import { startWorkers, type RunningWorkers } from "./start-workers";
@@ -25,6 +26,7 @@ export interface RunSenloWorkerOptions {
   quota?: QuotaPolicy;
   audit?: AuditLog;
   resolveBaseUrl?: ResolveBaseUrl;
+  outbound?: OutboundPolicy;
 }
 
 /** Signals that stop the worker gracefully: SIGTERM from Docker / systemd, SIGINT from Ctrl+C. */

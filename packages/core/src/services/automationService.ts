@@ -9,6 +9,7 @@ import { AutomationJobData } from "../queue/types";
 import { WorkflowNodeStats, WorkflowEventType } from "../domain";
 import { ServiceHooks } from "../hooks";
 import { consoleLogger, type Logger } from "../logger";
+import { allowAllOutbound, fetchWithPolicy, type OutboundPolicy } from "../outbound";
 
 export class AutomationService {
   constructor(
@@ -19,6 +20,8 @@ export class AutomationService {
     private readonly triggerService: TriggerService,
     private readonly logger: Logger = consoleLogger,
     private readonly hooks: ServiceHooks = ServiceHooks.none,
+    /** Where the "API condition" node may POST; see `OutboundPolicy`. */
+    private readonly outbound: OutboundPolicy = allowAllOutbound,
   ) {}
 
   /**
@@ -252,16 +255,22 @@ export class AutomationService {
       url,
     });
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: contact.email,
-        name: contact.name,
-        metadata: contact.meta,
-        meta: contact.meta,
-      }),
-    });
+    // The URL is the user's: a shared instance refuses internal addresses
+    // through the policy, redirects included.
+    const response = await fetchWithPolicy(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: contact.email,
+          name: contact.name,
+          metadata: contact.meta,
+          meta: contact.meta,
+        }),
+      },
+      this.outbound,
+    );
 
     const result = response.status === 200 ? "yes" : "no";
     this.logger.debug("API Check result", {

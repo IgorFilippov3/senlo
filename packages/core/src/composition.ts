@@ -6,6 +6,7 @@ import type { Queue } from "bullmq";
 import { AccessGuard, ownerAccessPolicy, type AccessPolicy } from "./access";
 import type { MailSettings } from "./config";
 import { ServiceHooks, type AuditLog, type QuotaPolicy, type UsageMeter } from "./hooks";
+import { allowAllOutbound, type OutboundPolicy } from "./outbound";
 import { fixedBaseUrl, type ResolveBaseUrl } from "./base-url";
 import { consoleLogger, type Logger } from "./logger";
 import type {
@@ -118,6 +119,7 @@ export function createServices({
   quota,
   audit,
   resolveBaseUrl = fixedBaseUrl(settings.appUrl),
+  outbound = allowAllOutbound,
 }: {
   repositories: Repositories;
   queues: ServiceQueues;
@@ -141,6 +143,8 @@ export function createServices({
   audit?: AuditLog;
   /** Where a project's links point (tracking, unsubscribe, editor). Default: `settings.appUrl` for every project. */
   resolveBaseUrl?: ResolveBaseUrl;
+  /** Where user-entered addresses (API condition URL, SMTP host) may go. Default: anywhere, as self-hosted. */
+  outbound?: OutboundPolicy;
 }): Services {
   const guard = new AccessGuard(r.projects, access);
   const hooks = new ServiceHooks({ usage, quota, audit }, logger);
@@ -164,6 +168,7 @@ export function createServices({
     trigger,
     logger,
     hooks,
+    outbound,
   );
 
   const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects, guard, hooks);
