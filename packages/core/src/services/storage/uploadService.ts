@@ -7,7 +7,7 @@ import type { StoragePort } from "./storagePort";
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
-const IMAGE_TYPES = {
+export const IMAGE_TYPES = {
   jpg: "image/jpeg",
   png: "image/png",
   gif: "image/gif",
@@ -15,6 +15,11 @@ const IMAGE_TYPES = {
 } as const;
 
 type ImageExtension = keyof typeof IMAGE_TYPES;
+
+const UPLOAD_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|gif|webp)$/i;
+
+/** Whether `key` is a name `storeImage` produces: a UUID plus an image extension, nothing path-like. */
+export const isUploadKey = (key: string): boolean => UPLOAD_KEY.test(key);
 
 const ascii = (bytes: Uint8Array, start: number, end: number) =>
   String.fromCharCode(...bytes.subarray(start, end));

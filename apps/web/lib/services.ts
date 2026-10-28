@@ -1,7 +1,7 @@
 import { createRepositories, seedNewUser } from "@senlo/db";
 import { join } from "node:path";
 import { aesGcmCipher } from "@senlo/core";
-import { createServices, storageFromConfig, type Services } from "@senlo/core/server";
+import { createServices, LocalDiskStorage, storageFromConfig, type Services } from "@senlo/core/server";
 import { getConfig } from "./config";
 import { db } from "./db";
 import { getMailSettings, getQueues } from "./infra";
@@ -17,6 +17,16 @@ export const repositories = createRepositories(db, {
   secrets: aesGcmCipher(getConfig().secretsKey),
 });
 
+/**
+ * Where the local storage driver keeps uploads: Next's public folder, served
+ * as `/uploads/<name>` by `app/uploads/[name]/route.ts`. Null with
+ * `STORAGE_DRIVER=s3`, where uploads go to a bucket and are served from there.
+ */
+export function localUploads(): LocalDiskStorage | null {
+  if (getConfig().storage.driver !== "local") return null;
+  return new LocalDiskStorage(join(process.cwd(), "public/uploads"), "/uploads");
+}
+
 let services: Services | undefined;
 
 export function getServices(): Services {
@@ -25,7 +35,7 @@ export function getServices(): Services {
     queues: getQueues(),
     settings: getMailSettings(),
     logger,
-    // Local disk is Next's public folder, served as /uploads/<name>; STORAGE_DRIVER=s3 sends uploads to a bucket.
+    // Local disk (see `localUploads`) unless STORAGE_DRIVER=s3 sends uploads to a bucket.
     storage: storageFromConfig(getConfig().storage, {
       rootDir: join(process.cwd(), "public/uploads"),
       publicPrefix: "/uploads",
