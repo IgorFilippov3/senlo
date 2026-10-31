@@ -39,7 +39,7 @@ export default function HomePage() {
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 flex items-center justify-center">
                 <Image
-                  src="/core/logo-light.svg"
+                  src="/core/senlo-logo.svg"
                   alt="Senlo Logo"
                   width={140}
                   height={60}
@@ -338,7 +338,7 @@ export default function HomePage() {
             <div className="col-span-2">
               <div className="flex items-center gap-3 mb-6">
                 <Image
-                  src="/core/logo-light.svg"
+                  src="/core/senlo-logo.svg"
                   alt="Senlo Logo"
                   width={140}
                   height={60}

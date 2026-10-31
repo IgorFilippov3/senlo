@@ -11,7 +11,7 @@ export default function PrivacyPage() {
           <div className="flex justify-between items-center py-4">
             <Link href="/" className="flex items-center gap-3 group">
               <Image
-                src="/core/logo-light.svg"
+                src="/core/senlo-logo.svg"
                 alt="Senlo Logo"
                 width={140}
                 height={60}
