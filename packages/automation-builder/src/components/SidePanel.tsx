@@ -1,14 +1,5 @@
-import React, { useState } from "react";
-import {
-  X,
-  Mail,
-  Zap,
-  Clock,
-  GitBranch,
-  Trash2,
-  LogOut,
-  UserCog,
-} from "lucide-react";
+import React from "react";
+import { X, Trash2, LogOut } from "lucide-react";
 import { useAutomationStore } from "../store/automationStore";
 import {
   Button,
@@ -21,8 +12,8 @@ import {
   SelectValue,
   FormField,
   Textarea,
-  Dialog,
 } from "@senlo/ui";
+import { STEP_META } from "./nodes/stepMeta";
 
 interface Trigger {
   id: number;
@@ -31,26 +22,17 @@ interface Trigger {
 
 interface Props {
   triggers?: Trigger[];
+  /** Asks to delete a step; the canvas confirms first. */
+  onDelete: (nodeId: string) => void;
 }
 
-export const SidePanel = ({ triggers = [] }: Props) => {
-  const {
-    selectedNodeId,
-    nodes,
-    updateNodeData,
-    setSelectedNodeId,
-    deleteNode,
-  } = useAutomationStore();
-  const [isDeleting, setIsDeleting] = useState(false);
+export const SidePanel = ({ triggers = [], onDelete }: Props) => {
+  const { selectedNodeId, nodes, updateNodeData, setSelectedNodeId } =
+    useAutomationStore();
 
   const node = nodes.find((n) => n.id === selectedNodeId);
 
   if (!node) return null;
-
-  const onDelete = () => {
-    deleteNode(node.id);
-    setIsDeleting(false);
-  };
 
   const renderConfig = () => {
     switch (node.type) {
@@ -256,32 +238,20 @@ export const SidePanel = ({ triggers = [] }: Props) => {
     }
   };
 
-  const getIcon = () => {
-    switch (node.type) {
-      case "trigger":
-        return <Zap className="text-yellow-600" size={20} />;
-      case "action":
-        return <Mail className="text-blue-600" size={20} />;
-      case "delay":
-        return <Clock className="text-purple-600" size={20} />;
-      case "condition":
-        return <GitBranch className="text-green-600" size={20} />;
-      case "update_contact":
-        return <UserCog className="text-orange-600" size={20} />;
-      case "exit":
-        return <LogOut className="text-red-600" size={20} />;
-      default:
-        return null;
-    }
-  };
+  const meta = STEP_META[node.type ?? ""];
+  const Icon = meta?.icon;
 
   return (
     <div className="w-80 border-l border-gray-200 bg-white h-full flex flex-col shadow-lg overflow-y-auto">
       <div className="p-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-        <div className="flex items-center gap-2">
-          {getIcon()}
-          <h2 className="font-bold text-gray-900 capitalize">
-            {node.type} Node
+        <div className="flex items-center gap-2.5">
+          {Icon && (
+            <div className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+              <Icon size={16} strokeWidth={1.75} className={meta.tone} />
+            </div>
+          )}
+          <h2 className="text-[15px] font-semibold text-gray-900">
+            {meta?.kind ?? node.type}
           </h2>
         </div>
         <Button
@@ -295,38 +265,19 @@ export const SidePanel = ({ triggers = [] }: Props) => {
       </div>
       <div className="p-4 flex-1">{renderConfig()}</div>
       <div className="p-4 border-t border-gray-100 flex flex-col gap-4 bg-gray-50">
-        <Button
-          variant="outline"
-          onClick={() => setIsDeleting(true)}
-          className="w-full text-red-600 border-red-100 hover:bg-red-50 hover:text-red-700 h-9 text-xs font-bold uppercase tracking-wider"
-        >
-          <Trash2 size={14} className="mr-2" />
-          Delete Node
-        </Button>
-        <div className="text-[10px] text-gray-400">Node ID: {node.id}</div>
+        {node.type !== "trigger" && (
+          <Button
+            variant="outline"
+            onClick={() => onDelete(node.id)}
+            className="w-full text-red-600 border-red-100 hover:bg-red-50 hover:text-red-700 h-9 text-sm"
+          >
+            <Trash2 size={14} className="mr-2" />
+            Delete step
+          </Button>
+        )}
+        <div className="text-[10px] text-gray-400">Step ID: {node.id}</div>
       </div>
 
-      <Dialog
-        isOpen={isDeleting}
-        onClose={() => setIsDeleting(false)}
-        title="Delete Node"
-        description={`Are you sure you want to delete this ${node.type} node? This will also remove all connected lines.`}
-        footer={
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setIsDeleting(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={onDelete}>
-              Delete Node
-            </Button>
-          </div>
-        }
-      >
-        <p className="text-sm text-gray-500">
-          Removing this node might break the workflow path for contacts
-          currently in this automation.
-        </p>
-      </Dialog>
     </div>
   );
 };

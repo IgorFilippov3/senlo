@@ -1,48 +1,38 @@
 import React from "react";
+import { CheckCircle2, Clock, Users, XCircle } from "lucide-react";
 import { useAutomationStore } from "../../store/automationStore";
-import { Users, CheckCircle, XCircle, Clock } from "lucide-react";
 
-interface NodeStatsProps {
-  nodeId: string;
-}
-
-export const NodeStats = ({ nodeId }: NodeStatsProps) => {
+/**
+ * The live counts strip at the bottom of a step card. Its height is
+ * `STATS_HEIGHT` in the layout: keep them in step.
+ */
+export const NodeStats = ({ nodeId }: { nodeId: string }) => {
   const stats = useAutomationStore((state) => state.nodeStats[nodeId]);
-
   if (!stats) return null;
 
   return (
-    <div className="mt-3 py-1 border-t border-gray-50 flex items-center gap-4 text-[10px] font-bold">
-      <div
-        className="flex items-center gap-1 text-gray-500"
-        title="Total contacts"
-      >
-        <Users size={12} />
-        <span>{stats.total}</span>
-      </div>
+    <div className="flex h-7 items-center gap-3 rounded-b-xl border-t border-gray-100 bg-gray-50/70 px-4 text-[11px] font-medium tabular-nums text-gray-600">
+      <span className="flex items-center gap-1" title="Contacts that reached this step">
+        <Users size={12} className="text-gray-400" />
+        {stats.total}
+      </span>
       {stats.active > 0 && (
-        <div
-          className="flex items-center gap-1 text-purple-600"
-          title="Active contacts (waiting)"
-        >
-          <Clock size={12} />
-          <span>{stats.active}</span>
-        </div>
+        <span className="flex items-center gap-1" title="Waiting here">
+          <Clock size={12} className="text-violet-500" />
+          {stats.active}
+        </span>
       )}
       {stats.completed > 0 && (
-        <div
-          className="flex items-center gap-1 text-green-600"
-          title="Completed"
-        >
-          <CheckCircle size={12} />
-          <span>{stats.completed}</span>
-        </div>
+        <span className="flex items-center gap-1" title="Completed">
+          <CheckCircle2 size={12} className="text-emerald-500" />
+          {stats.completed}
+        </span>
       )}
       {stats.failed > 0 && (
-        <div className="flex items-center gap-1 text-red-600" title="Failed">
-          <XCircle size={12} />
-          <span>{stats.failed}</span>
-        </div>
+        <span className="flex items-center gap-1" title="Failed">
+          <XCircle size={12} className="text-red-500" />
+          {stats.failed}
+        </span>
       )}
     </div>
   );

@@ -11,12 +11,15 @@ import type { ICampaignRepository, IProjectRepository, IWorkflowRepository } fro
 import { parseInput } from "../validation";
 import { validateWorkflowGraph } from "../workflow-graph";
 
-/** A node as the builder holds it: React Flow shape, position as a point. */
+/**
+ * A node as the builder holds it. No position: the builder lays the graph
+ * out from its structure, so a `position` an older client still sends is
+ * dropped here.
+ */
 export const GraphNodeSchema = z.object({
   id: z.string().min(1),
   type: z.string().min(1),
   data: z.record(z.unknown()).default({}),
-  position: z.object({ x: z.number().finite(), y: z.number().finite() }),
 });
 
 export const GraphEdgeSchema = z.object({
@@ -45,8 +48,6 @@ export function defaultTriggerNode(): Omit<WorkflowNode, "workflowId"> {
     id: `trigger-${Date.now()}`,
     type: "trigger",
     data: { label: "Contact Added", event: "contact_added" },
-    positionX: 250,
-    positionY: 50,
   };
 }
 
@@ -156,8 +157,6 @@ export class WorkflowService {
         id: n.id,
         type: n.type,
         data: n.data,
-        positionX: Math.round(n.position.x),
-        positionY: Math.round(n.position.y),
       })),
       graph.edges.map((e) => ({
         id: e.id,

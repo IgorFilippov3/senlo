@@ -1,33 +1,26 @@
 import React from "react";
-import { Handle, Position } from "@xyflow/react";
-import { LogOut } from "lucide-react";
-import { NodeStats } from "./NodeStats";
+import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { cn } from "@senlo/ui";
+import { useAutomationStore } from "../../store/automationStore";
 
-export const ExitNode = ({ id, selected }: any) => {
+/** The end of a branch, as a pill (`END_WIDTH` x `END_HEIGHT` in the layout). */
+export const ExitNode = ({ id, selected }: NodeProps) => {
+  const total = useAutomationStore((state) => state.nodeStats[id]?.total);
+
   return (
     <div
-      className={`bg-white border p-4 rounded-xl shadow-sm min-w-[150px] transition-all group ${
-        selected
-          ? "border-red-600 shadow-md"
-          : "border-gray-200 hover:border-red-200"
-      }`}
+      className={cn(
+        "flex h-9 w-24 cursor-pointer items-center justify-center gap-1.5 rounded-full border bg-white text-[14px] font-medium text-gray-800 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow]",
+        selected ? "border-blue-500 ring-4 ring-blue-500/10" : "border-gray-200 hover:border-gray-300",
+      )}
     >
-      <Handle type="target" position={Position.Top} className="!opacity-0" />
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-red-50 text-red-600 rounded-lg border border-red-100">
-          <LogOut size={20} />
-        </div>
-        <div>
-          <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">
-            End
-          </span>
-          <span className="block font-bold text-sm text-gray-900 leading-none">
-            Exit
-          </span>
-        </div>
-      </div>
-
-      <NodeStats nodeId={id} />
+      <Handle type="target" position={Position.Top} isConnectable={false} />
+      End
+      {total !== undefined && (
+        <span className="text-[11px] tabular-nums text-gray-400" title="Contacts that ended here">
+          {total}
+        </span>
+      )}
     </div>
   );
 };

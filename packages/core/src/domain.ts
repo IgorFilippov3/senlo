@@ -115,8 +115,6 @@ export interface WorkflowNode {
   workflowId: number;
   type: string;
   data: Record<string, any>;
-  positionX: number;
-  positionY: number;
 }
 
 export interface WorkflowEdge {

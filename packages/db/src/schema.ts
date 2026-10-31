@@ -423,8 +423,6 @@ export const workflowNodes = pgTable("workflow_nodes", {
     .references(() => workflows.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   data: jsonb("data").notNull(),
-  positionX: integer("position_x").notNull(),
-  positionY: integer("position_y").notNull(),
 });
 
 export const workflowEdges = pgTable("workflow_edges", {

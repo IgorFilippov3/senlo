@@ -16,6 +16,7 @@ import {
   validateAddChild,
   validateWorkflowConnection,
 } from "../validation/workflowConnections";
+import { INSERTABLE_TYPES, deleteStep, insertStep } from "./graphOps";
 
 export interface AutomationState {
   nodes: Node[];
@@ -38,7 +39,9 @@ export interface AutomationState {
   deleteNode: (id: string) => void;
   setSelectedNodeId: (id: string | null) => void;
   updateNodeData: (id: string, data: any) => void;
-  addChildNode: (parentId: string, type: string, sourceHandle?: string) => void;
+  addChildNode: (parentId: string, type: string, sourceHandle?: string | null) => void;
+  /** Puts a new step in the middle of an existing edge. */
+  insertNode: (edgeId: string, type: string) => void;
 }
 
 export const useAutomationStore = create<AutomationState>((set, get) => ({
@@ -135,15 +138,8 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
     }
 
     const newNodeId = nanoid();
-    const newNode: Node = {
-      id: newNodeId,
-      type,
-      data: {},
-      position: {
-        x: parentNode.position.x,
-        y: parentNode.position.y + 150,
-      },
-    };
+    // Laid out on the canvas from the graph's structure.
+    const newNode: Node = { id: newNodeId, type, data: {}, position: { x: 0, y: 0 } };
 
     const newEdge: Edge = {
       id: nanoid(),
@@ -155,15 +151,25 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
     set({
       nodes: [...get().nodes, newNode],
       edges: [...get().edges, newEdge],
+      selectedNodeId: newNodeId,
     });
   },
+  insertNode: (edgeId, type) => {
+    if (!(INSERTABLE_TYPES as readonly string[]).includes(type)) return;
+    const newNode: Node = { id: nanoid(), type, data: {}, position: { x: 0, y: 0 } };
+    const edges = insertStep(get().edges, edgeId, newNode, nanoid);
+    if (!edges) return;
+    set({ nodes: [...get().nodes, newNode], edges, selectedNodeId: newNode.id });
+  },
   deleteNode: (id) => {
+    // The trigger is the start of every flow; it is changed, never removed.
+    if (get().nodes.find((n) => n.id === id)?.type === "trigger") return;
+    const { nodes, edges } = deleteStep(get().nodes, get().edges, id, nanoid);
+    const selected = get().selectedNodeId;
     set({
-      nodes: get().nodes.filter((node) => node.id !== id),
-      edges: get().edges.filter(
-        (edge) => edge.source !== id && edge.target !== id,
-      ),
-      selectedNodeId: get().selectedNodeId === id ? null : get().selectedNodeId,
+      nodes,
+      edges,
+      selectedNodeId: selected && nodes.some((n) => n.id === selected) ? selected : null,
     });
   },
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),

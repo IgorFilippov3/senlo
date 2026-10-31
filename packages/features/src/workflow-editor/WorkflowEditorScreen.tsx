@@ -51,7 +51,8 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
         id: n.id,
         type: n.type,
         data: n.data,
-        position: { x: n.positionX, y: n.positionY },
+        // Laid out by the builder from the graph's structure.
+        position: { x: 0, y: 0 },
       })),
     );
     setEdges(

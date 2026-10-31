@@ -95,7 +95,7 @@ describe("WorkflowService", () => {
     expect(workflows.saveGraph).not.toHaveBeenCalled();
   });
 
-  it("maps the builder's shape to the stored one", async () => {
+  it("maps the builder's shape to the stored one, dropping positions", async () => {
     const { service, workflows } = fakes();
     const action = { id: "a1", type: "action_email", data: { campaignId: 100 }, position: { x: 10, y: 20 } };
     const unset = { id: "a2", type: "action", data: {}, position: { x: 0, y: 0 } };
@@ -106,9 +106,9 @@ describe("WorkflowService", () => {
     expect(workflows.saveGraph).toHaveBeenCalledWith(
       10,
       [
-        { id: "t1", type: "trigger", data: { event: "contact_added" }, positionX: 1, positionY: 3 },
-        { id: "a1", type: "action_email", data: { campaignId: 100 }, positionX: 10, positionY: 20 },
-        { id: "a2", type: "action", data: {}, positionX: 0, positionY: 0 },
+        { id: "t1", type: "trigger", data: { event: "contact_added" } },
+        { id: "a1", type: "action_email", data: { campaignId: 100 } },
+        { id: "a2", type: "action", data: {} },
       ],
       [
         { id: "e1", sourceNodeId: "t1", targetNodeId: "a1", sourceHandle: "yes" },

@@ -1,261 +1,157 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ReactFlow,
   Background,
-  Panel,
+  BackgroundVariant,
+  Controls,
+  MarkerType,
+  ReactFlow,
   ReactFlowProvider,
-  OnSelectionChangeParams,
+  applyNodeChanges,
+  useNodesInitialized,
   useReactFlow,
-  Connection,
-  Edge,
+  type Node,
+  type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "../styles.css";
+import type { WorkflowNodeStats } from "@senlo/core";
+import { Button, Dialog } from "@senlo/ui";
 import { useAutomationStore } from "../store/automationStore";
-import { TriggerNode } from "./nodes/TriggerNode";
-import { ActionNode } from "./nodes/ActionNode";
-import { DelayNode } from "./nodes/DelayNode";
-import { ConditionNode } from "./nodes/ConditionNode";
-import { ExitNode } from "./nodes/ExitNode";
-import { UpdateContactNode } from "./nodes/UpdateContactNode";
+import { EDGE_TYPE, PLACEHOLDER_TYPE, layoutWorkflow } from "../layout/layoutWorkflow";
+import { BuilderProvider, type BuilderTrigger } from "./BuilderContext";
+import { DeleteStepDialog } from "./DeleteStepDialog";
 import { SidePanel } from "./SidePanel";
-import { Mail, Clock, GitBranch, Plus, LogOut, UserCog } from "lucide-react";
-import { Dialog, Button } from "@senlo/ui";
-import { validateWorkflowConnection } from "../validation/workflowConnections";
+import { WorkflowEdge } from "./edges/WorkflowEdge";
+import { ExitNode } from "./nodes/ExitNode";
+import { PlaceholderNode } from "./nodes/PlaceholderNode";
+import { StepNode } from "./nodes/StepNode";
 
 const nodeTypes = {
-  trigger: TriggerNode,
-  action: ActionNode,
-  delay: DelayNode,
-  condition: ConditionNode,
+  trigger: StepNode,
+  action: StepNode,
+  delay: StepNode,
+  condition: StepNode,
+  update_contact: StepNode,
   exit: ExitNode,
-  update_contact: UpdateContactNode,
+  [PLACEHOLDER_TYPE]: PlaceholderNode,
 };
 
-interface Trigger {
-  id: number;
-  name: string;
-}
+const edgeTypes = { [EDGE_TYPE]: WorkflowEdge };
+
+const defaultEdgeOptions = {
+  markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#d4d4d8" },
+};
 
 interface Props {
-  triggers?: Trigger[];
-  stats?: import("@senlo/core").WorkflowNodeStats[];
+  triggers?: BuilderTrigger[];
+  stats?: WorkflowNodeStats[];
 }
 
+/**
+ * The automation canvas. Steps are laid out from the graph's structure and
+ * cannot be dragged; the canvas itself pans and zooms. A step is added from
+ * a `+` (at an open end, or on an edge to insert it) and set up in the side
+ * panel.
+ */
 export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
-  const {
-    nodes,
-    edges,
-    onNodesChange,
-    onEdgesChange,
-    onConnect,
-    setSelectedNodeId,
-    addNode,
-    deleteNode,
-    selectedNodeId,
-    setNodeStats,
-    validationError,
-    setValidationError,
-  } = useAutomationStore();
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const { getNodes, getEdges } = useReactFlow();
+  const { nodes, edges, nodeStats, selectedNodeId, setSelectedNodeId, setNodeStats, validationError, setValidationError } =
+    useAutomationStore();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const statsString = JSON.stringify(stats);
-
-  React.useEffect(() => {
+  useEffect(() => {
     setNodeStats(stats);
   }, [statsString, setNodeStats]);
 
-  const onSelectionChange = useCallback(
-    ({ nodes }: OnSelectionChangeParams) => {
-      setSelectedNodeId(nodes.length === 1 ? nodes[0].id : null);
-    },
-    [setSelectedNodeId],
+  const layout = useMemo(
+    () => layoutWorkflow(nodes, edges, { selectedId: selectedNodeId, withStats: new Set(Object.keys(nodeStats)) }),
+    [nodes, edges, selectedNodeId, nodeStats],
   );
 
-  const isValidConnection = useCallback(
-    (connection: Edge | Connection) => {
-      return validateWorkflowConnection(getNodes(), getEdges(), connection)
-        .valid;
-    },
-    [getNodes, getEdges],
+  // The canvas keeps its own copy so React Flow can record measurements on it.
+  const [flowNodes, setFlowNodes] = useState<Node[]>([]);
+  useEffect(() => {
+    setFlowNodes((prev) => {
+      const measured = new Map(prev.map((n) => [n.id, n.measured]));
+      return layout.nodes.map((n) => ({ ...n, measured: measured.get(n.id) ?? n.measured }));
+    });
+  }, [layout.nodes]);
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => setFlowNodes((current) => applyNodeChanges(changes, current)),
+    [],
   );
 
-  const onKeyDown = useCallback(
-    (event: React.KeyboardEvent) => {
-      if (
-        (event.key === "Delete" || event.key === "Backspace") &&
-        selectedNodeId
-      ) {
-        // Don't delete if user is typing in an input
-        const activeElement = document.activeElement;
-        if (
-          activeElement?.tagName === "INPUT" ||
-          activeElement?.tagName === "TEXTAREA"
-        ) {
-          return;
-        }
-        setIsDeleting(true);
-      }
-    },
-    [selectedNodeId],
-  );
+  // Fit once per loaded workflow (the store outlives the page).
+  const { fitView } = useReactFlow();
+  const initialized = useNodesInitialized();
+  const fittedFor = useRef<string | null>(null);
+  const firstId = nodes[0]?.id ?? null;
+  useEffect(() => {
+    if (!initialized || !firstId || fittedFor.current === firstId) return;
+    fittedFor.current = firstId;
+    fitView({ padding: 0.2, maxZoom: 1, minZoom: 0.5 });
+  }, [initialized, firstId, fitView]);
 
-  const confirmDelete = () => {
-    if (selectedNodeId) {
-      deleteNode(selectedNodeId);
-      setIsDeleting(false);
-    }
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key !== "Delete" && event.key !== "Backspace") return;
+    if (!selectedNodeId) return;
+    const active = document.activeElement;
+    if (active?.tagName === "INPUT" || active?.tagName === "TEXTAREA" || (active as HTMLElement)?.isContentEditable) return;
+    const node = nodes.find((n) => n.id === selectedNodeId);
+    if (node && node.type !== "trigger") setDeletingId(node.id);
   };
-
-  const onAddNode = (type: string) => {
-    if (type === "trigger") {
-      const hasTrigger = nodes.some((n) => n.type === "trigger");
-      if (hasTrigger) {
-        setValidationError("Automation can only have one trigger node.");
-        return;
-      }
-    }
-    // Add node near the center of the view
-    addNode(type, { x: 300, y: 200 });
-  };
-
-  const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
   const closeError = () => setValidationError(null);
 
   return (
-    <div
-      className="flex h-full w-full overflow-hidden bg-white"
-      onKeyDown={onKeyDown}
-    >
-      <div className="relative flex-1">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          isValidConnection={isValidConnection}
-          onSelectionChange={onSelectionChange}
-          nodeTypes={nodeTypes}
-          fitView
-          deleteKeyCode={[]} // We handle it manually via onKeyDown to show dialog
-        >
-          <Background color="#ccc" gap={20} />
-          <Panel
-            position="top-left"
-            className="bg-white p-2 rounded-xl border border-gray-200 shadow-lg flex flex-col gap-2 ml-4 mt-4"
+    <BuilderProvider value={{ triggers }}>
+      <div className="flex h-full w-full overflow-hidden bg-[#fafafa]" onKeyDown={onKeyDown}>
+        <div className="relative flex-1">
+          <ReactFlow
+            nodes={flowNodes}
+            edges={layout.edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            defaultEdgeOptions={defaultEdgeOptions}
+            onNodesChange={onNodesChange}
+            onNodeClick={(_, node) => {
+              if (node.type !== PLACEHOLDER_TYPE) setSelectedNodeId(node.id);
+            }}
+            onPaneClick={() => setSelectedNodeId(null)}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            edgesFocusable={false}
+            panOnScroll
+            minZoom={0.3}
+            maxZoom={1.5}
+            deleteKeyCode={null}
+            proOptions={{ hideAttribution: true }}
           >
-            <div className="px-2 py-1 mb-1 border-b border-gray-100 flex items-center gap-2">
-              <Plus size={14} className="text-gray-400" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                Add Nodes
-              </span>
-            </div>
-            <button
-              onClick={() => onAddNode("action")}
-              className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
-              title="Add Email Action"
-            >
-              <div className="p-1.5 bg-blue-50 text-blue-600 rounded-md border border-blue-100 transition-colors">
-                <Mail size={16} />
-              </div>
-              <span className="text-xs font-semibold text-gray-700">
-                Send Email
-              </span>
-            </button>
+            {/* Dots scale with zoom: a lighter or smaller dot vanishes on the #fafafa canvas once fitView zooms out. */}
+            <Background variant={BackgroundVariant.Dots} gap={22} size={2} color="#b4b4bc" />
+            <Controls position="bottom-left" showInteractive={false} className="sl-flow-controls" />
+          </ReactFlow>
+        </div>
+        <SidePanel triggers={triggers} onDelete={setDeletingId} />
 
-            <button
-              onClick={() => onAddNode("delay")}
-              className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
-              title="Add Time Delay"
-            >
-              <div className="p-1.5 bg-purple-50 text-purple-600 rounded-md border border-purple-100 transition-colors">
-                <Clock size={16} />
-              </div>
-              <span className="text-xs font-semibold text-gray-700">
-                Wait Delay
-              </span>
-            </button>
-            <button
-              onClick={() => onAddNode("condition")}
-              className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
-              title="Add API Check"
-            >
-              <div className="p-1.5 bg-green-50 text-green-600 rounded-md border border-green-100 transition-colors">
-                <GitBranch size={16} />
-              </div>
-              <span className="text-xs font-semibold text-gray-700">
-                API Check
-              </span>
-            </button>
-            <button
-              onClick={() => onAddNode("update_contact")}
-              className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
-              title="Update Contact"
-            >
-              <div className="p-1.5 bg-orange-50 text-orange-600 rounded-md border border-orange-100 transition-colors">
-                <UserCog size={16} />
-              </div>
-              <span className="text-xs font-semibold text-gray-700">
-                Update Contact
-              </span>
-            </button>
-            <button
-              onClick={() => onAddNode("exit")}
-              className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg group transition-colors text-left"
-              title="Exit Workflow"
-            >
-              <div className="p-1.5 bg-red-50 text-red-600 rounded-md border border-red-100 transition-colors">
-                <LogOut size={16} />
-              </div>
-              <span className="text-xs font-semibold text-gray-700">Exit</span>
-            </button>
-          </Panel>
-        </ReactFlow>
+        <DeleteStepDialog nodeId={deletingId} onClose={() => setDeletingId(null)} />
+
+        <Dialog
+          isOpen={validationError !== null}
+          onClose={closeError}
+          title="Can't add this step"
+          footer={<Button onClick={closeError}>Got it</Button>}
+        >
+          <p className="text-sm text-gray-500">{validationError}</p>
+        </Dialog>
       </div>
-      <SidePanel triggers={triggers} />
-
-      <Dialog
-        isOpen={isDeleting}
-        onClose={() => setIsDeleting(false)}
-        title="Delete Node"
-        description={`Are you sure you want to delete this ${selectedNode?.type || "node"}? This will also remove all connected lines.`}
-        footer={
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setIsDeleting(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              Delete Node
-            </Button>
-          </div>
-        }
-      >
-        <p className="text-sm text-gray-500">
-          Removing this node might break the workflow path for contacts
-          currently in this automation.
-        </p>
-      </Dialog>
-
-      <Dialog
-        isOpen={validationError !== null}
-        onClose={closeError}
-        title="Validation Error"
-        footer={<Button onClick={closeError}>Got it</Button>}
-      >
-        <p className="text-sm text-gray-500">{validationError}</p>
-      </Dialog>
-    </div>
+    </BuilderProvider>
   );
 };
 
-export const AutomationBuilder = ({ triggers, stats }: Props) => {
-  return (
-    <ReactFlowProvider>
-      <AutomationCanvas triggers={triggers} stats={stats} />
-    </ReactFlowProvider>
-  );
-};
+export const AutomationBuilder = ({ triggers, stats }: Props) => (
+  <ReactFlowProvider>
+    <AutomationCanvas triggers={triggers} stats={stats} />
+  </ReactFlowProvider>
+);
