@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose a concrete improvement. For open-ended ideas, start a Discussion instead.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should Senlo do? API shape, UI sketch or example payloads help.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and workarounds
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - core (services, renderer, queues)
+        - editor
+        - providers
+        - automations
+        - API / SDK
+        - docs
+        - other
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement this myself

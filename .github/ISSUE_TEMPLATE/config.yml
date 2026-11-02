@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/IgorFilippov3/senlo/discussions
+    about: Ask questions and discuss ideas in GitHub Discussions.
+  - name: Security issue
+    url: https://github.com/IgorFilippov3
+    about: Do not open a public issue. Email the maintainer at the address on this profile.

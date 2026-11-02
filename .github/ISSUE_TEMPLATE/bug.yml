@@ -1,0 +1,65 @@
+name: Bug report
+description: Something in Senlo does not work as it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please redact API keys, provider credentials and recipient addresses.
+        Security issues go by email to the maintainer, not here (see CONTRIBUTING.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Open a template in the editor
+        2. ...
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Editor
+        - Sending / triggered API
+        - Delivery provider (Resend, Postmark, SMTP...)
+        - Automations
+        - Campaigns / contacts
+        - Dashboard / tracking
+        - Deployment (Docker, VPS)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: e.g. main @ c4a1892
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: How do you run Senlo
+      options:
+        - Docker Compose (deploy/vps)
+        - Local dev (pnpm dev)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Delivery provider
+      description: If the bug involves sending.
+      placeholder: Resend / Postmark / SMTP (which server)
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output of `docker compose logs app` or `worker`, or the browser console.
+      render: shell
