@@ -1,0 +1,21 @@
+{
+  "title": "Senlo",
+  "root": true,
+  "pages": [
+    "index",
+    "---Getting started---",
+    "...getting-started",
+    "---Concepts---",
+    "...concepts",
+    "---API---",
+    "...api",
+    "api-reference",
+    "sdks",
+    "---Providers---",
+    "...providers",
+    "---Self-hosting---",
+    "...self-hosting",
+    "---Project---",
+    "contributing"
+  ]
+}

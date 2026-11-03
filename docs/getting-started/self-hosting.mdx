@@ -1,0 +1,82 @@
+---
+title: Self-hosting
+description: Run Senlo on your own server with Docker Compose.
+---
+
+<Callout type="info" title="Self-hosted only">
+  This page is about running your own instance. On senlo.io all of this is done for you.
+</Callout>
+
+```bash
+git clone https://github.com/IgorFilippov3/senlo.git
+cd senlo/deploy/vps
+cp env.example .env
+sed -i.bak "s|YOUR_AUTH_SECRET_HERE|$(openssl rand -base64 32)|" .env && rm .env.bak
+sed -i.bak "s|^SECRETS_KEY=\"\"|SECRETS_KEY=\"$(openssl rand -base64 32)\"|" .env && rm .env.bak
+docker compose up -d --build
+```
+
+That starts four containers: `app` (the web app and API), `worker` (sends email and runs automations), `db` (Postgres 15) and `redis` (Redis 7). You need Docker with Docker Compose and, for production, a domain and a reverse proxy.
+
+## 1. Set the required variables
+
+`deploy/vps/.env` needs three values before the first start:
+
+| Variable | What it is |
+| --- | --- |
+| `AUTH_SECRET` | Signs sessions, and the unsubscribe and tracking links in outgoing mail. |
+| `SECRETS_KEY` | Encrypts provider credentials in the database. Set it once and never change it. |
+| `APP_URL` | The address Senlo is reached at, e.g. `https://mail.example.com`. Links in every email point here. |
+
+`DATABASE_URL` and `REDIS_URL` already point at the bundled containers. The full list is in [Configuration](../self-hosting/configuration.mdx).
+
+## 2. Start it
+
+```bash
+docker compose up -d --build
+```
+
+The first build compiles the app from source and takes several minutes. On every start the app applies the database schema (`pnpm db:push`), creates the users from `INITIAL_USERS`, then starts.
+
+The app listens on `127.0.0.1:3000` only. Check it from the server:
+
+```bash
+curl -I http://127.0.0.1:3000
+```
+
+## 3. Put a reverse proxy in front
+
+Senlo is meant to sit behind Caddy or nginx. The proxy gives you HTTPS and the real client IP, which rate limits depend on. With Caddy:
+
+```text title="/etc/caddy/Caddyfile"
+mail.example.com {
+    reverse_proxy 127.0.0.1:3000 {
+        header_up X-Real-IP {remote_host}
+    }
+}
+```
+
+nginx and the reasoning are in [Production checklist](../self-hosting/production-checklist.mdx).
+
+## 4. First login
+
+Open your `APP_URL` and register at `/register`. Registration is open by default; set `ALLOW_REGISTRATION=false` to close it once your accounts exist.
+
+To create accounts on the first start instead, set `INITIAL_USERS`:
+
+```bash
+INITIAL_USERS='[{"name": "Admin", "email": "admin@example.com", "password": "secure_password", "role": "ADMIN"}]'
+```
+
+Users created this way get a set of example workspaces and templates.
+
+## 5. Connect a provider
+
+Open **Providers**, add Resend, Postmark or an SMTP server, then select it in your workspace's **Settings**. Setup per provider: [Resend](../providers/resend.mdx), [Postmark](../providers/postmark.mdx), [SMTP](../providers/smtp.mdx).
+
+From here, the [Quickstart](./quickstart.mdx) works the same way, with your `APP_URL` instead of `https://senlo.io`.
+
+## Next
+
+- [Production checklist](../self-hosting/production-checklist.mdx)
+- [Upgrading](../self-hosting/upgrading.mdx)

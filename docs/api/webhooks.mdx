@@ -1,0 +1,57 @@
+---
+title: Provider webhooks
+description: Connect your provider's delivery, bounce and complaint events to Senlo.
+---
+
+```text
+https://senlo.io/api/webhooks/resend
+https://senlo.io/api/webhooks/postmark
+```
+
+Your provider calls these URLs when an email is delivered, bounces or is marked as spam. Senlo records the outcome in the delivery log and suppresses addresses that bounce or complain. Without a webhook, Senlo only knows that the provider accepted the email.
+
+<Callout type="info" title="Self-hosted only">
+  Use your own `APP_URL`: `https://mail.example.com/api/webhooks/resend`. The provider has to reach it from the internet, so `localhost` will not work.
+</Callout>
+
+## Setup
+
+1. In your provider, create a webhook with the URL above and enable the events in the table below.
+2. Copy the webhook's secret.
+3. In Senlo, open **Providers**, edit the provider, and paste it into **Webhook Secret**.
+
+Step-by-step per provider: [Resend](../providers/resend.mdx), [Postmark](../providers/postmark.mdx).
+
+A provider with no webhook secret saved refuses every event with `401`: an unauthenticated endpoint would let anyone fill your suppression list.
+
+## Events Senlo uses
+
+| Senlo | Resend | Postmark | What Senlo does |
+| --- | --- | --- | --- |
+| Delivered | `email.delivered` | Delivery | Delivery log: `DELIVERED`. |
+| Bounce | `email.bounced` | Bounce | Delivery log: `BOUNCE`; address added to the suppression list. |
+| Spam complaint | `email.complained` | SpamComplaint | Delivery log: `SPAM_REPORT`; address added to the suppression list. |
+| Open, click | not used | Open, Click | Logged on the trigger. |
+
+Senlo counts opens and clicks with its own tracking links, so Resend's open and click events are ignored to avoid counting twice. Other event types are answered `200` and ignored, so the provider does not retry them.
+
+## How an event is matched
+
+Senlo tags every email it sends with the workspace, the trigger and the contact (Resend tags, Postmark metadata). The webhook reads the workspace from those tags, checks the signature against **that workspace's** provider, and only then trusts the rest. An event for a workspace whose provider is a different type, or one without tags, is ignored.
+
+## Verification
+
+- **Resend** signs webhooks with Svix. Senlo verifies the `svix-*` headers with the signing secret (`whsec_...`).
+- **Postmark** does not sign webhooks. Add a custom header `X-Postmark-Secret` to the webhook, with the same value you saved as the webhook secret in Senlo.
+
+## Responses
+
+| Status | Meaning |
+| --- | --- |
+| `200` | Applied, or ignored on purpose. |
+| `400` | The body is not JSON. |
+| `401` | Bad signature or secret, or no secret saved on the provider. |
+| `429` | Rate limited (6,000 requests a minute per IP). |
+| `500` | Processing failed; the provider will retry. |
+
+[Webhook endpoints in the API reference](../api-reference/index.mdx).

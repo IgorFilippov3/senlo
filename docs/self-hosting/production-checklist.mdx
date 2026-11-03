@@ -1,0 +1,81 @@
+---
+title: Production checklist
+description: Secrets, storage, backups, reverse proxy and updates for a production instance.
+---
+
+<Callout type="info" title="Self-hosted only">
+  Everything on this page is handled for you on senlo.io.
+</Callout>
+
+```bash
+curl -I https://mail.example.com      # HTTPS through the proxy
+curl -I http://127.0.0.1:3000         # the app itself, from the server only
+```
+
+## Secrets
+
+- [ ] `AUTH_SECRET` and `SECRETS_KEY` are random (`openssl rand -base64 32`), different from each other, and not the values from `env.example`.
+- [ ] A copy of `SECRETS_KEY` is stored wherever you back up the database. Provider credentials encrypted with it cannot be read with any other key.
+- [ ] Consider `LINK_SIGNING_SECRET`, so `AUTH_SECRET` can be rotated later without breaking unsubscribe links in sent mail.
+- [ ] The Postgres password in `docker-compose.yml` and `DATABASE_URL` is changed from `senlo_password`.
+{/* TODO(verify): deploy/vps/docker-compose.yml hard-codes POSTGRES_PASSWORD=senlo_password; changing it needs editing the compose file (and DATABASE_URL) before the first start. */}
+
+If `SECRETS_KEY` changes anyway, the Providers page marks affected providers "Credentials can't be decrypted". Re-enter them, or re-encrypt with the old key: `docker compose exec -e OLD_SECRETS_KEY="<old>" app pnpm db:reseal-secrets`.
+
+## Reverse proxy and TLS
+
+- [ ] Caddy or nginx in front, serving HTTPS for `APP_URL`.
+- [ ] The proxy sets `X-Real-IP` to the real client address.
+- [ ] Port 3000 is not open to the internet (`APP_BIND` stays `127.0.0.1:3000`).
+
+Rate limits on sign-in, registration and the API are per client IP, taken from the proxy's headers. Without a proxy anyone can fake those headers, and a client that sends none is not limited at all.
+
+```nginx title="nginx"
+server {
+    server_name mail.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Then `sudo certbot --nginx -d mail.example.com`. Caddy gets certificates on its own; its config is in [Self-hosting](../getting-started/self-hosting.mdx#3-put-a-reverse-proxy-in-front).
+
+## Email
+
+- [ ] `APP_URL` is the final public HTTPS address. It is in every tracking and unsubscribe link you send; changing it later breaks links in mail already delivered.
+- [ ] `DEFAULT_FROM_EMAIL` is an address on a domain verified with your provider.
+- [ ] [Provider webhooks](../api/webhooks.mdx) are connected, so bounces and complaints suppress addresses.
+
+## Storage
+
+- [ ] Uploaded images live in the `uploads_data` volume by default. Back it up, or switch to S3/R2 with `STORAGE_DRIVER=s3` ([Configuration](./configuration.mdx#file-storage)).
+
+## Backups
+
+- [ ] Postgres is backed up regularly. With the bundled container:
+
+```bash
+docker compose exec -T db pg_dump -U senlo_user senlo_db | gzip > senlo-$(date +%F).sql.gz
+```
+
+- [ ] Restores are tested at least once.
+- [ ] `SECRETS_KEY` is stored with the backups.
+
+## Redis
+
+- [ ] Redis holds the send queue and scheduled automation steps (delays). The bundled container keeps its data in the `redis_data` volume; for durability across crashes, enable append-only persistence.
+{/* TODO(verify): deploy/vps/docker-compose.yml starts redis:7-alpine without --appendonly; RDB snapshots only by default. Consider adding `command: redis-server --appendonly yes` to the compose file. */}
+
+## Access
+
+- [ ] `ALLOW_REGISTRATION=false` once your accounts exist, unless you want open sign-up.
+
+## Updates
+
+- [ ] You have a way to hear about new releases (watch the GitHub repository) and follow [Upgrading](./upgrading.mdx).

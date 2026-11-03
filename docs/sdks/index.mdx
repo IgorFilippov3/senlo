@@ -1,0 +1,31 @@
+---
+title: SDKs
+description: Senlo has a REST API; there is no official SDK yet.
+---
+
+```ts
+// The whole client: two endpoints, one header.
+export async function senlo(path: "/api/events" | "/api/triggered", body: unknown) {
+  const res = await fetch(`${process.env.SENLO_URL ?? "https://senlo.io"}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.SENLO_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(`Senlo ${res.status}: ${json.error}`);
+  return json;
+}
+```
+
+There is no official SDK, for Node or any other language: Senlo is REST only. The API is two `POST` endpoints with a bearer token, so a few lines of `fetch` (above) or any HTTP client cover it.
+
+- [`POST /api/triggered`](../api/triggered.mdx) sends one email.
+- [`POST /api/events`](../api/events.mdx) feeds contact events into automations.
+- [`openapi.yaml`](https://github.com/IgorFilippov3/senlo/blob/main/docs/openapi.yaml) describes both; OpenAPI generators can build a typed client from it.
+
+## Community SDKs
+
+Wrote a client for your language? Open an [issue on GitHub](https://github.com/IgorFilippov3/senlo/issues) and it will be listed here. Requests for an official SDK go there too.

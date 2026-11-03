@@ -1,0 +1,67 @@
+---
+title: Configuration
+description: Every environment variable of a self-hosted instance, with its default.
+---
+
+<Callout type="info" title="Self-hosted only">
+  These variables configure your own instance. Senlo Cloud is configured for you.
+</Callout>
+
+```bash title="deploy/vps/.env (minimum)"
+DATABASE_URL=postgresql://senlo_user:senlo_password@db:5432/senlo_db
+AUTH_SECRET="<openssl rand -base64 32>"
+SECRETS_KEY="<openssl rand -base64 32>"
+APP_URL="https://mail.example.com"
+```
+
+Every variable is read when the containers start, not when the image is built: change a value, then `docker compose up -d`, no rebuild. If a required value is missing or invalid, the app and the worker refuse to start and list every problem at once.
+
+## Required
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `DATABASE_URL` | none | Postgres connection string. `env.example` points at the bundled `db` container. |
+| `AUTH_SECRET` | none | Signs sessions, and unsubscribe and tracking links unless `LINK_SIGNING_SECRET` is set. Generate with `openssl rand -base64 32`. |
+| `APP_URL` | `http://localhost:3000` outside production | The public address of the instance. Links in every email point here. Required in production. The old name `NEXT_PUBLIC_APP_URL` is still read. |
+| `SECRETS_KEY` | `LINK_SIGNING_SECRET`, then `AUTH_SECRET` | Encrypts provider credentials in the database. Optional, but set it on the first install and never change it. |
+
+## Optional
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `REDIS_URL` | `redis://localhost:6379` (`redis://redis:6379` in compose) | Queues and rate limits. |
+| `REDIS_QUEUE_PREFIX` | `senlo` | Prefix for queue and rate-limit keys, if several instances share one Redis. |
+| `LINK_SIGNING_SECRET` | `AUTH_SECRET` | Signs unsubscribe and tracking links. Set it to rotate `AUTH_SECRET` (which signs everyone out) without breaking links in mail already sent. |
+| `DEFAULT_FROM_EMAIL` | `hello@senlo.io` | Sender for triggers that do not set one. Must be one plain address. Set it to an address on your verified domain. |
+| `ALLOW_REGISTRATION` | `true` | `false` closes `/register`. Existing users still sign in. |
+| `INITIAL_USERS` | `[]` | JSON array of users created on start, e.g. `'[{"name":"Admin","email":"admin@example.com","password":"...","role":"ADMIN"}]'`. They get example workspaces and templates. |
+| `GITHUB_ID`, `GITHUB_SECRET` | unset | Enable sign-in with GitHub when both are set. |
+| `AUTH_TRUST_HOST` | `true` in compose | Lets Auth.js trust the `Host` header behind your reverse proxy. |
+| `APP_BIND` | `127.0.0.1:3000` | Compose only: where the app's port is published on the host. Keep it on localhost behind a proxy. |
+| `IS_DEMO_MODE` | `false` | Only for a public demo instance: loads Umami analytics (with `UMAMI_WEBSITE_ID`). |
+| `UMAMI_WEBSITE_ID` | unset | Umami website id, used with `IS_DEMO_MODE`. |
+{/* TODO(verify): IS_DEMO_MODE is read in apps/web/lib/config.ts as `demoMode`; check where Umami actually loads in the self-hosted app. */}
+
+## File storage
+
+Images uploaded in the editor go to the app's disk (the `uploads_data` volume) by default. For S3 or an S3-compatible service (Cloudflare R2, MinIO):
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `STORAGE_DRIVER` | `local` | `local` or `s3`. |
+| `S3_BUCKET` | none | Required with `s3`. |
+| `S3_REGION` | none | Required with `s3`. `auto` for R2. |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | none | Required with `s3`. |
+| `S3_ENDPOINT` | unset (AWS) | The endpoint of an S3-compatible service. |
+| `S3_PUBLIC_URL` | `https://<bucket>.s3.<region>.amazonaws.com` on AWS | Where objects are served from. Required with `S3_ENDPOINT`. |
+| `S3_KEY_PREFIX` | empty | Key prefix inside the bucket, e.g. `uploads`. |
+| `S3_FORCE_PATH_STYLE` | `true` with `S3_ENDPOINT`, else `false` | Path-style addressing, which most S3-compatible services need. |
+
+## Maintenance commands
+
+| Command | When |
+| --- | --- |
+| `docker compose exec -e OLD_SECRETS_KEY="<old key>" app pnpm db:reseal-secrets` | Re-encrypts provider credentials after `SECRETS_KEY` changed. |
+| `docker compose exec app pnpm db:hash-api-keys` | Hashes API keys stored in the clear by old versions. |
+
+See [Production checklist](./production-checklist.mdx) for what to set before going live.

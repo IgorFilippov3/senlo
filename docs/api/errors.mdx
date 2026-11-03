@@ -1,0 +1,87 @@
+---
+title: Errors
+description: Status codes, the error body, plan limits and rate limits.
+---
+
+```json
+{
+  "error": "Email is required",
+  "details": {
+    "fieldErrors": { "email": ["Email is required"] },
+    "formErrors": []
+  }
+}
+```
+
+Every error from `POST /api/events` and `POST /api/triggered` is JSON with an `error` message. Some errors add `details`.
+
+## Status codes
+
+| Status | Meaning | Retry? |
+| --- | --- | --- |
+| `400` | The request is invalid, or the workspace is not set up to send (no provider, not an API trigger). | No, fix the request. |
+| `401` | Missing, malformed or unknown API key. | No. |
+| `402` | Cloud only: a plan limit is reached. | After the limit resets or the plan changes. |
+| `404` | The trigger, its template, the provider or the contact was not found in this workspace. | No. |
+| `429` | Too many requests. | Yes, after `Retry-After` seconds. |
+| `500` | Something failed on Senlo's side. | Yes, with backoff. |
+
+## The error body
+
+```ts
+type SenloError = {
+  error: string;                    // human-readable, safe to log
+  details?: Record<string, unknown>;
+};
+```
+
+For validation errors, `error` is the first field's message and `details` lists all of them:
+
+- `details.fieldErrors`: field name → messages, e.g. `{ "to": ["Invalid email"] }`;
+- `details.formErrors`: messages that belong to no single field.
+
+For a missing record, `details.resource` names it (`Campaign`, `Template`, `Contact`, ...). A trigger is called `Campaign` in error messages.
+
+## Plan limits (402)
+
+<Callout type="info" title="Cloud only">
+  On senlo.io each organization has monthly limits for emails sent and automation runs started (see [Pricing](https://senlo.io/pricing)). When one is reached:
+
+  - `POST /api/triggered` answers `402`;
+  - `POST /api/events` answers `402` if the event would start an automation run; the contact change itself is saved;
+  - an email already queued, or an automation step that sends, fails and shows `FAILED` in the delivery log.
+
+  The `error` message says which limit was reached and the date it resets (the first of the next month, UTC). Self-hosted instances have no limits.
+</Callout>
+
+## Rate limits
+
+| Endpoints | Limit |
+| --- | --- |
+| `POST /api/events`, `POST /api/triggered` | 1,200 requests a minute per client IP |
+| `/api/webhooks/*`, `POST /api/unsubscribe/*` | 6,000 requests a minute per client IP |
+
+Over the limit, the response is `429` with `{ "error": "Too many requests" }` and a `Retry-After` header in seconds.
+
+```ts title="Node: retry on 429"
+async function post(url: string, body: unknown, tries = 3): Promise<Response> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.SENLO_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 429 && tries > 1) {
+    const wait = Number(res.headers.get("Retry-After") ?? 1);
+    await new Promise((r) => setTimeout(r, wait * 1000));
+    return post(url, body, tries - 1);
+  }
+  return res;
+}
+```
+
+<Callout type="info" title="Self-hosted only">
+  The client IP comes from the `X-Real-IP` or `X-Forwarded-For` header your reverse proxy sets. Without a proxy, requests are not limited by IP at all. See [Production checklist](../self-hosting/production-checklist.mdx).
+</Callout>

@@ -1,0 +1,38 @@
+---
+title: Workspaces
+description: A workspace holds one product's templates, triggers, automations, contacts and API keys.
+---
+
+```text
+Workspace "Acme app"
+├── Email provider: Resend (acme.com)
+├── Templates
+├── Triggers
+├── Automations
+├── Contacts and the suppression list (Audience)
+└── API keys
+```
+
+A **workspace** is the unit everything else belongs to. The API and the code call it a *project*: `projectId` in a [contact](./contacts.mdx) is the workspace id.
+
+## What a workspace holds
+
+- **Templates** designed in the [editor](./templates.mdx).
+- **Triggers** that send one template through the API, and **automations** that react to events. See [Triggers and automations](./triggers-and-automations.mdx).
+- **Contacts**, created from [events](../api/events.mdx), and the **suppression list** (Audience).
+- **API keys**. A key works for its own workspace only. See [Authentication](../api/authentication.mdx).
+- **One email provider**, selected in the workspace's Settings.
+
+Use one workspace per product or per sending domain. Contacts, suppressions and keys are never shared between workspaces.
+
+## Providers belong to the account
+
+Email providers are added under **Providers**, outside any workspace, and each workspace picks one of them in its Settings. Two workspaces can use the same provider; a workspace uses exactly one at a time.
+
+<Callout type="info" title="Cloud only">
+  On senlo.io, workspaces and providers belong to an **organization**. Everyone you invite to the organization sees its workspaces, with a role: `owner`, `admin`, `editor` or `viewer`. Viewers read, editors and above change things, owners and admins manage members. Plan limits (workspaces, emails and automation runs a month) apply per organization. See [Pricing](https://senlo.io/pricing).
+</Callout>
+
+<Callout type="info" title="Self-hosted only">
+  On your own instance, workspaces and providers belong to the user who created them. There are no organizations, roles or plan limits.
+</Callout>

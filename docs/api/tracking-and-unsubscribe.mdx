@@ -1,0 +1,49 @@
+---
+title: Tracking and unsubscribe
+description: Open and click tracking, and how unsubscribe links and one-click unsubscribe work.
+---
+
+```text
+https://senlo.io/api/t/o/<token>                  open pixel
+https://senlo.io/api/t/c/<token>?url=...&s=...    click redirect
+https://senlo.io/unsubscribe/<token>              unsubscribe page
+https://senlo.io/api/unsubscribe/<token>          one-click unsubscribe (POST)
+```
+
+Senlo rewrites every email it sends with links like these. You do not build or call them yourself; this page explains what they do.
+
+## Open tracking
+
+A 1×1 image at `/api/t/o/<token>` is added to the end of every email. When a mail client loads it, Senlo records an `OPEN` for the trigger. The response is always an image, even for an unknown token.
+
+Opens are approximate: some clients block images, others (Apple Mail Privacy Protection) load them without the recipient opening anything.
+
+## Click tracking
+
+Links in the email point at `/api/t/c/<token>?url=<destination>&s=<signature>`. Senlo records a `CLICK` and redirects to the destination.
+
+The destination is signed together with the recipient token. A link whose `url` was edited is not followed: Senlo shows the destination on a page and records nothing. The unsubscribe link is never rewritten.
+
+The token is sealed: it carries the trigger and the recipient without showing the address, and cannot be edited to count opens or clicks for someone else.
+
+## Unsubscribe
+
+Every email carries:
+
+- the `{{unsubscribe_url}}` [merge tag](../concepts/merge-tags.mdx) for a link in your footer, pointing at `/unsubscribe/<token>`;
+- `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers pointing at `/api/unsubscribe/<token>`, for the unsubscribe button Gmail, Yahoo and others show.
+
+The token is signed with the instance's link-signing secret. A signed token unsubscribes at once, both on the page and on the one-click POST. What happens then is described in [Contacts](../concepts/contacts.mdx#unsubscribe).
+
+Links from mail sent before tokens were signed still work, but only on the page: the recipient has to confirm their address. The one-click POST answers `400` for them.
+
+<Callout type="info" title="Self-hosted only">
+  All of these links use `APP_URL`, and are signed with `LINK_SIGNING_SECRET` (or `AUTH_SECRET` when it is not set). Changing the secret breaks the links in mail already sent; set `LINK_SIGNING_SECRET` separately if you want to rotate `AUTH_SECRET`. See [Configuration](../self-hosting/configuration.mdx).
+</Callout>
+
+## Custom tracking domain
+
+<Callout type="info" title="Cloud only">
+  Tracking and unsubscribe links currently use `senlo.io`. A custom tracking domain (your own `CNAME`) is planned for the Pro plan and is not available yet.
+</Callout>
+{/* TODO(verify): custom tracking domain is in the backlog (managed phase 7), not in code. Update this section when it ships. */}

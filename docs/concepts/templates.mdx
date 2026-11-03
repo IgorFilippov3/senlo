@@ -1,0 +1,39 @@
+---
+title: Templates
+description: Design emails in the visual editor and send them with data from your app.
+---
+
+```text
+Hi {{name}},
+
+Your order {{order.number}} is confirmed. Total: {{order.total}}.
+```
+
+A template is one email: its design, subject and preheader. Your app sends the data, the template decides how it looks. Changing an email is an edit in the editor, not a deploy.
+
+## The editor
+
+Open **Templates** and click **New Template**. The editor builds the email from rows, columns and blocks (text, image, button, table and more). The result is rendered through MJML into HTML that works in common mail clients.
+
+- **Merge tags** put data into text, links and attributes. See [Merge tags](./merge-tags.mdx).
+- **Conditions** show or hide a row or a block depending on the data (`equals`, `not_equals`, `gt`, `lt`, `is_set`, `is_not_set`).
+- **Loops** repeat a row for every item of an array, such as order lines, up to 1,000 items.
+{/* TODO(verify): conditions and loops on real sends, see the note in merge-tags.mdx. */}
+
+## Preview data
+
+The preview's **Mock Data** panel takes JSON. The editor renders the template with it, so you see merge tags, conditions and loops filled in before anything is sent. A trigger's **Sample JSON Data** (set when you create it) is what the trigger page uses for its sample request.
+
+## Locales
+
+Language versions are set on the trigger, not inside one template: each translation is its own template, and the trigger maps locale codes to templates.
+
+- [`POST /api/triggered`](../api/triggered.mdx) with `"locale": "de"` sends the trigger's `de` template.
+- An [automation](./triggers-and-automations.mdx) sends the template for the contact's `locale`.
+- When the trigger has no template for that locale, or no locale is given, the trigger's default template is sent.
+
+The match is exact and case-sensitive: `de` and `DE` are different locales.
+
+## Subject
+
+The subject comes from the template. [`POST /api/triggered`](../api/triggered.mdx) can replace it for one send with `subject`. Merge tags work in the subject too; there they are inserted as plain text, not HTML-escaped.

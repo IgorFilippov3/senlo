@@ -1,0 +1,56 @@
+---
+title: Authentication
+description: API keys, the Authorization header, and how to rotate a key.
+---
+
+```bash
+curl -X POST https://senlo.io/api/events \
+  -H "Authorization: Bearer snl_abcdefghijklmnopqrstuvwxyz234567" \
+  -H "Content-Type: application/json" \
+  -d '{ "event": "contact_added", "email": "ada@example.com" }'
+```
+
+`POST /api/events` and `POST /api/triggered` need an API key, sent as a bearer token in the `Authorization` header.
+
+## API keys
+
+- Create keys in the workspace under **API Keys** → **Create Key**.
+- A key looks like `snl_` followed by 32 random characters.
+- The full key is shown **once**, right after you create it. Senlo stores only a SHA-256 hash of it, plus its first 12 characters (`snl_abcdefgh`) so you can tell keys apart in the list.
+- A key belongs to the workspace it was created in. Requests made with it act on that workspace only, which is why no workspace id appears in any request.
+
+Keep keys on your server. Anyone with a key can send email from your workspace.
+
+## The header
+
+```http
+Authorization: Bearer snl_your_api_key
+```
+
+The scheme is case-insensitive (`bearer` works). A missing or malformed header answers `401` with `Missing or invalid Authorization header`; a key that does not exist answers `401` with `Invalid API key`.
+
+```ts title="Node"
+const senlo = (path: string, body: unknown) =>
+  fetch(`https://senlo.io${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.SENLO_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+```
+
+## Rotating a key
+
+There is no rotate button; rotate with two keys:
+
+1. Create a new key.
+2. Deploy your app with the new key.
+3. Delete the old key. Requests with it fail with `401` from then on.
+
+Delete a key the same way when it leaks.
+
+<Callout type="info" title="Self-hosted only">
+  Instances installed before keys were hashed may still hold keys in the clear. They keep working; `pnpm db:hash-api-keys` replaces each with its hash.
+</Callout>

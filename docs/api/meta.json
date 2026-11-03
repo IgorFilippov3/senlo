@@ -1,0 +1,4 @@
+{
+  "title": "API",
+  "pages": ["authentication", "triggered", "events", "webhooks", "tracking-and-unsubscribe", "errors"]
+}

@@ -1,0 +1,47 @@
+---
+title: SMTP
+description: Send through any SMTP server or relay.
+---
+
+```text
+Provider type:  SMTP server
+Host:           smtp.example.com
+Port:           587
+Encryption:     STARTTLS
+Username:       you@example.com
+Password:       ••••••••
+```
+
+Any server that accepts SMTP works: Amazon SES SMTP, Mailgun, Brevo, your own Postfix, an internal relay.
+
+## Add the provider
+
+1. Open **Providers** → **Add Provider**, **Provider Type**: SMTP server.
+2. Fill in the fields:
+
+| Field | Value |
+| --- | --- |
+| **Host** | The server's hostname. |
+| **Port** | Usually `587` with STARTTLS, or `465` with SSL/TLS. |
+| **Encryption** | `STARTTLS` (default): the connection is upgraded, and Senlo refuses to continue if the server does not offer it. `SSL/TLS`: encrypted from the first byte. `None`: unencrypted. |
+| **Username**, **Password** | Leave both empty for a relay that accepts mail without authentication. |
+
+3. Click **Create Provider**, then select it in your workspace's **Settings**.
+
+Match **Encryption** to the port. `None` sends the message and the password in the clear; use it only inside a private network.
+
+## Sending
+
+Senlo keeps a small pool of connections (up to 5) per SMTP configuration and reuses them, so large sends do not open a connection per email.
+
+The From email on your triggers must be allowed by the server; most providers require a verified domain.
+
+## No delivery webhooks
+
+SMTP has no standard way to report deliveries, bounces or complaints back. With an SMTP provider the delivery log shows `SENT` or `FAILED`, but not `DELIVERED`, `BOUNCE` or `SPAM_REPORT`, and bounced addresses are not suppressed automatically. Senlo's own open and click tracking still works.
+
+If your provider has its own webhooks (SES, Mailgun), Senlo does not read them yet. Use [Resend](./resend.mdx) or [Postmark](./postmark.mdx) for automatic bounce handling.
+
+<Callout type="info" title="Cloud only">
+  On senlo.io the SMTP host must be on the public internet: hosts like `localhost`, `*.internal`, `*.local` and private IP ranges are refused.
+</Callout>

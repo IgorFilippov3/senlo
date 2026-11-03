@@ -1,0 +1,28 @@
+---
+title: Contributing
+description: How to improve Senlo and these docs.
+---
+
+```bash
+git clone https://github.com/IgorFilippov3/senlo.git
+cd senlo
+pnpm install
+```
+
+Senlo is open source under AGPL-3.0. Code, bug reports and docs fixes are all welcome.
+
+- **Code**: read [CONTRIBUTING.md](https://github.com/IgorFilippov3/senlo/blob/main/CONTRIBUTING.md) for local setup, the repository layout and how to add a provider. Contributions are accepted under the [CLA](https://github.com/IgorFilippov3/senlo/blob/main/CLA.md).
+- **Bugs and feature requests**: [GitHub Issues](https://github.com/IgorFilippov3/senlo/issues).
+- **Questions and ideas**: [GitHub Discussions](https://github.com/IgorFilippov3/senlo/discussions).
+{/* TODO(verify): GitHub Discussions are enabled on the senlo repository. */}
+
+## Editing these docs
+
+These pages are MDX files in [`docs/`](https://github.com/IgorFilippov3/senlo/tree/main/docs) of the Senlo repository, rendered at [senlo.io/docs](https://senlo.io/docs).
+
+- One page per file; the sidebar order is in each folder's `meta.json`.
+- Link to other pages by relative file path (`../api/events.mdx`), so links work on GitHub and on the site.
+- The API reference is generated from `docs/openapi.yaml`. Change the YAML together with the request schemas in `packages/core` when an endpoint changes.
+- Mark behavior that differs between Senlo Cloud and self-hosted with a `<Callout type="info" title="Cloud only">` or `title="Self-hosted only"` block.
+
+Open a pull request; a docs change needs no issue first.

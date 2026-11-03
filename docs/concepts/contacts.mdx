@@ -1,0 +1,57 @@
+---
+title: Contacts
+description: How contacts are created and updated from events, and how unsubscribe and suppression work.
+---
+
+```bash
+curl -X POST https://senlo.io/api/events \
+  -H "Authorization: Bearer $SENLO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "event": "contact_updated", "email": "ada@example.com", "metadata": { "plan": "pro" } }'
+```
+
+A **contact** is one email address in one workspace, with a name, a locale and free-form metadata. Automations run for contacts; triggered emails do not need one.
+
+## Fields
+
+| Field | Meaning |
+| --- | --- |
+| `email` | Unique per workspace. |
+| `name` | Optional. |
+| `locale` | Picks the language version an automation sends. See [Locales](./templates.mdx#locales). |
+| `meta` | Any JSON object. Sent as `metadata` in events, available to [merge tags](./merge-tags.mdx) in automation emails. `tags` is an array of strings by convention. |
+| `unsubscribed`, `unsubscribedAt` | Set when the contact unsubscribes. |
+
+## Created and updated by events
+
+[`POST /api/events`](../api/events.mdx) is how your app keeps contacts current:
+
+- `contact_added` creates the contact. For an address that already exists, it updates `name` and **replaces** `meta` with the `metadata` you send (when you send one).
+- `contact_updated` updates `name` and `locale`, and **merges** `metadata` into `meta`: keys you do not send are kept. The contact must exist (`404` otherwise).
+- `tag_added` adds `metadata.tags` to the contact's tags without duplicates. The contact must exist.
+- `order_created` and `event_triggered` create the contact if it is new, then start automations.
+
+## Unsubscribe
+
+Every email Senlo sends carries a signed unsubscribe link (`{{unsubscribe_url}}`) and a one-click `List-Unsubscribe` header. When the recipient uses either:
+
+- If the address is a contact, the contact is marked `unsubscribed`.
+- If it is not (a triggered email to any address), the address is added to the workspace's suppression list with reason `UNSUBSCRIBE`.
+
+{/* TODO(verify): sends do not check `contacts.unsubscribed`: the worker only checks the suppression list, and unsubscribing an existing contact does not add a suppression. An unsubscribed contact may still receive triggered and automation emails. Confirm and fix (suppress on unsubscribe, or check the flag) before publishing. */}
+
+See [Tracking and unsubscribe](../api/tracking-and-unsubscribe.mdx).
+
+## Suppression
+
+The **suppression list** (**Audience** in the workspace) holds addresses Senlo will not send to in this workspace. Every send checks it first; a suppressed recipient is skipped and the delivery log shows `FAILED` with the reason.
+
+Addresses get there by:
+
+| Reason | How |
+| --- | --- |
+| `BOUNCE` | Your provider reported a bounce through its [webhook](../api/webhooks.mdx). |
+| `SPAM` | The recipient marked the email as spam and the provider reported it. |
+| `UNSUBSCRIBE` | A recipient who is not a contact unsubscribed. |
+
+Removing an entry from the list lets Senlo send to the address again. Bounces and complaints are only recorded if the provider's webhook is connected.

@@ -1,0 +1,97 @@
+---
+title: Send an event
+description: POST /api/events creates or updates a contact and starts automations.
+---
+
+```bash tab="curl"
+curl -X POST https://senlo.io/api/events \
+  -H "Authorization: Bearer $SENLO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "contact_added",
+    "email": "ada@example.com",
+    "name": "Ada",
+    "locale": "en",
+    "metadata": { "plan": "trial" }
+  }'
+```
+
+```ts tab="Node"
+await fetch("https://senlo.io/api/events", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.SENLO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    event: "contact_added",
+    email: "ada@example.com",
+    name: "Ada",
+    locale: "en",
+    metadata: { plan: "trial" },
+  }),
+});
+```
+
+## Body
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `event` | string | yes | One of the events below. |
+| `email` | string | yes | Identifies the contact in this workspace. |
+| `name` | string | no | The contact's name. |
+| `locale` | string | no | The contact's locale; automations send the template for it. |
+| `metadata` | object | no | Contact attributes. For `tag_added`, `metadata.tags` is an array of strings. |
+
+## Events
+
+| Event | Contact must exist | Effect on the contact |
+| --- | --- | --- |
+| `contact_added` | no | Creates it. For an existing address: updates `name`, replaces `meta` with `metadata` if sent. |
+| `contact_updated` | yes | Updates `name` and `locale`, merges `metadata` into `meta`. |
+| `tag_added` | yes | Adds `metadata.tags` to its tags, without duplicates. |
+| `order_created` | no | Creates it if new. |
+| `event_triggered` | no | Creates it if new. Your own event; put its data in `metadata`. |
+
+Then every **active** [automation](../concepts/triggers-and-automations.mdx) whose trigger listens for the event starts a run for the contact, unless one is already running for them.
+
+## Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 31,
+    "projectId": 4,
+    "email": "ada@example.com",
+    "name": "Ada",
+    "locale": "en",
+    "meta": { "plan": "trial" },
+    "unsubscribed": false,
+    "unsubscribedAt": null,
+    "createdAt": "2026-11-03T10:15:00.000Z"
+  }
+}
+```
+
+`data` is the contact after the event. `projectId` is the workspace id.
+
+## Errors
+
+| Status | When |
+| --- | --- |
+| `400` | `email` missing or invalid, unknown `event`. |
+| `401` | No key, or a wrong one. |
+| `402` | Cloud only: an automation run was refused by the plan's limits. The contact change is already saved. |
+| `404` | `contact_updated` or `tag_added` for an address that is not a contact. Send `contact_added` first. |
+| `429` | Rate limited. |
+
+See [Errors](./errors.mdx).
+
+## Idempotency
+
+There is no idempotency key. Sending the same event twice applies it twice; for `contact_added` and the update events that is harmless, but it can start an automation again once the first run has finished.
+
+## Reference
+
+[`POST /api/events` in the API reference](../api-reference/index.mdx).

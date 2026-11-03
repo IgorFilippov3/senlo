@@ -1,0 +1,73 @@
+---
+title: Send a triggered email
+description: POST /api/triggered sends one email from a trigger's template.
+---
+
+```bash tab="curl"
+curl -X POST https://senlo.io/api/triggered \
+  -H "Authorization: Bearer $SENLO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": 12,
+    "to": "customer@example.com",
+    "locale": "en",
+    "data": { "order": { "number": "A-1049", "total": "42.00" } }
+  }'
+```
+
+```ts tab="Node"
+const res = await fetch("https://senlo.io/api/triggered", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.SENLO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    id: 12,
+    to: "customer@example.com",
+    locale: "en",
+    data: { order: { number: "A-1049", total: "42.00" } },
+  }),
+});
+if (!res.ok) throw new Error((await res.json()).error);
+```
+
+## Body
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | number or string | yes | The trigger id, from the trigger's **API Integration** card. |
+| `to` | string | yes | The recipient. One address per request. |
+| `data` | object | no | Values for the template's [merge tags](../concepts/merge-tags.mdx). |
+| `locale` | string | no | Sends the trigger's template for this locale, if it has one. Exact, case-sensitive match. |
+| `subject` | string | no | Replaces the template's subject for this send. Merge tags work in it. |
+
+`campaignId` is accepted as an older name of `id`; `id` wins if both are sent.
+
+## Response
+
+```json
+{ "success": true, "message": "Email queued successfully" }
+```
+
+`200` means the email is **queued**. The worker renders it, checks the [suppression list](../concepts/contacts.mdx#suppression), and hands it to your provider. The outcome is in the trigger's delivery log.
+
+## Errors
+
+| Status | When |
+| --- | --- |
+| `400` | `to` is missing or not an email, `id` is missing; the trigger is not an API trigger; the workspace has no email provider. |
+| `401` | No key, or a wrong one. |
+| `402` | Cloud only: the organization has used its monthly emails. |
+| `404` | The trigger is not in this workspace, or its template or provider is gone. |
+| `429` | Rate limited. |
+
+The body of every error is `{ "error": "..." }`, sometimes with `details`. See [Errors](./errors.mdx).
+
+## Idempotency
+
+There is no idempotency key: two identical requests send two emails. If you retry on network errors, make sure the first attempt did not succeed.
+
+## Reference
+
+[`POST /api/triggered` in the API reference](../api-reference/index.mdx).

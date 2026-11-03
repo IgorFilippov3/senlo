@@ -1,0 +1,86 @@
+---
+title: Quickstart
+description: Send your first email through Senlo Cloud in about five minutes.
+---
+
+```bash
+curl -X POST https://senlo.io/api/triggered \
+  -H "Authorization: Bearer $SENLO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "id": 1, "to": "you@example.com", "data": { "name": "Ada" } }'
+```
+
+By the end of this page that request delivers a real email. You need an account with [Resend](../providers/resend.mdx), [Postmark](../providers/postmark.mdx) or an [SMTP](../providers/smtp.mdx) server, with a verified sending domain.
+
+<Callout type="info" title="Self-hosted?">
+  Every step is the same on your own instance. Replace `https://senlo.io` with your `APP_URL`. Setting up the instance is covered in [Self-hosting](./self-hosting.mdx).
+</Callout>
+
+## 1. Create an account and a workspace
+
+Sign up at [senlo.io/register](https://senlo.io/register). Templates, triggers, automations, contacts and API keys live in a **workspace**. Open one from **Workspaces**, or create a new one. See [Workspaces](../concepts/projects.mdx).
+
+## 2. Connect your provider
+
+1. Open **Providers** in the sidebar and click **Add Provider**.
+2. Pick the type (Resend, Postmark or SMTP server) and paste the credentials.
+3. Open your workspace's **Settings** and select the provider as its email provider.
+
+A workspace sends through exactly one provider. Until it has one, sends fail with `No email provider configured for this project`.
+
+## 3. Create a template
+
+Open **Templates**, click **New Template** and design it in the editor. Add a merge tag to the text, for example `Hi {{name}},`. Merge tags are replaced with the data you send. See [Merge tags](../concepts/merge-tags.mdx).
+
+## 4. Create a trigger
+
+A trigger connects a template to the API.
+
+1. Open **Triggers** and click **New Trigger**.
+2. **Setup**: name it, set the From name and From email. The From email must be on a domain verified with your provider.
+3. **Content**: select the template.
+4. **Review**: click **Create Trigger**.
+
+The trigger page shows its **API Integration** card with the trigger `id` and a sample request.
+
+## 5. Create an API key
+
+Open **API Keys** in the workspace and click **Create Key**. It starts with `snl_` and is shown **once**: copy it now. See [Authentication](../api/authentication.mdx).
+
+## 6. Send the email
+
+```bash tab="curl"
+curl -X POST https://senlo.io/api/triggered \
+  -H "Authorization: Bearer $SENLO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "id": 1, "to": "you@example.com", "data": { "name": "Ada" } }'
+```
+
+```ts tab="Node"
+const res = await fetch("https://senlo.io/api/triggered", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.SENLO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ id: 1, to: "you@example.com", data: { name: "Ada" } }),
+});
+console.log(res.status, await res.json());
+```
+
+Replace `1` with your trigger's id. A successful call answers:
+
+```json
+{ "success": true, "message": "Email queued successfully" }
+```
+
+## 7. Check the delivery log
+
+Open the trigger again. Its delivery log shows the send as `SENT` once the provider accepted it, or `FAILED` with the reason. With [provider webhooks](../api/webhooks.mdx) connected you also see `DELIVERED`, `BOUNCE` and `SPAM_REPORT`; opens and clicks show up as `OPEN` and `CLICK`.
+
+If the call failed, the response body says why. See [Errors](../api/errors.mdx).
+
+## Next
+
+- [Automations](../concepts/triggers-and-automations.mdx): send a sequence of emails from events with `POST /api/events`.
+- [Self-hosting](./self-hosting.mdx): run the same thing on your own server.

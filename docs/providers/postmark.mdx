@@ -1,0 +1,45 @@
+---
+title: Postmark
+description: Connect Postmark to Senlo, and its webhook for delivery events.
+---
+
+```text
+Provider type:      Postmark
+Server API Token:   xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+Webhook Secret:     any long random string
+Webhook URL:        https://senlo.io/api/webhooks/postmark
+Webhook header:     X-Postmark-Secret: <the same string>
+```
+
+## 1. Verify your sender in Postmark
+
+Postmark sends only from a verified domain or sender signature. Verify the domain of the From email you will use on your triggers (**Sender Signatures** in Postmark).
+
+## 2. Get the server token
+
+Open your Postmark **Server** → **API Tokens** and copy the **Server API token**. Senlo sends through Postmark's transactional stream with it.
+{/* TODO(verify): which Postmark message stream PostmarkMailer uses (default outbound unless set). */}
+
+## 3. Add the provider in Senlo
+
+1. Generate a webhook secret, e.g. `openssl rand -hex 32`.
+2. Open **Providers** → **Add Provider**, **Provider Type**: Postmark.
+3. **Server API Token**: the token. **Webhook Secret**: the string you generated.
+4. Click **Create Provider**, then select it in your workspace's **Settings**.
+
+## 4. Connect the webhook
+
+Postmark does not sign webhooks, so Senlo checks a shared secret in a header instead.
+
+1. In Postmark, open the server → **Webhooks** → **Add webhook**.
+2. **URL**: `https://senlo.io/api/webhooks/postmark` (self-hosted: your `APP_URL` + `/api/webhooks/postmark`).
+3. Add a **custom header**: name `X-Postmark-Secret`, value the webhook secret you saved in Senlo.
+4. Enable **Delivery**, **Bounce** and **Spam Complaint**. **Open** and **Click** are logged too, if you enable them.
+
+Without the secret saved in Senlo, every Postmark event is refused with `401`. Details: [Provider webhooks](../api/webhooks.mdx).
+{/* TODO(verify): with Postmark's Open/Click webhooks enabled and Senlo's own tracking pixel and links, opens and clicks may be counted twice. */}
+
+## Testing
+
+Postmark's sandbox servers accept mail without delivering it, and its test addresses (e.g. `test@blackhole.postmarkapp.com`) simulate outcomes.
+{/* TODO(verify): Postmark sandbox and blackhole addresses are from Postmark's docs, not from Senlo's code. */}

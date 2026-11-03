@@ -1,0 +1,48 @@
+---
+title: What is Senlo
+description: Templates and automations for transactional email, on top of the delivery provider you already use.
+---
+
+```bash
+curl -X POST https://senlo.io/api/triggered \
+  -H "Authorization: Bearer snl_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{ "id": 12, "to": "customer@example.com", "data": { "name": "Ada" } }'
+```
+
+That request renders a template you designed in Senlo, fills in `{{name}}`, and sends it through your own provider.
+
+## What Senlo does
+
+Senlo is a template and automation layer. It is not an email service provider (ESP): it does not own sending IPs or domains. Delivery stays with **Resend**, **Postmark** or any **SMTP** server you connect.
+
+On top of that provider, Senlo gives you:
+
+- **A visual email editor.** Templates are designed in the browser, rendered to email-safe HTML (MJML), with merge tags, conditions and loops.
+- **Triggers.** One API call sends one email from a template. Your code passes data; designers change the email without a deploy.
+- **Automations.** Events from your app (`contact_added`, `order_created`, ...) start workflows: wait, check a condition, send, update the contact.
+- **Contacts, unsubscribe and suppression.** Every email carries a signed one-click unsubscribe link. Bounces and complaints from your provider suppress the address.
+- **Delivery logs.** Every send, with its status from the provider's webhooks.
+
+## What Senlo does not do
+
+- **No marketing campaigns or newsletters.** Senlo is for transactional and lifecycle email triggered by your product.
+- **No delivery infrastructure.** You need an account with a provider, and a verified sending domain there.
+
+## Cloud or self-hosted
+
+Senlo is open source (AGPL-3.0). Run it yourself with Docker Compose, or use [Senlo Cloud](https://senlo.io) and skip the infrastructure. These docs cover both. Where they differ, a page says so:
+
+<Callout type="info" title="Cloud only">
+  Applies to senlo.io only.
+</Callout>
+
+<Callout type="info" title="Self-hosted only">
+  Applies to your own instance only.
+</Callout>
+
+## Next steps
+
+- [Quickstart](./getting-started/quickstart.mdx): send your first email from senlo.io in about five minutes.
+- [Self-hosting](./getting-started/self-hosting.mdx): run Senlo on your own server.
+- [API reference](./api-reference/index.mdx): every endpoint, generated from `openapi.yaml`.

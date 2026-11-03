@@ -1,0 +1,43 @@
+---
+title: Resend
+description: Connect Resend to Senlo, and its webhook for delivery events.
+---
+
+```text
+Provider type:   Resend
+API Key:         re_...
+Webhook Secret:  whsec_...
+Webhook URL:     https://senlo.io/api/webhooks/resend
+```
+
+## 1. Verify your domain in Resend
+
+Senlo sends from the From email you set on each trigger. Resend only accepts it from a domain verified in your Resend account (**Domains** in the Resend dashboard). Until then, sends fail at Resend and show `FAILED` in the delivery log.
+
+## 2. Create an API key
+
+In Resend, open **API Keys** and create a key with sending access. Copy it (`re_...`).
+
+## 3. Add the provider in Senlo
+
+1. Open **Providers** → **Add Provider**.
+2. **Provider Type**: Resend. **Display Name**: anything, e.g. `Resend acme.com`.
+3. **API Key**: the `re_...` key.
+4. Leave **Webhook Secret** empty for now and click **Create Provider**.
+5. In your workspace's **Settings**, select this provider.
+
+Send a test from the [Quickstart](../getting-started/quickstart.mdx) to check it works.
+
+## 4. Connect the webhook
+
+1. In Resend, open **Webhooks** and add an endpoint: `https://senlo.io/api/webhooks/resend` (self-hosted: your `APP_URL` + `/api/webhooks/resend`).
+2. Enable `email.delivered`, `email.bounced` and `email.complained`. Other events are ignored; opens and clicks are counted by Senlo itself.
+3. Copy the endpoint's **signing secret** (`whsec_...`).
+4. In Senlo, edit the provider and paste it into **Webhook Secret**.
+
+From now on bounces and complaints suppress the address, and the delivery log shows `DELIVERED`. Details: [Provider webhooks](../api/webhooks.mdx).
+
+## Testing
+
+Resend's test addresses let you try delivery outcomes without a real inbox, for example `delivered@resend.dev` and `bounced@resend.dev`. Send to one of them with [`POST /api/triggered`](../api/triggered.mdx) and watch the delivery log.
+{/* TODO(verify): Resend test addresses (delivered@ / bounced@ / complained@resend.dev) are from Resend's docs, not from Senlo's code. Check they are still current, and that the webhook reaches Senlo for them. */}

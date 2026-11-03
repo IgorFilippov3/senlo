@@ -1,0 +1,70 @@
+---
+title: Triggers and automations
+description: One request, one email; or one event, a workflow of steps. When to use which.
+---
+
+```bash tab="Trigger"
+# One request sends one email, now.
+curl -X POST https://senlo.io/api/triggered \
+  -H "Authorization: Bearer $SENLO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "id": 12, "to": "ada@example.com", "data": { "resetUrl": "https://app.example.com/reset/abc" } }'
+```
+
+```bash tab="Automation"
+# One event starts every active automation listening for it.
+curl -X POST https://senlo.io/api/events \
+  -H "Authorization: Bearer $SENLO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "event": "contact_added", "email": "ada@example.com", "name": "Ada", "metadata": { "plan": "trial" } }'
+```
+
+## Triggers
+
+A **trigger** sends one template to one recipient when your code calls [`POST /api/triggered`](../api/triggered.mdx). It sets the From name and From email, the default template and the [locale templates](./templates.mdx#locales).
+
+The recipient does not have to be a contact. Nothing is stored about them except the delivery log entry.
+
+Use a trigger when your code knows exactly which email to send and when: password resets, receipts, invitations, magic links.
+
+## Automations
+
+An **automation** is a workflow drawn in the automation builder. It starts with a trigger node that listens for one event from [`POST /api/events`](../api/events.mdx), and runs for one contact.
+
+| Step | What it does |
+| --- | --- |
+| **Send email** | Sends a trigger's template to the contact, with the contact's metadata as merge data and the template for the contact's locale. |
+| **Delay** | Waits a number of minutes, hours or days before the next step. |
+| **Condition** | Posts the contact (`email`, `name`, `metadata`) to a URL you set. A `200` takes the **yes** branch, anything else **no**. |
+| **Update contact** | Merges fields into the contact's metadata (tags are added, not replaced). |
+| **Exit** | Ends the run. |
+
+Events an automation can start on:
+
+| Event | Sent when |
+| --- | --- |
+| `contact_added` | A contact is created. |
+| `contact_updated` | Your app updates a contact. |
+| `tag_added` | Your app tags a contact. |
+| `order_created` | Your app records a purchase. |
+| `event_triggered` | Anything else; carry your own data in `metadata`. |
+
+Only **active** automations start; a paused one ignores events. While a contact has a run in progress in an automation, the same event does not start a second run for them in that automation.
+
+Use an automation when the email depends on what the user does over time: onboarding sequences, trial reminders, a follow-up a few days after an order.
+
+<Callout type="info" title="Cloud only">
+  On senlo.io each started run counts toward the plan's monthly automation runs, and each email toward its monthly emails. A run that would go over the limit is refused with `402`. See [Errors](../api/errors.mdx).
+</Callout>
+
+## Which one
+
+| You want to | Use |
+| --- | --- |
+| Send an email your code decides on, right now | Trigger |
+| Send to an address that is not a contact | Trigger |
+| Send a sequence, with waits | Automation |
+| Branch on something your backend knows | Automation with a Condition step |
+| Let non-developers change who gets what, without a deploy | Automation |
+
+Both send through the same templates, provider, suppression list and unsubscribe links.

@@ -1,0 +1,54 @@
+---
+title: Upgrading
+description: Pull, rebuild, restart. The database schema is updated on start.
+---
+
+<Callout type="info" title="Self-hosted only">
+  senlo.io is upgraded for you.
+</Callout>
+
+```bash
+cd senlo
+git pull
+cd deploy/vps
+docker compose up -d --build
+```
+
+That is the whole upgrade. When the new `app` container starts it:
+
+1. applies the database schema with `pnpm db:push` (Drizzle; there are no separate migration files to run);
+2. creates any users from `INITIAL_USERS` that do not exist yet;
+3. starts the app.
+
+The `worker` container is rebuilt from the same image and restarted with it.
+
+## Before you upgrade
+
+- **Back up the database** (see [Production checklist](./production-checklist.mdx#backups)). `db:push` changes the schema in place.
+- **Read the release notes** on GitHub for steps a version needs, such as a new required variable.
+
+## After you upgrade
+
+```bash
+docker compose ps                 # app, worker, db, redis are up
+docker compose logs -f app        # "Starting Senlo..." and no config errors
+```
+
+If the app refuses to start with "Senlo is not configured correctly", the log lists the variables to fix. See [Configuration](./configuration.mdx).
+
+## One-time steps from older versions
+
+- **Before API keys were hashed**: keys keep working; run `docker compose exec app pnpm db:hash-api-keys` to replace stored keys with their hashes.
+- **Before `SECRETS_KEY` existed**: provider credentials are encrypted with `AUTH_SECRET`. Give them their own key: add `SECRETS_KEY`, restart, then `docker compose exec -e OLD_SECRETS_KEY="<your AUTH_SECRET>" app pnpm db:reseal-secrets`.
+- **Before the reverse-proxy requirement**: the app now listens on `127.0.0.1:3000` only, so `http://your-server:3000` stops answering. Put a proxy in front, or set `APP_BIND=0.0.0.0:3000` for now.
+
+## Rolling back
+
+Check out the previous version and rebuild:
+
+```bash
+git checkout <previous-tag-or-commit>
+docker compose up -d --build
+```
+
+`db:push` does not undo schema changes. If the new version changed the schema, restore the backup taken before the upgrade.

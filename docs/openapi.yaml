@@ -1,0 +1,502 @@
+openapi: 3.1.0
+info:
+  title: Senlo Public API
+  version: 1.0.0
+  summary: Send transactional email and feed contact events into automations.
+  description: |
+    Every request to `/api/events` and `/api/triggered` is authenticated with an
+    API key sent as a bearer token:
+
+    ```
+    Authorization: Bearer snl_your_api_key
+    ```
+
+    A key belongs to one workspace. The workspace is resolved from the key, so no
+    workspace or project id appears in any request body.
+
+    The request schemas in this file mirror `EventRequestSchema` and
+    `TriggeredEmailRequestSchema` in `packages/core`, which are what the routes
+    enforce. When you change one, change the other.
+  license:
+    name: AGPL-3.0-or-later
+    identifier: AGPL-3.0-or-later
+servers:
+  - url: https://senlo.io
+    description: Senlo Cloud
+  - url: "{baseUrl}"
+    description: Self-hosted Senlo
+    variables:
+      baseUrl:
+        default: http://localhost:3000
+        description: The address your instance is reached at (`APP_URL`).
+security:
+  - bearerAuth: []
+tags:
+  - name: Emails
+    description: Send one transactional email from a trigger.
+  - name: Events
+    description: Create and update contacts and start automations.
+  - name: Unsubscribe
+    description: Endpoints recipients reach from the links Senlo puts in every email.
+  - name: Provider webhooks
+    description: Endpoints your delivery provider calls with delivery, bounce and complaint events.
+paths:
+  /api/triggered:
+    post:
+      operationId: send-triggered-email
+      summary: Send a triggered email
+      description: |
+        Queues one email from a trigger. The trigger must belong to the workspace
+        the API key is scoped to, and must be a triggered (API) trigger.
+
+        A `200` means the email is queued, not that the provider accepted it.
+        Delivery status shows up in the trigger's delivery log.
+
+        `locale` picks the trigger's template for that locale when one is set,
+        otherwise the trigger's default template. The match is exact and
+        case-sensitive.
+      tags: [Emails]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggeredEmailRequest"
+            examples:
+              orderConfirmation:
+                summary: Order confirmation
+                value:
+                  id: 12
+                  to: customer@example.com
+                  locale: en
+                  data:
+                    order:
+                      number: A-1049
+                      total: "42.00"
+      responses:
+        "200":
+          description: The email is queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message]
+                properties:
+                  success:
+                    type: boolean
+                    const: true
+                  message:
+                    type: string
+                    examples: ["Email queued successfully"]
+        "400":
+          description: |
+            The body failed validation (`to` missing or not an email, no `id`),
+            the trigger is not an API trigger, or the workspace has no email
+            provider.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                validation:
+                  value:
+                    error: id (trigger id) is required
+                    details:
+                      fieldErrors:
+                        id: ["id (trigger id) is required"]
+                      formErrors: []
+                noProvider:
+                  value:
+                    error: No email provider configured for this project
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/QuotaExceeded"
+        "404":
+          description: The trigger, its template or the provider was not found in this workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Campaign not found
+                details:
+                  resource: Campaign
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/events:
+    post:
+      operationId: send-event
+      summary: Send a contact event
+      description: |
+        Identifies a contact by email, creates or updates it, and starts every
+        active automation whose trigger listens for the event.
+
+        | Event | Contact must exist | What it does |
+        | --- | --- | --- |
+        | `contact_added` | no | Creates the contact, or updates `name` and replaces `metadata` of an existing one. |
+        | `contact_updated` | yes | Updates `name` and `locale`, merges `metadata` into the contact's metadata. |
+        | `tag_added` | yes | Adds `metadata.tags` to the contact's tags, without duplicates. |
+        | `order_created` | no, created if missing | Starts automations listening for purchases. |
+        | `event_triggered` | no, created if missing | A custom event; carry your own data in `metadata`. |
+      tags: [Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventRequest"
+            examples:
+              contactAdded:
+                summary: New signup
+                value:
+                  event: contact_added
+                  email: user@example.com
+                  name: Jean-Pierre
+                  locale: fr
+                  metadata:
+                    plan: premium
+              tagAdded:
+                summary: Tag an existing contact
+                value:
+                  event: tag_added
+                  email: user@example.com
+                  metadata:
+                    tags: [onboarded]
+              orderCreated:
+                summary: Purchase
+                value:
+                  event: order_created
+                  email: customer@example.com
+                  metadata:
+                    orderId: A-1049
+                    total: 42
+      responses:
+        "200":
+          description: The event was applied and matching automations were started.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/Contact"
+        "400":
+          description: The body failed validation (`email` missing or invalid, unknown `event`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Email is required
+                details:
+                  fieldErrors:
+                    email: ["Email is required"]
+                  formErrors: []
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/QuotaExceeded"
+        "404":
+          description: "`contact_updated` or `tag_added` for an address that is not a contact yet."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Contact not found
+                details:
+                  resource: Contact
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/unsubscribe/{token}:
+    post:
+      operationId: unsubscribe-one-click
+      summary: One-click unsubscribe
+      description: |
+        The address the `List-Unsubscribe` header of every email points at.
+        Mail providers such as Gmail and Yahoo post to it when the recipient
+        clicks their built-in unsubscribe button (RFC 8058). You do not call it
+        yourself.
+
+        Responses are plain text, not JSON.
+      tags: [Unsubscribe]
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: The signed token Senlo put in the email.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The recipient is unsubscribed (or already was).
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples: ["Unsubscribed"]
+        "400":
+          description: The token is invalid, or it is a legacy unsigned token that has to be confirmed on the unsubscribe page.
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples: ["Invalid token"]
+        "404":
+          description: The recipient was not found.
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples: ["Recipient not found"]
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          description: Unsubscribe failed.
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples: ["Unsubscribe failed"]
+  /api/webhooks/resend:
+    post:
+      operationId: resend-webhook
+      summary: Resend webhook
+      description: |
+        Paste this URL into a Resend webhook. Senlo verifies the Svix signature
+        with the webhook signing secret saved on the provider in Senlo, then
+        applies `email.delivered`, `email.bounced` and `email.complained`.
+        Other event types are acknowledged and ignored.
+      tags: [Provider webhooks]
+      security: []
+      requestBody:
+        required: true
+        description: The event exactly as Resend sends it.
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAccepted"
+        "400":
+          $ref: "#/components/responses/WebhookInvalidPayload"
+        "401":
+          $ref: "#/components/responses/WebhookUnauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/webhooks/postmark:
+    post:
+      operationId: postmark-webhook
+      summary: Postmark webhook
+      description: |
+        Paste this URL into a Postmark webhook and add a custom header
+        `X-Postmark-Secret` with the webhook secret saved on the provider in
+        Senlo. Senlo applies `Delivery`, `Bounce`, `SpamComplaint`, `Open` and
+        `Click` records. Other record types are acknowledged and ignored.
+      tags: [Provider webhooks]
+      security: []
+      parameters:
+        - name: X-Postmark-Secret
+          in: header
+          required: true
+          description: The webhook secret saved on the Postmark provider in Senlo.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: The record exactly as Postmark sends it.
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAccepted"
+        "400":
+          $ref: "#/components/responses/WebhookInvalidPayload"
+        "401":
+          $ref: "#/components/responses/WebhookUnauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: An API key from Workspace → API Keys, starting with `snl_`.
+  schemas:
+    TriggeredEmailRequest:
+      type: object
+      required: [to]
+      properties:
+        id:
+          oneOf:
+            - type: integer
+            - type: string
+          description: Trigger id. Either `id` or `campaignId` is required; `id` wins if both are sent.
+          examples: [12]
+        campaignId:
+          oneOf:
+            - type: integer
+            - type: string
+          deprecated: true
+          description: Older name of `id`, still accepted.
+        to:
+          type: string
+          format: email
+          description: The recipient. One address per request.
+        data:
+          type: object
+          additionalProperties: true
+          description: 'Values for the template''s merge tags, e.g. `{ "order": { "total": 42 } }` for `{{order.total}}`.'
+        locale:
+          type: string
+          description: Picks the trigger's template for this locale (e.g. `en`, `de`). Exact, case-sensitive match.
+        subject:
+          type: string
+          description: Replaces the template's subject for this send. Merge tags are resolved in it.
+    EventRequest:
+      type: object
+      required: [event, email]
+      properties:
+        event:
+          type: string
+          enum: [contact_added, contact_updated, tag_added, order_created, event_triggered]
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        locale:
+          type: string
+          description: The contact's locale. Automations send the trigger's template for it.
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Contact attributes. For `tag_added`, `metadata.tags` is an array of strings.
+    Contact:
+      type: object
+      required: [id, projectId, email, unsubscribed, createdAt]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+          description: The workspace id.
+        email:
+          type: string
+          format: email
+        name:
+          type: [string, "null"]
+        locale:
+          type: [string, "null"]
+        meta:
+          type: [object, "null"]
+          additionalProperties: true
+          description: The contact's metadata.
+        unsubscribed:
+          type: boolean
+        unsubscribedAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: A human-readable message.
+        details:
+          type: object
+          additionalProperties: true
+          description: Present on some errors. Validation errors carry `fieldErrors` (field name → messages) and `formErrors`.
+  responses:
+    Unauthorized:
+      description: The `Authorization` header is missing or malformed, or the key does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            missing:
+              value:
+                error: Missing or invalid Authorization header
+            invalid:
+              value:
+                error: Invalid API key
+    QuotaExceeded:
+      description: Senlo Cloud only. The organization has reached a monthly limit of its plan. The message says which one and when it resets.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Rate limited. Wait for the number of seconds in `Retry-After`.
+      headers:
+        Retry-After:
+          description: Seconds until the next request is allowed.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Too many requests
+    InternalError:
+      description: Something failed on the server.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Internal server error
+    WebhookAccepted:
+      description: Accepted. Also returned for events Senlo ignores, so the provider stops retrying.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                const: true
+    WebhookInvalidPayload:
+      description: The body is not JSON.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: invalid_payload
+    WebhookUnauthorized:
+      description: The signature or shared secret does not match, or no webhook secret is saved on the provider.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            invalidSignature:
+              value:
+                error: invalid_signature
+            notConfigured:
+              value:
+                error: secret_not_configured
