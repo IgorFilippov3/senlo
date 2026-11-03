@@ -38,13 +38,13 @@ Every email Senlo sends carries a signed unsubscribe link (`{{unsubscribe_url}}`
 - If the address is a contact, the contact is marked `unsubscribed`.
 - If it is not (a triggered email to any address), the address is added to the workspace's suppression list with reason `UNSUBSCRIBE`.
 
-{/* TODO(verify): sends do not check `contacts.unsubscribed`: the worker only checks the suppression list, and unsubscribing an existing contact does not add a suppression. An unsubscribed contact may still receive triggered and automation emails. Confirm and fix (suppress on unsubscribe, or check the flag) before publishing. */}
+Either way Senlo stops mailing the address in this workspace: triggered emails and automation steps to it are skipped and logged `FAILED` with reason `UNSUBSCRIBE`.
 
 See [Tracking and unsubscribe](../api/tracking-and-unsubscribe.mdx).
 
 ## Suppression
 
-The **suppression list** (**Audience** in the workspace) holds addresses Senlo will not send to in this workspace. Every send checks it first; a suppressed recipient is skipped and the delivery log shows `FAILED` with the reason.
+The **suppression list** (**Audience** in the workspace) holds addresses Senlo will not send to in this workspace. Every send checks it, and the contact's `unsubscribed` flag, first; a blocked recipient is skipped and the delivery log shows `FAILED` with the reason.
 
 Addresses get there by:
 

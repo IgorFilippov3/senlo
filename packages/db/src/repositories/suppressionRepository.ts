@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { suppressions } from "../schema";
+import { contacts, suppressions } from "../schema";
 import { BaseRepository } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
@@ -64,6 +64,28 @@ export class SuppressionRepository
       );
 
     return row ? this.mapToEntity(row) : null;
+  }
+
+  async findSendBlock(
+    projectId: number,
+    email: string,
+  ): Promise<{ reason: Suppression["reason"] } | null> {
+    const suppressed = await this.findByProjectAndEmail(projectId, email);
+    if (suppressed) return { reason: suppressed.reason };
+
+    const [unsubscribed] = await this.db
+      .select({ id: contacts.id })
+      .from(contacts)
+      .where(
+        and(
+          eq(contacts.projectId, projectId),
+          eq(contacts.email, email),
+          eq(contacts.unsubscribed, true),
+        ),
+      )
+      .limit(1);
+
+    return unsubscribed ? { reason: "UNSUBSCRIBE" } : null;
   }
 
   async findByProject(projectId: number): Promise<Suppression[]> {

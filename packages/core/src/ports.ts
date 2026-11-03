@@ -70,6 +70,14 @@ export interface ISuppressionRepository {
   findByProject(projectId: number): Promise<Suppression[]>;
   findById(id: number): Promise<Suppression | null>;
   delete(id: number): Promise<void>;
+  /**
+   * Why `email` must not be mailed in this project, or null. Either a row of
+   * the suppression list (bounce, complaint, unsubscribe of an address that
+   * is not a contact) or a contact who unsubscribed: unsubscribing a contact
+   * only flags the contact, so the list alone missed them. The send worker's
+   * one check before every message.
+   */
+  findSendBlock(projectId: number, email: string): Promise<{ reason: Suppression["reason"] } | null>;
 }
 
 export interface IEmailProviderRepository {

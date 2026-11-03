@@ -40,7 +40,6 @@ There are no filters, helpers or default values. A conditional row or block cove
 **Automation emails** see the contact: its metadata in place of `data`, and `{{contact.email}}`. A contact created with `metadata: { "plan": "pro" }` renders `{{plan}}` and `{{contact.plan}}` as `pro`. The contact's `name` and `locale` fields are not tags; put a value in `metadata` to use it in a template.
 
 **Loops** add the loop's alias: a row looping over `items` with alias `item` renders `{{item.title}}` for each element.
-{/* TODO(verify): the send worker renders the design without recipient data (worker.ts renderTemplate passes no `data` to renderEmailDesign), so loops and conditions may evaluate against empty data on real sends. Confirm and fix before publishing these docs. */}
 
 `{{project.name}}` (or `{{workspace.name}}`) is the workspace name in the subject line.
 {/* TODO(verify): project/workspace name is passed only when the subject is personalized (TriggerService); the body render data has no project, so {{project.name}} stays unreplaced in the body. Decide whether to add it to renderData or keep the doc as is. */}

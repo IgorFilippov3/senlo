@@ -98,7 +98,13 @@ export class EmailWorkerProcessor {
   private async renderTemplate(
     templateId: number,
     campaignId: number,
-    options: { baseUrl?: string; preheader?: string; title?: string },
+    options: {
+      baseUrl?: string;
+      preheader?: string;
+      title?: string;
+      /** This recipient's values; used only by a document with conditions or loops. */
+      data?: EmailJobData["renderData"];
+    },
   ): Promise<{ html: string; recipientIndependent: boolean }> {
     const cacheKey = `${campaignId}:${templateId}`;
     const cached = this.cachedRender(cacheKey);
@@ -120,13 +126,18 @@ export class EmailWorkerProcessor {
     }
 
     const design = template.designJson as EmailDesignDocument;
+    const recipientIndependent = isRecipientIndependent(design);
+    // A condition is evaluated and a loop repeated against the recipient's
+    // data, so such a document is rendered with it. Without the data every
+    // loop rendered nothing and every condition saw empty values: only the
+    // editor's preview, which passes mock data, showed them working.
     const html = renderEmailDesign(design, {
       baseUrl: options.baseUrl,
       preheader: options.preheader,
       title: options.title,
+      data: recipientIndependent ? undefined : options.data,
     });
 
-    const recipientIndependent = isRecipientIndependent(design);
     if (recipientIndependent) {
       this.cacheRender(cacheKey, html);
     }
@@ -159,6 +170,7 @@ export class EmailWorkerProcessor {
         baseUrl: data.baseUrl,
         preheader: data.preheader,
         title: data.title,
+        data: data.renderData,
       },
     );
 
@@ -220,9 +232,9 @@ export class EmailWorkerProcessor {
     } = job.data;
 
     try {
-      // 1. Check suppression list if repository is provided
+      // 1. Suppressed or unsubscribed recipients are never mailed.
       if (this.suppressionRepo) {
-        const isSuppressed = await this.suppressionRepo.findByProjectAndEmail(
+        const isSuppressed = await this.suppressionRepo.findSendBlock(
           projectId,
           email,
         );
