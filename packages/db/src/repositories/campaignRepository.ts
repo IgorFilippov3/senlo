@@ -333,14 +333,16 @@ export class CampaignRepository
     },
   ): Promise<TimeSeriesData[]> {
     const { interval, days = 7 } = options;
+    // Bound parameters only; the step is one of two fixed literals.
+    const step = interval === "hour" ? sql`interval '1 hour'` : sql`interval '1 day'`;
 
     // Use date_trunc for grouping and generate_series to fill gaps
     const query = sql`
       WITH intervals AS (
         SELECT generate_series(
-          date_trunc(${interval}, now() - interval '${sql.raw(days.toString())} days'),
+          date_trunc(${interval}, now() - make_interval(days => ${days})),
           date_trunc(${interval}, now()),
-          interval '1 ${sql.raw(interval)}'
+          ${step}
         ) AS bucket
       ),
       stats AS (
@@ -350,7 +352,7 @@ export class CampaignRepository
           count(*) FILTER (WHERE type = 'CLICK') as clicks
         FROM ${campaignEvents}
         WHERE campaign_id = ${campaignId}
-          AND occurred_at >= now() - interval '${sql.raw(days.toString())} days'
+          AND occurred_at >= now() - make_interval(days => ${days})
         GROUP BY 1
       )
       SELECT

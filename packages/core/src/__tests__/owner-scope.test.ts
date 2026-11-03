@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { AccessGuard, listInScope, type AccessPolicy } from "../access";
 import type { AiProvider, EmailProvider, Project } from "../domain";
-import { NotFoundError } from "../errors";
+import { NotFoundError, ValidationError } from "../errors";
 import { AiProviderService } from "../services/ai";
 import { DashboardService } from "../services/dashboardService";
 import { EmailProviderService } from "../services/emailProviderService";
@@ -105,5 +105,37 @@ describe("services in an organization scope", () => {
     expect(dashboard.getGlobalStats).toHaveBeenLastCalledWith([1]);
 
     await expect(service.getData("alice", 3)).rejects.toThrow(NotFoundError);
+  });
+
+  it("passes only whole, bounded dashboard windows and limits to the repository", async () => {
+    const dashboard = {
+      getGlobalStats: vi.fn(async () => ({ totalSent: 0, delivered: 0, bounced: 0, opened: 0, clicked: 0, savedSends: 0 })),
+      getActivityStats: vi.fn(async () => []),
+      getRecentEvents: vi.fn(async () => []),
+    };
+    const service = new DashboardService(dashboard, projects, guard);
+
+    await service.getData("bob", 3);
+    expect(dashboard.getActivityStats).toHaveBeenLastCalledWith([3], 7);
+    expect(dashboard.getRecentEvents).toHaveBeenLastCalledWith([3], 10);
+    await service.getData("bob", 3, { days: 90, eventLimit: 25 });
+    expect(dashboard.getActivityStats).toHaveBeenLastCalledWith([3], 90);
+
+    // Server action arguments arrive as the client sent them.
+    const bad = [
+      { days: "7 days') AS bucket; SELECT 1; --" },
+      { days: 7.5 },
+      { days: 0 },
+      { days: 366 },
+      { eventLimit: "10" },
+      { eventLimit: 101 },
+    ];
+    dashboard.getActivityStats.mockClear();
+    for (const options of bad) {
+      await expect(service.getData("bob", 3, options as never)).rejects.toBeInstanceOf(ValidationError);
+    }
+    await expect(service.getActivity("bob", "1; --" as never)).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.getRecentEvents("bob", -1)).rejects.toBeInstanceOf(ValidationError);
+    expect(dashboard.getActivityStats).not.toHaveBeenCalled();
   });
 });

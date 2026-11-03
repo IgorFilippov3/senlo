@@ -5,6 +5,16 @@
 import { AccessGuard, listInScope } from "../access";
 import type { DashboardActivity, DashboardEvent, DashboardStats } from "../domain";
 import type { IDashboardRepository, IProjectRepository } from "../ports";
+import { boundedInt } from "../validation";
+
+/** Longest activity window and most recent events a caller can ask for. */
+const MAX_DAYS = 365;
+const MAX_EVENTS = 100;
+
+const activityDays = (days: unknown) =>
+  boundedInt(days, { field: "days", min: 1, max: MAX_DAYS, fallback: 7 });
+const eventLimit = (limit: unknown) =>
+  boundedInt(limit, { field: "eventLimit", min: 1, max: MAX_EVENTS, fallback: 10 });
 
 export interface DashboardData {
   stats: DashboardStats;
@@ -41,11 +51,13 @@ export class DashboardService {
   }
 
   async getActivity(userId: string, days = 7, projectId?: number): Promise<DashboardActivity[]> {
-    return this.dashboard.getActivityStats(await this.projectIds(userId, projectId), days);
+    const span = activityDays(days);
+    return this.dashboard.getActivityStats(await this.projectIds(userId, projectId), span);
   }
 
   async getRecentEvents(userId: string, limit = 10, projectId?: number): Promise<DashboardEvent[]> {
-    return this.dashboard.getRecentEvents(await this.projectIds(userId, projectId), limit);
+    const max = eventLimit(limit);
+    return this.dashboard.getRecentEvents(await this.projectIds(userId, projectId), max);
   }
 
   async getData(
@@ -53,11 +65,13 @@ export class DashboardService {
     projectId: number,
     options: { days?: number; eventLimit?: number } = {},
   ): Promise<DashboardData> {
+    const days = activityDays(options.days);
+    const limit = eventLimit(options.eventLimit);
     const projectIds = await this.projectIds(userId, projectId);
     const [stats, activity, events] = await Promise.all([
       this.dashboard.getGlobalStats(projectIds),
-      this.dashboard.getActivityStats(projectIds, options.days ?? 7),
-      this.dashboard.getRecentEvents(projectIds, options.eventLimit ?? 10),
+      this.dashboard.getActivityStats(projectIds, days),
+      this.dashboard.getRecentEvents(projectIds, limit),
     ]);
     return { stats, activity, events };
   }

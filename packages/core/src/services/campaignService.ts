@@ -13,14 +13,14 @@ import type {
   TimeSeriesData,
 } from "../domain";
 import type { EmailTemplate } from "../emailTemplate";
-import { NotFoundError } from "../errors";
+import { NotFoundError, ValidationError } from "../errors";
 import type {
   ICampaignRepository,
   IEmailTemplateRepository,
   IProjectRepository,
   ITriggeredSendLogRepository,
 } from "../ports";
-import { parseInput } from "../validation";
+import { boundedInt, parseInput } from "../validation";
 
 const optionalId = z.preprocess(
   (val) => (val === "" ? undefined : val),
@@ -151,8 +151,14 @@ export class CampaignService {
     campaignId: number,
     options: { interval: "hour" | "day"; days?: number },
   ): Promise<TimeSeriesData[]> {
+    // Server action input: checked here, whatever the type says.
+    const interval: unknown = options?.interval;
+    if (interval !== "hour" && interval !== "day") {
+      throw new ValidationError('interval must be "hour" or "day"');
+    }
+    const days = boundedInt(options.days, { field: "days", min: 1, max: 365, fallback: 7 });
     await this.requireCampaign(userId, campaignId, "read");
-    return this.repos.campaigns.getTimeSeriesStatsByCampaign(campaignId, options);
+    return this.repos.campaigns.getTimeSeriesStatsByCampaign(campaignId, { interval, days });
   }
 
   /** Every campaign across the user's projects. */

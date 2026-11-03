@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { CampaignService } from "../services/campaignService";
-import { FormValidationError, NotFoundError } from "../errors";
+import { FormValidationError, NotFoundError, ValidationError } from "../errors";
 import type { Campaign, Project } from "../domain";
 import type { EmailTemplate } from "../emailTemplate";
 
@@ -141,5 +141,26 @@ describe("CampaignService.delete", () => {
     const { service, rows } = fakes([campaign({ id: 100 })]);
     expect((await service.delete("alice", 100)).project.id).toBe(1);
     expect(rows.has(100)).toBe(false);
+  });
+});
+
+describe("CampaignService.getTimeSeriesStats", () => {
+  it("accepts only an hour or day interval and a whole, bounded number of days", async () => {
+    const { service } = fakes([campaign({ id: 100, projectId: 1 })]);
+
+    await expect(service.getTimeSeriesStats("alice", 100, { interval: "hour", days: 1 })).resolves.toEqual([]);
+    await expect(service.getTimeSeriesStats("alice", 100, { interval: "day" })).resolves.toEqual([]);
+
+    // Server action arguments arrive as the client sent them.
+    const bad = [
+      { interval: "week", days: 7 },
+      { interval: "day'; SELECT 1; --", days: 7 },
+      { interval: "day", days: "7 days'); SELECT 1; --" },
+      { interval: "day", days: 0 },
+      { interval: "day", days: 366 },
+    ];
+    for (const options of bad) {
+      await expect(service.getTimeSeriesStats("alice", 100, options as never)).rejects.toBeInstanceOf(ValidationError);
+    }
   });
 });

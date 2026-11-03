@@ -88,10 +88,16 @@ export class DashboardRepository implements IDashboardRepository {
       return [];
     }
 
+    // Every caller value goes in as a bound parameter, never as SQL text.
+    const projectIdList = sql.join(
+      projectIds.map((id) => sql`${id}`),
+      sql`, `,
+    );
+
     const query = sql`
       WITH intervals AS (
         SELECT generate_series(
-          date_trunc('day', now() - interval '${sql.raw(days.toString())} days'),
+          date_trunc('day', now() - make_interval(days => ${days})),
           date_trunc('day', now()),
           interval '1 day'
         ) AS bucket
@@ -103,9 +109,9 @@ export class DashboardRepository implements IDashboardRepository {
           count(*) FILTER (WHERE ${campaignEvents.type} = 'FAILED' AND ${campaignEvents.metadata}->>'error' LIKE 'Recipient is suppressed%') as suppressed
         FROM ${campaignEvents}
         JOIN ${campaigns} ON ${campaignEvents.campaignId} = ${campaigns.id}
-        WHERE ${campaigns.projectId} IN (${sql.raw(projectIds.join(","))})
+        WHERE ${campaigns.projectId} IN (${projectIdList})
           AND ${campaigns.type} = 'STANDARD'
-          AND occurred_at >= now() - interval '${sql.raw(days.toString())} days'
+          AND occurred_at >= now() - make_interval(days => ${days})
         GROUP BY 1
       ),
       triggered_stats AS (
@@ -115,8 +121,8 @@ export class DashboardRepository implements IDashboardRepository {
           count(*) FILTER (WHERE ${triggeredSendLogs.status} = 'FAILED' AND ${triggeredSendLogs.error} LIKE 'Recipient is suppressed%') as suppressed
         FROM ${triggeredSendLogs}
         JOIN ${campaigns} ON ${triggeredSendLogs.campaignId} = ${campaigns.id}
-        WHERE ${campaigns.projectId} IN (${sql.raw(projectIds.join(","))})
-          AND ${triggeredSendLogs.sentAt} >= now() - interval '${sql.raw(days.toString())} days'
+        WHERE ${campaigns.projectId} IN (${projectIdList})
+          AND ${triggeredSendLogs.sentAt} >= now() - make_interval(days => ${days})
         GROUP BY 1
       )
       SELECT
