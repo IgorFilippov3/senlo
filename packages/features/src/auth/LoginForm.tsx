@@ -17,6 +17,8 @@ export interface LoginFormProps {
   error?: string | null;
   /** Shows the GitHub button; leave out when GitHub sign-in is not configured. */
   onGitHubSignIn?: () => void;
+  /** Shows the Google button; leave out when Google sign-in is not configured. */
+  onGoogleSignIn?: () => void;
   /** Where "Sign up" goes; leave out when registration is closed. */
   registerHref?: string;
   renderLink: RenderAuthLink;
@@ -27,6 +29,7 @@ export function LoginForm({
   isPending = false,
   error,
   onGitHubSignIn,
+  onGoogleSignIn,
   registerHref,
   renderLink,
 }: LoginFormProps) {
@@ -71,7 +74,7 @@ export function LoginForm({
         </Button>
       </form>
 
-      <OAuthButtons onGitHubSignIn={onGitHubSignIn} disabled={isPending} />
+      <OAuthButtons onGitHubSignIn={onGitHubSignIn} onGoogleSignIn={onGoogleSignIn} disabled={isPending} />
 
       {registerHref && (
         <p className="text-center text-sm text-zinc-500 pt-2">

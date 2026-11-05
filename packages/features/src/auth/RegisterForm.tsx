@@ -24,7 +24,10 @@ export interface RegisterFormProps {
   /** A message not tied to one field (registration closed, rate limited). */
   error?: string | null;
   fieldErrors?: RegisterFieldErrors;
+  /** Shows the GitHub button; leave out when GitHub sign-in is not configured. */
   onGitHubSignIn?: () => void;
+  /** Shows the Google button; leave out when Google sign-in is not configured. */
+  onGoogleSignIn?: () => void;
   loginHref: string;
   renderLink: RenderAuthLink;
 }
@@ -37,6 +40,7 @@ export function RegisterForm({
   error,
   fieldErrors = {},
   onGitHubSignIn,
+  onGoogleSignIn,
   loginHref,
   renderLink,
 }: RegisterFormProps) {
@@ -97,7 +101,7 @@ export function RegisterForm({
         </Button>
       </form>
 
-      <OAuthButtons onGitHubSignIn={onGitHubSignIn} disabled={isPending} />
+      <OAuthButtons onGitHubSignIn={onGitHubSignIn} onGoogleSignIn={onGoogleSignIn} disabled={isPending} />
 
       <p className="text-center text-sm text-zinc-500 pt-2">
         Already have an account? {renderLink(loginHref, "Log in", authLinkClassName)}
