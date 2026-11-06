@@ -81,6 +81,22 @@ describe("buildProviderConfig", () => {
     });
   });
 
+  it("builds and merges a SendGrid config", () => {
+    expect(buildProviderConfig({ name: "x", type: "SENDGRID" })).toEqual({
+      fieldErrors: { apiKey: ["SendGrid API key is required"] },
+    });
+    expect(buildProviderConfig({ name: "x", type: "SENDGRID", apiKey: "SG.k" })).toEqual({
+      config: { apiKey: "SG.k", region: "US", webhook_secret: "" },
+    });
+    expect(
+      buildProviderConfig({ name: "x", type: "SENDGRID", apiKey: "SG.k", region: "EU", webhookSecret: "pk" }),
+    ).toEqual({ config: { apiKey: "SG.k", region: "EU", webhook_secret: "pk" } });
+    const sg = provider({ type: "SENDGRID", config: { apiKey: "SG.k", region: "US", webhook_secret: "pk" } });
+    expect(mergeProviderConfig(sg, { apiKey: "", region: "EU", webhookSecret: "" })).toEqual({
+      apiKey: "SG.k", region: "EU", webhook_secret: "pk",
+    });
+  });
+
   it("allows an unauthenticated SMTP relay but not a username without a password", () => {
     expect(buildProviderConfig({ name: "x", type: "SMTP", host: "h", port: 25, username: "u" })).toEqual({
       fieldErrors: { password: ["Password is required when a username is set"] },

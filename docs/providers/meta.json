@@ -1,4 +1,9 @@
 {
   "title": "Providers",
-  "pages": ["resend", "postmark", "smtp"]
+  "pages": [
+    "resend",
+    "postmark",
+    "sendgrid",
+    "smtp"
+  ]
 }

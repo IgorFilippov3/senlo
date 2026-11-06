@@ -333,6 +333,52 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/webhooks/sendgrid:
+    post:
+      operationId: sendgrid-webhook
+      summary: SendGrid webhook
+      description: |
+        Paste this URL into a SendGrid Event Webhook with Signed Event Webhook
+        turned on, and save its Verification Key on the provider in Senlo.
+        Senlo verifies the ECDSA signature and the timestamp (at most 25 hours
+        old), then applies `delivered`, `bounce`, `spamreport` and `dropped`
+        events from the batch; a drop counts only for an address reason
+        (`Bounced Address`, `Invalid Address`, `Spam Reporting Address`).
+        Other event types are acknowledged and ignored.
+      tags: [Provider webhooks]
+      security: []
+      parameters:
+        - name: X-Twilio-Email-Event-Webhook-Signature
+          in: header
+          required: true
+          description: Base64 ECDSA signature of the timestamp followed by the raw body.
+          schema:
+            type: string
+        - name: X-Twilio-Email-Event-Webhook-Timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: The batch of events exactly as SendGrid sends it.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAccepted"
+        "400":
+          $ref: "#/components/responses/WebhookInvalidPayload"
+        "401":
+          $ref: "#/components/responses/WebhookUnauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     bearerAuth:

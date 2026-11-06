@@ -5,6 +5,7 @@ import { ResendMailer } from "./resendMailer";
 import { MailgunMailer } from "./mailgunMailer";
 import { SesMailer } from "./sesMailer";
 import { PostmarkMailer } from "./postmarkMailer";
+import { SendGridMailer } from "./sendgridMailer";
 import { SmtpMailer } from "./smtpMailer";
 import { allowAllOutbound, type OutboundPolicy } from "../../outbound";
 
@@ -53,6 +54,14 @@ export class MailerFactory {
         return new PostmarkMailer(serverToken);
       }
 
+      case "SENDGRID": {
+        const { apiKey, region } = provider.config || {};
+        if (!apiKey) {
+          throw new Error("SendGrid API key is missing in provider config");
+        }
+        return new SendGridMailer({ apiKey, region: region === "EU" ? "EU" : "US" });
+      }
+
       case "SMTP": {
         const { host, port, encryption, username, password } =
           provider.config || {};
@@ -83,7 +92,9 @@ export { ResendMailer } from "./resendMailer";
 export { MailgunMailer } from "./mailgunMailer";
 export { SesMailer } from "./sesMailer";
 export { PostmarkMailer } from "./postmarkMailer";
+export { SendGridMailer, parseSendGridAddress } from "./sendgridMailer";
 export { SmtpMailer } from "./smtpMailer";
 export type { MailgunConfig } from "./mailgunMailer";
 export type { SesConfig } from "./sesMailer";
+export type { SendGridConfig } from "./sendgridMailer";
 export type { SmtpConfig, SmtpEncryption } from "./smtpMailer";

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /** Providers that call back with delivery events. */
-export type WebhookProviderType = "RESEND" | "POSTMARK";
+export type WebhookProviderType = "RESEND" | "POSTMARK" | "SENDGRID";
 
 export type DeliveryEventType =
   | "DELIVERED"
@@ -41,19 +41,27 @@ export interface DeliveryEvent {
 export interface WebhookAdapter {
   readonly type: WebhookProviderType;
   /**
-   * Reads the project id from the body before verification. It picks the
+   * For providers that post several events in one body (SendGrid): the
+   * events of a parsed body, or null when the body is not a batch. Without
+   * it the body is one event.
+   */
+  split?(body: unknown): unknown[] | null;
+  /**
+   * Reads the project id from the body (from one event of a batch) before
+   * verification. It picks the
    * provider whose secret the event is checked against, nothing more.
    */
   readProjectId(body: unknown): number | null;
   /**
    * Checks the event against the provider's configured secret. Returns the
-   * authenticated payload, or null when the check fails.
+   * authenticated payload, or null when the check fails. May be async (Web
+   * Crypto signature checks are).
    */
   verify(
     rawBody: string,
     headers: Record<string, string>,
     secret: string,
-  ): unknown | null;
+  ): unknown | null | Promise<unknown | null>;
   /**
    * Maps a verified payload to a common event. Null for events Senlo does
    * not track and for payloads missing the message id or the recipient.
@@ -69,6 +77,21 @@ export type WebhookRejection =
 export type WebhookResult =
   /** Verified and applied. */
   | { status: "processed"; event: DeliveryEvent }
+  /**
+   * A batch (SendGrid) of which at least one project's part verified. Parts
+   * that did not are logged and dropped rather than refused: the provider
+   * retries a refused batch whole, and the verified parts would be applied
+   * twice.
+   */
+  | {
+      status: "batch_processed";
+      events: DeliveryEvent[];
+      /**
+       * Events of the batch not applied, for any reason: not tracked (open,
+       * processed), incomplete, untagged, or in a part that did not verify.
+       */
+      notApplied: number;
+    }
   /** Verified, or not addressed to a known project; nothing to do. Answered 200 so the provider stops retrying. */
   | { status: "ignored"; reason: string }
   /** Not authenticated, or not parseable. */

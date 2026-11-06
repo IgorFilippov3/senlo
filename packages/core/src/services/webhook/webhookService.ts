@@ -14,6 +14,7 @@ import type {
 } from "../../ports";
 import { postmarkWebhookAdapter } from "./postmark";
 import { resendWebhookAdapter } from "./resend";
+import { sendGridWebhookAdapter } from "./sendgrid";
 import type {
   DeliveryEvent,
   WebhookAdapter,
@@ -51,7 +52,11 @@ export class WebhookService {
   constructor(
     private readonly repos: WebhookServiceRepositories,
     private readonly logger: Logger = consoleLogger,
-    adapters: WebhookAdapter[] = [resendWebhookAdapter, postmarkWebhookAdapter],
+    adapters: WebhookAdapter[] = [
+      resendWebhookAdapter,
+      postmarkWebhookAdapter,
+      sendGridWebhookAdapter,
+    ],
   ) {
     this.adapters = new Map(adapters.map((a) => [a.type, a]));
   }
@@ -72,6 +77,9 @@ export class WebhookService {
       return { status: "rejected", reason: "invalid_payload" };
     }
 
+    const lowered = lowerCaseKeys(headers);
+    if (adapter.split) return this.handleBatch(adapter, body, rawBody, lowered);
+
     // The project tag picks whose secret the event is checked against. Until
     // the check passes nothing else in the body is trusted.
     const projectId = adapter.readProjectId(body);
@@ -80,6 +88,98 @@ export class WebhookService {
       return { status: "ignored", reason: "no_project" };
     }
 
+    const auth = await this.authenticate(adapter, projectId, rawBody, lowered);
+    if (auth.status !== "verified") return auth;
+
+    const event = adapter.normalize(auth.payload);
+    if (!event) {
+      this.logger.debug("Webhook event not tracked or incomplete", {
+        provider: providerType,
+        projectId,
+      });
+      return { status: "ignored", reason: "untracked_event" };
+    }
+
+    await this.apply(projectId, event);
+    return { status: "processed", event };
+  }
+
+  /**
+   * A body of several events. They are grouped by project, and each group
+   * is applied only if the whole body verifies against that project's
+   * provider: one SendGrid account can serve several projects, and the
+   * signature covers the body, not single events.
+   */
+  private async handleBatch(
+    adapter: WebhookAdapter,
+    body: unknown,
+    rawBody: string,
+    headers: Record<string, string>,
+  ): Promise<WebhookResult> {
+    const provider = adapter.type;
+    const items = adapter.split!(body);
+    if (!items) {
+      this.logger.error("Webhook payload is not a batch", { provider });
+      return { status: "rejected", reason: "invalid_payload" };
+    }
+
+    const projectIds = new Set<number>();
+    for (const item of items) {
+      const projectId = adapter.readProjectId(item);
+      if (projectId) projectIds.add(projectId);
+    }
+    if (projectIds.size === 0) {
+      this.logger.warn("Webhook batch without a project tag", { provider });
+      return { status: "ignored", reason: "no_project" };
+    }
+
+    const events: DeliveryEvent[] = [];
+    let verifiedAny = false;
+    let rejection: Extract<WebhookResult, { status: "rejected" }> | null = null;
+    let firstIgnored: Extract<WebhookResult, { status: "ignored" }> | null = null;
+
+    for (const projectId of projectIds) {
+      const auth = await this.authenticate(adapter, projectId, rawBody, headers);
+      if (auth.status === "rejected") {
+        rejection ??= auth;
+        continue;
+      }
+      if (auth.status === "ignored") {
+        firstIgnored ??= auth;
+        continue;
+      }
+      verifiedAny = true;
+      // Events are taken from the verified payload, never the unverified one.
+      for (const item of adapter.split!(auth.payload) ?? []) {
+        if (adapter.readProjectId(item) !== projectId) continue;
+        const event = adapter.normalize(item);
+        if (!event) continue;
+        await this.apply(projectId, event);
+        events.push(event);
+      }
+    }
+
+    if (!verifiedAny) {
+      return rejection ?? firstIgnored ?? { status: "ignored", reason: "no_project" };
+    }
+    if (events.length === 0) return { status: "ignored", reason: "untracked_event" };
+    return { status: "batch_processed", events, notApplied: items.length - events.length };
+  }
+
+  /**
+   * Finds the project's provider and checks the body against its secret.
+   * `headers` are lower-cased.
+   */
+  private async authenticate(
+    adapter: WebhookAdapter,
+    projectId: number,
+    rawBody: string,
+    headers: Record<string, string>,
+  ): Promise<
+    | { status: "verified"; payload: unknown }
+    | Extract<WebhookResult, { status: "ignored" | "rejected" }>
+  > {
+    const providerType = adapter.type;
     const project = await this.repos.projects.findById(projectId);
     if (!project?.providerId) {
       this.logger.warn("Webhook for an unknown project or one without a provider", {
@@ -117,7 +217,7 @@ export class WebhookService {
       return { status: "rejected", reason: "secret_not_configured" };
     }
 
-    const verified = adapter.verify(rawBody, lowerCaseKeys(headers), secret);
+    const verified = await adapter.verify(rawBody, headers, secret);
     if (verified === null) {
       this.logger.error("Webhook verification failed", {
         provider: providerType,
@@ -125,18 +225,7 @@ export class WebhookService {
       });
       return { status: "rejected", reason: "invalid_signature" };
     }
-
-    const event = adapter.normalize(verified);
-    if (!event) {
-      this.logger.debug("Webhook event not tracked or incomplete", {
-        provider: providerType,
-        projectId,
-      });
-      return { status: "ignored", reason: "untracked_event" };
-    }
-
-    await this.apply(projectId, event);
-    return { status: "processed", event };
+    return { status: "verified", payload: verified };
   }
 
   /** Writes a verified event that belongs to `projectId`. */

@@ -115,13 +115,13 @@ export function EmailProviderDialog({
     );
   };
 
-  const webhookSecret = (hint: string, placeholder: string) => (
+  const webhookSecret = (hint: string, placeholder: string, label = "Webhook Secret") => (
     <>
-      {secret("webhookSecret", "webhook_secret", "Webhook Secret", hint, placeholder, true)}
+      {secret("webhookSecret", "webhook_secret", label, hint, placeholder, true)}
       {isSet("webhook_secret") && (
         <label className="flex items-center gap-2 text-sm text-zinc-600 -mt-2">
           <input type="checkbox" name="clearWebhookSecret" className="rounded border-zinc-300" />
-          Remove the saved webhook secret
+          Remove the saved {label.toLowerCase()}
         </label>
       )}
     </>
@@ -173,6 +173,7 @@ export function EmailProviderDialog({
               {/* <SelectItem value="MAILGUN">Mailgun</SelectItem> */}
               {/* <SelectItem value="SES">Amazon SES</SelectItem> */}
               <SelectItem value="POSTMARK">Postmark</SelectItem>
+              <SelectItem value="SENDGRID">SendGrid</SelectItem>
               <SelectItem value="SMTP">SMTP server</SelectItem>
             </SelectContent>
           </Select>
@@ -240,6 +241,28 @@ export function EmailProviderDialog({
             {webhookSecret(
               "Needed for delivery, bounce and open events: Senlo ignores Postmark webhooks without it. In Postmark, add a custom header X-Postmark-Secret with this value to the webhook.",
               "my-secret-token",
+            )}
+          </>
+        )}
+
+        {type === "SENDGRID" && (
+          <>
+            {secret("apiKey", "apiKey", "API Key", "A SendGrid API key with Mail Send access", "SG.xxxxxxxx")}
+            <FormField label="Region" hint="EU only for an account or subuser with EU data residency">
+              <Select name="region" defaultValue={text("region", "US")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="US">Global (api.sendgrid.com)</SelectItem>
+                  <SelectItem value="EU">EU (api.eu.sendgrid.com)</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            {webhookSecret(
+              "Needed for delivery, bounce and spam events: the Verification Key of your Signed Event Webhook in SendGrid. Senlo refuses SendGrid webhooks without it.",
+              "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...",
+              "Verification Key",
             )}
           </>
         )}

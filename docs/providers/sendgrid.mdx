@@ -1,0 +1,46 @@
+---
+title: SendGrid
+description: Connect SendGrid to Senlo, and its signed Event Webhook for delivery events.
+---
+
+```text
+Provider type:      SendGrid
+API Key:            SG.xxxxxxxx
+Region:             Global (EU only for EU data residency)
+Verification Key:   the Signed Event Webhook's public key
+Webhook URL:        https://senlo.io/api/webhooks/sendgrid
+```
+
+## 1. Authenticate your domain in SendGrid
+
+Senlo sends from the From email you set on each trigger. SendGrid only accepts it from an authenticated domain or a verified single sender (**Settings** → **Sender Authentication**). Until then, sends fail at SendGrid and show `FAILED` in the delivery log.
+
+## 2. Create an API key
+
+In SendGrid, open **Settings** → **API Keys** → **Create API Key**. **Restricted Access** with **Mail Send** is enough. Copy the key (`SG.…`), SendGrid shows it once.
+
+## 3. Add the provider in Senlo
+
+1. Open **Providers** → **Add Provider**, **Provider Type**: SendGrid.
+2. **API Key**: the `SG.…` key.
+3. **Region**: Global, unless the account or subuser was created with EU data residency (then EU, `api.eu.sendgrid.com`).
+4. Leave **Verification Key** empty for now and click **Create Provider**.
+5. In your workspace's **Settings**, select this provider.
+
+Senlo switches off SendGrid's own open, click and subscription tracking on every email: it adds its own tracking and unsubscribe headers, and SendGrid's would rewrite the links a second time.
+
+## 4. Connect the Event Webhook
+
+1. In SendGrid, open **Settings** → **Mail Settings** → **Event Webhooks** → **Create new webhook**.
+2. **Post URL**: `https://senlo.io/api/webhooks/sendgrid` (self-hosted: your `APP_URL` + `/api/webhooks/sendgrid`).
+3. Enable **Delivered**, **Bounced**, **Dropped** and **Spam Reports**. Other events are acknowledged and ignored. A drop suppresses the address only when SendGrid dropped it because of the address (`Bounced Address`, `Invalid Address`, `Spam Reporting Address`), not for problems on the sending side.
+4. Turn on **Signed Event Webhook** and save. Copy the **Verification Key** it shows.
+5. In Senlo, edit the provider and paste it into **Verification Key**.
+
+Without the key saved in Senlo, every SendGrid event is refused with `401`. Details: [Provider webhooks](../api/webhooks.mdx).
+
+One SendGrid account can serve several Senlo workspaces: each event carries its workspace, and a batch is checked against the key of each workspace it mentions.
+
+## Testing
+
+**Test Integration** on the webhook page sends sample events without Senlo tags, so Senlo answers `200` and ignores them. To test end to end, send a real email from the [Quickstart](../getting-started/quickstart.mdx) and watch its status in the delivery log.

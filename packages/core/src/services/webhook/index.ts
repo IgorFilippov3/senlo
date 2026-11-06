@@ -6,3 +6,11 @@ export * from "./types";
 export * from "./webhookService";
 export { resendWebhookAdapter, readResendTags } from "./resend";
 export { postmarkWebhookAdapter, POSTMARK_SECRET_HEADER } from "./postmark";
+export {
+  sendGridWebhookAdapter,
+  sendGridMessageId,
+  isFreshTimestamp,
+  SENDGRID_MAX_AGE_SECONDS,
+  SENDGRID_SIGNATURE_HEADER,
+  SENDGRID_TIMESTAMP_HEADER,
+} from "./sendgrid";

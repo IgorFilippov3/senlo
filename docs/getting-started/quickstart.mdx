@@ -10,7 +10,7 @@ curl -X POST https://senlo.io/api/triggered \
   -d '{ "id": 1, "to": "you@example.com", "data": { "name": "Ada" } }'
 ```
 
-By the end of this page that request delivers a real email. You need an account with [Resend](../providers/resend.mdx), [Postmark](../providers/postmark.mdx) or an [SMTP](../providers/smtp.mdx) server, with a verified sending domain.
+By the end of this page that request delivers a real email. You need an account with [Resend](../providers/resend.mdx), [Postmark](../providers/postmark.mdx), [SendGrid](../providers/sendgrid.mdx) or an [SMTP](../providers/smtp.mdx) server, with a verified sending domain.
 
 <Callout type="info" title="Self-hosted?">
   Every step is the same on your own instance. Replace `https://senlo.io` with your `APP_URL`. Setting up the instance is covered in [Self-hosting](./self-hosting.mdx).
@@ -23,7 +23,7 @@ Sign up at [senlo.io/register](https://senlo.io/register). Templates, triggers, 
 ## 2. Connect your provider
 
 1. Open **Providers** in the sidebar and click **Add Provider**.
-2. Pick the type (Resend, Postmark or SMTP server) and paste the credentials.
+2. Pick the type (Resend, Postmark, SendGrid or SMTP server) and paste the credentials.
 3. Open your workspace's **Settings** and select the provider as its email provider.
 
 A workspace sends through exactly one provider. Until it has one, sends fail with `No email provider configured for this project`.

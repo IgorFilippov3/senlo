@@ -157,6 +157,7 @@ export type EmailProviderType =
   | "MAILGUN"
   | "SES"
   | "POSTMARK"
+  | "SENDGRID"
   | "SMTP";
 
 export interface EmailProvider {

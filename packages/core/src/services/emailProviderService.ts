@@ -15,6 +15,7 @@ export const EMAIL_PROVIDER_TYPES = [
   "MAILGUN",
   "SES",
   "POSTMARK",
+  "SENDGRID",
   "SMTP",
 ] as const satisfies readonly EmailProviderType[];
 
@@ -137,6 +138,16 @@ export function buildProviderConfig(input: EmailProviderInput): ConfigOutcome {
         config: { serverToken: input.serverToken, webhook_secret: input.webhookSecret || "" },
       };
 
+    case "SENDGRID":
+      if (!input.apiKey) return missing({ apiKey: "SendGrid API key is required" });
+      return {
+        config: {
+          apiKey: input.apiKey,
+          region: input.region === "EU" ? "EU" : "US",
+          webhook_secret: input.webhookSecret || "",
+        },
+      };
+
     case "SMTP": {
       if (!input.host || !input.port) {
         return missing({
@@ -199,6 +210,11 @@ export function mergeProviderConfig(
       break;
     case "POSTMARK":
       if (input.serverToken) config.serverToken = input.serverToken;
+      applyWebhookSecret(config, input);
+      break;
+    case "SENDGRID":
+      if (input.apiKey) config.apiKey = input.apiKey;
+      if (input.region) config.region = input.region === "EU" ? "EU" : "US";
       applyWebhookSecret(config, input);
       break;
     case "SMTP":
