@@ -55,6 +55,13 @@ export interface SendMailResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  /**
+   * The provider took the request but refused the address for good, and
+   * said so in its response (Cloudflare). The send is not retried; the
+   * worker records a bounce and suppresses the address, as a bounce webhook
+   * would.
+   */
+  permanentBounce?: boolean;
 }
 
 export interface IMailer {

@@ -5,6 +5,7 @@
     "postmark",
     "sendgrid",
     "mailjet",
+    "cloudflare",
     "smtp"
   ]
 }

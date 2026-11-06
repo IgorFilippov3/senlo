@@ -110,6 +110,7 @@ export const emailProviderTypeEnum = pgEnum("email_provider_type", [
   // Appended, not inserted: Postgres adds enum values at the end.
   "SENDGRID",
   "MAILJET",
+  "CLOUDFLARE",
 ]);
 
 export const aiProviderTypeEnum = pgEnum("ai_provider_type", [

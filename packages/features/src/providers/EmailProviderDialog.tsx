@@ -26,6 +26,7 @@ export interface EmailProviderValues {
   type: EmailProviderType;
   apiKey?: string;
   apiSecret?: string;
+  accountId?: string;
   webhookSecret?: string;
   /** Edit only: remove the saved webhook secret. */
   clearWebhookSecret?: boolean;
@@ -44,6 +45,7 @@ export interface EmailProviderValues {
 const TEXT_FIELDS = [
   "apiKey",
   "apiSecret",
+  "accountId",
   "webhookSecret",
   "domain",
   "region",
@@ -177,6 +179,7 @@ export function EmailProviderDialog({
               <SelectItem value="POSTMARK">Postmark</SelectItem>
               <SelectItem value="SENDGRID">SendGrid</SelectItem>
               <SelectItem value="MAILJET">Mailjet</SelectItem>
+              <SelectItem value="CLOUDFLARE">Cloudflare Email</SelectItem>
               <SelectItem value="SMTP">SMTP server</SelectItem>
             </SelectContent>
           </Select>
@@ -289,6 +292,25 @@ export function EmailProviderDialog({
               "Needed for delivery, bounce and spam events: Senlo refuses Mailjet webhooks without it. Letters, digits, - and _ only (e.g. openssl rand -hex 32): it goes into the callback URL as the basic auth password, https://senlo:<secret>@your-host/api/webhooks/mailjet.",
               "a long random string",
             )}
+          </>
+        )}
+
+        {type === "CLOUDFLARE" && (
+          <>
+            {secret("apiKey", "apiKey", "API Token", "A Cloudflare API token allowed to send email for the account", "xxxxxxxx")}
+            <FormField label="Account ID" required hint="32 hex characters, on your Cloudflare account home page">
+              <Input
+                name="accountId"
+                defaultValue={text("accountId")}
+                placeholder="0123456789abcdef0123456789abcdef"
+                required
+              />
+            </FormField>
+            <p className="text-sm text-zinc-600">
+              Cloudflare has no delivery webhook, so emails stay at Sent: no Delivered status, and
+              bounces and spam complaints after sending are not tracked. Addresses Cloudflare refuses
+              outright are still marked Bounced and suppressed.
+            </p>
           </>
         )}
 

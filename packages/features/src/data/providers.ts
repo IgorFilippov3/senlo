@@ -14,6 +14,7 @@ const PROVIDER_FIELDS = [
   "type",
   "apiKey",
   "apiSecret",
+  "accountId",
   "webhookSecret",
   "domain",
   "region",

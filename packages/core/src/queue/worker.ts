@@ -352,6 +352,21 @@ export class EmailWorkerProcessor {
         // No DELIVERED here: the provider accepting a message is not a
         // delivery. It comes from the provider's webhook, as for triggered sends.
       }
+
+      if (result.permanentBounce) {
+        // Never throws: the provider has answered, so a failed write here must
+        // not make the queue retry and mail an address it just called dead.
+        try {
+          await this.recordPermanentBounce(projectId, campaignId, contactId, email, logId, provider.type);
+        } catch (error) {
+          this.logger.error("Failed to record a permanent bounce", {
+            jobId: job.id,
+            projectId,
+            campaignId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
     } catch (error) {
       this.logger.error("Failed to process email job", {
         jobId: job.id,
@@ -372,6 +387,49 @@ export class EmailWorkerProcessor {
       }
 
       throw error; // Rethrow to let BullMQ handle retries
+    }
+  }
+
+  /**
+   * A bounce the provider reported in its send response rather than by
+   * webhook: the same outcome as a bounce webhook (log `BOUNCED`, campaign
+   * event, suppression), written here because no webhook will come.
+   *
+   * The send stays counted in usage: the provider took the request, and
+   * Cloudflare counts hard bounces against its own quota too.
+   */
+  private async recordPermanentBounce(
+    projectId: number,
+    campaignId: number,
+    contactId: number | null | undefined,
+    email: string,
+    logId: number | null | undefined,
+    provider: string,
+  ): Promise<void> {
+    this.logger.info("Suppressing an address the provider refused at send time", {
+      projectId,
+      campaignId,
+      provider,
+    });
+    if (logId && this.logRepo) {
+      await this.logRepo.update(logId, {
+        status: "BOUNCED",
+        error: "Permanent bounce reported by the provider at send time",
+      });
+    }
+    if (campaignId !== 0) {
+      await this.campaignRepo.logEvent({
+        campaignId,
+        contactId: contactId && contactId !== 0 ? contactId : null,
+        email,
+        type: "BOUNCE",
+        // Same key as webhook events (`<provider>_event`).
+        metadata: { [`${provider.toLowerCase()}_event`]: { permanent_bounce: true, at: "send" } },
+      });
+    }
+    if (this.suppressionRepo) {
+      const existing = await this.suppressionRepo.findByProjectAndEmail(projectId, email);
+      if (!existing) await this.suppressionRepo.create({ projectId, email, reason: "BOUNCE" });
     }
   }
 

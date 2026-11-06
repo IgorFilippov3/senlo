@@ -126,6 +126,23 @@ describe("buildProviderConfig", () => {
     expect(toPublicEmailProvider(mj).secretsSet).toEqual(["apiKey", "apiSecret", "webhook_secret"]);
   });
 
+  it("builds and merges a Cloudflare config, checking the account id", () => {
+    const acct = "0123456789abcdef0123456789abcdef";
+    expect(buildProviderConfig({ name: "x", type: "CLOUDFLARE", apiKey: "t" })).toEqual({
+      fieldErrors: { accountId: ["Cloudflare account ID is required"] },
+    });
+    expect(buildProviderConfig({ name: "x", type: "CLOUDFLARE", apiKey: "t", accountId: "acme" })).toMatchObject({
+      fieldErrors: { accountId: [expect.stringContaining("32 hex characters")] },
+    });
+    expect(buildProviderConfig({ name: "x", type: "CLOUDFLARE", apiKey: "t", accountId: acct })).toEqual({
+      config: { accountId: acct, apiKey: "t" },
+    });
+    const cf = provider({ type: "CLOUDFLARE", config: { accountId: acct, apiKey: "t" } });
+    expect(mergeProviderConfig(cf, { apiKey: "" })).toEqual({ accountId: acct, apiKey: "t" });
+    expect(() => mergeProviderConfig(cf, { accountId: "../x" })).toThrow(FormValidationError);
+    expect(toPublicEmailProvider(cf)).toMatchObject({ config: { accountId: acct }, secretsSet: ["apiKey"] });
+  });
+
   it("allows an unauthenticated SMTP relay but not a username without a password", () => {
     expect(buildProviderConfig({ name: "x", type: "SMTP", host: "h", port: 25, username: "u" })).toEqual({
       fieldErrors: { password: ["Password is required when a username is set"] },

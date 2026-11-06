@@ -7,6 +7,7 @@ import { SesMailer } from "./sesMailer";
 import { PostmarkMailer } from "./postmarkMailer";
 import { SendGridMailer } from "./sendgridMailer";
 import { MailjetMailer } from "./mailjetMailer";
+import { CloudflareMailer } from "./cloudflareMailer";
 import { SmtpMailer } from "./smtpMailer";
 import { allowAllOutbound, type OutboundPolicy } from "../../outbound";
 
@@ -71,6 +72,14 @@ export class MailerFactory {
         return new MailjetMailer({ apiKey, apiSecret, region: region === "US" ? "US" : "GLOBAL" });
       }
 
+      case "CLOUDFLARE": {
+        const { accountId, apiKey } = provider.config || {};
+        if (!accountId || !apiKey) {
+          throw new Error("Cloudflare account ID and API token are required in provider config");
+        }
+        return new CloudflareMailer({ accountId, apiToken: apiKey });
+      }
+
       case "SMTP": {
         const { host, port, encryption, username, password } =
           provider.config || {};
@@ -103,9 +112,11 @@ export { SesMailer } from "./sesMailer";
 export { PostmarkMailer } from "./postmarkMailer";
 export { SendGridMailer, parseSendGridAddress } from "./sendgridMailer";
 export { MailjetMailer, parseMailjetAddress } from "./mailjetMailer";
+export { CloudflareMailer, parseCloudflareAddress, CLOUDFLARE_ACCOUNT_ID } from "./cloudflareMailer";
 export { SmtpMailer } from "./smtpMailer";
 export type { MailgunConfig } from "./mailgunMailer";
 export type { SesConfig } from "./sesMailer";
 export type { SendGridConfig } from "./sendgridMailer";
 export type { MailjetConfig } from "./mailjetMailer";
+export type { CloudflareConfig } from "./cloudflareMailer";
 export type { SmtpConfig, SmtpEncryption } from "./smtpMailer";

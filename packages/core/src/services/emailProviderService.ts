@@ -8,6 +8,7 @@ import { ServiceHooks } from "../hooks";
 import type { EmailProvider, EmailProviderType, PublicEmailProvider } from "../domain";
 import { FormValidationError, NotFoundError } from "../errors";
 import { parseInput } from "../validation";
+import { CLOUDFLARE_ACCOUNT_ID } from "./mail/cloudflareMailer";
 import type { IEmailProviderRepository } from "../ports";
 
 export const EMAIL_PROVIDER_TYPES = [
@@ -17,6 +18,7 @@ export const EMAIL_PROVIDER_TYPES = [
   "POSTMARK",
   "SENDGRID",
   "MAILJET",
+  "CLOUDFLARE",
   "SMTP",
 ] as const satisfies readonly EmailProviderType[];
 
@@ -31,6 +33,8 @@ export const EmailProviderInputSchema = z.object({
   /** Mailjet's Secret Key, the second half of its API key pair. */
   apiSecret: z.string().trim().optional(),
   webhookSecret: z.string().trim().optional(),
+  /** Cloudflare account id; not a secret. */
+  accountId: z.string().trim().optional(),
   domain: z.string().trim().optional(),
   region: z.string().trim().optional(),
   accessKeyId: z.string().trim().optional(),
@@ -115,6 +119,9 @@ const MAILJET_REGIONS: readonly string[] = ["GLOBAL", "US"];
 const URL_SAFE_SECRET = /^[A-Za-z0-9_-]+$/;
 const MAILJET_SECRET_ERROR = "Use letters, digits, - and _ only: the secret goes into the webhook URL";
 
+const CLOUDFLARE_ACCOUNT_ID_ERROR =
+  "Account ID is 32 hex characters (Cloudflare dashboard → Account home → Account ID)";
+
 /** The stored config for a new provider, or which fields the type needs. */
 export function buildProviderConfig(input: EmailProviderInput): ConfigOutcome {
   switch (input.type) {
@@ -190,6 +197,19 @@ export function buildProviderConfig(input: EmailProviderInput): ConfigOutcome {
         },
       };
     }
+
+    case "CLOUDFLARE":
+      if (!input.accountId || !input.apiKey) {
+        return missing({
+          accountId: input.accountId ? undefined : "Cloudflare account ID is required",
+          apiKey: input.apiKey ? undefined : "Cloudflare API token is required",
+        });
+      }
+      if (!CLOUDFLARE_ACCOUNT_ID.test(input.accountId)) {
+        return missing({ accountId: CLOUDFLARE_ACCOUNT_ID_ERROR });
+      }
+      // No webhook secret: Cloudflare has no delivery webhook.
+      return { config: { accountId: input.accountId, apiKey: input.apiKey } };
 
     case "SMTP": {
       if (!input.host || !input.port) {
@@ -273,6 +293,15 @@ export function mergeProviderConfig(
         throw new FormValidationError({ webhookSecret: [MAILJET_SECRET_ERROR] });
       }
       applyWebhookSecret(config, input);
+      break;
+    case "CLOUDFLARE":
+      if (input.accountId) {
+        if (!CLOUDFLARE_ACCOUNT_ID.test(input.accountId)) {
+          throw new FormValidationError({ accountId: [CLOUDFLARE_ACCOUNT_ID_ERROR] });
+        }
+        config.accountId = input.accountId;
+      }
+      if (input.apiKey) config.apiKey = input.apiKey;
       break;
     case "SMTP":
       if (input.host) config.host = input.host;

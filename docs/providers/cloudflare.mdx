@@ -1,0 +1,39 @@
+---
+title: Cloudflare Email
+description: Send through Cloudflare Email Service. Sending only, without delivery tracking.
+---
+
+```text
+Provider type:   Cloudflare Email
+API Token:       a Cloudflare API token that can send email for the account
+Account ID:      32 hex characters
+Webhook:         none (Cloudflare has no delivery webhook)
+```
+
+<Callout type="warn" title="No delivery tracking">
+  Cloudflare publishes delivery events to Cloudflare Queues, not to a webhook, and its REST API returns no message id Senlo could match them with. Emails sent through Cloudflare stay at **Sent** in the delivery log: no **Delivered** status, and bounces and spam complaints that happen after sending are not recorded or suppressed. If you need those, use [Resend](./resend.mdx), [Postmark](./postmark.mdx), [SendGrid](./sendgrid.mdx) or [Mailjet](./mailjet.mdx).
+</Callout>
+
+## 1. Set up sending in Cloudflare
+
+- Your sending domain must use **Cloudflare DNS**, and be onboarded for Email Sending on the same account as the API token (Cloudflare dashboard → **Email Service**).
+- Sending to any address, not only your verified ones, needs a paid plan: at the time of writing, **Workers Paid**, with 3,000 emails a month included and the rest billed by Cloudflare. Hard bounces count toward that quota. Plans and limits change, so check [Cloudflare's Email Service pricing](https://developers.cloudflare.com/email-service/platform/pricing/).
+
+Until the domain is set up, sends fail at Cloudflare and show `FAILED` in the delivery log with Cloudflare's error code. `email.sending.error.authentication.not_entitled (10105)` means the account's plan does not include sending.
+
+## 2. Get the token and account ID
+
+1. Create an API token (**My Profile** → **API Tokens**) with permission to send email for the account. Copy it; Cloudflare shows it once.
+2. Copy your **Account ID** from the account home page (32 hex characters).
+
+## 3. Add the provider in Senlo
+
+1. Open **Providers** → **Add Provider**, **Provider Type**: Cloudflare Email.
+2. **API Token** and **Account ID**: from step 2.
+3. Click **Create Provider**, then select it in your workspace's **Settings**.
+
+## What Senlo still tracks
+
+Cloudflare answers every send with what happened to each recipient right away. When it reports a **permanent bounce** (an address refused for good), Senlo marks the email **Bounced** and adds the address to the suppression list, so it is not mailed again. The send is not retried.
+
+Opens and clicks are counted by Senlo's own tracking, as with every provider.

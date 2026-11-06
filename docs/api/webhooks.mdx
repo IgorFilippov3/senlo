@@ -26,6 +26,8 @@ Step-by-step per provider: [Resend](../providers/resend.mdx), [Postmark](../prov
 
 A provider with no webhook secret saved refuses every event with `401`: an unauthenticated endpoint would let anyone fill your suppression list.
 
+[Cloudflare Email](../providers/cloudflare.mdx) has no delivery webhook: Senlo records only the permanent bounces Cloudflare reports when the email is sent.
+
 ## Events Senlo uses
 
 | Senlo | Resend | Postmark | SendGrid | Mailjet | What Senlo does |
