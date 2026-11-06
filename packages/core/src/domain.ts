@@ -158,6 +158,7 @@ export type EmailProviderType =
   | "SES"
   | "POSTMARK"
   | "SENDGRID"
+  | "MAILJET"
   | "SMTP";
 
 export interface EmailProvider {

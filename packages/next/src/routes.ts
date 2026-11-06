@@ -270,6 +270,11 @@ export function createSenloRoutes(host: SenloHost) {
       POST: ((req) => handleProviderWebhook(host, req, "SENDGRID")) satisfies Handler,
     },
 
+    /** `POST /api/webhooks/mailjet`. */
+    webhookMailjet: {
+      POST: ((req) => handleProviderWebhook(host, req, "MAILJET")) satisfies Handler,
+    },
+
     /**
      * `POST /api/debug/check`: test target for automation "API Check" nodes.
      * 200 (YES) when the email contains "pass", `metadata.test_check` is true

@@ -97,6 +97,35 @@ describe("buildProviderConfig", () => {
     });
   });
 
+  it("builds and merges a Mailjet config, refusing an unknown region", () => {
+    expect(buildProviderConfig({ name: "x", type: "MAILJET", apiKey: "k" })).toEqual({
+      fieldErrors: { apiSecret: ["Mailjet secret key is required"] },
+    });
+    expect(buildProviderConfig({ name: "x", type: "MAILJET", apiKey: "k", apiSecret: "s" })).toEqual({
+      config: { apiKey: "k", apiSecret: "s", region: "GLOBAL", webhook_secret: "" },
+    });
+    expect(buildProviderConfig({ name: "x", type: "MAILJET", apiKey: "k", apiSecret: "s", region: "ASIA" })).toEqual({
+      fieldErrors: { region: ["Region must be GLOBAL or US"] },
+    });
+    const mj = provider({ type: "MAILJET", config: { apiKey: "k", apiSecret: "s", region: "GLOBAL", webhook_secret: "w" } });
+    expect(mergeProviderConfig(mj, { apiKey: "", apiSecret: "", region: "US" })).toEqual({
+      apiKey: "k", apiSecret: "s", region: "US", webhook_secret: "w",
+    });
+    expect(() => mergeProviderConfig(mj, { region: "ASIA" })).toThrow(FormValidationError);
+    // The secret goes into the webhook URL, so it has to be URL-safe.
+    expect(
+      buildProviderConfig({ name: "x", type: "MAILJET", apiKey: "k", apiSecret: "s", webhookSecret: "a@b:c/d" }),
+    ).toEqual({
+      fieldErrors: { webhookSecret: ["Use letters, digits, - and _ only: the secret goes into the webhook URL"] },
+    });
+    expect(
+      buildProviderConfig({ name: "x", type: "MAILJET", apiKey: "k", apiSecret: "s", webhookSecret: "Ab-9_x" }),
+    ).toMatchObject({ config: { webhook_secret: "Ab-9_x" } });
+    expect(() => mergeProviderConfig(mj, { webhookSecret: "bad#secret" })).toThrow(FormValidationError);
+    expect(mergeProviderConfig(mj, { webhookSecret: "good_secret" }).webhook_secret).toBe("good_secret");
+    expect(toPublicEmailProvider(mj).secretsSet).toEqual(["apiKey", "apiSecret", "webhook_secret"]);
+  });
+
   it("allows an unauthenticated SMTP relay but not a username without a password", () => {
     expect(buildProviderConfig({ name: "x", type: "SMTP", host: "h", port: 25, username: "u" })).toEqual({
       fieldErrors: { password: ["Password is required when a username is set"] },

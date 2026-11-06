@@ -16,6 +16,7 @@ export const EMAIL_PROVIDER_TYPES = [
   "SES",
   "POSTMARK",
   "SENDGRID",
+  "MAILJET",
   "SMTP",
 ] as const satisfies readonly EmailProviderType[];
 
@@ -27,6 +28,8 @@ export const EmailProviderInputSchema = z.object({
   name: z.string().min(1).max(255).trim(),
   type: z.enum(EMAIL_PROVIDER_TYPES),
   apiKey: z.string().trim().optional(),
+  /** Mailjet's Secret Key, the second half of its API key pair. */
+  apiSecret: z.string().trim().optional(),
   webhookSecret: z.string().trim().optional(),
   domain: z.string().trim().optional(),
   region: z.string().trim().optional(),
@@ -61,6 +64,7 @@ export type EmailProviderField = keyof EmailProviderUpdate | "general";
 /** Config keys that hold credentials: stored, used to send, never sent to a browser. */
 export const EMAIL_PROVIDER_SECRET_KEYS = [
   "apiKey",
+  "apiSecret",
   "webhook_secret",
   "secretAccessKey",
   "serverToken",
@@ -95,6 +99,21 @@ function missing(fields: Partial<Record<EmailProviderField, string>>): ConfigOut
   }
   return { fieldErrors };
 }
+
+/**
+ * Mailjet's API hosts: the default one, and the one for accounts on its US
+ * infrastructure. An unknown value is refused rather than mapped to the
+ * default, which would only fail later, at send time, as an auth error.
+ */
+const MAILJET_REGIONS: readonly string[] = ["GLOBAL", "US"];
+
+/**
+ * Mailjet's webhook secret goes into the callback URL as the basic auth
+ * password, so it has to be safe there unencoded: `@ : / ? #` would break
+ * the URL, and how Mailjet handles percent-encoding is not documented.
+ */
+const URL_SAFE_SECRET = /^[A-Za-z0-9_-]+$/;
+const MAILJET_SECRET_ERROR = "Use letters, digits, - and _ only: the secret goes into the webhook URL";
 
 /** The stored config for a new provider, or which fields the type needs. */
 export function buildProviderConfig(input: EmailProviderInput): ConfigOutcome {
@@ -147,6 +166,30 @@ export function buildProviderConfig(input: EmailProviderInput): ConfigOutcome {
           webhook_secret: input.webhookSecret || "",
         },
       };
+
+    case "MAILJET": {
+      if (!input.apiKey || !input.apiSecret) {
+        return missing({
+          apiKey: input.apiKey ? undefined : "Mailjet API key is required",
+          apiSecret: input.apiSecret ? undefined : "Mailjet secret key is required",
+        });
+      }
+      const region = input.region || "GLOBAL";
+      if (!MAILJET_REGIONS.includes(region)) {
+        return missing({ region: "Region must be GLOBAL or US" });
+      }
+      if (input.webhookSecret && !URL_SAFE_SECRET.test(input.webhookSecret)) {
+        return missing({ webhookSecret: MAILJET_SECRET_ERROR });
+      }
+      return {
+        config: {
+          apiKey: input.apiKey,
+          apiSecret: input.apiSecret,
+          region,
+          webhook_secret: input.webhookSecret || "",
+        },
+      };
+    }
 
     case "SMTP": {
       if (!input.host || !input.port) {
@@ -215,6 +258,20 @@ export function mergeProviderConfig(
     case "SENDGRID":
       if (input.apiKey) config.apiKey = input.apiKey;
       if (input.region) config.region = input.region === "EU" ? "EU" : "US";
+      applyWebhookSecret(config, input);
+      break;
+    case "MAILJET":
+      if (input.apiKey) config.apiKey = input.apiKey;
+      if (input.apiSecret) config.apiSecret = input.apiSecret;
+      if (input.region) {
+        if (!MAILJET_REGIONS.includes(input.region)) {
+          throw new FormValidationError({ region: ["Region must be GLOBAL or US"] });
+        }
+        config.region = input.region;
+      }
+      if (input.webhookSecret && !input.clearWebhookSecret && !URL_SAFE_SECRET.test(input.webhookSecret)) {
+        throw new FormValidationError({ webhookSecret: [MAILJET_SECRET_ERROR] });
+      }
       applyWebhookSecret(config, input);
       break;
     case "SMTP":

@@ -25,6 +25,7 @@ export interface EmailProviderValues {
   name: string;
   type: EmailProviderType;
   apiKey?: string;
+  apiSecret?: string;
   webhookSecret?: string;
   /** Edit only: remove the saved webhook secret. */
   clearWebhookSecret?: boolean;
@@ -42,6 +43,7 @@ export interface EmailProviderValues {
 
 const TEXT_FIELDS = [
   "apiKey",
+  "apiSecret",
   "webhookSecret",
   "domain",
   "region",
@@ -174,6 +176,7 @@ export function EmailProviderDialog({
               {/* <SelectItem value="SES">Amazon SES</SelectItem> */}
               <SelectItem value="POSTMARK">Postmark</SelectItem>
               <SelectItem value="SENDGRID">SendGrid</SelectItem>
+              <SelectItem value="MAILJET">Mailjet</SelectItem>
               <SelectItem value="SMTP">SMTP server</SelectItem>
             </SelectContent>
           </Select>
@@ -263,6 +266,28 @@ export function EmailProviderDialog({
               "Needed for delivery, bounce and spam events: the Verification Key of your Signed Event Webhook in SendGrid. Senlo refuses SendGrid webhooks without it.",
               "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...",
               "Verification Key",
+            )}
+          </>
+        )}
+
+        {type === "MAILJET" && (
+          <>
+            {secret("apiKey", "apiKey", "API Key", "Your Mailjet API Key (public half of the key pair)", "xxxxxxxx")}
+            {secret("apiSecret", "apiSecret", "Secret Key", "Your Mailjet Secret Key", "xxxxxxxx")}
+            <FormField label="Region" hint="US only for an account on Mailjet's US infrastructure">
+              <Select name="region" defaultValue={text("region", "GLOBAL")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GLOBAL">Global (api.mailjet.com)</SelectItem>
+                  <SelectItem value="US">US (api.us.mailjet.com)</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            {webhookSecret(
+              "Needed for delivery, bounce and spam events: Senlo refuses Mailjet webhooks without it. Letters, digits, - and _ only (e.g. openssl rand -hex 32): it goes into the callback URL as the basic auth password, https://senlo:<secret>@your-host/api/webhooks/mailjet.",
+              "a long random string",
             )}
           </>
         )}

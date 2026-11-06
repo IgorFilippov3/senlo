@@ -6,6 +6,7 @@ import { MailgunMailer } from "./mailgunMailer";
 import { SesMailer } from "./sesMailer";
 import { PostmarkMailer } from "./postmarkMailer";
 import { SendGridMailer } from "./sendgridMailer";
+import { MailjetMailer } from "./mailjetMailer";
 import { SmtpMailer } from "./smtpMailer";
 import { allowAllOutbound, type OutboundPolicy } from "../../outbound";
 
@@ -62,6 +63,14 @@ export class MailerFactory {
         return new SendGridMailer({ apiKey, region: region === "EU" ? "EU" : "US" });
       }
 
+      case "MAILJET": {
+        const { apiKey, apiSecret, region } = provider.config || {};
+        if (!apiKey || !apiSecret) {
+          throw new Error("Mailjet API key and secret key are required in provider config");
+        }
+        return new MailjetMailer({ apiKey, apiSecret, region: region === "US" ? "US" : "GLOBAL" });
+      }
+
       case "SMTP": {
         const { host, port, encryption, username, password } =
           provider.config || {};
@@ -93,8 +102,10 @@ export { MailgunMailer } from "./mailgunMailer";
 export { SesMailer } from "./sesMailer";
 export { PostmarkMailer } from "./postmarkMailer";
 export { SendGridMailer, parseSendGridAddress } from "./sendgridMailer";
+export { MailjetMailer, parseMailjetAddress } from "./mailjetMailer";
 export { SmtpMailer } from "./smtpMailer";
 export type { MailgunConfig } from "./mailgunMailer";
 export type { SesConfig } from "./sesMailer";
 export type { SendGridConfig } from "./sendgridMailer";
+export type { MailjetConfig } from "./mailjetMailer";
 export type { SmtpConfig, SmtpEncryption } from "./smtpMailer";

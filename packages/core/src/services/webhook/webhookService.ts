@@ -15,6 +15,7 @@ import type {
 import { postmarkWebhookAdapter } from "./postmark";
 import { resendWebhookAdapter } from "./resend";
 import { sendGridWebhookAdapter } from "./sendgrid";
+import { mailjetWebhookAdapter } from "./mailjet";
 import type {
   DeliveryEvent,
   WebhookAdapter,
@@ -56,6 +57,7 @@ export class WebhookService {
       resendWebhookAdapter,
       postmarkWebhookAdapter,
       sendGridWebhookAdapter,
+      mailjetWebhookAdapter,
     ],
   ) {
     this.adapters = new Map(adapters.map((a) => [a.type, a]));

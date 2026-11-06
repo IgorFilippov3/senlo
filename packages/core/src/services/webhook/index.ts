@@ -6,6 +6,7 @@ export * from "./types";
 export * from "./webhookService";
 export { resendWebhookAdapter, readResendTags } from "./resend";
 export { postmarkWebhookAdapter, POSTMARK_SECRET_HEADER } from "./postmark";
+export { mailjetWebhookAdapter, readMailjetPayload, readBasicPassword } from "./mailjet";
 export {
   sendGridWebhookAdapter,
   sendGridMessageId,

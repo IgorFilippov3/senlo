@@ -1,0 +1,46 @@
+---
+title: Mailjet
+description: Connect Mailjet to Senlo, and its event webhook for delivery events.
+---
+
+```text
+Provider type:   Mailjet
+API Key:         your Mailjet API key
+Secret Key:      your Mailjet secret key
+Region:          Global (US only for an account on Mailjet's US infrastructure)
+Webhook Secret:  any long random string
+Webhook URL:     https://senlo:<webhook secret>@senlo.io/api/webhooks/mailjet
+```
+
+## 1. Validate your sender in Mailjet
+
+Senlo sends from the From email you set on each trigger. Mailjet only sends from a validated sender address or domain (**Account settings** → **Add a sender domain or address**), and SPF and DKIM on that domain keep it out of spam. Until the sender is validated, sends fail at Mailjet and show `FAILED` in the delivery log.
+
+## 2. Get the API keys
+
+Open **Account settings** → **API Key Management** and copy the **API Key** and the **Secret Key**. Mailjet uses the pair together; Senlo stores both encrypted.
+
+## 3. Add the provider in Senlo
+
+1. Generate a webhook secret, e.g. `openssl rand -hex 32`. Letters, digits, `-` and `_` only: it goes into a URL, and Senlo refuses other characters.
+2. Open **Providers** → **Add Provider**, **Provider Type**: Mailjet.
+3. **API Key** and **Secret Key**: the pair from step 2.
+4. **Region**: Global, unless your account was created on Mailjet's US infrastructure (then US, `api.us.mailjet.com`).
+5. **Webhook Secret**: the string you generated. Click **Create Provider**, then select it in your workspace's **Settings**.
+
+Senlo switches off Mailjet's own open and click tracking on every email: it adds its own tracking, and Mailjet's would rewrite the links a second time.
+
+## 4. Connect the event webhook
+
+Mailjet does not sign webhooks. Its way to secure them is basic auth in the URL, and Senlo checks the password against the webhook secret.
+
+1. In Mailjet, open **Account settings** → **Event tracking (triggers)**.
+2. Enter this URL for **Sent**, **Bounce**, **Blocked** and **Spam**:
+   `https://senlo:<webhook secret>@senlo.io/api/webhooks/mailjet`
+   (self-hosted: your `APP_URL` host instead of `senlo.io`). The user name can be anything.
+3. **Group events** may be on or off: Senlo accepts both single events and groups.
+
+Without the secret saved in Senlo, every Mailjet event is refused with `401`. Mailjet retries a refused event for 24 hours and may then suspend the URL; a suspended URL has to be replaced with a different one, so save the secret in Senlo before entering the URL in Mailjet. Details: [Provider webhooks](../api/webhooks.mdx).
+
+A bounce or block suppresses the address only when Mailjet says the address is at fault and the error is permanent (`user unknown`, `mailbox inactive`, `invalid domain`, `preblocked` and the like). A full mailbox, greylisting, or a content or spam filter does not.
+

@@ -379,6 +379,48 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/webhooks/mailjet:
+    post:
+      operationId: mailjet-webhook
+      summary: Mailjet webhook
+      description: |
+        Enter this URL in Mailjet's event tracking with the webhook secret
+        saved on the provider in Senlo as the basic auth password:
+        `https://senlo:<secret>@<host>/api/webhooks/mailjet`. Senlo applies
+        `sent`, `spam`, permanent `bounce` and `blocked` events whose error is
+        about the address. Single and grouped events are accepted; other
+        event types are acknowledged and ignored.
+      tags: [Provider webhooks]
+      security: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: "`Basic` with the webhook secret as the password, sent by Mailjet from the URL."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: One event, or an array of events with Group events on, exactly as Mailjet sends them.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                - type: array
+                  items:
+                    type: object
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAccepted"
+        "400":
+          $ref: "#/components/responses/WebhookInvalidPayload"
+        "401":
+          $ref: "#/components/responses/WebhookUnauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     bearerAuth:

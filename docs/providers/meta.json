@@ -4,6 +4,7 @@
     "resend",
     "postmark",
     "sendgrid",
+    "mailjet",
     "smtp"
   ]
 }
