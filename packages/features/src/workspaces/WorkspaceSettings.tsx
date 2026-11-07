@@ -23,6 +23,8 @@ export interface WorkspaceSettingsProps {
   onDelete: () => void;
   isSaving?: boolean;
   error?: string | null;
+  /** Between the form and the danger zone: the data retention card. */
+  retention?: React.ReactNode;
 }
 
 export function WorkspaceSettings({
@@ -34,6 +36,7 @@ export function WorkspaceSettings({
   onDelete,
   isSaving = false,
   error,
+  retention,
 }: WorkspaceSettingsProps) {
   const [values, setValues] = useState(() => workspaceFormValues(workspace));
   const canSave = !!values.name.trim() && isWorkspaceFormChanged(workspace, values) && !isSaving;
@@ -67,6 +70,8 @@ export function WorkspaceSettings({
           </div>
         </form>
       </Card>
+
+      {retention}
 
       <Card className="p-6 border-red-100 bg-red-50/30 shadow-sm">
         <div className="flex items-start gap-4">

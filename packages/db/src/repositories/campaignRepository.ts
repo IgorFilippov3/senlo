@@ -351,8 +351,8 @@ export class CampaignRepository
    * Get time-series statistics for opens and clicks.
    *
    * Days come from `campaign_daily_stats` (UTC days, the whole history).
-   * Hours are not aggregated and come from the raw events; the hourly view
-   * spans one day, which retention always keeps.
+   * Hours are not aggregated and come from the raw events, so an hourly
+   * view covers only the days retention has kept.
    */
   async getTimeSeriesStatsByCampaign(
     campaignId: number,

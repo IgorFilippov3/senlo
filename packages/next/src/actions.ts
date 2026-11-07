@@ -105,6 +105,7 @@ const handlers: HandlerTable<SenloServerActions> = {
   "workspaces.list": read((s, userId) => s.project.listForUser(userId)),
   "workspaces.create": form((s, userId, values) => s.project.create(userId, values)),
   "workspaces.update": form((s, userId, projectId: number, values) => s.project.update(userId, projectId, values)),
+  "workspaces.logRetention": read((s, userId, projectId: number) => s.project.getLogRetention(userId, projectId)),
   "workspaces.delete": write(async (s, userId, projectId: number) => {
     await s.project.delete(userId, projectId);
   }),

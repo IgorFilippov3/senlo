@@ -1,6 +1,6 @@
 import { createRepositories, seedNewUser } from "@senlo/db";
 import { join } from "node:path";
-import { aesGcmCipher } from "@senlo/core";
+import { aesGcmCipher, fixedLogRetention } from "@senlo/core";
 import { createServices, LocalDiskStorage, storageFromConfig, type Services } from "@senlo/core/server";
 import { getConfig } from "./config";
 import { db } from "./db";
@@ -40,6 +40,8 @@ export function getServices(): Services {
       rootDir: join(process.cwd(), "public/uploads"),
       publicPrefix: "/uploads",
     }),
+    // LOG_RETENTION_DAYS, as the worker deletes by; shown in workspace settings.
+    retention: fixedLogRetention(getConfig().logRetentionDays),
     // Fill a new account so the dashboard is not empty on arrival.
     onUserCreated: (user) => seedNewUser(db, user.id, { appUrl: getConfig().appUrl }),
   }));

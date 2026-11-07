@@ -87,6 +87,15 @@ export class ProjectService {
     return this.access.requireProject(userId, projectId, action);
   }
 
+  /**
+   * How long the project keeps each email's details (delivery log, raw
+   * events); `days: null` is forever. Statistics are kept either way.
+   */
+  async getLogRetention(userId: string, projectId: number): Promise<{ days: number | null }> {
+    await this.access.requireProject(userId, projectId, "read");
+    return { days: await this.hooks.logRetentionDays(projectId) };
+  }
+
   async create(userId: string, rawInput: unknown): Promise<Project> {
     const input = parseInput(CreateWorkspaceSchema, rawInput);
     const scope = await this.access.requireCreate(userId, "Project");

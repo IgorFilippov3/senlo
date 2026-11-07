@@ -7,5 +7,6 @@ export * from "./WorkspaceScope";
 export * from "./rememberedWorkspace";
 export * from "./WorkspacePickerScreen";
 export * from "./WorkspaceSettingsScreen";
+export * from "./LogRetentionCard";
 export * from "./WorkspaceRoute";
 export * from "./StartWorkspaceRedirect";

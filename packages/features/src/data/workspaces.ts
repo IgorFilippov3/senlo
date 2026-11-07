@@ -19,6 +19,16 @@ export function useProjects() {
   });
 }
 
+/** Days the project keeps each email's details (`days: null` is forever). Changes with a plan, so it is not cached long. */
+export function useLogRetention(projectId: number) {
+  const actions = useSenloActions();
+  return useQuery({
+    queryKey: queryKeys.projects.logRetention(projectId),
+    queryFn: async () => unwrap(await actions.workspaces.logRetention(projectId)),
+    enabled: !!projectId,
+  });
+}
+
 /** Rejects with the message to show when the form does not validate. */
 export function useCreateProject() {
   const actions = useSenloActions();

@@ -15,7 +15,7 @@ export type ActionTransport = (name: string, args: unknown[]) => Promise<any>;
 
 /** Every method of `SenloActions`, by group: what `createClientActions` builds. */
 export const SENLO_ACTION_METHODS = {
-  workspaces: ["list", "create", "update", "delete"],
+  workspaces: ["list", "create", "update", "delete", "logRetention"],
   templates: ["list", "create", "delete"],
   campaigns: ["listForProject", "events", "linkStats", "timeSeries", "createTriggered", "updateTriggered", "delete"],
   emailProviders: ["list", "create", "update", "toggle", "delete"],

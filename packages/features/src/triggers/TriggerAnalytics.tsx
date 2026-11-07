@@ -162,6 +162,12 @@ export interface TriggerAnalyticsProps {
   isLinkStatsLoading: boolean;
   /** Denominator for link CTR. */
   totalDelivered: number;
+  /**
+   * Days the workspace keeps each email's details; `null` (the default) is
+   * forever. Clicks per link and the hourly chart are counted from those
+   * details, so with a retention they cover the kept days only.
+   */
+  logRetentionDays?: number | null;
 }
 
 export function TriggerAnalytics({
@@ -172,7 +178,10 @@ export function TriggerAnalytics({
   linkStats,
   isLinkStatsLoading,
   totalDelivered,
+  logRetentionDays = null,
 }: TriggerAnalyticsProps) {
+  const kept = logRetentionDays === null ? null : `${logRetentionDays} ${logRetentionDays === 1 ? "day" : "days"}`;
+  const hourlyCut = kept !== null && period.interval === "hour" && period.days > logRetentionDays!;
   const placeholder = "h-[350px] w-full flex items-center justify-center bg-zinc-50 rounded-xl border border-dashed border-zinc-200";
 
   return (
@@ -203,13 +212,27 @@ export function TriggerAnalytics({
             />
           </div>
         )}
+        {hourlyCut ? (
+          <p className="mt-4 text-xs text-zinc-500">
+            Hourly figures cover the last {kept}: they are counted from email details, which this workspace
+            keeps for {kept}. The daily view covers the whole period.
+          </p>
+        ) : null}
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold flex items-center gap-2 text-zinc-900 mb-6">
-          <MousePointer2 size={20} className="text-zinc-400" />
-          Link Performance
-        </h3>
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold flex items-center gap-2 text-zinc-900">
+            <MousePointer2 size={20} className="text-zinc-400" />
+            Link Performance
+          </h3>
+          {kept !== null ? (
+            <p className="mt-1 text-xs text-zinc-500">
+              Last {kept} only: clicks per link are counted from email details, which this workspace keeps
+              for {kept}. The trigger's click totals cover the whole history.
+            </p>
+          ) : null}
+        </div>
         <LinkPerformance
           data={linkStats}
           isLoading={isLinkStatsLoading}

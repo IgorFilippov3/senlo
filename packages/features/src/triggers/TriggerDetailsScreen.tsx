@@ -7,6 +7,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { CampaignDetails } from "@senlo/core/server";
 import { useCampaignEvents, useCampaignLinkStats, useCampaignTimeSeries } from "../data/campaigns";
+import { useLogRetention } from "../data/workspaces";
 import { useSenloDialogs } from "../dialogs/registry";
 import { useSenloNavigation } from "../layout/navigation-context";
 import { DeliveryLogs, type DeliveryLogFilter } from "./DeliveryLogs";
@@ -47,7 +48,13 @@ export function TriggerDetailsScreen({ details, apiEndpointUrl, defaultFromEmail
       }
       onEdit={() => openDialog("EDIT_TRIGGER_CONFIG", { campaign, project, template })}
       deliveryLogs={<TriggerDeliveryLogs campaignId={campaign.id} />}
-      analytics={<TriggerAnalyticsTab campaignId={campaign.id} totalDelivered={stats.delivered} />}
+      analytics={
+        <TriggerAnalyticsTab
+          campaignId={campaign.id}
+          projectId={campaign.projectId}
+          totalDelivered={stats.delivered}
+        />
+      }
     />
   );
 }
@@ -104,10 +111,19 @@ function TriggerDeliveryLogs({ campaignId }: { campaignId: number }) {
   );
 }
 
-function TriggerAnalyticsTab({ campaignId, totalDelivered }: { campaignId: number; totalDelivered: number }) {
+function TriggerAnalyticsTab({
+  campaignId,
+  projectId,
+  totalDelivered,
+}: {
+  campaignId: number;
+  projectId: number;
+  totalDelivered: number;
+}) {
   const [period, setPeriod] = useState<AnalyticsPeriod>(DEFAULT_ANALYTICS_PERIOD);
   const timeSeries = useCampaignTimeSeries(campaignId, period);
   const linkStats = useCampaignLinkStats(campaignId);
+  const retention = useLogRetention(projectId);
 
   return (
     <TriggerAnalytics
@@ -118,6 +134,7 @@ function TriggerAnalyticsTab({ campaignId, totalDelivered }: { campaignId: numbe
       linkStats={linkStats.data}
       isLinkStatsLoading={linkStats.isLoading}
       totalDelivered={totalDelivered}
+      logRetentionDays={retention.data?.days ?? null}
     />
   );
 }

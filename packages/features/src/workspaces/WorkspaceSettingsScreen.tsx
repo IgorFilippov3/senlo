@@ -7,19 +7,29 @@
 import React from "react";
 import { PageHeader } from "@senlo/ui";
 import { useAiProviders, useProviders } from "../data/providers";
-import { useUpdateProject } from "../data/workspaces";
+import { useLogRetention, useUpdateProject } from "../data/workspaces";
 import { useSenloDialogs } from "../dialogs/registry";
 import { useSenloNavigation } from "../layout/navigation-context";
 import { useCurrentWorkspace } from "./WorkspaceScope";
+import { LogRetentionCard } from "./LogRetentionCard";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
-/** The workspace's general settings page: name, description, providers, delete. */
-export function WorkspaceSettingsScreen() {
+export interface WorkspaceSettingsScreenProps {
+  /**
+   * Under the data retention explanation: what the host says about changing
+   * it (self-hosted: the server setting; managed: a link to the plans).
+   */
+  retentionNote?: React.ReactNode;
+}
+
+/** The workspace's general settings page: name, description, providers, data retention, delete. */
+export function WorkspaceSettingsScreen({ retentionNote }: WorkspaceSettingsScreenProps = {}) {
   const workspace = useCurrentWorkspace();
   const { paths, renderLink } = useSenloNavigation();
   const { data: providers = [], isLoading: providersLoading } = useProviders();
   const { data: aiProviders = [], isLoading: aiProvidersLoading } = useAiProviders();
   const update = useUpdateProject();
+  const retention = useLogRetention(workspace.id);
   const { open: openDialog } = useSenloDialogs();
 
   return (
@@ -45,6 +55,12 @@ export function WorkspaceSettingsScreen() {
             onDelete={() => openDialog("DELETE_WORKSPACE", { project: workspace })}
             isSaving={update.isPending}
             error={update.error?.message}
+            // A failed lookup shows no card rather than a wrong "indefinitely".
+            retention={
+              retention.isError ? null : (
+                <LogRetentionCard days={retention.data?.days} note={retentionNote} />
+              )
+            }
           />
         )}
       </div>

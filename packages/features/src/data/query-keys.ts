@@ -4,6 +4,7 @@ export const queryKeys = {
     all: ["projects"] as const,
     lists: () => [...queryKeys.projects.all, "list"] as const,
     detail: (id: number) => [...queryKeys.projects.all, "detail", id] as const,
+    logRetention: (id: number) => [...queryKeys.projects.all, "logRetention", id] as const,
   },
   templates: {
     all: ["templates"] as const,

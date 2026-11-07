@@ -39,6 +39,8 @@ export interface SenloActions {
     create(values: CreateWorkspaceValues): Promise<FormActionResult<Project>>;
     update(projectId: number, values: WorkspaceFormValues): Promise<FormActionResult<Project>>;
     delete(projectId: number): Promise<ActionResult<void>>;
+    /** Days each email's details are kept; `null` is forever. */
+    logRetention(projectId: number): Promise<ActionResult<{ days: number | null }>>;
   };
   templates: {
     list(projectId: number): Promise<ActionResult<EmailTemplate[]>>;

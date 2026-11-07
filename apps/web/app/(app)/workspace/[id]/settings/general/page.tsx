@@ -5,5 +5,13 @@
 import { WorkspaceSettingsScreen } from "@senlo/features";
 
 export default function GeneralSettingsPage() {
-  return <WorkspaceSettingsScreen />;
+  return (
+    <WorkspaceSettingsScreen
+      retentionNote={
+        <p className="text-xs text-zinc-500">
+          Set on the server with <code className="font-mono">LOG_RETENTION_DAYS</code>; unset keeps everything.
+        </p>
+      }
+    />
+  );
 }
