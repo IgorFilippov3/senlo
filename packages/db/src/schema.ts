@@ -265,22 +265,45 @@ export const campaigns = pgTable("campaigns", {
     .defaultNow(),
 });
 
-export const campaignEvents = pgTable("campaign_events", {
-  id: serial("id").primaryKey(),
-  campaignId: integer("campaign_id")
-    .notNull()
-    .references(() => campaigns.id, { onDelete: "cascade" }),
-  contactId: integer("contact_id").references(() => contacts.id, {
-    onDelete: "set null",
+export const campaignEvents = pgTable(
+  "campaign_events",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    contactId: integer("contact_id").references(() => contacts.id, {
+      onDelete: "set null",
+    }),
+    email: text("email").notNull(),
+    type: campaignEventTypeEnum("type").notNull(),
+    linkUrl: text("link_url"),
+    metadata: jsonb("metadata"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    // A campaign's event feed (newest first), its hourly chart, and the
+    // retention delete and the campaign delete cascade, all by campaign.
+    campaignOccurredIdx: index("campaign_events_campaign_occurred_idx").on(
+      t.campaignId,
+      t.occurredAt.desc(),
+    ),
+    // The same with a type: the feed's type filter, link stats (CLICK), the
+    // dashboard's recent bounces, spam reports and failures.
+    campaignTypeOccurredIdx: index("campaign_events_campaign_type_occurred_idx").on(
+      t.campaignId,
+      t.type,
+      t.occurredAt.desc(),
+    ),
+    // `contact_id` is a foreign key with ON DELETE SET NULL: without this,
+    // deleting one contact scans every event.
+    contactIdx: index("campaign_events_contact_id_idx").on(t.contactId),
+    // No index on `metadata`: nothing looks events up by a message id, the
+    // webhook finds the email through `triggered_send_logs`.
   }),
-  email: text("email").notNull(),
-  type: campaignEventTypeEnum("type").notNull(),
-  linkUrl: text("link_url"),
-  metadata: jsonb("metadata"),
-  occurredAt: timestamp("occurred_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+);
 
 export const emailProviders = pgTable(
   "email_providers",
@@ -353,18 +376,42 @@ export const apiKeys = pgTable("api_keys", {
     .defaultNow(),
 });
 
-export const triggeredSendLogs = pgTable("triggered_send_logs", {
-  id: serial("id").primaryKey(),
-  campaignId: integer("campaign_id")
-    .notNull()
-    .references(() => campaigns.id, { onDelete: "cascade" }),
-  email: text("email").notNull(),
-  status: text("status").notNull(), // 'SUCCESS', 'FAILED'
-  providerMessageId: text("provider_message_id"),
-  error: text("error"),
-  data: jsonb("data"), // payload received in webhook
-  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const triggeredSendLogs = pgTable(
+  "triggered_send_logs",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    /** `TriggeredSendLog["status"]`: PENDING, SUCCESS, DELIVERED, BOUNCED, COMPLAINED, FAILED. */
+    status: text("status").notNull(),
+    providerMessageId: text("provider_message_id"),
+    error: text("error"),
+    /** The trigger's merge data; a delivery webhook adds its raw event under `<provider>_event`. */
+    data: jsonb("data"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // How a delivery webhook finds the email it reports on.
+    providerMessageIdx: index("triggered_send_logs_provider_message_id_idx").on(
+      t.providerMessageId,
+    ),
+    // A trigger's send log (newest first), the retention delete and the
+    // campaign delete cascade.
+    campaignSentIdx: index("triggered_send_logs_campaign_sent_at_idx").on(
+      t.campaignId,
+      t.sentAt.desc(),
+    ),
+    // The webhook's fallback when the message id matches nothing: the latest
+    // send of that campaign to that address.
+    campaignEmailSentIdx: index("triggered_send_logs_campaign_email_sent_at_idx").on(
+      t.campaignId,
+      t.email,
+      t.sentAt.desc(),
+    ),
+  }),
+);
 
 export const savedRows = pgTable("saved_rows", {
   id: serial("id").primaryKey(),
