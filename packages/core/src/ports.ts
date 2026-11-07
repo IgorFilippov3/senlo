@@ -336,3 +336,28 @@ export interface IWorkflowExecutionRepository {
     workflowId: number,
   ): Promise<import("./domain").WorkflowNodeStats[]>;
 }
+
+/**
+ * What the daily retention job deletes with. Each delete removes at most
+ * `limit` rows and returns how many it removed, so the job works in batches
+ * and never holds one long transaction over a large table.
+ */
+export interface ILogRetentionRepository {
+  /** Whether the daily statistics were backfilled (`pnpm db:backfill-stats`); nothing is deleted before. */
+  isStatsBackfilled(): Promise<boolean>;
+  /** Every project id, the job's work list. */
+  listProjectIds(): Promise<number[]>;
+  /**
+   * Send log rows of the project's campaigns sent before `before`. A PENDING
+   * row sent at or after `keepPendingSince` stays: its email may still be
+   * on its way through the queue.
+   */
+  deleteSendLogs(
+    projectId: number,
+    options: { before: Date; keepPendingSince: Date; limit: number },
+  ): Promise<number>;
+  /** Raw events of the project's campaigns that occurred before `before`. */
+  deleteEvents(projectId: number, options: { before: Date; limit: number }): Promise<number>;
+  /** The record of who opened or clicked on a day before `beforeDay` (`YYYY-MM-DD`); only today's matters. */
+  deleteDailyUniques(options: { beforeDay: string; limit: number }): Promise<number>;
+}

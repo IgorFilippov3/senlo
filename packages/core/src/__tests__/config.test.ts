@@ -14,7 +14,17 @@ describe("loadSenloConfig", () => {
       secretsKey: "s",
       defaultFromEmail: "hello@senlo.io",
       storage: { driver: "local" },
+      logRetentionDays: null,
     });
+  });
+
+  it("reads LOG_RETENTION_DAYS as whole days and refuses anything else", () => {
+    expect(loadSenloConfig({ ...base, LOG_RETENTION_DAYS: "30" }).logRetentionDays).toBe(30);
+    expect(loadSenloConfig({ ...base, LOG_RETENTION_DAYS: " 7 " }).logRetentionDays).toBe(7);
+    expect(loadSenloConfig({ ...base, LOG_RETENTION_DAYS: "" }).logRetentionDays).toBeNull();
+    for (const bad of ["0", "-5", "1.5", "30d", "forever"]) {
+      expect(() => loadSenloConfig({ ...base, LOG_RETENTION_DAYS: bad })).toThrow(/LOG_RETENTION_DAYS must be a whole number/);
+    }
   });
 
   it("reads every variable and trims the app url", () => {

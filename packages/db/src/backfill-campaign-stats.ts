@@ -7,22 +7,22 @@
 // Safe to run while the app and the worker run, and to run again: after the
 // first complete run it does nothing. Log retention deletes nothing until it
 // has run, so the deploy start scripts run it on every start.
-import { ConfigError, loadSenloConfig } from "@senlo/core";
 import { backfillCampaignStats } from "./campaign-stats";
 import { createDb } from "./client";
 import { loadLocalEnv } from "./cli-env";
 
 loadLocalEnv();
 
-let config: ReturnType<typeof loadSenloConfig>;
-try {
-  config = loadSenloConfig(process.env);
-} catch (error) {
-  console.error(error instanceof ConfigError ? error.message : error);
+// Only the database: the whole app config (AUTH_SECRET and the rest) is not
+// needed here, and a checkout's root .env, which `loadLocalEnv` finds first,
+// holds DATABASE_URL alone (for drizzle-kit).
+const databaseUrl = process.env.DATABASE_URL?.trim();
+if (!databaseUrl) {
+  console.error("DATABASE_URL is not set.");
   process.exit(1);
 }
 
-const db = createDb(config.databaseUrl);
+const db = createDb(databaseUrl);
 
 async function main() {
   const result = await backfillCampaignStats(db, { log: (message) => console.log(message) });

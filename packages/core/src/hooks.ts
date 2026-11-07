@@ -10,7 +10,8 @@ import { consoleLogger, type Logger } from "./logger";
 /**
  * Ports a managed install plugs into the points where core already acts.
  * Self-hosted passes none of them: nothing is metered, nothing is limited,
- * no audit trail is kept, exactly as before.
+ * no audit trail is kept, exactly as before. Retention is the exception
+ * that self-hosted sets too, from `LOG_RETENTION_DAYS`.
  *
  * Billing has no port of its own: what billing needs (an email went out, a
  * project or contact was added) is exactly what `UsageMeter` receives, so a
@@ -75,6 +76,28 @@ export interface AuditLog {
   record(entry: AuditEntry): Promise<void>;
 }
 
+/**
+ * How long a project's delivery log and raw campaign events are kept, in
+ * days; `null` keeps them forever. Asked once a day by the retention job.
+ * Statistics are not affected: they live in daily counters. Self-hosted
+ * reads `LOG_RETENTION_DAYS` (`fixedLogRetention`); a managed install
+ * answers by the project's plan.
+ */
+export interface RetentionPolicy {
+  logRetentionDays(projectId: number): Promise<number | null>;
+}
+
+/** The same retention for every project: `SenloConfig.logRetentionDays`. */
+export function fixedLogRetention(days: number | null | undefined): RetentionPolicy {
+  return {
+    async logRetentionDays() {
+      return days ?? null;
+    },
+  };
+}
+
+export const keepLogsForever: RetentionPolicy = fixedLogRetention(null);
+
 export const noUsageMeter: UsageMeter = { async record() {} };
 export const allowAllQuotas: QuotaPolicy = {
   async check() {
@@ -96,6 +119,7 @@ export class ServiceHooks {
       usage?: UsageMeter;
       quota?: QuotaPolicy;
       audit?: AuditLog;
+      retention?: RetentionPolicy;
     } = {},
     private readonly logger: Logger = consoleLogger,
   ) {}
@@ -114,6 +138,19 @@ export class ServiceHooks {
       await (this.ports.usage ?? noUsageMeter).record(event);
     } catch (error) {
       this.logger.error("Usage meter failed", { event: event.type, error: messageOf(error) });
+    }
+  }
+
+  /**
+   * Days to keep a project's delivery log, `null` for forever. A policy that
+   * fails is logged and answers `null`: when in doubt, nothing is deleted.
+   */
+  async logRetentionDays(projectId: number): Promise<number | null> {
+    try {
+      return await (this.ports.retention ?? keepLogsForever).logRetentionDays(projectId);
+    } catch (error) {
+      this.logger.error("Retention policy failed", { projectId, error: messageOf(error) });
+      return null;
     }
   }
 

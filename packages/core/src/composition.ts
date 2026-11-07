@@ -5,7 +5,7 @@
 import type { Queue } from "bullmq";
 import { AccessGuard, ownerAccessPolicy, type AccessPolicy } from "./access";
 import type { MailSettings } from "./config";
-import { ServiceHooks, type AuditLog, type QuotaPolicy, type UsageMeter } from "./hooks";
+import { ServiceHooks, type AuditLog, type QuotaPolicy, type RetentionPolicy, type UsageMeter } from "./hooks";
 import { allowAllOutbound, type OutboundPolicy } from "./outbound";
 import { fixedBaseUrl, type ResolveBaseUrl } from "./base-url";
 import { consoleLogger, type Logger } from "./logger";
@@ -24,6 +24,7 @@ import type {
   ITriggeredSendLogRepository,
   IWorkflowExecutionRepository,
   IWorkflowRepository,
+  ILogRetentionRepository,
 } from "./ports";
 import type { AutomationJobData, EmailJobData } from "./queue/types";
 import { AiDesignService, AiProviderService } from "./services/ai";
@@ -66,6 +67,12 @@ export interface Repositories {
   templates: IEmailTemplateRepository;
   users: IUserRepository;
   workflows: IWorkflowRepository;
+  /**
+   * What the retention job deletes with. Optional so a host that builds its
+   * repositories by hand keeps working; without it the worker schedules no
+   * retention job. `createRepositories` from `@senlo/db` provides it.
+   */
+  logRetention?: ILogRetentionRepository;
 }
 
 export interface ServiceQueues {
@@ -118,6 +125,7 @@ export function createServices({
   usage,
   quota,
   audit,
+  retention,
   resolveBaseUrl = fixedBaseUrl(settings.appUrl),
   outbound = allowAllOutbound,
 }: {
@@ -141,13 +149,15 @@ export function createServices({
   quota?: QuotaPolicy;
   /** Receives every change to projects, providers, API keys, workflows and templates. Default: drops it. */
   audit?: AuditLog;
+  /** How long each project's delivery log and raw events are kept (shown in its settings). Default: forever. */
+  retention?: RetentionPolicy;
   /** Where a project's links point (tracking, unsubscribe, editor). Default: `settings.appUrl` for every project. */
   resolveBaseUrl?: ResolveBaseUrl;
   /** Where user-entered addresses (API condition URL, SMTP host) may go. Default: anywhere, as self-hosted. */
   outbound?: OutboundPolicy;
 }): Services {
   const guard = new AccessGuard(r.projects, access);
-  const hooks = new ServiceHooks({ usage, quota, audit }, logger);
+  const hooks = new ServiceHooks({ usage, quota, audit, retention }, logger);
 
   const trigger = new TriggerService(
     r.campaigns,

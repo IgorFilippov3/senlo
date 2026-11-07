@@ -1,4 +1,5 @@
 export * from "./queue";
+export * from "./maintenance";
 export * from "./worker";
 export * from "./types";
 export { createRedisConnection, redisRateLimitStore } from "../redis";

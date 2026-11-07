@@ -33,6 +33,7 @@ Every variable is read when the containers start, not when the image is built: c
 | `REDIS_QUEUE_PREFIX` | `senlo` | Prefix for queue and rate-limit keys, if several instances share one Redis. |
 | `LINK_SIGNING_SECRET` | `AUTH_SECRET` | Signs unsubscribe and tracking links. Set it to rotate `AUTH_SECRET` (which signs everyone out) without breaking links in mail already sent. |
 | `DEFAULT_FROM_EMAIL` | `hello@senlo.io` | Sender for triggers that do not set one. Must be one plain address. Set it to an address on your verified domain. |
+| `LOG_RETENTION_DAYS` | unset (keep forever) | Days each email's details are kept: the delivery log with its data, and the raw open, click and delivery events. A daily job at 03:17 UTC deletes older rows. Statistics (sent, delivered, opens, clicks per day) are kept either way; per-link click counts cover only the kept days. A whole number, 1 or more. |
 | `ALLOW_REGISTRATION` | `true` | `false` closes `/register`. Existing users still sign in. |
 | `INITIAL_USERS` | `[]` | JSON array of users created on start, e.g. `'[{"name":"Admin","email":"admin@example.com","password":"...","role":"ADMIN"}]'`. They get example workspaces and templates. |
 | `GITHUB_ID`, `GITHUB_SECRET` | unset | Enable sign-in with GitHub when both are set. |

@@ -25,6 +25,13 @@ export interface SenloConfig {
   defaultFromEmail: string;
   /** Where uploads go. Local disk unless `STORAGE_DRIVER=s3`. */
   storage: StorageConfig;
+  /**
+   * Days the delivery log and raw campaign events are kept (`LOG_RETENTION_DAYS`);
+   * `null`, the default, keeps them forever. Statistics are kept either way:
+   * they live in daily counters. A managed install sets its own per plan
+   * through `RetentionPolicy`, not this.
+   */
+  logRetentionDays: number | null;
 }
 
 export interface S3StorageConfig {
@@ -130,6 +137,18 @@ export function loadSenloConfig(env: Env): SenloConfig {
 
   const storage = loadStorageConfig(env, problems);
 
+  const logRetention = value(env, "LOG_RETENTION_DAYS");
+  let logRetentionDays: number | null = null;
+  if (logRetention !== undefined) {
+    if (/^\d+$/.test(logRetention) && Number(logRetention) >= 1) {
+      logRetentionDays = Number(logRetention);
+    } else {
+      problems.push(
+        `LOG_RETENTION_DAYS must be a whole number of days, 1 or more, got "${logRetention}". Leave it unset to keep the delivery log forever.`,
+      );
+    }
+  }
+
   if (problems.length > 0) throw new ConfigError(problems);
 
   return Object.freeze({
@@ -141,6 +160,7 @@ export function loadSenloConfig(env: Env): SenloConfig {
     secretsKey: secretsKey!,
     defaultFromEmail,
     storage,
+    logRetentionDays,
   });
 }
 

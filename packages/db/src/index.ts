@@ -33,3 +33,4 @@ export * from "./repositories/dashboardRepository";
 export * from "./repositories/workflowRepository";
 export * from "./repositories/workflowExecutionRepository";
 export * from "./repositories/userRepository";
+export * from "./repositories/logRetentionRepository";

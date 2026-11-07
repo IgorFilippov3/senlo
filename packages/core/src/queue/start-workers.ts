@@ -5,11 +5,23 @@
 import type { Worker } from "bullmq";
 import type { AccessPolicy } from "../access";
 import type { MailSettings } from "../config";
-import { ServiceHooks, type AuditLog, type QuotaPolicy, type UsageMeter } from "../hooks";
+import {
+  ServiceHooks,
+  type AuditLog,
+  type QuotaPolicy,
+  type RetentionPolicy,
+  type UsageMeter,
+} from "../hooks";
 import { fixedBaseUrl, type ResolveBaseUrl } from "../base-url";
 import { createServices, type Repositories } from "../composition";
 import { consoleLogger, type Logger } from "../logger";
 import { allowAllOutbound, type OutboundPolicy } from "../outbound";
+import { LogRetentionService } from "../services/logRetentionService";
+import {
+  createMaintenanceQueue,
+  createMaintenanceWorker,
+  scheduleLogRetention,
+} from "./maintenance";
 import { createQueues, type QueueConnection } from "./queue";
 import {
   AutomationWorkerProcessor,
@@ -24,9 +36,10 @@ export interface RunningWorkers {
 }
 
 /**
- * Starts the email and automation workers. Everything an app's
- * worker process used to assemble by hand - queues, services, processors,
- * logging - so a second app runs the same workers with one call.
+ * Starts the email and automation workers, and the maintenance worker with
+ * the daily log retention run. Everything an app's worker process used to
+ * assemble by hand - queues, services, processors, logging - so a second
+ * app runs the same workers with one call.
  */
 export function startWorkers({
   repositories,
@@ -37,6 +50,7 @@ export function startWorkers({
   usage,
   quota,
   audit,
+  retention,
   resolveBaseUrl = fixedBaseUrl(settings.appUrl),
   outbound = allowAllOutbound,
 }: {
@@ -50,13 +64,18 @@ export function startWorkers({
   usage?: UsageMeter;
   quota?: QuotaPolicy;
   audit?: AuditLog;
+  /**
+   * How long each project's delivery log and raw events are kept. Default:
+   * forever, nothing is deleted. `runSenloWorker` passes `LOG_RETENTION_DAYS`.
+   */
+  retention?: RetentionPolicy;
   /** See `createServices`; triggered sends build their links with it. */
   resolveBaseUrl?: ResolveBaseUrl;
   /** See `createServices`; the API condition node and SMTP sends go through it. */
   outbound?: OutboundPolicy;
 }): RunningWorkers {
   const queues = createQueues(connection);
-  const services = createServices({ repositories, queues, settings, logger, access, usage, quota, audit, resolveBaseUrl, outbound });
+  const services = createServices({ repositories, queues, settings, logger, access, usage, quota, audit, retention, resolveBaseUrl, outbound });
 
   const emailProcessor = new EmailWorkerProcessor(
     settings,
@@ -79,6 +98,24 @@ export function startWorkers({
     ["automation", createAutomationWorker(automationProcessor, connection)],
   ];
 
+  // The retention job runs daily even with nothing to delete (self-hosted
+  // without LOG_RETENTION_DAYS): it also prunes the record of yesterday's
+  // unique openers.
+  const maintenanceQueue = repositories.logRetention ? createMaintenanceQueue(connection) : null;
+  if (maintenanceQueue && repositories.logRetention) {
+    const logRetention = new LogRetentionService(
+      repositories.logRetention,
+      new ServiceHooks({ retention }, logger),
+      logger,
+    );
+    workers.push(["maintenance", createMaintenanceWorker(logRetention, connection)]);
+    scheduleLogRetention(maintenanceQueue).catch((error) =>
+      logger.error("Failed to schedule log retention", {
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
+
   for (const [name, worker] of workers) {
     worker.on("completed", (job) =>
       logger.info(`[${name}] job completed`, { jobId: job.id }),
@@ -96,6 +133,7 @@ export function startWorkers({
     async close() {
       await Promise.all(workers.map(([, worker]) => worker.close()));
       await Promise.all(Object.values(queues).map((queue) => queue.close()));
+      await maintenanceQueue?.close();
     },
   };
 }

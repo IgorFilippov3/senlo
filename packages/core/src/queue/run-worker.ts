@@ -6,7 +6,7 @@ import type { AccessPolicy } from "../access";
 import { mailSettings, type SenloConfig } from "../config";
 import type { Repositories } from "../composition";
 import type { ResolveBaseUrl } from "../base-url";
-import type { AuditLog, QuotaPolicy, UsageMeter } from "../hooks";
+import { fixedLogRetention, type AuditLog, type QuotaPolicy, type RetentionPolicy, type UsageMeter } from "../hooks";
 import type { OutboundPolicy } from "../outbound";
 import { consoleLogger, type Logger } from "../logger";
 import { createRedisConnection } from "../redis";
@@ -25,6 +25,8 @@ export interface RunSenloWorkerOptions {
   usage?: UsageMeter;
   quota?: QuotaPolicy;
   audit?: AuditLog;
+  /** Default: `config.logRetentionDays` (`LOG_RETENTION_DAYS`) for every project; unset keeps logs forever. */
+  retention?: RetentionPolicy;
   resolveBaseUrl?: ResolveBaseUrl;
   outbound?: OutboundPolicy;
 }
@@ -42,6 +44,7 @@ export function runSenloWorker({
   config,
   repositories,
   logger = consoleLogger,
+  retention = fixedLogRetention(config.logRetentionDays),
   ...ports
 }: RunSenloWorkerOptions): RunningWorkers {
   const redis = createRedisConnection(config.redisUrl, logger);
@@ -50,6 +53,7 @@ export function runSenloWorker({
     connection: { connection: redis, prefix: config.queuePrefix },
     settings: mailSettings(config),
     logger,
+    retention,
     ...ports,
   });
 

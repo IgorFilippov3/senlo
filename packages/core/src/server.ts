@@ -18,6 +18,7 @@ export * from "./services/dashboardService";
 export * from "./services/emailProviderService";
 export * from "./services/emailTemplateService";
 export * from "./services/eventIngestionService";
+export * from "./services/logRetentionService";
 export * from "./services/projectService";
 export * from "./services/savedRowService";
 export * from "./services/settingsService";

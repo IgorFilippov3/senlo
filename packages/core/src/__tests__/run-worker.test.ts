@@ -59,9 +59,25 @@ describe("runSenloWorker", () => {
       },
       logger,
       usage,
+      retention: expect.objectContaining({ logRetentionDays: expect.any(Function) }),
     });
     expect(workers.close).toBe(mocks.close);
     expect(Object.keys(handlers).sort()).toEqual(["SIGINT", "SIGTERM"]);
+  });
+
+  it("keeps logs for LOG_RETENTION_DAYS by default, forever when it is unset, and lets the host decide", async () => {
+    const retentionOf = async () =>
+      (mocks.startWorkers.mock.calls.at(-1)![0] as any).retention.logRetentionDays(1);
+
+    runSenloWorker({ config: { ...config, logRetentionDays: 30 }, repositories, logger });
+    expect(await retentionOf()).toBe(30);
+
+    runSenloWorker({ config: { ...config, logRetentionDays: null }, repositories, logger });
+    expect(await retentionOf()).toBeNull();
+
+    const retention = { logRetentionDays: vi.fn(async () => 7) };
+    runSenloWorker({ config: { ...config, logRetentionDays: 30 }, repositories, logger, retention });
+    expect((mocks.startWorkers.mock.calls.at(-1)![0] as any).retention).toBe(retention);
   });
 
   it("on SIGTERM closes the workers, then Redis, and exits 0; a second signal is ignored", async () => {
