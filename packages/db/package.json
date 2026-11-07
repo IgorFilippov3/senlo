@@ -1,6 +1,6 @@
 {
   "name": "@senlo/db",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "license": "AGPL-3.0-or-later",
   "author": {
     "name": "Igor Filippov",
@@ -21,7 +21,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit",
-    "dev": "tsc --noEmit --watch"
+    "dev": "tsc --noEmit --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@senlo/core": "workspace:^",
@@ -30,7 +32,9 @@
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
     "typescript": "^5.0.0",
+    "vitest": "^5.0.0",
     "@types/node": "^20",
     "@types/pg": "^8.15.6",
     "drizzle-kit": "^0.31.8"

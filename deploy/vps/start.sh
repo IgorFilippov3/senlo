@@ -5,6 +5,10 @@ set -e
 echo "Running database migrations..."
 pnpm db:push
 
+# Daily campaign statistics from the history (once; a no-op afterwards).
+echo "Backfilling campaign statistics..."
+pnpm db:backfill-stats
+
 # 2. Run provisioning (creating initial users)
 echo "Running provisioning with INITIAL_USERS..."
 if [ -z "$INITIAL_USERS" ]; then

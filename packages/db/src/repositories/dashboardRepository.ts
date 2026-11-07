@@ -5,7 +5,7 @@
 import { eq, sql, desc, and, inArray } from "drizzle-orm";
 import {
   campaignEvents,
-  triggeredSendLogs,
+  campaignDailyStats,
   projects,
   campaigns,
   suppressions,
@@ -36,46 +36,27 @@ export class DashboardRepository implements IDashboardRepository {
       };
     }
 
-    // Sends, deliveries, bounces and suppressed sends of a trigger are counted
-    // from its send log below; the worker also writes them as campaign events,
-    // so only regular campaigns' events count here. Opens and clicks exist only
-    // as events, for both kinds.
+    // From `campaign_daily_stats`: the whole history, whatever retention has
+    // deleted from the send log and the raw events.
     const [stats] = await this.db
       .select({
-        totalSent: sql<number>`count(*) filter (where ${campaignEvents.type} = 'SENT' AND ${campaigns.type} = 'STANDARD')`,
-        delivered: sql<number>`count(*) filter (where ${campaignEvents.type} = 'DELIVERED' AND ${campaigns.type} = 'STANDARD')`,
-        bounced: sql<number>`count(*) filter (where ${campaignEvents.type} = 'BOUNCE' AND ${campaigns.type} = 'STANDARD')`,
-        opened: sql<number>`count(*) filter (where ${campaignEvents.type} = 'OPEN')`,
-        clicked: sql<number>`count(*) filter (where ${campaignEvents.type} = 'CLICK')`,
-        savedSends: sql<number>`count(*) filter (where ${campaignEvents.type} = 'FAILED' AND ${campaigns.type} = 'STANDARD' AND ${campaignEvents.metadata}->>'error' LIKE 'Recipient is suppressed%')`,
+        totalSent: sql<string>`coalesce(sum(${campaignDailyStats.sent}), 0)`,
+        delivered: sql<string>`coalesce(sum(${campaignDailyStats.delivered}), 0)`,
+        bounced: sql<string>`coalesce(sum(${campaignDailyStats.bounced}), 0)`,
+        opened: sql<string>`coalesce(sum(${campaignDailyStats.opened}), 0)`,
+        clicked: sql<string>`coalesce(sum(${campaignDailyStats.clicked}), 0)`,
+        savedSends: sql<string>`coalesce(sum(${campaignDailyStats.suppressed}), 0)`,
       })
-      .from(campaignEvents)
-      .innerJoin(campaigns, eq(campaignEvents.campaignId, campaigns.id))
-      .where(inArray(campaigns.projectId, projectIds));
-
-    const [triggeredStats] = await this.db
-      .select({
-        totalSent: sql<number>`count(*) filter (where ${triggeredSendLogs.status} in ('SUCCESS', 'DELIVERED', 'BOUNCED', 'COMPLAINED'))`,
-        delivered: sql<number>`count(*) filter (where ${triggeredSendLogs.status} = 'DELIVERED')`,
-        bounced: sql<number>`count(*) filter (where ${triggeredSendLogs.status} = 'BOUNCED')`,
-        savedSends: sql<number>`count(*) filter (where ${triggeredSendLogs.status} = 'FAILED' AND ${triggeredSendLogs.error} LIKE 'Recipient is suppressed%')`,
-      })
-      .from(triggeredSendLogs)
-      .innerJoin(campaigns, eq(triggeredSendLogs.campaignId, campaigns.id))
-      .where(inArray(campaigns.projectId, projectIds));
+      .from(campaignDailyStats)
+      .where(inArray(campaignDailyStats.projectId, projectIds));
 
     return {
-      totalSent:
-        Number(stats?.totalSent || 0) + Number(triggeredStats?.totalSent || 0),
-      delivered:
-        Number(stats?.delivered || 0) + Number(triggeredStats?.delivered || 0),
-      bounced:
-        Number(stats?.bounced || 0) + Number(triggeredStats?.bounced || 0),
-      opened: Number(stats?.opened || 0),
-      clicked: Number(stats?.clicked || 0),
-      savedSends:
-        Number(stats?.savedSends || 0) +
-        Number(triggeredStats?.savedSends || 0),
+      totalSent: Number(stats?.totalSent ?? 0),
+      delivered: Number(stats?.delivered ?? 0),
+      bounced: Number(stats?.bounced ?? 0),
+      opened: Number(stats?.opened ?? 0),
+      clicked: Number(stats?.clicked ?? 0),
+      savedSends: Number(stats?.savedSends ?? 0),
     };
   }
 
@@ -94,51 +75,33 @@ export class DashboardRepository implements IDashboardRepository {
       sql`, `,
     );
 
+    // UTC days from `campaign_daily_stats`. "Success" is an email the
+    // provider accepted that has not bounced or drawn a complaint: the log
+    // statuses SUCCESS and DELIVERED.
     const query = sql`
-      WITH intervals AS (
+      WITH days AS (
         SELECT generate_series(
-          date_trunc('day', now() - make_interval(days => ${days})),
-          date_trunc('day', now()),
+          (now() AT TIME ZONE 'UTC')::date - ${days}::int,
+          (now() AT TIME ZONE 'UTC')::date,
           interval '1 day'
-        ) AS bucket
-      ),
-      event_stats AS (
-        SELECT
-          date_trunc('day', occurred_at) AS bucket,
-          count(*) FILTER (WHERE ${campaignEvents.type} = 'SENT') as success,
-          count(*) FILTER (WHERE ${campaignEvents.type} = 'FAILED' AND ${campaignEvents.metadata}->>'error' LIKE 'Recipient is suppressed%') as suppressed
-        FROM ${campaignEvents}
-        JOIN ${campaigns} ON ${campaignEvents.campaignId} = ${campaigns.id}
-        WHERE ${campaigns.projectId} IN (${projectIdList})
-          AND ${campaigns.type} = 'STANDARD'
-          AND occurred_at >= now() - make_interval(days => ${days})
-        GROUP BY 1
-      ),
-      triggered_stats AS (
-        SELECT
-          date_trunc('day', ${triggeredSendLogs.sentAt}) AS bucket,
-          count(*) FILTER (WHERE ${triggeredSendLogs.status} IN ('SUCCESS', 'DELIVERED')) as success,
-          count(*) FILTER (WHERE ${triggeredSendLogs.status} = 'FAILED' AND ${triggeredSendLogs.error} LIKE 'Recipient is suppressed%') as suppressed
-        FROM ${triggeredSendLogs}
-        JOIN ${campaigns} ON ${triggeredSendLogs.campaignId} = ${campaigns.id}
-        WHERE ${campaigns.projectId} IN (${projectIdList})
-          AND ${triggeredSendLogs.sentAt} >= now() - make_interval(days => ${days})
-        GROUP BY 1
+        )::date AS day
       )
       SELECT
-        intervals.bucket as timestamp,
-        COALESCE(event_stats.success, 0) + COALESCE(triggered_stats.success, 0) as success,
-        COALESCE(event_stats.suppressed, 0) + COALESCE(triggered_stats.suppressed, 0) as suppressed
-      FROM intervals
-      LEFT JOIN event_stats ON intervals.bucket = event_stats.bucket
-      LEFT JOIN triggered_stats ON intervals.bucket = triggered_stats.bucket
-      ORDER BY intervals.bucket ASC
+        to_char(days.day, 'YYYY-MM-DD') AS day,
+        COALESCE(sum(s.sent - s.bounced - s.complained), 0) AS success,
+        COALESCE(sum(s.suppressed), 0) AS suppressed
+      FROM days
+      LEFT JOIN ${campaignDailyStats} s
+        ON s.day = days.day
+        AND s.project_id IN (${projectIdList})
+      GROUP BY days.day
+      ORDER BY days.day ASC
     `;
 
     const result = await this.db.execute(query);
 
     return (result.rows as any[]).map((r: any) => ({
-      timestamp: new Date(r.timestamp).toISOString(),
+      timestamp: `${r.day}T00:00:00.000Z`,
       success: Number(r.success),
       suppressed: Number(r.suppressed),
     }));

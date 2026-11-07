@@ -30,7 +30,7 @@ export function EngagementStats({ stats }: EngagementStatsProps) {
               {openRate}%
             </span>
             <span className="text-xs text-zinc-400">
-              {stats?.opened} unique opens
+              {stats?.opened} opens
             </span>
           </div>
         </div>
@@ -48,7 +48,7 @@ export function EngagementStats({ stats }: EngagementStatsProps) {
               {clickRate}%
             </span>
             <span className="text-xs text-zinc-400">
-              {stats?.clicked} unique clicks
+              {stats?.clicked} clicks
             </span>
           </div>
         </div>

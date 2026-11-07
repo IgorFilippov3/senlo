@@ -1,5 +1,11 @@
 import { eq, desc, and, ilike, sql } from "drizzle-orm";
-import { campaigns, campaignEvents } from "../schema";
+import { campaigns, campaignEvents, campaignDailyStats } from "../schema";
+import {
+  addCampaignStats,
+  lockCampaignStats,
+  markDailyUnique,
+  utcDay,
+} from "../campaign-stats";
 import {
   Campaign,
   CampaignEvent,
@@ -167,21 +173,53 @@ export class CampaignRepository
 
   /**
    * Log a campaign event (sent, opened, clicked, etc.).
+   *
+   * An open or a click is also counted in `campaign_daily_stats`, with its
+   * daily unique, in the same transaction. Other types count nothing here:
+   * sends, deliveries, bounces and failures are counted from the send log's
+   * status (`TriggeredSendLogRepository.update`), which a repeated webhook
+   * does not change twice.
    * @param data - Event data including campaignId, email, and type
    * @returns The created event
    */
   async logEvent(
     data: Omit<CampaignEventInsert, "id" | "occurredAt">,
   ): Promise<CampaignEvent> {
-    const [row] = await this.db
-      .insert(campaignEvents)
-      .values({
-        ...data,
-        occurredAt: new Date(),
-      })
-      .returning();
+    const kind = data.type;
+    if (kind !== "OPEN" && kind !== "CLICK") {
+      const [row] = await this.db
+        .insert(campaignEvents)
+        .values({
+          ...data,
+          occurredAt: new Date(),
+        })
+        .returning();
 
-    return this.mapEvent(row);
+      return this.mapEvent(row);
+    }
+
+    return this.db.transaction(async (tx) => {
+      await lockCampaignStats(tx, data.campaignId, "shared");
+      const [row] = await tx
+        .insert(campaignEvents)
+        .values({
+          ...data,
+          occurredAt: new Date(),
+        })
+        .returning();
+
+      const day = utcDay(row.occurredAt);
+      const first = await markDailyUnique(tx, row.campaignId, day, kind, row.email);
+      await addCampaignStats(
+        tx,
+        row.campaignId,
+        day,
+        kind === "OPEN"
+          ? { opened: 1, uniqueOpened: first ? 1 : 0 }
+          : { clicked: 1, uniqueClicked: first ? 1 : 0 },
+      );
+      return this.mapEvent(row);
+    });
   }
 
   /**
@@ -249,7 +287,9 @@ export class CampaignRepository
   }
 
   /**
-   * Get event statistics for a campaign.
+   * Get event statistics for a campaign, from `campaign_daily_stats`: the
+   * whole history. Unique is per day, summed: an address that opened on
+   * three days counts three unique opens.
    * @param campaignId - The campaign ID
    * @returns Stats for opens and clicks
    */
@@ -257,46 +297,31 @@ export class CampaignRepository
     opens: { unique: number; total: number };
     clicks: { unique: number; total: number };
   }> {
-    const [openStats] = await this.db
+    const [stats] = await this.db
       .select({
-        total: sql<number>`count(*)`,
-        unique: sql<number>`count(distinct ${campaignEvents.email})`,
+        opens: sql<string>`coalesce(sum(${campaignDailyStats.opened}), 0)`,
+        uniqueOpens: sql<string>`coalesce(sum(${campaignDailyStats.uniqueOpened}), 0)`,
+        clicks: sql<string>`coalesce(sum(${campaignDailyStats.clicked}), 0)`,
+        uniqueClicks: sql<string>`coalesce(sum(${campaignDailyStats.uniqueClicked}), 0)`,
       })
-      .from(campaignEvents)
-      .where(
-        and(
-          eq(campaignEvents.campaignId, campaignId),
-          eq(campaignEvents.type, "OPEN" as any),
-        ),
-      );
-
-    const [clickStats] = await this.db
-      .select({
-        total: sql<number>`count(*)`,
-        unique: sql<number>`count(distinct ${campaignEvents.email})`,
-      })
-      .from(campaignEvents)
-      .where(
-        and(
-          eq(campaignEvents.campaignId, campaignId),
-          eq(campaignEvents.type, "CLICK" as any),
-        ),
-      );
+      .from(campaignDailyStats)
+      .where(eq(campaignDailyStats.campaignId, campaignId));
 
     return {
       opens: {
-        total: Number(openStats?.total || 0),
-        unique: Number(openStats?.unique || 0),
+        total: Number(stats?.opens ?? 0),
+        unique: Number(stats?.uniqueOpens ?? 0),
       },
       clicks: {
-        total: Number(clickStats?.total || 0),
-        unique: Number(clickStats?.unique || 0),
+        total: Number(stats?.clicks ?? 0),
+        unique: Number(stats?.uniqueClicks ?? 0),
       },
     };
   }
 
   /**
-   * Get statistics for each link in a campaign.
+   * Get statistics for each link in a campaign. Read from the raw CLICK
+   * events, so it covers only what retention has kept.
    */
   async getLinkStatsByCampaign(campaignId: number): Promise<LinkStat[]> {
     const rows = await this.db
@@ -324,6 +349,10 @@ export class CampaignRepository
 
   /**
    * Get time-series statistics for opens and clicks.
+   *
+   * Days come from `campaign_daily_stats` (UTC days, the whole history).
+   * Hours are not aggregated and come from the raw events; the hourly view
+   * spans one day, which retention always keeps.
    */
   async getTimeSeriesStatsByCampaign(
     campaignId: number,
@@ -333,21 +362,53 @@ export class CampaignRepository
     },
   ): Promise<TimeSeriesData[]> {
     const { interval, days = 7 } = options;
-    // Bound parameters only; the step is one of two fixed literals.
-    const step = interval === "hour" ? sql`interval '1 hour'` : sql`interval '1 day'`;
+    return interval === "hour"
+      ? this.getHourlyStats(campaignId, days)
+      : this.getDailyStats(campaignId, days);
+  }
 
+  private async getDailyStats(campaignId: number, days: number): Promise<TimeSeriesData[]> {
+    const query = sql`
+      WITH days AS (
+        SELECT generate_series(
+          (now() AT TIME ZONE 'UTC')::date - ${days}::int,
+          (now() AT TIME ZONE 'UTC')::date,
+          interval '1 day'
+        )::date AS day
+      )
+      SELECT
+        to_char(days.day, 'YYYY-MM-DD') AS day,
+        COALESCE(${campaignDailyStats.opened}, 0) AS opens,
+        COALESCE(${campaignDailyStats.clicked}, 0) AS clicks
+      FROM days
+      LEFT JOIN ${campaignDailyStats}
+        ON ${campaignDailyStats.day} = days.day
+        AND ${campaignDailyStats.campaignId} = ${campaignId}
+      ORDER BY days.day ASC
+    `;
+
+    const result = await this.db.execute(query);
+
+    return (result.rows as any[]).map((r: any) => ({
+      timestamp: `${r.day}T00:00:00.000Z`,
+      opens: Number(r.opens),
+      clicks: Number(r.clicks),
+    }));
+  }
+
+  private async getHourlyStats(campaignId: number, days: number): Promise<TimeSeriesData[]> {
     // Use date_trunc for grouping and generate_series to fill gaps
     const query = sql`
       WITH intervals AS (
         SELECT generate_series(
-          date_trunc(${interval}, now() - make_interval(days => ${days})),
-          date_trunc(${interval}, now()),
-          ${step}
+          date_trunc('hour', now() - make_interval(days => ${days})),
+          date_trunc('hour', now()),
+          interval '1 hour'
         ) AS bucket
       ),
       stats AS (
         SELECT
-          date_trunc(${interval}, occurred_at) AS bucket,
+          date_trunc('hour', occurred_at) AS bucket,
           count(*) FILTER (WHERE type = 'OPEN') as opens,
           count(*) FILTER (WHERE type = 'CLICK') as clicks
         FROM ${campaignEvents}

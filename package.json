@@ -21,8 +21,10 @@
     "db:reset-executions": "tsx packages/db/src/reset-executions.ts",
     "db:reseal-secrets": "tsx packages/db/src/reseal-secrets.ts",
     "db:hash-api-keys": "tsx packages/db/src/hash-api-keys.ts",
+    "db:backfill-stats": "tsx packages/db/src/backfill-campaign-stats.ts",
     "test:core": "pnpm --filter @senlo/core test",
     "test:core:update": "pnpm --filter @senlo/core test:update",
+    "test:db": "pnpm --filter @senlo/db test",
     "test:editor": "pnpm --filter @senlo/editor test",
     "test:next": "pnpm --filter @senlo/next test",
     "test:editor:update": "pnpm --filter @senlo/editor test:update"

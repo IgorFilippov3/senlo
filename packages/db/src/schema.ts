@@ -14,6 +14,7 @@ import {
   primaryKey,
   unique,
   index,
+  date,
 } from "drizzle-orm/pg-core";
 
 // --- Auth Tables (NextAuth) ---
@@ -412,6 +413,81 @@ export const triggeredSendLogs = pgTable(
     ),
   }),
 );
+
+/**
+ * A campaign's counters for one UTC day: what every statistics screen reads,
+ * so statistics outlive the delivery log and the raw events (which a
+ * retention policy may delete). Written in the same transaction as the row
+ * they count:
+ * - sent ... suppressed by a send log's status change, on the day the email
+ *   was sent (`triggered_send_logs.sent_at`), so a delivery webhook arriving
+ *   after midnight still counts on the send's day and a repeated webhook
+ *   changes nothing;
+ * - opened, clicked and their unique counts by `logEvent`, on the day of the
+ *   open or click. Unique is per day: one address opening on three days counts
+ *   three times.
+ * Rows from before this table existed come from `pnpm db:backfill-stats`.
+ */
+export const campaignDailyStats = pgTable(
+  "campaign_daily_stats",
+  {
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    /** The campaign's project, copied so the dashboard reads by project without a join. */
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** UTC calendar day. */
+    day: date("day", { mode: "string" }).notNull(),
+    /** Accepted by the provider: logs in SUCCESS, DELIVERED, BOUNCED or COMPLAINED. */
+    sent: integer("sent").notNull().default(0),
+    delivered: integer("delivered").notNull().default(0),
+    bounced: integer("bounced").notNull().default(0),
+    complained: integer("complained").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    /** The part of `failed` refused because the recipient is suppressed. */
+    suppressed: integer("suppressed").notNull().default(0),
+    opened: integer("opened").notNull().default(0),
+    clicked: integer("clicked").notNull().default(0),
+    uniqueOpened: integer("unique_opened").notNull().default(0),
+    uniqueClicked: integer("unique_clicked").notNull().default(0),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.campaignId, t.day] }),
+    projectDayIdx: index("campaign_daily_stats_project_day_idx").on(t.projectId, t.day),
+  }),
+);
+
+/**
+ * Who has opened or clicked a campaign on a day: what makes a daily unique
+ * count exact under concurrent opens (an insert that conflicts is not a new
+ * unique). Only today's rows matter; older ones are deleted daily.
+ */
+export const campaignDailyUniques = pgTable(
+  "campaign_daily_uniques",
+  {
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    /** The event type: `OPEN` or `CLICK`. */
+    kind: text("kind").notNull(),
+    email: text("email").notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.campaignId, t.day, t.kind, t.email] }),
+  }),
+);
+
+/** One-off facts about this database, such as a data backfill having run. */
+export const systemState = pgTable("system_state", {
+  key: text("key").primaryKey(),
+  value: jsonb("value"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
 
 export const savedRows = pgTable("saved_rows", {
   id: serial("id").primaryKey(),

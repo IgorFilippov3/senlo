@@ -28,8 +28,10 @@ export interface TriggerStatsGridProps {
   stats: CampaignStats;
 }
 
+// Capped: unique opens and clicks are per day, so an email opened on three
+// days counts three, and a rate over sends can pass 100%.
 const percent = (part: number, whole: number) =>
-  whole > 0 ? Math.round((part / whole) * 100) : 0;
+  whole > 0 ? Math.min(100, Math.round((part / whole) * 100)) : 0;
 
 export function TriggerStatsGrid({ stats }: TriggerStatsGridProps) {
   const tiles: {
@@ -55,13 +57,13 @@ export function TriggerStatsGrid({ stats }: TriggerStatsGridProps) {
       label: "Open Rate",
       value: `${percent(stats.opens.unique, stats.sent)}%`,
       icon: <Eye size={16} />,
-      sub: `${stats.opens.unique} unique / ${stats.opens.total} total`,
+      sub: `${stats.opens.unique} unique per day / ${stats.opens.total} total`,
     },
     {
       label: "Click Rate",
       value: `${percent(stats.clicks.unique, stats.sent)}%`,
       icon: <MousePointer2 size={16} />,
-      sub: `${stats.clicks.unique} unique / ${stats.clicks.total} total`,
+      sub: `${stats.clicks.unique} unique per day / ${stats.clicks.total} total`,
     },
   ];
 

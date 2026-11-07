@@ -9,6 +9,9 @@ export * from "./create-repositories";
 // Schema (tables, enums, types)
 export * from "./schema";
 
+// Daily campaign statistics: live counters and the one-off backfill
+export * from "./campaign-stats";
+
 // Starter data for new accounts
 export * from "./user-seed";
 

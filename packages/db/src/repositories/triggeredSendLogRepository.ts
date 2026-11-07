@@ -1,5 +1,12 @@
 import { eq, desc, sql, and } from "drizzle-orm";
-import { triggeredSendLogs } from "../schema";
+import { campaignDailyStats, triggeredSendLogs } from "../schema";
+import {
+  addCampaignStats,
+  countersForLog,
+  deltaBetween,
+  lockCampaignStats,
+  utcDay,
+} from "../campaign-stats";
 import type { TriggeredSendLog } from "@senlo/core";
 import { BaseRepository } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -58,43 +65,70 @@ export class TriggeredSendLogRepository extends BaseRepository<
 
   /**
    * Log a triggered email send attempt.
+   * Counted in `campaign_daily_stats` in the same transaction (a PENDING log
+   * counts nothing yet).
    * @param data - Log data including campaignId, email, status, and optional error/data
    * @returns The created log entry
    */
   async create(
     data: Omit<TriggeredSendLog, "id" | "sentAt">,
   ): Promise<TriggeredSendLog> {
-    const [row] = await this.db
-      .insert(triggeredSendLogs)
-      .values({
-        campaignId: data.campaignId,
-        email: data.email,
-        status: data.status,
-        error: data.error,
-        data: data.data,
-        sentAt: new Date(),
-      })
-      .returning();
+    return this.db.transaction(async (tx) => {
+      await lockCampaignStats(tx, data.campaignId, "shared");
+      const [row] = await tx
+        .insert(triggeredSendLogs)
+        .values({
+          campaignId: data.campaignId,
+          email: data.email,
+          status: data.status,
+          error: data.error,
+          data: data.data,
+          sentAt: new Date(),
+        })
+        .returning();
 
-    return this.mapToEntity(row);
+      await addCampaignStats(tx, row.campaignId, utcDay(row.sentAt), countersForLog(row.status, row.error));
+      return this.mapToEntity(row);
+    });
   }
 
   /**
    * Update a log entry by ID.
+   *
+   * A status or error change moves the email between counters of
+   * `campaign_daily_stats`, on the day it was sent, in the same transaction.
+   * The row is locked first, so two webhooks for one email apply one after
+   * the other and a repeated one changes nothing.
    */
   async update(
     id: number,
     data: Partial<Omit<TriggeredSendLog, "id" | "sentAt">>,
   ): Promise<TriggeredSendLog | null> {
-    const [row] = await this.db
-      .update(triggeredSendLogs)
-      .set({
-        ...data,
-      })
-      .where(eq(triggeredSendLogs.id, id))
-      .returning();
+    return this.db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(triggeredSendLogs)
+        .where(eq(triggeredSendLogs.id, id))
+        .for("update");
+      if (!before) return null;
 
-    return row ? this.mapToEntity(row) : null;
+      await lockCampaignStats(tx, before.campaignId, "shared");
+      const [row] = await tx
+        .update(triggeredSendLogs)
+        .set({
+          ...data,
+        })
+        .where(eq(triggeredSendLogs.id, id))
+        .returning();
+
+      await addCampaignStats(
+        tx,
+        row.campaignId,
+        utcDay(before.sentAt),
+        deltaBetween(countersForLog(before.status, before.error), countersForLog(row.status, row.error)),
+      );
+      return this.mapToEntity(row);
+    });
   }
 
   /**
@@ -134,7 +168,8 @@ export class TriggeredSendLogRepository extends BaseRepository<
   }
 
   /**
-   * Get send statistics for a campaign.
+   * Get send statistics for a campaign, from `campaign_daily_stats`: the
+   * whole history, including emails whose log rows retention has deleted.
    */
   async getStatsByCampaign(campaignId: number): Promise<{
     sent: number;
@@ -143,28 +178,17 @@ export class TriggeredSendLogRepository extends BaseRepository<
   }> {
     const [stats] = await this.db
       .select({
-        sent: sql<number>`count(*) filter (where status in ('SUCCESS', 'DELIVERED', 'BOUNCED', 'COMPLAINED'))`,
-        delivered: sql<number>`count(*) filter (where status = 'DELIVERED')`,
-        errors: sql<number>`count(*) filter (where status = 'FAILED')`,
+        sent: sql<string>`coalesce(sum(${campaignDailyStats.sent}), 0)`,
+        delivered: sql<string>`coalesce(sum(${campaignDailyStats.delivered}), 0)`,
+        errors: sql<string>`coalesce(sum(${campaignDailyStats.failed}), 0)`,
       })
-      .from(triggeredSendLogs)
-      .where(eq(triggeredSendLogs.campaignId, campaignId));
-
-    // Also count events from campaign_events as a fallback/complement
-    const [eventStats] = await this.db
-      .select({
-        delivered: sql<number>`count(*) filter (where type = 'DELIVERED')`,
-      })
-      .from(sql`campaign_events`)
-      .where(eq(sql`campaign_id`, campaignId));
+      .from(campaignDailyStats)
+      .where(eq(campaignDailyStats.campaignId, campaignId));
 
     return {
-      sent: Number(stats?.sent || 0),
-      delivered: Math.max(
-        Number(stats?.delivered || 0),
-        Number(eventStats?.delivered || 0),
-      ),
-      errors: Number(stats?.errors || 0),
+      sent: Number(stats?.sent ?? 0),
+      delivered: Number(stats?.delivered ?? 0),
+      errors: Number(stats?.errors ?? 0),
     };
   }
 }
