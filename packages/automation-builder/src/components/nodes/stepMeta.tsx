@@ -59,7 +59,7 @@ export const STEP_META: Record<string, StepMeta> = {
     tone: "text-blue-600",
     summary: (data, { triggers }) => {
       if (data.label) return { text: data.label };
-      const id = data.triggerId ?? data.campaignId ?? data.templateId;
+      const id = data.triggerId;
       if (id === undefined || id === null || id === "") return { text: "Choose an email", incomplete: true };
       const trigger = triggers.find((t) => String(t.id) === String(id));
       return { text: trigger?.name ?? `Email #${id}` };

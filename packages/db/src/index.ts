@@ -11,6 +11,7 @@ export * from "./schema";
 
 // Daily campaign statistics: live counters and the one-off backfill
 export * from "./campaign-stats";
+export * from "./automations-upgrade";
 
 // Starter data for new accounts
 export * from "./user-seed";

@@ -50,6 +50,7 @@ Then:
 ```bash
 pnpm db:push     # apply the schema
 pnpm db:backfill-stats  # daily statistics from existing history (once)
+pnpm db:upgrade-automations  # automations to the versioned format (once)
 pnpm dev         # web app on http://localhost:3001
 pnpm worker      # queues and automations, in a second terminal
 ```

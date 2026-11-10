@@ -21,11 +21,11 @@ function setup(nodes: Omit<WorkflowNode, "workflowId">[], edges: Omit<WorkflowEd
     createStepExecution: vi.fn(async () => ({ id: 1 })),
     updateStepExecution: vi.fn(async () => {}),
   };
-  const workflow = { id: 10, projectId: 1, status: "ACTIVE" };
+  const workflow = { id: 10, projectId: 1, status: "ACTIVE", activeVersionId: 7 };
   const workflows = {
     findById: async () => workflow,
-    getNodes: async () => nodes.map((n) => ({ ...n, workflowId: 10 })),
-    getEdges: async () => edges.map((e) => ({ ...e, workflowId: 10 })),
+    getVersion: async (id: number) =>
+      id === 7 ? { id: 7, workflowId: 10, version: 1, graph: { nodes, edges }, settings: {}, createdAt: new Date() } : null,
   };
   const contacts = { findById: async () => contact };
   const queue = { add: vi.fn(async () => ({})) };
@@ -50,6 +50,7 @@ describe("run context", () => {
       workflowId: 10,
       contactId: 3,
       status: "RUNNING",
+      versionId: 7,
       context: { event: { name: "order_created", payload: { total: 42 } }, steps: {} },
     });
   });

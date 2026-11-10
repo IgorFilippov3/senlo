@@ -3,6 +3,7 @@ import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import {
   ExecutionContext,
+  ExecutionExitReason,
   IWorkflowExecutionRepository,
   WorkflowExecution,
   WorkflowStepExecution,
@@ -62,10 +63,11 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
     id: number,
     status: WorkflowExecution["status"],
     completedAt?: Date,
+    exitReason?: ExecutionExitReason,
   ): Promise<void> {
     await this.db
       .update(schema.workflowExecutions)
-      .set({ status, completedAt })
+      .set({ status, completedAt, exitReason })
       .where(eq(schema.workflowExecutions.id, id));
   }
 

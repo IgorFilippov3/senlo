@@ -113,9 +113,44 @@ export interface Workflow {
   name: string;
   description?: string | null;
   status: WorkflowStatus;
+  /** The version new runs start on; set when the workflow goes live or a live graph is saved. */
+  activeVersionId?: number | null;
+  /** The active version's trigger event name, for the trigger lookup. */
+  triggerEvent?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** A workflow's graph as the builder saved it, without the workflow id. */
+export interface WorkflowGraphSnapshot {
+  nodes: Omit<WorkflowNode, "workflowId">[];
+  edges: Omit<WorkflowEdge, "workflowId">[];
+}
+
+/**
+ * One published graph of a workflow. Immutable: a run executes the version
+ * it started on, so editing a live workflow never changes a run in flight.
+ */
+export interface WorkflowVersion {
+  id: number;
+  workflowId: number;
+  /** 1, 2, 3 per workflow. */
+  version: number;
+  graph: WorkflowGraphSnapshot;
+  /** Entry rules, goal, kind (later phases). */
+  settings: Record<string, unknown>;
+  createdAt: Date;
+}
+
+/** Why a run ended (`workflow_executions.exit_reason`). */
+export type ExecutionExitReason =
+  | "completed"
+  | "exit_node"
+  | "error"
+  | "invalid_run"
+  | "upgrade"
+  | "cancelled_api"
+  | (string & {});
 
 export interface WorkflowNode {
   id: string;
@@ -149,7 +184,10 @@ export interface WorkflowExecution {
   workflowId: number;
   contactId: number;
   status: "RUNNING" | "COMPLETED" | "CANCELLED" | "FAILED";
+  /** The version the run executes; null only for a row from before versions (cancelled by `db:upgrade-automations`). */
+  versionId: number | null;
   context: ExecutionContext;
+  exitReason?: ExecutionExitReason | null;
   startedAt: Date;
   completedAt?: Date | null;
 }

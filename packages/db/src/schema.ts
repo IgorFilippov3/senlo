@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   serial,
@@ -565,21 +566,54 @@ export const contactEvents = pgTable(
   }),
 );
 
-export const workflows = pgTable("workflows", {
-  id: serial("id").primaryKey(),
-  projectId: integer("project_id")
-    .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  description: text("description"),
-  status: workflowStatusEnum("status").notNull().default("DRAFT"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const workflows = pgTable(
+  "workflows",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    status: workflowStatusEnum("status").notNull().default("DRAFT"),
+    /** The version new runs start on (`workflow_versions.id`); no FK, the versions reference the workflow. */
+    activeVersionId: integer("active_version_id"),
+    /** The active version's trigger event name, copied for the trigger lookup. */
+    triggerEvent: text("trigger_event"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    activeTriggerIdx: index("workflows_project_trigger_event_active_idx")
+      .on(t.projectId, t.triggerEvent)
+      .where(sql`${t.status} = 'ACTIVE'`),
+  }),
+);
+
+/** One published graph of a workflow. Immutable: runs read the version they started on. */
+export const workflowVersions = pgTable(
+  "workflow_versions",
+  {
+    id: serial("id").primaryKey(),
+    workflowId: integer("workflow_id")
+      .notNull()
+      .references(() => workflows.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    /** `{ nodes, edges }` as saved. */
+    graph: jsonb("graph").notNull(),
+    settings: jsonb("settings").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    workflowVersionUnq: unique("workflow_versions_workflow_version_unq").on(t.workflowId, t.version),
+  }),
+);
 
 export const workflowNodes = pgTable("workflow_nodes", {
   id: text("id").primaryKey(),
@@ -609,8 +643,12 @@ export const workflowExecutions = pgTable("workflow_executions", {
     .notNull()
     .references(() => contacts.id, { onDelete: "cascade" }),
   status: text("status").notNull().default("RUNNING"),
+  /** The version the run executes (`workflow_versions.id`). Null only on rows from before versions. */
+  versionId: integer("version_id").references(() => workflowVersions.id, { onDelete: "set null" }),
   /** `ExecutionContext`: the trigger event and step outputs. */
   context: jsonb("context").notNull().default({}),
+  /** `ExecutionExitReason`: why the run ended. */
+  exitReason: text("exit_reason"),
   startedAt: timestamp("started_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

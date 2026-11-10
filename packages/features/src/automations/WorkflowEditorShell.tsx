@@ -20,6 +20,8 @@ export interface WorkflowEditorShellProps {
   /** Reasons from the last refused go-live; the dialog shows while set. */
   goLiveErrors: string[] | null;
   onDismissGoLiveErrors: () => void;
+  /** Title of the reasons dialog; "Cannot go live" by default. */
+  goLiveErrorsTitle?: string;
   /** The builder canvas. */
   children: React.ReactNode;
 }
@@ -36,6 +38,7 @@ export function WorkflowEditorShell({
   error,
   goLiveErrors,
   onDismissGoLiveErrors,
+  goLiveErrorsTitle,
   children,
 }: WorkflowEditorShellProps) {
   const isActive = status === "ACTIVE";
@@ -104,7 +107,7 @@ export function WorkflowEditorShell({
           {children}
         </div>
 
-        <GoLiveErrorsDialog reasons={goLiveErrors} onClose={onDismissGoLiveErrors} />
+        <GoLiveErrorsDialog reasons={goLiveErrors} onClose={onDismissGoLiveErrors} title={goLiveErrorsTitle} />
       </div>
     </div>
   );

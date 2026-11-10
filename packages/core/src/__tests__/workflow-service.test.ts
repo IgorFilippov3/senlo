@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { WorkflowService } from "../services/workflowService";
 import { FormValidationError, NotFoundError, ValidationError } from "../errors";
-import type { Campaign, Project, Workflow } from "../domain";
+import type { Campaign, Project, Workflow, WorkflowGraphSnapshot, WorkflowVersion } from "../domain";
 
 const projects = {
   findById: async (id: number) =>
@@ -30,9 +30,19 @@ function fakes(graph: { nodes?: any[]; edges?: any[] } = {}) {
     getNodes: async () => graph.nodes ?? [],
     getEdges: async () => graph.edges ?? [],
     saveGraph: vi.fn(async () => {}),
+    publishVersion: vi.fn(async (workflowId: number, g: WorkflowGraphSnapshot) => {
+      const v: WorkflowVersion = { id: versions.length + 1, workflowId, version: versions.length + 1, graph: g, settings: {}, createdAt: new Date() };
+      versions.push(v);
+      const w = rows.get(workflowId);
+      if (w) rows.set(workflowId, { ...w, activeVersionId: v.id });
+      return v;
+    }),
+    getVersion: async (id: number) => versions.find((v) => v.id === id) ?? null,
+    findActiveByTrigger: async () => [],
   };
+  const versions: WorkflowVersion[] = [];
   const contactEvents = { recentNames: vi.fn(async (_projectId: number, _limit: number) => ["trial_started", "invoice.paid"]) };
-  return { service: new WorkflowService({ workflows, projects, campaigns, contactEvents }), workflows, contactEvents };
+  return { service: new WorkflowService({ workflows, projects, campaigns, contactEvents }), workflows, contactEvents, rows, versions };
 }
 
 const trigger = { id: "t1", type: "trigger", data: { event: "contact_added" }, position: { x: 1.4, y: 2.6 } };
@@ -132,7 +142,7 @@ describe("WorkflowService", () => {
 
   it("maps the builder's shape to the stored one, dropping positions", async () => {
     const { service, workflows } = fakes();
-    const action = { id: "a1", type: "action_email", data: { campaignId: 100 }, position: { x: 10, y: 20 } };
+    const action = { id: "a1", type: "action", data: { triggerId: 100 }, position: { x: 10, y: 20 } };
     const unset = { id: "a2", type: "action", data: {}, position: { x: 0, y: 0 } };
     await service.saveGraph("alice", 10, {
       nodes: [trigger, action, unset],
@@ -142,7 +152,7 @@ describe("WorkflowService", () => {
       10,
       [
         { id: "t1", type: "trigger", data: { event: "contact_added" } },
-        { id: "a1", type: "action_email", data: { campaignId: 100 } },
+        { id: "a1", type: "action", data: { triggerId: 100 } },
         { id: "a2", type: "action", data: {} },
       ],
       [
@@ -150,5 +160,77 @@ describe("WorkflowService", () => {
         { id: "e2", sourceNodeId: "a1", targetNodeId: "a2", sourceHandle: null },
       ],
     );
+  });
+
+  describe("versions", () => {
+    const liveNodes = [
+      { id: "t", type: "trigger", data: { event: "trial_started" } },
+      { id: "x", type: "exit", data: {} },
+    ];
+    const liveEdges = [{ id: "e", sourceNodeId: "t", targetNodeId: "x", sourceHandle: null }];
+    const builderGraph = {
+      nodes: liveNodes,
+      edges: [{ id: "e", source: "t", target: "x", sourceHandle: null }],
+    };
+
+    it("going live publishes the saved graph as a version", async () => {
+      const { service, workflows } = fakes({ nodes: liveNodes, edges: liveEdges });
+      await service.setStatus("alice", 10, "ACTIVE");
+      expect(workflows.publishVersion).toHaveBeenCalledWith(10, { nodes: liveNodes, edges: liveEdges });
+      expect(workflows.update).toHaveBeenCalledWith(10, { status: "ACTIVE" });
+    });
+
+    it("pause and resume without changes publishes nothing new", async () => {
+      const { service, workflows } = fakes({ nodes: liveNodes, edges: liveEdges });
+      await service.setStatus("alice", 10, "ACTIVE");
+      await service.setStatus("alice", 10, "PAUSED");
+      await service.setStatus("alice", 10, "ACTIVE");
+      expect(workflows.publishVersion).toHaveBeenCalledTimes(1);
+    });
+
+    it("saving a live workflow publishes a new version; saving a draft does not", async () => {
+      const { service, workflows, rows } = fakes();
+      await service.saveGraph("alice", 10, builderGraph);
+      expect(workflows.publishVersion).not.toHaveBeenCalled();
+
+      rows.set(10, { ...rows.get(10)!, status: "ACTIVE" });
+      await service.saveGraph("alice", 10, builderGraph);
+      expect(workflows.publishVersion).toHaveBeenCalledTimes(1);
+      // Same graph again, keys in another order: no new version.
+      await service.saveGraph("alice", 10, {
+        nodes: [liveNodes[1], { data: { event: "trial_started" }, type: "trigger", id: "t" }],
+        edges: builderGraph.edges,
+      });
+      expect(workflows.publishVersion).toHaveBeenCalledTimes(1);
+
+      await service.saveGraph("alice", 10, {
+        nodes: [{ id: "t", type: "trigger", data: { event: "invoice_failed" } }, liveNodes[1]],
+        edges: builderGraph.edges,
+      });
+      expect(workflows.publishVersion).toHaveBeenCalledTimes(2);
+    });
+
+    it("refuses an incomplete graph on a live workflow and saves nothing", async () => {
+      const { service, workflows, rows } = fakes();
+      rows.set(10, { ...rows.get(10)!, status: "ACTIVE" });
+      const e = await service
+        .saveGraph("alice", 10, { nodes: [{ id: "t", type: "trigger", data: { event: "x" } }, { id: "c", type: "condition", data: {} }], edges: [{ id: "e", source: "t", target: "c" }] })
+        .catch((x) => x);
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Pause the automation to save an incomplete draft.");
+      expect(e.details.reasons).toContain("An API Check is missing a Yes branch.");
+      expect(workflows.saveGraph).not.toHaveBeenCalled();
+      expect(workflows.publishVersion).not.toHaveBeenCalled();
+    });
+
+    it("refuses step types the engine does not know", async () => {
+      const { service, workflows } = fakes();
+      for (const type of ["action_email", "condition_api", "teleport"]) {
+        const e = await service.saveGraph("alice", 10, { nodes: [{ id: "n", type, data: {} }], edges: [] }).catch((x) => x);
+        expect(e, type).toBeInstanceOf(FormValidationError);
+        expect(e.fieldErrors.n[0]).toContain(type);
+      }
+      expect(workflows.saveGraph).not.toHaveBeenCalled();
+    });
   });
 });

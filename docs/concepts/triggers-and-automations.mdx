@@ -50,7 +50,9 @@ Events an automation can start on:
 
 An automation starts only on its own event name: an automation on `trial_started` ignores `invoice_failed`.
 
-Only **active** automations start; a paused one ignores events. While a contact has a run in progress in an automation, the same event does not start a second run for them in that automation.
+Only **active** automations start; a paused one ignores events, while runs already in progress go on.
+
+Going live, and saving an active automation, publishes its graph as a new version. New runs start on the latest version; a run in progress finishes on the version it started on, so editing a live automation never breaks a contact halfway through. Saving an active automation therefore needs a complete graph; pause it to keep an unfinished draft. While a contact has a run in progress in an automation, the same event does not start a second run for them in that automation.
 
 Use an automation when the email depends on what the user does over time: onboarding sequences, trial reminders, a follow-up a few days after an order.
 

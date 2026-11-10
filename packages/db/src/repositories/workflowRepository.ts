@@ -1,4 +1,4 @@
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, max } from "drizzle-orm";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import * as schema from "../schema";
 import {
@@ -6,7 +6,27 @@ import {
   Workflow,
   WorkflowNode,
   WorkflowEdge,
+  WorkflowGraphSnapshot,
+  WorkflowVersion,
 } from "@senlo/core";
+
+/** The trigger node's event name in a graph, or null. */
+export function graphTriggerEvent(graph: WorkflowGraphSnapshot): string | null {
+  const trigger = graph.nodes.find((n) => n.type === "trigger");
+  const event = trigger?.data?.event;
+  return typeof event === "string" && event !== "" ? event : null;
+}
+
+function mapVersion(row: typeof schema.workflowVersions.$inferSelect): WorkflowVersion {
+  return {
+    id: row.id,
+    workflowId: row.workflowId,
+    version: row.version,
+    graph: row.graph as WorkflowGraphSnapshot,
+    settings: (row.settings as Record<string, unknown> | null) ?? {},
+    createdAt: row.createdAt,
+  };
+}
 
 export class WorkflowRepository
   extends BaseRepositoryWithTimestamps<
@@ -121,5 +141,62 @@ export class WorkflowRepository
         .set({ updatedAt: new Date() })
         .where(eq(schema.workflows.id, workflowId));
     });
+  }
+
+  async publishVersion(
+    workflowId: number,
+    graph: WorkflowGraphSnapshot,
+    settings: Record<string, unknown> = {},
+  ): Promise<WorkflowVersion> {
+    return this.db.transaction(async (tx) => {
+      // Lock the workflow row: two publishes of one workflow take turns, so
+      // the next number is never taken twice.
+      await tx
+        .select({ id: schema.workflows.id })
+        .from(schema.workflows)
+        .where(eq(schema.workflows.id, workflowId))
+        .for("update");
+      const [{ last }] = await tx
+        .select({ last: max(schema.workflowVersions.version) })
+        .from(schema.workflowVersions)
+        .where(eq(schema.workflowVersions.workflowId, workflowId));
+      const [row] = await tx
+        .insert(schema.workflowVersions)
+        .values({
+          workflowId,
+          version: (last ?? 0) + 1,
+          graph: { nodes: graph.nodes, edges: graph.edges },
+          settings,
+        })
+        .returning();
+      await tx
+        .update(schema.workflows)
+        .set({ activeVersionId: row.id, triggerEvent: graphTriggerEvent(graph), updatedAt: new Date() })
+        .where(eq(schema.workflows.id, workflowId));
+      return mapVersion(row);
+    });
+  }
+
+  async getVersion(id: number): Promise<WorkflowVersion | null> {
+    const [row] = await this.db
+      .select()
+      .from(schema.workflowVersions)
+      .where(eq(schema.workflowVersions.id, id));
+    return row ? mapVersion(row) : null;
+  }
+
+  async findActiveByTrigger(projectId: number, eventName: string): Promise<Workflow[]> {
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(
+        and(
+          eq(this.table.projectId, projectId),
+          eq(this.table.triggerEvent, eventName),
+          eq(this.table.status, "ACTIVE"),
+        ),
+      )
+      .orderBy(this.table.id);
+    return rows.map((row) => this.mapToEntity(row));
   }
 }

@@ -20,6 +20,9 @@ import type {
   WorkflowNode,
   WorkflowEdge,
   WorkflowExecution,
+  WorkflowGraphSnapshot,
+  WorkflowVersion,
+  ExecutionExitReason,
   WorkflowStepExecution,
 } from "./domain";
 import type {
@@ -332,6 +335,21 @@ export interface IWorkflowRepository {
     nodes: Omit<WorkflowNode, "workflowId">[],
     edges: Omit<WorkflowEdge, "workflowId">[],
   ): Promise<void>;
+
+  // Versions
+  /**
+   * Stores `graph` as the workflow's next version and makes it the active
+   * one (`activeVersionId`, `triggerEvent` from its trigger node), in one
+   * transaction.
+   */
+  publishVersion(
+    workflowId: number,
+    graph: WorkflowGraphSnapshot,
+    settings?: Record<string, unknown>,
+  ): Promise<WorkflowVersion>;
+  getVersion(id: number): Promise<WorkflowVersion | null>;
+  /** ACTIVE workflows of the project whose active version's trigger listens for `eventName`. */
+  findActiveByTrigger(projectId: number, eventName: string): Promise<Workflow[]>;
 }
 
 export interface IWorkflowExecutionRepository {
@@ -347,6 +365,7 @@ export interface IWorkflowExecutionRepository {
     id: number,
     status: WorkflowExecution["status"],
     completedAt?: Date,
+    exitReason?: ExecutionExitReason,
   ): Promise<void>;
 
   // Step tracking

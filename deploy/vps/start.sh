@@ -9,6 +9,10 @@ pnpm db:push
 echo "Backfilling campaign statistics..."
 pnpm db:backfill-stats
 
+# Automations from before workflow versions to the current shape (a no-op afterwards).
+echo "Upgrading automations..."
+pnpm db:upgrade-automations
+
 # 2. Run provisioning (creating initial users)
 echo "Running provisioning with INITIAL_USERS..."
 if [ -z "$INITIAL_USERS" ]; then

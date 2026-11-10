@@ -60,7 +60,7 @@ export const SidePanel = ({ triggers = [], onDelete }: Props) => {
               <Label>Select Trigger (Campaign)</Label>
               <Select
                 value={String(
-                  node.data.triggerId || node.data.templateId || "",
+                  node.data.triggerId || "",
                 )}
                 onValueChange={(val) =>
                   updateNodeData(node.id, { triggerId: val })

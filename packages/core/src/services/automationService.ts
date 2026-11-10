@@ -7,12 +7,21 @@ import {
 } from "../ports";
 import { TriggerService } from "./triggerService";
 import { AutomationJobData } from "../queue/types";
-import type { ContactEvent, ExecutionContext, WorkflowExecution, WorkflowNodeStats } from "../domain";
+import type {
+  ContactEvent,
+  ExecutionContext,
+  WorkflowExecution,
+  WorkflowNodeStats,
+  WorkflowVersion,
+} from "../domain";
 import { buildStepData } from "../workflow-step-data";
 import { triggerMatches, type WorkflowEvent } from "../workflow-events";
 import { ServiceHooks } from "../hooks";
 import { consoleLogger, type Logger } from "../logger";
 import { allowAllOutbound, fetchWithPolicy, type OutboundPolicy } from "../outbound";
+
+/** Versions one worker process keeps in memory. */
+const VERSION_CACHE_SIZE = 500;
 
 export class AutomationService {
   constructor(
@@ -27,6 +36,22 @@ export class AutomationService {
     /** Where the "API condition" node may POST; see `OutboundPolicy`. */
     private readonly outbound: OutboundPolicy = allowAllOutbound,
   ) {}
+
+  /** Versions are immutable, so each worker process keeps the ones it has read. */
+  private readonly versions = new Map<number, WorkflowVersion>();
+
+  private async loadVersion(id: number): Promise<WorkflowVersion | null> {
+    const cached = this.versions.get(id);
+    if (cached) return cached;
+    const version = await this.workflowRepo.getVersion(id);
+    if (!version) return null;
+    if (this.versions.size >= VERSION_CACHE_SIZE) {
+      // Oldest first: a Map iterates in insertion order.
+      this.versions.delete(this.versions.keys().next().value!);
+    }
+    this.versions.set(id, version);
+    return version;
+  }
 
   /**
    * Start a workflow for a contact. `event` is the trigger event: copied into
@@ -46,6 +71,16 @@ export class AutomationService {
     }
 
     if (workflow.status !== "ACTIVE") {
+      return null;
+    }
+
+    // New runs start on the active version; an ACTIVE workflow without one
+    // predates versions and gets it from `db:upgrade-automations`.
+    const version = workflow.activeVersionId ? await this.loadVersion(workflow.activeVersionId) : null;
+    if (!version) {
+      this.logger.warn("Active workflow has no published version; run `pnpm db:upgrade-automations`", {
+        workflowId,
+      });
       return null;
     }
 
@@ -71,6 +106,7 @@ export class AutomationService {
       workflowId,
       contactId,
       status: "RUNNING",
+      versionId: version.id,
       context,
     });
     await this.hooks.recordUsage({
@@ -80,21 +116,13 @@ export class AutomationService {
       executionId: execution.id,
     });
 
-    // Find trigger node (assume there is only one for now)
-    const nodes = await this.workflowRepo.getNodes(workflowId);
-    const triggerNode = nodes.find((n) => n.type === "trigger");
-
+    const triggerNode = version.graph.nodes.find((n) => n.type === "trigger");
     if (!triggerNode) {
-      await this.executionRepo.updateStatus(
-        execution.id,
-        "COMPLETED",
-        new Date(),
-      );
+      await this.executionRepo.updateStatus(execution.id, "COMPLETED", new Date(), "completed");
       return execution;
     }
 
-    // Schedule next nodes
-    await this.scheduleNextNodes(execution.id, triggerNode.id);
+    await this.scheduleNextNodes(execution.id, version, triggerNode.id);
 
     return execution;
   }
@@ -136,18 +164,23 @@ export class AutomationService {
     return { event, duplicate: false };
   }
 
-  /** Starts every ACTIVE workflow of the project whose trigger node accepts the event. */
+  /**
+   * Starts every ACTIVE workflow of the project whose active version's
+   * trigger accepts the event. The lookup goes through the trigger event
+   * name copied onto the workflow (indexed), then the version's trigger node
+   * decides on the rest (the tag of a `tag_added` trigger).
+   */
   private async dispatchTriggers(
     projectId: number,
     contactId: number,
     event: WorkflowEvent,
   ): Promise<void> {
-    const workflows = await this.workflowRepo.findByProject(projectId);
+    const workflows = await this.workflowRepo.findActiveByTrigger(projectId, event.name);
     for (const workflow of workflows) {
-      if (workflow.status !== "ACTIVE") continue;
-      const nodes = await this.workflowRepo.getNodes(workflow.id);
-      const listens = nodes.some((n) => n.type === "trigger" && triggerMatches(n.data, event));
-      if (listens) {
+      if (!workflow.activeVersionId) continue;
+      const version = await this.loadVersion(workflow.activeVersionId);
+      const trigger = version?.graph.nodes.find((n) => n.type === "trigger");
+      if (trigger && triggerMatches(trigger.data, event)) {
         await this.triggerWorkflow({ workflowId: workflow.id, contactId, projectId, event });
       }
     }
@@ -164,9 +197,20 @@ export class AutomationService {
     const execution = await this.executionRepo.findById(executionId);
     if (!execution || execution.status !== "RUNNING") return;
 
-    const nodes = await this.workflowRepo.getNodes(execution.workflowId);
-    const node = nodes.find((n) => n.id === nodeId);
-    if (!node) return;
+    // A run reads only the version it started on: editing the workflow
+    // never moves the ground under it.
+    const version = execution.versionId ? await this.loadVersion(execution.versionId) : null;
+    const node = version?.graph.nodes.find((n) => n.id === nodeId);
+    if (!version || !node) {
+      this.logger.error("Workflow run cannot continue: no version or no such step in it", {
+        executionId,
+        nodeId,
+        versionId: execution.versionId,
+      });
+      // Ended rather than left RUNNING: a RUNNING row blocks the contact from entering again.
+      await this.executionRepo.updateStatus(executionId, "FAILED", new Date(), "invalid_run");
+      return;
+    }
 
     const stepExecution = await this.executionRepo.createStepExecution({
       executionId,
@@ -179,12 +223,10 @@ export class AutomationService {
 
       switch (node.type) {
         case "action":
-        case "action_email":
           await this.handleEmailAction(execution, node.data);
           break;
 
         case "condition":
-        case "condition_api":
           nextHandle = await this.handleApiCondition(
             execution,
             node.data,
@@ -201,12 +243,11 @@ export class AutomationService {
           break;
 
         case "exit":
-          // Explicitly mark execution as completed
-          await this.executionRepo.updateStatus(
-            executionId,
-            "COMPLETED",
-            new Date(),
-          );
+          await this.executionRepo.updateStepExecution(stepExecution.id, {
+            status: "COMPLETED",
+            completedAt: new Date(),
+          });
+          await this.executionRepo.updateStatus(executionId, "COMPLETED", new Date(), "exit_node");
           return; // Stop processing and don't schedule next nodes
 
         default:
@@ -223,7 +264,7 @@ export class AutomationService {
       });
 
       // Schedule next steps
-      await this.scheduleNextNodes(executionId, nodeId, nextHandle);
+      await this.scheduleNextNodes(executionId, version, nodeId, nextHandle);
     } catch (error) {
       this.logger.error("Workflow step failed", {
         executionId,
@@ -239,16 +280,13 @@ export class AutomationService {
       });
 
       // Also mark the main execution as FAILED so it doesn't block future runs
-      await this.executionRepo.updateStatus(executionId, "FAILED", new Date());
+      await this.executionRepo.updateStatus(executionId, "FAILED", new Date(), "error");
     }
   }
 
   private async handleEmailAction(execution: WorkflowExecution, data: any): Promise<void> {
-    const campaignId = data.triggerId || data.campaignId || data.templateId;
-    if (!campaignId)
-      throw new Error(
-        "No triggerId, campaignId or templateId specified for email action",
-      );
+    const campaignId = data.triggerId;
+    if (!campaignId) throw new Error("No trigger chosen for the email step (triggerId)");
 
     const workflow = await this.workflowRepo.findById(execution.workflowId);
     if (!workflow) throw new Error("Workflow not found");
@@ -359,14 +397,11 @@ export class AutomationService {
 
   private async scheduleNextNodes(
     executionId: number,
+    version: WorkflowVersion,
     sourceNodeId: string,
     handle?: string,
   ): Promise<void> {
-    const execution = await this.executionRepo.findById(executionId);
-    if (!execution) return;
-
-    const edges = await this.workflowRepo.getEdges(execution.workflowId);
-    const nodes = await this.workflowRepo.getNodes(execution.workflowId);
+    const { nodes, edges } = version.graph;
 
     const nextEdges = edges.filter(
       (e) =>
@@ -382,13 +417,7 @@ export class AutomationService {
     });
 
     if (nextEdges.length === 0) {
-      // Check if all branches are finished to mark execution as COMPLETED
-      // For now, just mark as completed if no more edges
-      await this.executionRepo.updateStatus(
-        executionId,
-        "COMPLETED",
-        new Date(),
-      );
+      await this.executionRepo.updateStatus(executionId, "COMPLETED", new Date(), "completed");
       return;
     }
 

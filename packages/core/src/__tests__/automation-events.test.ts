@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type { Workflow, WorkflowNode } from "../domain";
+import type { Workflow, WorkflowVersion } from "../domain";
 import type { Logger } from "../logger";
 import { AutomationService } from "../services/automationService";
 
@@ -7,15 +7,34 @@ const silent: Logger = { debug() {}, info() {}, warn() {}, error() {} };
 
 function workflow(id: number, status: Workflow["status"], trigger: Record<string, unknown>) {
   return {
-    workflow: { id, projectId: 1, name: `w${id}`, status, createdAt: new Date(), updatedAt: new Date() } as Workflow,
-    nodes: [{ id: `t${id}`, workflowId: id, type: "trigger", data: trigger }] as WorkflowNode[],
+    workflow: {
+      id,
+      projectId: 1,
+      name: `w${id}`,
+      status,
+      activeVersionId: 100 + id,
+      triggerEvent: typeof trigger.event === "string" ? trigger.event : null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Workflow,
+    version: {
+      id: 100 + id,
+      workflowId: id,
+      version: 1,
+      graph: { nodes: [{ id: `t${id}`, type: "trigger", data: trigger }], edges: [] },
+      settings: {},
+      createdAt: new Date(),
+    } as WorkflowVersion,
   };
 }
 
 function setup(defs: ReturnType<typeof workflow>[], { duplicate = false } = {}) {
   const workflows = {
-    findByProject: vi.fn(async () => defs.map((d) => d.workflow)),
-    getNodes: vi.fn(async (id: number) => defs.find((d) => d.workflow.id === id)?.nodes ?? []),
+    // What the indexed query returns: ACTIVE, same project, same trigger event.
+    findActiveByTrigger: vi.fn(async (projectId: number, name: string) =>
+      defs.map((d) => d.workflow).filter((w) => w.projectId === projectId && w.status === "ACTIVE" && w.triggerEvent === name),
+    ),
+    getVersion: vi.fn(async (id: number) => defs.find((d) => d.version.id === id)?.version ?? null),
   };
   const contactEvents = {
     record: vi.fn(async (d: { projectId: number; contactId: number; name: string; payload: Record<string, unknown>; idempotencyKey?: string | null }) =>
@@ -33,7 +52,7 @@ function setup(defs: ReturnType<typeof workflow>[], { duplicate = false } = {}) 
   );
   const started = vi.spyOn(service, "triggerWorkflow").mockResolvedValue(null);
   const startedIds = () => started.mock.calls.map(([o]) => o.workflowId);
-  return { service, contactEvents, started, startedIds };
+  return { service, contactEvents, started, startedIds, workflows };
 }
 
 describe("AutomationService.handleEvent", () => {
@@ -78,5 +97,19 @@ describe("AutomationService.handleEvent", () => {
     const result = await service.handleEvent({ projectId: 1, contactId: 9, name: "x", idempotencyKey: "k" });
     expect(result).toEqual({ event: null, duplicate: true });
     expect(started).not.toHaveBeenCalled();
+  });
+
+  it("looks workflows up by event name and reads each version once per process", async () => {
+    const { service, workflows } = setup([workflow(1, "ACTIVE", { event: "x" })]);
+    await service.handleEvent({ projectId: 1, contactId: 9, name: "x" });
+    await service.handleEvent({ projectId: 1, contactId: 10, name: "x" });
+    expect(workflows.findActiveByTrigger).toHaveBeenCalledWith(1, "x");
+    expect(workflows.getVersion).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the event to the run it starts", async () => {
+    const { service, started } = setup([workflow(1, "ACTIVE", { event: "x" })]);
+    await service.handleEvent({ projectId: 1, contactId: 9, name: "x", payload: { a: 1 } });
+    expect(started).toHaveBeenCalledWith({ workflowId: 1, contactId: 9, projectId: 1, event: { name: "x", payload: { a: 1 } } });
   });
 });

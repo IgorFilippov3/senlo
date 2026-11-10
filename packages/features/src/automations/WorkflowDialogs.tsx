@@ -51,14 +51,16 @@ export interface GoLiveErrorsDialogProps {
   /** Why the workflow cannot go live; the dialog is closed while null. */
   reasons: string[] | null;
   onClose: () => void;
+  /** Defaults to "Cannot go live"; a refused save of a live automation says so. */
+  title?: string;
 }
 
-export function GoLiveErrorsDialog({ reasons, onClose }: GoLiveErrorsDialogProps) {
+export function GoLiveErrorsDialog({ reasons, onClose, title = "Cannot go live" }: GoLiveErrorsDialogProps) {
   return (
     <Dialog
       isOpen={reasons !== null}
       onClose={onClose}
-      title="Cannot go live"
+      title={title}
       footer={<Button onClick={onClose}>Got it</Button>}
     >
       <ul className="text-sm text-gray-600 list-disc pl-4 space-y-1">

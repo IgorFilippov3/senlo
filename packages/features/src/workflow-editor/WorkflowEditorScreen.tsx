@@ -37,6 +37,12 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
   const { nodes, edges, setNodes, setEdges } = useAutomationStore();
   const [status, setStatus] = useState(workflow.status);
   const [goLiveErrors, setGoLiveErrors] = useState<string[] | null>(null);
+  const [errorsTitle, setErrorsTitle] = useState<string | undefined>(undefined);
+
+  const showReasons = (reasons: string[], title?: string) => {
+    setErrorsTitle(title);
+    setGoLiveErrors(reasons);
+  };
 
   const save = useSaveWorkflowGraph(workflow.id);
   const changeStatus = useSetWorkflowStatus();
@@ -81,14 +87,38 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
 
     const check = validateWorkflowGraph(nodes, edges);
     if (!check.valid) {
-      setGoLiveErrors(check.reasons);
+      showReasons(check.reasons);
       return;
     }
     try {
       await save.mutateAsync({ nodes, edges });
       setStatus(await changeStatus.mutateAsync({ id: workflow.id, status: "ACTIVE" }));
     } catch (error) {
-      if (error instanceof WorkflowNotReadyError) setGoLiveErrors(error.reasons);
+      if (error instanceof WorkflowNotReadyError) showReasons(error.reasons);
+    }
+  };
+
+  /**
+   * Saving a live automation publishes it: runs started from now on use the
+   * new graph, so it must be complete. An incomplete one is kept only as a
+   * draft, after a pause.
+   */
+  const saveGraph = async () => {
+    changeStatus.reset();
+    const liveTitle = "Cannot save a live automation";
+    if (status === "ACTIVE") {
+      const check = validateWorkflowGraph(nodes, edges);
+      if (!check.valid) {
+        showReasons([...check.reasons, "Pause the automation to save an incomplete draft."], liveTitle);
+        return;
+      }
+    }
+    try {
+      await save.mutateAsync({ nodes, edges });
+    } catch (error) {
+      if (error instanceof WorkflowNotReadyError) {
+        showReasons([...error.reasons, "Pause the automation to save an incomplete draft."], liveTitle);
+      }
     }
   };
 
@@ -99,16 +129,14 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
       name={workflow.name}
       status={status}
       onBack={back}
-      onSave={() => {
-        changeStatus.reset();
-        save.mutate({ nodes, edges });
-      }}
+      onSave={() => void saveGraph()}
       isSaving={save.isPending}
       onToggleStatus={toggleStatus}
       isChangingStatus={changeStatus.isPending}
       error={failure && !(failure instanceof WorkflowNotReadyError) ? failure.message : null}
       goLiveErrors={goLiveErrors}
       onDismissGoLiveErrors={() => setGoLiveErrors(null)}
+      goLiveErrorsTitle={errorsTitle}
     >
       <AutomationBuilder triggers={triggers} stats={stats} eventNames={eventNames} />
     </WorkflowEditorShell>

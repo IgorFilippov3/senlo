@@ -5,7 +5,7 @@
 import { z } from "zod";
 import { AccessGuard, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
-import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowStatus } from "../domain";
+import type { Workflow, WorkflowEdge, WorkflowGraphSnapshot, WorkflowNode, WorkflowStatus } from "../domain";
 import { FormValidationError, ValidationError } from "../errors";
 import type {
   ICampaignRepository,
@@ -57,9 +57,12 @@ export function defaultTriggerNode(): Omit<WorkflowNode, "workflowId"> {
   };
 }
 
-/** Which trigger (campaign) an action node sends, under the keys the builder has used over time. */
+/** The step types the builder and the engine know. */
+export const WORKFLOW_NODE_TYPES = ["trigger", "action", "delay", "condition", "update_contact", "exit"] as const;
+
+/** Which trigger (campaign) an action node sends (`data.triggerId`). */
 function actionCampaignId(node: GraphNode): number | null {
-  const raw = node.data.triggerId ?? node.data.campaignId ?? node.data.templateId;
+  const raw = node.data.triggerId;
   if (raw === undefined || raw === null || raw === "") return null;
   const id = Number(raw);
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -157,6 +160,12 @@ export class WorkflowService {
       }
     }
 
+    for (const node of graph.nodes) {
+      if (!(WORKFLOW_NODE_TYPES as readonly string[]).includes(node.type)) {
+        throw new FormValidationError({ [node.id]: [`Unknown step type "${node.type}"`] });
+      }
+    }
+
     // A draft may have no event yet; a name it does have must be one the API accepts.
     for (const node of graph.nodes) {
       if (node.type !== "trigger") continue;
@@ -170,7 +179,7 @@ export class WorkflowService {
     }
 
     for (const node of graph.nodes) {
-      if (node.type !== "action" && node.type !== "action_email") continue;
+      if (node.type !== "action") continue;
       const campaignId = actionCampaignId(node);
       if (campaignId === null) continue;
       const campaign = await this.repos.campaigns.findById(campaignId);
@@ -179,21 +188,55 @@ export class WorkflowService {
       }
     }
 
-    await this.repos.workflows.saveGraph(
-      id,
-      graph.nodes.map((n) => ({
+    const snapshot: WorkflowGraphSnapshot = {
+      nodes: graph.nodes.map((n) => ({
         id: n.id,
         type: n.type,
         data: n.data,
       })),
-      graph.edges.map((e) => ({
+      edges: graph.edges.map((e) => ({
         id: e.id,
         sourceNodeId: e.source,
         targetNodeId: e.target,
         sourceHandle: e.sourceHandle ?? null,
       })),
+    };
+
+    // A live workflow's save is a publish (D2): new runs take the new graph at
+    // once, runs in flight finish on the version they started on. So it must
+    // be complete; an incomplete one can be kept as a draft only after a pause.
+    const live = workflow.status === "ACTIVE";
+    if (live) this.requireLaunchable(snapshot, "Pause the automation to save an incomplete draft.");
+
+    await this.repos.workflows.saveGraph(id, snapshot.nodes, snapshot.edges);
+    let version: number | undefined;
+    if (live) version = (await this.publishIfChanged(workflow, snapshot))?.version;
+    await this.audit(userId, "graph_saved", workflow, {
+      nodes: graph.nodes.length,
+      edges: graph.edges.length,
+      ...(version !== undefined ? { version } : {}),
+    });
+  }
+
+  /** `ValidationError` with every reason when the graph cannot run. */
+  private requireLaunchable(graph: WorkflowGraphSnapshot, message: string): void {
+    const check = validateWorkflowGraph(
+      graph.nodes,
+      graph.edges.map((e) => ({ source: e.sourceNodeId, target: e.targetNodeId, sourceHandle: e.sourceHandle })),
     );
-    await this.audit(userId, "graph_saved", workflow, { nodes: graph.nodes.length, edges: graph.edges.length });
+    if (!check.valid) throw new ValidationError(message, { reasons: check.reasons });
+  }
+
+  /**
+   * Publishes the graph as the next version, unless it equals the active
+   * one (a pause and resume, or a save without changes, makes no version).
+   */
+  private async publishIfChanged(workflow: Workflow, graph: WorkflowGraphSnapshot) {
+    if (workflow.activeVersionId) {
+      const active = await this.repos.workflows.getVersion(workflow.activeVersionId);
+      if (active && sameGraph(active.graph, graph)) return null;
+    }
+    return this.repos.workflows.publishVersion(workflow.id, graph);
   }
 
   /**
@@ -208,14 +251,20 @@ export class WorkflowService {
         this.repos.workflows.getNodes(id),
         this.repos.workflows.getEdges(id),
       ]);
-      const check = validateWorkflowGraph(
-        nodes,
-        edges.map((e) => ({ source: e.sourceNodeId, target: e.targetNodeId, sourceHandle: e.sourceHandle })),
-      );
-      if (!check.valid) {
-        throw new ValidationError("This automation cannot go live yet.", { reasons: check.reasons });
-      }
+      const graph: WorkflowGraphSnapshot = {
+        nodes: nodes.map(({ id: nodeId, type, data }) => ({ id: nodeId, type, data })),
+        edges: edges.map(({ id: edgeId, sourceNodeId, targetNodeId, sourceHandle }) => ({
+          id: edgeId,
+          sourceNodeId,
+          targetNodeId,
+          sourceHandle: sourceHandle ?? null,
+        })),
+      };
+      this.requireLaunchable(graph, "This automation cannot go live yet.");
+      // The version first: an ACTIVE workflow always has one to start runs on.
+      await this.publishIfChanged(workflow, graph);
     }
+    // Pausing keeps the active version: runs in flight go on (D3), new ones do not start.
     await this.repos.workflows.update(id, { status });
     await this.audit(userId, "status_changed", workflow, { from: workflow.status, to: status });
     return { ...workflow, status };
@@ -236,4 +285,31 @@ export class WorkflowService {
       details,
     });
   }
+}
+
+/** Equal graphs: same nodes (id, type, data) and edges, in any order. */
+function sameGraph(a: WorkflowGraphSnapshot, b: WorkflowGraphSnapshot): boolean {
+  const key = (g: WorkflowGraphSnapshot) =>
+    JSON.stringify({
+      nodes: [...g.nodes]
+        .sort((x, y) => x.id.localeCompare(y.id))
+        .map((n) => [n.id, n.type, canonical(n.data)]),
+      edges: [...g.edges]
+        .sort((x, y) => x.id.localeCompare(y.id))
+        .map((e) => [e.id, e.sourceNodeId, e.targetNodeId, e.sourceHandle ?? null]),
+    });
+  return key(a) === key(b);
+}
+
+/** A value with object keys sorted, so key order does not count as a change. */
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value as Record<string, unknown>)
+        .sort()
+        .map((k) => [k, canonical((value as Record<string, unknown>)[k])]),
+    );
+  }
+  return value;
 }

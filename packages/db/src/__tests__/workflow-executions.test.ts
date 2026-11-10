@@ -35,7 +35,7 @@ describe("workflow execution context", () => {
     const ids = await seedWorkflow();
     const context = { event: { name: "order_created", payload: { total: 42, items: [{ sku: "a" }] } }, steps: {} };
 
-    const run = await executions.create({ ...ids, status: "RUNNING", context });
+    const run = await executions.create({ ...ids, status: "RUNNING", versionId: null, context });
 
     expect(run.context).toEqual(context);
     expect((await executions.findById(run.id))?.context).toEqual(context);
