@@ -2,6 +2,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import {
+  ExecutionContext,
   IWorkflowExecutionRepository,
   WorkflowExecution,
   WorkflowStepExecution,
@@ -14,9 +15,11 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
   private mapToExecution(
     row: typeof schema.workflowExecutions.$inferSelect,
   ): WorkflowExecution {
+    const context = (row.context ?? {}) as Partial<ExecutionContext>;
     return {
       ...row,
       status: row.status as WorkflowExecution["status"],
+      context: { ...context, steps: context.steps ?? {} },
     };
   }
 

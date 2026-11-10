@@ -7,8 +7,9 @@ import {
 } from "../ports";
 import { TriggerService } from "./triggerService";
 import { AutomationJobData } from "../queue/types";
-import type { ContactEvent, WorkflowNodeStats } from "../domain";
-import { triggerMatches } from "../workflow-events";
+import type { ContactEvent, ExecutionContext, WorkflowExecution, WorkflowNodeStats } from "../domain";
+import { buildStepData } from "../workflow-step-data";
+import { triggerMatches, type WorkflowEvent } from "../workflow-events";
 import { ServiceHooks } from "../hooks";
 import { consoleLogger, type Logger } from "../logger";
 import { allowAllOutbound, fetchWithPolicy, type OutboundPolicy } from "../outbound";
@@ -28,14 +29,16 @@ export class AutomationService {
   ) {}
 
   /**
-   * Start a workflow for a contact.
+   * Start a workflow for a contact. `event` is the trigger event: copied into
+   * the run's context, it is what `{{event.*}}` reads in its emails.
    */
   async triggerWorkflow(options: {
     workflowId: number;
     contactId: number;
     projectId: number;
+    event?: WorkflowEvent;
   }) {
-    const { workflowId, contactId, projectId } = options;
+    const { workflowId, contactId, projectId, event } = options;
 
     const workflow = await this.workflowRepo.findById(workflowId);
     if (!workflow || workflow.projectId !== projectId) {
@@ -60,10 +63,15 @@ export class AutomationService {
     // the caller gets the reason (`QuotaExceededError`, 402 on the API).
     await this.hooks.requireQuota({ type: "automation.start", projectId, workflowId });
 
+    const context: ExecutionContext = {
+      ...(event ? { event: { name: event.name, payload: event.payload } } : {}),
+      steps: {},
+    };
     const execution = await this.executionRepo.create({
       workflowId,
       contactId,
       status: "RUNNING",
+      context,
     });
     await this.hooks.recordUsage({
       type: "automation.started",
@@ -132,7 +140,7 @@ export class AutomationService {
   private async dispatchTriggers(
     projectId: number,
     contactId: number,
-    event: { name: string; payload: Record<string, unknown> },
+    event: WorkflowEvent,
   ): Promise<void> {
     const workflows = await this.workflowRepo.findByProject(projectId);
     for (const workflow of workflows) {
@@ -140,7 +148,7 @@ export class AutomationService {
       const nodes = await this.workflowRepo.getNodes(workflow.id);
       const listens = nodes.some((n) => n.type === "trigger" && triggerMatches(n.data, event));
       if (listens) {
-        await this.triggerWorkflow({ workflowId: workflow.id, contactId, projectId });
+        await this.triggerWorkflow({ workflowId: workflow.id, contactId, projectId, event });
       }
     }
   }
@@ -235,7 +243,7 @@ export class AutomationService {
     }
   }
 
-  private async handleEmailAction(execution: any, data: any): Promise<void> {
+  private async handleEmailAction(execution: WorkflowExecution, data: any): Promise<void> {
     const campaignId = data.triggerId || data.campaignId || data.templateId;
     if (!campaignId)
       throw new Error(
@@ -252,13 +260,13 @@ export class AutomationService {
       campaignId: Number(campaignId),
       projectId: workflow.projectId,
       to: contact.email,
-      data: (contact.meta as any) || {},
+      data: buildStepData(contact, execution.context),
       locale: contact.locale || undefined,
     });
   }
 
   private async handleApiCondition(
-    execution: any,
+    execution: WorkflowExecution,
     data: any,
     baseUrl: string,
   ): Promise<string> {
@@ -289,8 +297,11 @@ export class AutomationService {
         body: JSON.stringify({
           email: contact.email,
           name: contact.name,
+          locale: contact.locale ?? null,
           metadata: contact.meta,
           meta: contact.meta,
+          // The trigger event, so the endpoint can decide on what happened.
+          event: execution.context.event ?? null,
         }),
       },
       this.outbound,

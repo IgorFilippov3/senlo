@@ -609,6 +609,8 @@ export const workflowExecutions = pgTable("workflow_executions", {
     .notNull()
     .references(() => contacts.id, { onDelete: "cascade" }),
   status: text("status").notNull().default("RUNNING"),
+  /** `ExecutionContext`: the trigger event and step outputs. */
+  context: jsonb("context").notNull().default({}),
   startedAt: timestamp("started_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

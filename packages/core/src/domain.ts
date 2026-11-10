@@ -132,11 +132,24 @@ export interface WorkflowEdge {
   sourceHandle?: string | null;
 }
 
+/**
+ * What a run carries with it: the event that started it and the output of
+ * its steps. Copied into the run, so the event log can be deleted by
+ * retention without touching runs in flight.
+ */
+export interface ExecutionContext {
+  /** The trigger event; absent for a run started without one. */
+  event?: { name: string; payload: Record<string, unknown> };
+  /** nodeId -> output (HTTP body, payload of a waited event). */
+  steps: Record<string, unknown>;
+}
+
 export interface WorkflowExecution {
   id: number;
   workflowId: number;
   contactId: number;
   status: "RUNNING" | "COMPLETED" | "CANCELLED" | "FAILED";
+  context: ExecutionContext;
   startedAt: Date;
   completedAt?: Date | null;
 }
