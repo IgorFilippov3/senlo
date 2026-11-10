@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import type { WorkflowEdge, WorkflowExecution, WorkflowNode, WorkflowVersion } from "../domain";
+import type { WorkflowEdge, WorkflowNode, WorkflowVersion } from "../domain";
 import type { Logger } from "../logger";
 import { AutomationService } from "../services/automationService";
+import { fakeExecutions } from "./fakes/executions";
 
 const quiet = (): Logger => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() });
 
@@ -16,36 +17,25 @@ const version = (id: number, graph: Graph): WorkflowVersion => ({
   createdAt: new Date(),
 });
 
+const edge = (from: string, to: string, handle: string | null = null) => ({
+  id: `${from}-${to}`,
+  sourceNodeId: from,
+  targetNodeId: to,
+  sourceHandle: handle,
+});
+
 const v1: Graph = {
   nodes: [
     { id: "t", type: "trigger", data: { event: "x" } },
     { id: "wait", type: "delay", data: { duration: 1, unit: "days" } },
     { id: "mail", type: "action", data: { triggerId: 5 } },
   ],
-  edges: [
-    { id: "e1", sourceNodeId: "t", targetNodeId: "wait", sourceHandle: null },
-    { id: "e2", sourceNodeId: "wait", targetNodeId: "mail", sourceHandle: null },
-  ],
+  edges: [edge("t", "wait"), edge("wait", "mail")],
 };
 
 function setup(versions: WorkflowVersion[], activeVersionId: number | null = versions[0]?.id ?? null) {
-  const runs = new Map<number, WorkflowExecution>();
+  const { repo: executions, runs, steps, seed } = fakeExecutions();
   const workflow = { id: 10, projectId: 1, status: "ACTIVE", activeVersionId };
-  const executions = {
-    findRunningByContact: async () => null,
-    create: vi.fn(async (d: Omit<WorkflowExecution, "id" | "startedAt">) => {
-      const run = { ...d, id: runs.size + 1, startedAt: new Date() } as WorkflowExecution;
-      runs.set(run.id, run);
-      return run;
-    }),
-    findById: async (id: number) => runs.get(id) ?? null,
-    updateStatus: vi.fn(async (id: number, status: WorkflowExecution["status"], _at?: Date, exitReason?: string) => {
-      const run = runs.get(id);
-      if (run) runs.set(id, { ...run, status, exitReason });
-    }),
-    createStepExecution: vi.fn(async () => ({ id: 1 })),
-    updateStepExecution: vi.fn(async () => {}),
-  };
   const workflows = {
     findById: async () => workflow,
     getVersion: vi.fn(async (id: number) => versions.find((v) => v.id === id) ?? null),
@@ -55,14 +45,14 @@ function setup(versions: WorkflowVersion[], activeVersionId: number | null = ver
   const logger = quiet();
   const service = new AutomationService(
     workflows as never,
-    executions as never,
+    executions,
     { findById: async () => ({ id: 3, email: "a@b.co", name: null, locale: null, meta: {} }) } as never,
     { record: async () => null } as never,
     queue as never,
     trigger as never,
     logger,
   );
-  return { service, runs, workflow, executions, workflows, queue, trigger, logger };
+  return { service, runs, steps, seed, workflow, executions, workflows, queue, trigger, logger };
 }
 
 describe("runs and versions", () => {
@@ -72,7 +62,8 @@ describe("runs and versions", () => {
 
     const run = await service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
     expect(run).toMatchObject({ versionId: 1 });
-    expect(queue.add).toHaveBeenCalledWith("workflow-1-wait", { executionId: 1, nodeId: "wait" }, { delay: 86_400_000 });
+    expect(queue.add).toHaveBeenCalledWith("workflow-1-wait", { executionId: 1, nodeId: "wait" }, { delay: 86_400_000, jobId: "wf-1-wait" });
+    expect(runs.get(1)).toMatchObject({ currentNodeId: "wait" });
 
     // Published while the run waits: v2 has no "wait" or "mail" step.
     workflow.activeVersionId = 2;
@@ -95,9 +86,9 @@ describe("runs and versions", () => {
   });
 
   it("a run without a version, or a step its version lacks, fails instead of staying RUNNING", async () => {
-    const { service, runs } = setup([version(1, v1)]);
-    runs.set(1, { id: 1, workflowId: 10, contactId: 3, status: "RUNNING", versionId: null, context: { steps: {} }, startedAt: new Date() });
-    runs.set(2, { id: 2, workflowId: 10, contactId: 4, status: "RUNNING", versionId: 1, context: { steps: {} }, startedAt: new Date() });
+    const { service, runs, seed } = setup([version(1, v1)]);
+    seed({ id: 1, versionId: null, currentNodeId: "mail" });
+    seed({ id: 2, contactId: 4, currentNodeId: "ghost" });
 
     await service.processStep(1, "mail", "https://app.test");
     await service.processStep(2, "ghost", "https://app.test");
@@ -112,19 +103,100 @@ describe("runs and versions", () => {
         { id: "t", type: "trigger", data: { event: "x" } },
         { id: "end", type: "exit", data: {} },
       ],
-      edges: [{ id: "e", sourceNodeId: "t", targetNodeId: "end", sourceHandle: null }],
+      edges: [edge("t", "end")],
     };
-    const { service, runs } = setup([version(1, graph)]);
+    const { service, runs, steps } = setup([version(1, graph)]);
     await service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
     await service.processStep(1, "end", "https://app.test");
     expect(runs.get(1)).toMatchObject({ status: "COMPLETED", exitReason: "exit_node" });
+    expect(steps.get("1:end")).toMatchObject({ status: "COMPLETED" });
   });
 
   it("a failing step ends the run with error", async () => {
-    const { service, runs, trigger } = setup([version(1, v1)]);
+    const { service, runs, trigger, steps } = setup([version(1, v1)]);
     trigger.sendTriggeredEmail.mockRejectedValueOnce(new Error("provider down"));
     await service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+    await service.processStep(1, "wait", "https://app.test");
     await service.processStep(1, "mail", "https://app.test");
     expect(runs.get(1)).toMatchObject({ status: "FAILED", exitReason: "error" });
+    expect(steps.get("1:mail")).toMatchObject({ status: "FAILED", result: { error: "provider down" } });
+  });
+});
+
+describe("cursor and idempotent steps", () => {
+  it("drops a job for a step the run is not at", async () => {
+    const { service, trigger, runs } = setup([version(1, v1)]);
+    await service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+
+    // The run waits at "wait"; a stray job for "mail" arrives early.
+    await service.processStep(1, "mail", "https://app.test");
+
+    expect(trigger.sendTriggeredEmail).not.toHaveBeenCalled();
+    expect(runs.get(1)).toMatchObject({ status: "RUNNING", currentNodeId: "wait" });
+  });
+
+  it("the same job delivered twice runs the step once", async () => {
+    const { service, trigger, runs } = setup([version(1, v1)]);
+    await service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+    await service.processStep(1, "wait", "https://app.test");
+
+    await Promise.all([
+      service.processStep(1, "mail", "https://app.test"),
+      service.processStep(1, "mail", "https://app.test"),
+    ]);
+    await service.processStep(1, "mail", "https://app.test");
+
+    // The fake has no locks: two concurrent deliveries may both claim the
+    // PENDING row, which is why the send carries a dedupe key. Done ones skip.
+    for (const call of trigger.sendTriggeredEmail.mock.calls) {
+      expect((call as unknown as [{ dedupeKey: string }])[0].dedupeKey).toBe("wf-1-mail");
+    }
+    expect(runs.get(1)).toMatchObject({ status: "COMPLETED" });
+  });
+
+  it("a step already COMPLETED (crash after the step, before the next job) is not run again, the cursor moves on", async () => {
+    const { service, trigger, runs, steps, executions, queue } = setup([version(1, v1)]);
+    await service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+    // The step finished but the cursor stayed at "wait" (as if the move was lost).
+    const step = await executions.claimStep(1, "wait");
+    steps.set("1:wait", { ...step, status: "COMPLETED" });
+
+    await service.processStep(1, "wait", "https://app.test");
+
+    expect(runs.get(1)).toMatchObject({ currentNodeId: "mail" });
+    expect(queue.add).toHaveBeenLastCalledWith("workflow-1-mail", { executionId: 1, nodeId: "mail" }, { delay: 0, jobId: "wf-1-mail" });
+    expect(trigger.sendTriggeredEmail).not.toHaveBeenCalled();
+  });
+
+  it("a completed condition step keeps its branch on redelivery", async () => {
+    const graph: Graph = {
+      nodes: [
+        { id: "t", type: "trigger", data: { event: "x" } },
+        { id: "c", type: "condition", data: { url: "https://x.io" } },
+        { id: "yes", type: "exit", data: {} },
+        { id: "no", type: "exit", data: {} },
+      ],
+      edges: [edge("t", "c"), edge("c", "yes", "yes"), edge("c", "no", "no")],
+    };
+    const { service, runs, steps, executions } = setup([version(1, graph)]);
+    await service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+    const step = await executions.claimStep(1, "c");
+    steps.set("1:c", { ...step, status: "COMPLETED", result: { branch: "no" } });
+
+    await service.processStep(1, "c", "https://app.test");
+
+    expect(runs.get(1)).toMatchObject({ currentNodeId: "no" });
+  });
+
+  it("two entries at once start one run and count it once", async () => {
+    const { service, executions } = setup([version(1, v1)]);
+    // The pre-check sees no run for both; the insert decides.
+    executions.findRunningByContact = vi.fn(async () => null) as never;
+    const [a, b] = await Promise.all([
+      service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 }),
+      service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 }),
+    ]);
+    expect(executions.create).toHaveBeenCalledTimes(2);
+    expect([a, b].filter((r) => r !== null)).toHaveLength(1);
   });
 });

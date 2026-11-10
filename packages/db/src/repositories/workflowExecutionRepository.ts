@@ -2,8 +2,10 @@ import { eq, and, sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import {
+  CompleteStep,
   ExecutionContext,
   ExecutionExitReason,
+  NewWorkflowExecution,
   IWorkflowExecutionRepository,
   WorkflowExecution,
   WorkflowStepExecution,
@@ -24,14 +26,23 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
     };
   }
 
-  async create(
-    data: Omit<WorkflowExecution, "id" | "startedAt">,
-  ): Promise<WorkflowExecution> {
+  async create(data: NewWorkflowExecution): Promise<WorkflowExecution | null> {
+    // The partial unique index on (workflow_id, contact_id) WHERE RUNNING
+    // turns the second of two racing entries into no row.
     const [row] = await this.db
       .insert(schema.workflowExecutions)
-      .values(data)
+      .values({
+        workflowId: data.workflowId,
+        contactId: data.contactId,
+        status: "RUNNING",
+        versionId: data.versionId,
+        context: data.context,
+        currentNodeId: data.currentNodeId,
+        wakeAt: new Date(),
+      })
+      .onConflictDoNothing()
       .returning();
-    return this.mapToExecution(row);
+    return row ? this.mapToExecution(row) : null;
   }
 
   async findById(id: number): Promise<WorkflowExecution | null> {
@@ -59,30 +70,73 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
     return row ? this.mapToExecution(row) : null;
   }
 
-  async updateStatus(
+  async moveCursor(
     id: number,
-    status: WorkflowExecution["status"],
-    completedAt?: Date,
-    exitReason?: ExecutionExitReason,
-  ): Promise<void> {
-    await this.db
-      .update(schema.workflowExecutions)
-      .set({ status, completedAt, exitReason })
-      .where(eq(schema.workflowExecutions.id, id));
+    { from, to, wakeAt, completeStep }: { from: string; to: string; wakeAt: Date; completeStep?: CompleteStep },
+  ): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      if (completeStep) await completeStepRow(tx, completeStep);
+      const moved = await tx
+        .update(schema.workflowExecutions)
+        .set({ currentNodeId: to, wakeAt, updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.workflowExecutions.id, id),
+            eq(schema.workflowExecutions.status, "RUNNING"),
+            eq(schema.workflowExecutions.currentNodeId, from),
+          ),
+        )
+        .returning({ id: schema.workflowExecutions.id });
+      return moved.length > 0;
+    });
   }
 
-  async createStepExecution(
-    data: Omit<WorkflowStepExecution, "id" | "startedAt">,
-  ): Promise<WorkflowStepExecution> {
-    const [row] = await this.db
+  async finish(
+    id: number,
+    end: {
+      status: Exclude<WorkflowExecution["status"], "RUNNING">;
+      exitReason: ExecutionExitReason;
+      from?: string;
+      completeStep?: CompleteStep;
+    },
+  ): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      if (end.completeStep) await completeStepRow(tx, end.completeStep);
+      const now = new Date();
+      const ended = await tx
+        .update(schema.workflowExecutions)
+        .set({ status: end.status, exitReason: end.exitReason, completedAt: now, wakeAt: null, updatedAt: now })
+        .where(
+          and(
+            eq(schema.workflowExecutions.id, id),
+            eq(schema.workflowExecutions.status, "RUNNING"),
+            end.from !== undefined ? eq(schema.workflowExecutions.currentNodeId, end.from) : undefined,
+          ),
+        )
+        .returning({ id: schema.workflowExecutions.id });
+      return ended.length > 0;
+    });
+  }
+
+  async claimStep(executionId: number, nodeId: string): Promise<WorkflowStepExecution> {
+    const [created] = await this.db
       .insert(schema.workflowStepExecutions)
-      .values(data)
+      .values({ executionId, nodeId, status: "PENDING" })
+      .onConflictDoNothing({
+        target: [schema.workflowStepExecutions.executionId, schema.workflowStepExecutions.nodeId],
+      })
       .returning();
-    return {
-      ...row,
-      status: row.status as WorkflowStepExecution["status"],
-      result: row.result as Record<string, any> | null,
-    };
+    if (created) return mapStep(created);
+    const [existing] = await this.db
+      .select()
+      .from(schema.workflowStepExecutions)
+      .where(
+        and(
+          eq(schema.workflowStepExecutions.executionId, executionId),
+          eq(schema.workflowStepExecutions.nodeId, nodeId),
+        ),
+      );
+    return mapStep(existing);
   }
 
   async updateStepExecution(
@@ -103,11 +157,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
       .from(schema.workflowStepExecutions)
       .where(eq(schema.workflowStepExecutions.executionId, executionId));
 
-    return rows.map((row) => ({
-      ...row,
-      status: row.status as WorkflowStepExecution["status"],
-      result: row.result as Record<string, any> | null,
-    }));
+    return rows.map(mapStep);
   }
 
   async getNodeStats(workflowId: number): Promise<WorkflowNodeStats[]> {
@@ -158,4 +208,25 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
 
     return Array.from(statsMap.values());
   }
+}
+
+function mapStep(row: typeof schema.workflowStepExecutions.$inferSelect): WorkflowStepExecution {
+  return {
+    ...row,
+    status: row.status as WorkflowStepExecution["status"],
+    result: row.result as Record<string, any> | null,
+  };
+}
+
+type Tx = Parameters<Parameters<NodePgDatabase<typeof schema>["transaction"]>[0]>[0];
+
+async function completeStepRow(tx: Tx, step: CompleteStep): Promise<void> {
+  await tx
+    .update(schema.workflowStepExecutions)
+    .set({
+      status: "COMPLETED",
+      completedAt: new Date(),
+      ...(step.result !== undefined ? { result: step.result } : {}),
+    })
+    .where(eq(schema.workflowStepExecutions.id, step.id));
 }

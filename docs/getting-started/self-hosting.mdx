@@ -36,7 +36,7 @@ That starts four containers: `app` (the web app and API), `worker` (sends email 
 docker compose up -d --build
 ```
 
-The first build compiles the app from source and takes several minutes. On every start the app applies the database schema (`pnpm db:push`), fills the daily statistics from existing history on the first start after an upgrade (`pnpm db:backfill-stats`, a no-op afterwards), brings automations to the current format (`pnpm db:upgrade-automations`, also a no-op afterwards), creates the users from `INITIAL_USERS`, then starts.
+The first build compiles the app from source and takes several minutes. On every start the app fixes rows the schema's unique indexes would refuse (`pnpm db:upgrade-automations --before-push`), applies the database schema (`pnpm db:push`), fills the daily statistics from existing history on the first start after an upgrade (`pnpm db:backfill-stats`, a no-op afterwards), brings automations to the current format (`pnpm db:upgrade-automations`, also a no-op afterwards), creates the users from `INITIAL_USERS`, then starts.
 
 The app listens on `127.0.0.1:3000` only. Check it from the server:
 

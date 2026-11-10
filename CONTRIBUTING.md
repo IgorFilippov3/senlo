@@ -51,6 +51,8 @@ Then:
 pnpm db:push     # apply the schema
 pnpm db:backfill-stats  # daily statistics from existing history (once)
 pnpm db:upgrade-automations  # automations to the versioned format (once)
+# if db:push stops on a duplicate key in workflow_executions, run first:
+# pnpm db:upgrade-automations --before-push
 pnpm dev         # web app on http://localhost:3001
 pnpm worker      # queues and automations, in a second terminal
 ```

@@ -120,9 +120,16 @@ describe("services call the ports once per action", () => {
     const executions = {
       create: vi.fn(async () => ({ id: 42, workflowId: 10, contactId: 3, status: "RUNNING" })),
       findRunningByContact: async (_w: number, contactId: number) => (running.has(contactId) ? { id: 1 } : null),
-      updateStatus: vi.fn(),
+      finish: vi.fn(async () => true),
     };
-    const version = { id: 5, workflowId: 10, version: 1, graph: { nodes: [], edges: [] }, settings: {}, createdAt: new Date() };
+    const version = {
+      id: 5,
+      workflowId: 10,
+      version: 1,
+      graph: { nodes: [{ id: "t", type: "trigger", data: { event: "x" } }], edges: [] },
+      settings: {},
+      createdAt: new Date(),
+    };
     const workflows = { findById: async () => workflow, getVersion: async () => version };
     const make = (p: ReturnType<typeof ports>) =>
       new AutomationService(workflows as never, executions as never, {} as never, {} as never, {} as never, {} as never, silent, p.hooks);

@@ -20,6 +20,7 @@ import type {
   WorkflowNode,
   WorkflowEdge,
   WorkflowExecution,
+  ExecutionContext,
   WorkflowGraphSnapshot,
   WorkflowVersion,
   ExecutionExitReason,
@@ -287,6 +288,15 @@ export interface ITriggeredSendLogRepository {
   create(
     data: Omit<TriggeredSendLog, "id" | "sentAt">,
   ): Promise<TriggeredSendLog>;
+  /**
+   * Like `create`, once per `dedupeKey`: a second call with the key returns
+   * the first row (`created: false`) and counts nothing.
+   */
+  createOnce(
+    data: Omit<TriggeredSendLog, "id" | "sentAt">,
+    dedupeKey: string,
+  ): Promise<{ log: TriggeredSendLog; created: boolean }>;
+  findByDedupeKey(dedupeKey: string): Promise<TriggeredSendLog | null>;
   findById(id: number): Promise<TriggeredSendLog | null>;
   update(
     id: number,
@@ -352,26 +362,60 @@ export interface IWorkflowRepository {
   findActiveByTrigger(projectId: number, eventName: string): Promise<Workflow[]>;
 }
 
+/** A new run: always RUNNING, at its trigger step. */
+export interface NewWorkflowExecution {
+  workflowId: number;
+  contactId: number;
+  versionId: number;
+  context: ExecutionContext;
+  /** The trigger step. */
+  currentNodeId: string;
+}
+
+/** The step row to mark COMPLETED in the same transaction as a cursor move or an end. */
+export interface CompleteStep {
+  id: number;
+  result?: Record<string, unknown> | null;
+}
+
+/**
+ * Runs and their steps. Every change of a run's state is guarded by the
+ * state it expects (`RUNNING`, the cursor at `from`): whoever gets `true`
+ * back owns the transition, a stale caller gets `false` and does nothing.
+ */
 export interface IWorkflowExecutionRepository {
-  create(
-    data: Omit<WorkflowExecution, "id" | "startedAt">,
-  ): Promise<WorkflowExecution>;
+  /** Inserts a RUNNING run; null when the contact already has one in this workflow (the unique index decides). */
+  create(data: NewWorkflowExecution): Promise<WorkflowExecution | null>;
   findById(id: number): Promise<WorkflowExecution | null>;
   findRunningByContact(
     workflowId: number,
     contactId: number,
   ): Promise<WorkflowExecution | null>;
-  updateStatus(
-    id: number,
-    status: WorkflowExecution["status"],
-    completedAt?: Date,
-    exitReason?: ExecutionExitReason,
-  ): Promise<void>;
 
-  // Step tracking
-  createStepExecution(
-    data: Omit<WorkflowStepExecution, "id" | "startedAt">,
-  ): Promise<WorkflowStepExecution>;
+  /** Moves a RUNNING run's cursor from `from` to `to`, due at `wakeAt`; completes `completeStep` in the same transaction. */
+  moveCursor(
+    id: number,
+    move: { from: string; to: string; wakeAt: Date; completeStep?: CompleteStep },
+  ): Promise<boolean>;
+  /**
+   * Ends a RUNNING run (only while its cursor is at `from`, when given);
+   * completes `completeStep` in the same transaction.
+   */
+  finish(
+    id: number,
+    end: {
+      status: Exclude<WorkflowExecution["status"], "RUNNING">;
+      exitReason: ExecutionExitReason;
+      from?: string;
+      completeStep?: CompleteStep;
+    },
+  ): Promise<boolean>;
+
+  /**
+   * The step's row in the run, created PENDING on first call. A redelivered
+   * job gets the existing row back: COMPLETED means the side effect is done.
+   */
+  claimStep(executionId: number, nodeId: string): Promise<WorkflowStepExecution>;
   updateStepExecution(
     id: number,
     data: Partial<Omit<WorkflowStepExecution, "id" | "startedAt">>,

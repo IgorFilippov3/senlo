@@ -75,9 +75,9 @@ describe("workflow versions", () => {
   it("a run stores its version and exit reason", async () => {
     const { workflowId, contactId } = await seed();
     const v = await workflows.publishVersion(workflowId, graph("x"));
-    const run = await executions.create({ workflowId, contactId, status: "RUNNING", versionId: v.id, context: { steps: {} } });
-    await executions.updateStatus(run.id, "COMPLETED", new Date(), "exit_node");
-    expect(await executions.findById(run.id)).toMatchObject({ versionId: v.id, status: "COMPLETED", exitReason: "exit_node" });
+    const run = await executions.create({ workflowId, contactId, versionId: v.id, context: { steps: {} }, currentNodeId: "t" });
+    await executions.finish(run!.id, { status: "COMPLETED", exitReason: "exit_node" });
+    expect(await executions.findById(run!.id)).toMatchObject({ versionId: v.id, status: "COMPLETED", exitReason: "exit_node" });
   });
 });
 

@@ -92,6 +92,39 @@ export class TriggeredSendLogRepository extends BaseRepository<
     });
   }
 
+  async createOnce(
+    data: Omit<TriggeredSendLog, "id" | "sentAt">,
+    dedupeKey: string,
+  ): Promise<{ log: TriggeredSendLog; created: boolean }> {
+    return this.db.transaction(async (tx) => {
+      await lockCampaignStats(tx, data.campaignId, "shared");
+      const [row] = await tx
+        .insert(triggeredSendLogs)
+        .values({
+          campaignId: data.campaignId,
+          email: data.email,
+          status: data.status,
+          error: data.error,
+          data: data.data,
+          dedupeKey,
+          sentAt: new Date(),
+        })
+        .onConflictDoNothing({ target: triggeredSendLogs.dedupeKey })
+        .returning();
+      if (row) {
+        await addCampaignStats(tx, row.campaignId, utcDay(row.sentAt), countersForLog(row.status, row.error));
+        return { log: this.mapToEntity(row), created: true };
+      }
+      const [existing] = await tx.select().from(triggeredSendLogs).where(eq(triggeredSendLogs.dedupeKey, dedupeKey));
+      return { log: this.mapToEntity(existing), created: false };
+    });
+  }
+
+  async findByDedupeKey(dedupeKey: string): Promise<TriggeredSendLog | null> {
+    const [row] = await this.db.select().from(triggeredSendLogs).where(eq(triggeredSendLogs.dedupeKey, dedupeKey));
+    return row ? this.mapToEntity(row) : null;
+  }
+
   /**
    * Update a log entry by ID.
    *

@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+# Rows the new unique indexes would refuse (duplicate running runs); a no-op afterwards.
+echo "Preparing automations for the schema push..."
+pnpm db:upgrade-automations --before-push
+
 # 1. Run database migrations/push
 echo "Running database migrations..."
 pnpm db:push

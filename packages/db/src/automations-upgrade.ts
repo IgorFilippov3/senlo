@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { WorkflowRepository } from "./repositories/workflowRepository";
 import * as schema from "./schema";
@@ -10,7 +10,7 @@ import * as schema from "./schema";
 type Db = NodePgDatabase<typeof schema>;
 
 export interface AutomationsUpgradeResult {
-  /** RUNNING runs without a version, cancelled (`exit_reason = 'upgrade'`). */
+  /** RUNNING runs without a version or a cursor, cancelled (`exit_reason = 'upgrade'`). */
   cancelledRuns: number;
   /** Steps rewritten to the current types and data keys. */
   nodesRewritten: number;
@@ -64,8 +64,9 @@ export function normalizeNode(node: Pick<NodeRow, "type" | "data">): { type: str
  * `pnpm db:upgrade-automations`, run by the start scripts after `db:push`.
  * Every step is idempotent, so running it again does nothing.
  *
- * 1. RUNNING runs without a version are cancelled: they read the live graph,
- *    which the engine no longer does. Their contacts can enter again.
+ * 1. RUNNING runs without a version or a cursor are cancelled: they read the
+ *    live graph or follow no cursor, which the engine no longer supports.
+ *    Their contacts can enter again.
  * 2. Old step types and data keys are rewritten (`normalizeNode`).
  * 3. ACTIVE workflows without a version get version 1 from their graph, so
  *    new runs can start on them.
@@ -77,9 +78,14 @@ export async function upgradeAutomations(
   const cancelled = await db
     .update(schema.workflowExecutions)
     .set({ status: "CANCELLED", completedAt: new Date(), exitReason: "upgrade" })
-    .where(and(eq(schema.workflowExecutions.status, "RUNNING"), isNull(schema.workflowExecutions.versionId)))
+    .where(
+      and(
+        eq(schema.workflowExecutions.status, "RUNNING"),
+        or(isNull(schema.workflowExecutions.versionId), isNull(schema.workflowExecutions.currentNodeId)),
+      ),
+    )
     .returning({ id: schema.workflowExecutions.id });
-  if (cancelled.length > 0) log(`automations: cancelled ${cancelled.length} run(s) started before versions`);
+  if (cancelled.length > 0) log(`automations: cancelled ${cancelled.length} run(s) from before versions and cursors`);
 
   const nodes = await db
     .select()
@@ -117,4 +123,58 @@ export async function upgradeAutomations(
   if (unpublished.length > 0) log(`automations: published version 1 of ${unpublished.length} active workflow(s)`);
 
   return { cancelledRuns: cancelled.length, nodesRewritten, versionsCreated: unpublished.length };
+}
+
+export interface AutomationsPrePushResult {
+  /** Extra RUNNING runs of one contact in one workflow, cancelled (the newest stays). */
+  duplicateRunsCancelled: number;
+  /** Extra step rows of one step in one run, deleted (the newest stays). */
+  duplicateStepsDeleted: number;
+}
+
+/**
+ * Makes existing rows fit the unique indexes `db:push` is about to create,
+ * so the push does not fail on old data: `pnpm db:upgrade-automations
+ * --before-push`, run by the start scripts before `db:push`. Uses only
+ * columns that existed before those indexes; does nothing on an empty
+ * database or when there is nothing to fix.
+ *
+ * - One RUNNING run per contact and workflow (the entry race could make two).
+ * - One step row per step and run (a redelivered job could add a second).
+ */
+export async function prepareAutomationsForPush(db: Db): Promise<AutomationsPrePushResult> {
+  if (!(await tableExists(db, "workflow_executions"))) {
+    return { duplicateRunsCancelled: 0, duplicateStepsDeleted: 0 };
+  }
+  const runs = await db.execute(sql`
+    UPDATE workflow_executions
+    SET status = 'CANCELLED', completed_at = now()
+    WHERE status = 'RUNNING'
+      AND id NOT IN (
+        SELECT max(id) FROM workflow_executions WHERE status = 'RUNNING' GROUP BY workflow_id, contact_id
+      )
+  `);
+  const steps = (await tableExists(db, "workflow_step_executions"))
+    ? await db.execute(sql`
+        DELETE FROM workflow_step_executions s
+        USING workflow_step_executions newer
+        WHERE s.execution_id = newer.execution_id
+          AND s.node_id = newer.node_id
+          AND s.id < newer.id
+      `)
+    : null;
+  return { duplicateRunsCancelled: affected(runs), duplicateStepsDeleted: steps ? affected(steps) : 0 };
+}
+
+async function tableExists(db: Db, table: string): Promise<boolean> {
+  const result = (await db.execute(sql`SELECT to_regclass(${table}) IS NOT NULL AS present`)) as unknown as {
+    rows: Array<{ present: boolean }>;
+  };
+  return Boolean(result.rows[0]?.present);
+}
+
+/** Rows a statement changed: `rowCount` from node-postgres, `affectedRows` from PGlite. */
+function affected(result: unknown): number {
+  const r = result as { rowCount?: number | null; affectedRows?: number };
+  return Number(r.rowCount ?? r.affectedRows ?? 0);
 }

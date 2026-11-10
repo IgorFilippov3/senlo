@@ -15,6 +15,7 @@ import {
   pgEnum,
   primaryKey,
   unique,
+  uniqueIndex,
   index,
   date,
 } from "drizzle-orm/pg-core";
@@ -393,6 +394,11 @@ export const triggeredSendLogs = pgTable(
     error: text("error"),
     /** The trigger's merge data; a delivery webhook adds its raw event under `<provider>_event`. */
     data: jsonb("data"),
+    /**
+     * Set by a sender that may retry (an automation step: `wf-<run>-<step>`):
+     * a second send with the key reuses this row instead of sending again.
+     */
+    dedupeKey: text("dedupe_key").unique("triggered_send_logs_dedupe_key_unq"),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -634,37 +640,62 @@ export const workflowEdges = pgTable("workflow_edges", {
   sourceHandle: text("source_handle"),
 });
 
-export const workflowExecutions = pgTable("workflow_executions", {
-  id: serial("id").primaryKey(),
-  workflowId: integer("workflow_id")
-    .notNull()
-    .references(() => workflows.id, { onDelete: "cascade" }),
-  contactId: integer("contact_id")
-    .notNull()
-    .references(() => contacts.id, { onDelete: "cascade" }),
-  status: text("status").notNull().default("RUNNING"),
-  /** The version the run executes (`workflow_versions.id`). Null only on rows from before versions. */
-  versionId: integer("version_id").references(() => workflowVersions.id, { onDelete: "set null" }),
-  /** `ExecutionContext`: the trigger event and step outputs. */
-  context: jsonb("context").notNull().default({}),
-  /** `ExecutionExitReason`: why the run ended. */
-  exitReason: text("exit_reason"),
-  startedAt: timestamp("started_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  completedAt: timestamp("completed_at", { withTimezone: true }),
-});
+export const workflowExecutions = pgTable(
+  "workflow_executions",
+  {
+    id: serial("id").primaryKey(),
+    workflowId: integer("workflow_id")
+      .notNull()
+      .references(() => workflows.id, { onDelete: "cascade" }),
+    contactId: integer("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("RUNNING"),
+    /** The version the run executes (`workflow_versions.id`). Null only on rows from before versions. */
+    versionId: integer("version_id").references(() => workflowVersions.id, { onDelete: "set null" }),
+    /** `ExecutionContext`: the trigger event and step outputs. */
+    context: jsonb("context").notNull().default({}),
+    /** The cursor: the step the run is at (the graph is single-path). */
+    currentNodeId: text("current_node_id"),
+    /** When the cursor step is due; the sweeper re-queues runs past it. */
+    wakeAt: timestamp("wake_at", { withTimezone: true }),
+    /** `ExecutionExitReason`: why the run ended. */
+    exitReason: text("exit_reason"),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    // One run per contact per workflow at a time, decided by the database:
+    // two events in a row can no longer both start one.
+    runningUnq: uniqueIndex("workflow_executions_running_contact_unq")
+      .on(t.workflowId, t.contactId)
+      .where(sql`${t.status} = 'RUNNING'`),
+    statusWakeIdx: index("workflow_executions_status_wake_at_idx").on(t.status, t.wakeAt),
+  }),
+);
 
-export const workflowStepExecutions = pgTable("workflow_step_executions", {
-  id: serial("id").primaryKey(),
-  executionId: integer("execution_id")
-    .notNull()
-    .references(() => workflowExecutions.id, { onDelete: "cascade" }),
-  nodeId: text("node_id").notNull(),
-  status: text("status").notNull(),
-  result: jsonb("result"),
-  startedAt: timestamp("started_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  completedAt: timestamp("completed_at", { withTimezone: true }),
-});
+export const workflowStepExecutions = pgTable(
+  "workflow_step_executions",
+  {
+    id: serial("id").primaryKey(),
+    executionId: integer("execution_id")
+      .notNull()
+      .references(() => workflowExecutions.id, { onDelete: "cascade" }),
+    nodeId: text("node_id").notNull(),
+    status: text("status").notNull(),
+    result: jsonb("result"),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    // Each step runs at most once per run: a redelivered job finds its row.
+    executionNodeUnq: unique("workflow_step_executions_execution_node_unq").on(t.executionId, t.nodeId),
+  }),
+);

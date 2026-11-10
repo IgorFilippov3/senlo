@@ -187,6 +187,10 @@ export interface WorkflowExecution {
   /** The version the run executes; null only for a row from before versions (cancelled by `db:upgrade-automations`). */
   versionId: number | null;
   context: ExecutionContext;
+  /** The cursor: the step the run is at. Null only on rows from before cursors. */
+  currentNodeId: string | null;
+  /** When the cursor step is due. */
+  wakeAt?: Date | null;
   exitReason?: ExecutionExitReason | null;
   startedAt: Date;
   completedAt?: Date | null;

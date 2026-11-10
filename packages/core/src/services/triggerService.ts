@@ -7,6 +7,7 @@ import {
 } from "../ports";
 import { replaceMergeTags } from "../merge-tags";
 import type { MailSettings } from "../config";
+import type { TriggeredSendLog } from "../domain";
 import {
   encodeUnsubscribeToken,
   buildUnsubscribeHeaders,
@@ -26,6 +27,12 @@ export interface TriggeredEmailOptions {
   data?: Record<string, unknown>;
   locale?: string;
   subject?: string;
+  /**
+   * For a sender that may retry the same send (an automation step): a send
+   * with a key already used queues nothing new and returns the first one's
+   * log. Not part of the public API.
+   */
+  dedupeKey?: string;
 }
 
 /** Body of `POST /api/triggered`. `id` wins over its older alias `campaignId`. */
@@ -74,7 +81,7 @@ export class TriggerService {
   }
 
   async sendTriggeredEmail(options: TriggeredEmailOptions) {
-    const { campaignId, to, data, locale, subject: subjectOverride } = options;
+    const { campaignId, to, data, locale, subject: subjectOverride, dedupeKey } = options;
 
     const campaign = await this.campaignRepo.findById(campaignId);
     if (!campaign || campaign.projectId !== options.projectId) {
@@ -106,8 +113,14 @@ export class TriggerService {
       throw new NotFoundError("Template");
     }
     if (!project) throw new NotFoundError("Project");
-    // Refused here, before a send log exists, so the API caller gets the reason.
-    await this.hooks.requireQuota({ type: "email.send", projectId: project.id });
+
+    // A repeat of a send already accepted: not checked against the plan
+    // again (it was, the first time) and not counted again.
+    const earlier = dedupeKey ? await this.logRepo.findByDedupeKey(dedupeKey) : null;
+    if (!earlier) {
+      // Refused here, before a send log exists, so the API caller gets the reason.
+      await this.hooks.requireQuota({ type: "email.send", projectId: project.id });
+    }
 
     if (!project.providerId) {
       throw new ValidationError("No email provider configured for this project");
@@ -148,13 +161,28 @@ export class TriggerService {
       { escape: false },
     );
 
-    const log = await this.logRepo.create({
+    const logData = {
       campaignId: campaign.id,
       email: to,
-      status: "PENDING",
+      status: "PENDING" as const,
       error: null,
       data: data,
-    });
+    };
+    let log: TriggeredSendLog;
+    let fresh = true;
+    if (dedupeKey) {
+      ({ log, created: fresh } = earlier ? { log: earlier, created: false } : await this.logRepo.createOnce(logData, dedupeKey));
+    } else {
+      log = await this.logRepo.create(logData);
+    }
+
+    // A repeat whose email has left the queue (sent or failed) sends nothing.
+    // One still PENDING is queued again under the same job id: BullMQ ignores
+    // the add while the first job exists, and resends only if it was lost
+    // between the log row and the queue.
+    if (!fresh && log.status !== "PENDING") {
+      return { success: true, jobId: undefined, logId: log.id, duplicate: true };
+    }
 
     const job = await this.emailQueue.add(
       `triggered-${campaign.id}-${to}-${Date.now()}`,
@@ -182,12 +210,15 @@ export class TriggerService {
         unsubscribePageUrl: unsubscribe.page,
         unsubscribeOneClickUrl: unsubscribe.oneClick,
       },
+      // One job per log row: a repeat of a deduplicated send cannot queue a second.
+      { jobId: `triggered-log-${log.id}` },
     );
 
     return {
       success: true,
       jobId: job.id,
       logId: log.id,
+      duplicate: !fresh,
     };
   }
 }

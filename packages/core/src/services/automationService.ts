@@ -4,6 +4,7 @@ import {
   IWorkflowExecutionRepository,
   ContactRepository,
   IContactEventRepository,
+  CompleteStep,
 } from "../ports";
 import { TriggerService } from "./triggerService";
 import { AutomationJobData } from "../queue/types";
@@ -19,6 +20,11 @@ import { triggerMatches, type WorkflowEvent } from "../workflow-events";
 import { ServiceHooks } from "../hooks";
 import { consoleLogger, type Logger } from "../logger";
 import { allowAllOutbound, fetchWithPolicy, type OutboundPolicy } from "../outbound";
+
+/** The queue job of a run's step; stable, so a second add of it is ignored. */
+export function automationJobId(executionId: number, nodeId: string): string {
+  return `wf-${executionId}-${nodeId}`;
+}
 
 /** Versions one worker process keeps in memory. */
 const VERSION_CACHE_SIZE = 500;
@@ -84,18 +90,23 @@ export class AutomationService {
       return null;
     }
 
-    // Check if already running
-    const existing = await this.executionRepo.findRunningByContact(
-      workflowId,
-      contactId,
-    );
+    const triggerNode = version.graph.nodes.find((n) => n.type === "trigger");
+    if (!triggerNode) {
+      // Go-live refuses such a graph; a version without a trigger cannot start.
+      this.logger.error("Workflow version has no trigger step", { workflowId, versionId: version.id });
+      return null;
+    }
+
+    // Already running: the cheap answer, before the plan check. The unique
+    // index below is what actually guarantees one run.
+    const existing = await this.executionRepo.findRunningByContact(workflowId, contactId);
     if (existing) {
       return existing;
     }
 
     // A run is the unit a plan counts: refused here, before the execution
-    // row exists, so a re-trigger of a running contact (above) is free and
-    // the caller gets the reason (`QuotaExceededError`, 402 on the API).
+    // row exists, so a re-trigger of a running contact is free and the
+    // caller gets the reason (`QuotaExceededError`, 402 on the API).
     await this.hooks.requireQuota({ type: "automation.start", projectId, workflowId });
 
     const context: ExecutionContext = {
@@ -105,10 +116,14 @@ export class AutomationService {
     const execution = await this.executionRepo.create({
       workflowId,
       contactId,
-      status: "RUNNING",
       versionId: version.id,
       context,
+      currentNodeId: triggerNode.id,
     });
+    if (!execution) {
+      // Lost the race to a concurrent entry: that run is the one, counted once.
+      return this.executionRepo.findRunningByContact(workflowId, contactId);
+    }
     await this.hooks.recordUsage({
       type: "automation.started",
       projectId,
@@ -116,13 +131,7 @@ export class AutomationService {
       executionId: execution.id,
     });
 
-    const triggerNode = version.graph.nodes.find((n) => n.type === "trigger");
-    if (!triggerNode) {
-      await this.executionRepo.updateStatus(execution.id, "COMPLETED", new Date(), "completed");
-      return execution;
-    }
-
-    await this.scheduleNextNodes(execution.id, version, triggerNode.id);
+    await this.advance(execution.id, version, triggerNode.id);
 
     return execution;
   }
@@ -197,6 +206,17 @@ export class AutomationService {
     const execution = await this.executionRepo.findById(executionId);
     if (!execution || execution.status !== "RUNNING") return;
 
+    // The cursor decides: a job for another step (redelivered after the run
+    // moved on, or a duplicate) is dropped.
+    if (execution.currentNodeId !== nodeId) {
+      this.logger.debug("Stale workflow job dropped", {
+        executionId,
+        nodeId,
+        currentNodeId: execution.currentNodeId,
+      });
+      return;
+    }
+
     // A run reads only the version it started on: editing the workflow
     // never moves the ground under it.
     const version = execution.versionId ? await this.loadVersion(execution.versionId) : null;
@@ -208,34 +228,34 @@ export class AutomationService {
         versionId: execution.versionId,
       });
       // Ended rather than left RUNNING: a RUNNING row blocks the contact from entering again.
-      await this.executionRepo.updateStatus(executionId, "FAILED", new Date(), "invalid_run");
+      await this.executionRepo.finish(executionId, { status: "FAILED", exitReason: "invalid_run", from: nodeId });
       return;
     }
 
-    const stepExecution = await this.executionRepo.createStepExecution({
-      executionId,
-      nodeId,
-      status: "PENDING",
-    });
+    // Each step runs at most once per run. A redelivered job whose step is
+    // already COMPLETED only moves the cursor on, along the branch it took.
+    const step = await this.executionRepo.claimStep(executionId, nodeId);
+    if (step.status === "COMPLETED") {
+      const branch = typeof step.result?.branch === "string" ? step.result.branch : undefined;
+      await this.advance(executionId, version, nodeId, branch);
+      return;
+    }
 
     try {
-      let nextHandle: string | undefined;
+      let branch: string | undefined;
 
       switch (node.type) {
         case "action":
-          await this.handleEmailAction(execution, node.data);
+          // The key makes a redelivered send reuse the first one's log and job.
+          await this.handleEmailAction(execution, node.data, `wf-${executionId}-${nodeId}`);
           break;
 
         case "condition":
-          nextHandle = await this.handleApiCondition(
-            execution,
-            node.data,
-            baseUrl,
-          );
+          branch = await this.handleApiCondition(execution, node.data, baseUrl);
           break;
 
         case "delay":
-          // Delays are handled by BullMQ delay, so if we are here, the delay is over.
+          // The job was queued with the delay, so if we are here, it is over.
           break;
 
         case "update_contact":
@@ -243,48 +263,36 @@ export class AutomationService {
           break;
 
         case "exit":
-          await this.executionRepo.updateStepExecution(stepExecution.id, {
+          await this.executionRepo.finish(executionId, {
             status: "COMPLETED",
-            completedAt: new Date(),
+            exitReason: "exit_node",
+            from: nodeId,
+            completeStep: { id: step.id },
           });
-          await this.executionRepo.updateStatus(executionId, "COMPLETED", new Date(), "exit_node");
-          return; // Stop processing and don't schedule next nodes
+          return;
 
         default:
-          this.logger.warn("Unknown workflow node type", {
-            executionId,
-            nodeId,
-            type: node.type,
-          });
+          throw new Error(`Unknown step type "${node.type}"`);
       }
 
-      await this.executionRepo.updateStepExecution(stepExecution.id, {
-        status: "COMPLETED",
-        completedAt: new Date(),
+      await this.advance(executionId, version, nodeId, branch, {
+        id: step.id,
+        result: branch ? { branch } : null,
       });
-
-      // Schedule next steps
-      await this.scheduleNextNodes(executionId, version, nodeId, nextHandle);
     } catch (error) {
-      this.logger.error("Workflow step failed", {
-        executionId,
-        nodeId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      await this.executionRepo.updateStepExecution(stepExecution.id, {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error("Workflow step failed", { executionId, nodeId, error: message });
+      await this.executionRepo.updateStepExecution(step.id, {
         status: "FAILED",
-        result: {
-          error: error instanceof Error ? error.message : String(error),
-        },
+        result: { error: message },
         completedAt: new Date(),
       });
-
-      // Also mark the main execution as FAILED so it doesn't block future runs
-      await this.executionRepo.updateStatus(executionId, "FAILED", new Date(), "error");
+      // Ended, so the contact is not blocked from entering again.
+      await this.executionRepo.finish(executionId, { status: "FAILED", exitReason: "error", from: nodeId });
     }
   }
 
-  private async handleEmailAction(execution: WorkflowExecution, data: any): Promise<void> {
+  private async handleEmailAction(execution: WorkflowExecution, data: any, dedupeKey: string): Promise<void> {
     const campaignId = data.triggerId;
     if (!campaignId) throw new Error("No trigger chosen for the email step (triggerId)");
 
@@ -299,6 +307,7 @@ export class AutomationService {
       projectId: workflow.projectId,
       to: contact.email,
       data: buildStepData(contact, execution.context),
+      dedupeKey,
       locale: contact.locale || undefined,
     });
   }
@@ -395,50 +404,61 @@ export class AutomationService {
     await this.contactRepo.update(contact.id, updateData);
   }
 
-  private async scheduleNextNodes(
+  /**
+   * Moves the run from `fromNodeId` to its next step (along `handle` after a
+   * condition), or ends it when there is none; `completeStep` is marked done
+   * in the same transaction. The cursor moves in the database first and the
+   * job is queued after: a lost job is found by the sweeper from the row,
+   * and a job for a step the run has left is dropped by `processStep`.
+   */
+  private async advance(
     executionId: number,
     version: WorkflowVersion,
-    sourceNodeId: string,
+    fromNodeId: string,
     handle?: string,
+    completeStep?: CompleteStep,
   ): Promise<void> {
     const { nodes, edges } = version.graph;
-
-    const nextEdges = edges.filter(
-      (e) =>
-        e.sourceNodeId === sourceNodeId &&
-        (!handle || e.sourceHandle === handle),
+    const outgoing = edges.filter(
+      (e) => e.sourceNodeId === fromNodeId && (!handle || e.sourceHandle === handle),
     );
+    if (outgoing.length > 1) {
+      // Go-live refuses this; take the first rather than fork the run.
+      this.logger.warn("Workflow step has more than one next step; following the first", {
+        executionId,
+        fromNodeId,
+      });
+    }
+    const target = outgoing.length > 0 ? nodes.find((n) => n.id === outgoing[0].targetNodeId) : undefined;
 
-    this.logger.debug("Scheduling next workflow nodes", {
-      executionId,
-      sourceNodeId,
-      handle: handle ?? "any",
-      edges: nextEdges.length,
-    });
-
-    if (nextEdges.length === 0) {
-      await this.executionRepo.updateStatus(executionId, "COMPLETED", new Date(), "completed");
+    if (!target) {
+      await this.executionRepo.finish(executionId, {
+        status: "COMPLETED",
+        exitReason: "completed",
+        from: fromNodeId,
+        completeStep,
+      });
       return;
     }
 
-    for (const edge of nextEdges) {
-      const targetNode = nodes.find((n) => n.id === edge.targetNodeId);
-      if (!targetNode) continue;
-
-      let delay = 0;
-      if (targetNode.type === "delay") {
-        delay = this.parseDelay(targetNode.data);
-      }
-
-      await this.automationQueue.add(
-        `workflow-${executionId}-${targetNode.id}`,
-        {
-          executionId,
-          nodeId: targetNode.id,
-        },
-        { delay },
-      );
+    const delay = target.type === "delay" ? this.parseDelay(target.data) : 0;
+    const moved = await this.executionRepo.moveCursor(executionId, {
+      from: fromNodeId,
+      to: target.id,
+      wakeAt: new Date(Date.now() + delay),
+      completeStep,
+    });
+    if (!moved) {
+      this.logger.debug("Workflow run moved or ended meanwhile; not scheduling", { executionId, fromNodeId });
+      return;
     }
+
+    await this.automationQueue.add(
+      `workflow-${executionId}-${target.id}`,
+      { executionId, nodeId: target.id },
+      // One job per run and step: adding it again (the sweeper, a retry) is a no-op while it exists.
+      { delay, jobId: automationJobId(executionId, target.id) },
+    );
   }
 
   private parseDelay(data: any): number {
