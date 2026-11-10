@@ -14,6 +14,7 @@ import {
   Textarea,
 } from "@senlo/ui";
 import { STEP_META } from "./nodes/stepMeta";
+import { TriggerConfig } from "./TriggerConfig";
 
 interface Trigger {
   id: number;
@@ -39,26 +40,7 @@ export const SidePanel = ({ triggers = [], onDelete }: Props) => {
       case "trigger":
         return (
           <div className="space-y-4">
-            <FormField>
-              <Label>Trigger Event</Label>
-              <Select
-                value={(node.data.event as string) || "contact_added"}
-                onValueChange={(val) => updateNodeData(node.id, { event: val })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select event" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="contact_added">Contact Added</SelectItem>
-                  <SelectItem value="contact_updated">
-                    Contact Updated
-                  </SelectItem>
-                  <SelectItem value="tag_added">Tag Added</SelectItem>
-                  <SelectItem value="order_created">Order Created</SelectItem>
-                  <SelectItem value="event_triggered">Custom Event</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormField>
+            <TriggerConfig data={node.data} onChange={(data) => updateNodeData(node.id, data)} />
             <FormField>
               <Label>Label</Label>
               <Input
@@ -66,7 +48,7 @@ export const SidePanel = ({ triggers = [], onDelete }: Props) => {
                 onChange={(e) =>
                   updateNodeData(node.id, { label: e.target.value })
                 }
-                placeholder="e.g. Added to list: Customers"
+                placeholder="e.g. Trial started"
               />
             </FormField>
           </div>

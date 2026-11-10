@@ -7,9 +7,15 @@ import { AccessGuard, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
 import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowStatus } from "../domain";
 import { FormValidationError, ValidationError } from "../errors";
-import type { ICampaignRepository, IProjectRepository, IWorkflowRepository } from "../ports";
+import type {
+  ICampaignRepository,
+  IContactEventRepository,
+  IProjectRepository,
+  IWorkflowRepository,
+} from "../ports";
 import { parseInput } from "../validation";
 import { validateWorkflowGraph } from "../workflow-graph";
+import { isValidEventName } from "../workflow-events";
 
 /**
  * A node as the builder holds it. No position: the builder lays the graph
@@ -47,7 +53,7 @@ export function defaultTriggerNode(): Omit<WorkflowNode, "workflowId"> {
   return {
     id: `trigger-${Date.now()}`,
     type: "trigger",
-    data: { label: "Contact Added", event: "contact_added" },
+    data: { event: "contact_added" },
   };
 }
 
@@ -63,7 +69,11 @@ export interface WorkflowServiceRepositories {
   workflows: IWorkflowRepository;
   projects: Pick<IProjectRepository, "findById">;
   campaigns: Pick<ICampaignRepository, "findById">;
+  contactEvents: Pick<IContactEventRepository, "recentNames">;
 }
+
+/** How many event names the trigger panel suggests. */
+export const RECENT_EVENT_NAMES_LIMIT = 50;
 
 /**
  * Workflows as the builder manages them: list, create with a starting
@@ -109,6 +119,12 @@ export class WorkflowService {
     return workflow;
   }
 
+  /** Event names the project has sent, most recently used first: the trigger panel's suggestions. */
+  async recentEventNames(userId: string, projectId: number): Promise<string[]> {
+    await this.access.requireProject(userId, projectId, "read");
+    return this.repos.contactEvents.recentNames(projectId, RECENT_EVENT_NAMES_LIMIT);
+  }
+
   async getGraph(
     userId: string,
     id: number,
@@ -138,6 +154,18 @@ export class WorkflowService {
     for (const edge of graph.edges) {
       if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
         throw new ValidationError(`Edge ${edge.id} connects a node that is not in the graph`);
+      }
+    }
+
+    // A draft may have no event yet; a name it does have must be one the API accepts.
+    for (const node of graph.nodes) {
+      if (node.type !== "trigger") continue;
+      const event = node.data.event;
+      if (event !== undefined && event !== "" && (typeof event !== "string" || !isValidEventName(event))) {
+        throw new FormValidationError({ [node.id]: ["Event name: lowercase letters, digits and _ . : -"] });
+      }
+      if (node.data.tag !== undefined && typeof node.data.tag !== "string") {
+        throw new FormValidationError({ [node.id]: ["Tag must be text"] });
       }
     }
 

@@ -12,6 +12,7 @@ import { WorkflowEditorShell } from "../automations/WorkflowEditorShell";
 import { useProjectCampaigns } from "../data/campaigns";
 import {
   WorkflowNotReadyError,
+  useRecentEventNames,
   useSaveWorkflowGraph,
   useSetWorkflowStatus,
   useWorkflowStats,
@@ -40,6 +41,7 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
   const save = useSaveWorkflowGraph(workflow.id);
   const changeStatus = useSetWorkflowStatus();
   const { data: triggers = [] } = useProjectCampaigns(workflow.projectId);
+  const { data: eventNames = [] } = useRecentEventNames(workflow.projectId);
   const { data: stats = [] } = useWorkflowStats(workflow.id, {
     enabled: status === "ACTIVE",
     refetchInterval: 10000,
@@ -108,7 +110,7 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
       goLiveErrors={goLiveErrors}
       onDismissGoLiveErrors={() => setGoLiveErrors(null)}
     >
-      <AutomationBuilder triggers={triggers} stats={stats} />
+      <AutomationBuilder triggers={triggers} stats={stats} eventNames={eventNames} />
     </WorkflowEditorShell>
   );
 }

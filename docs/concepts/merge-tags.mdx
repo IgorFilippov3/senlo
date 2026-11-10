@@ -37,7 +37,20 @@ There are no filters, helpers or default values. A conditional row or block cove
 | `{{contact.name}}` | `data.name`: every field of `data` is also available under `contact.` |
 | `{{unsubscribe_url}}` | The recipient's unsubscribe page |
 
-**Automation emails** see the contact: its metadata in place of `data`, and `{{contact.email}}`. A contact created with `metadata: { "plan": "pro" }` renders `{{plan}}` and `{{contact.plan}}` as `pro`. The contact's `name` and `locale` fields are not tags; put a value in `metadata` to use it in a template.
+### Automation emails
+
+**Automation emails** see the contact and the event that started the run:
+
+| Tag | Value |
+| --- | --- |
+| `{{plan}}` | A contact attribute (`metadata` sent in events), at the top level as in triggered emails, so one template serves both |
+| `{{contact.plan}}` | The same attribute, written explicitly |
+| `{{contact.email}}`, `{{contact.name}}`, `{{contact.locale}}` | The contact's fields |
+| `{{event.amount}}`, `{{event.items}}` | The trigger event's `payload` |
+
+An event sent as `{ "event": "invoice_failed", "payload": { "amount": 42 } }` renders `{{event.amount}}` as `42`. Loops and conditions read the payload too: a row looping over `event.items`, a block shown when `event.amount` is greater than `100`.
+
+`contact`, `event` and `steps` are reserved: an attribute with one of these names is not readable at the top level.
 
 **Loops** add the loop's alias: a row looping over `items` with alias `item` renders `{{item.title}}` for each element.
 

@@ -16,7 +16,7 @@ curl -X POST https://senlo.io/api/triggered \
 curl -X POST https://senlo.io/api/events \
   -H "Authorization: Bearer $SENLO_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{ "event": "contact_added", "email": "ada@example.com", "name": "Ada", "metadata": { "plan": "trial" } }'
+  -d '{ "event": "trial_started", "email": "ada@example.com", "metadata": { "plan": "trial" }, "payload": { "trialEndsAt": "2026-12-01" } }'
 ```
 
 ## Triggers
@@ -29,13 +29,13 @@ Use a trigger when your code knows exactly which email to send and when: passwor
 
 ## Automations
 
-An **automation** is a workflow drawn in the automation builder. It starts with a trigger node that listens for one event from [`POST /api/events`](../api/events.mdx), and runs for one contact.
+An **automation** is a workflow drawn in the automation builder. It starts with a trigger node that listens for one event name from [`POST /api/events`](../api/events.mdx), and runs for one contact. The run keeps a copy of the event that started it.
 
 | Step | What it does |
 | --- | --- |
-| **Send email** | Sends a trigger's template to the contact, with the contact's metadata as merge data and the template for the contact's locale. |
+| **Send email** | Sends a trigger's template to the contact, in the contact's locale. The template sees the contact and the event's `payload` as `{{event.*}}` ([merge tags](./merge-tags.mdx#automation-emails)). |
 | **Delay** | Waits a number of minutes, hours or days before the next step. |
-| **Condition** | Posts the contact (`email`, `name`, `metadata`) to a URL you set. A `200` takes the **yes** branch, anything else **no**. |
+| **Condition** | Posts the contact (`email`, `name`, `locale`, `metadata`) and the trigger `event` (`{ name, payload }`) to a URL you set. A `200` takes the **yes** branch, anything else **no**. |
 | **Update contact** | Merges fields into the contact's metadata (tags are added, not replaced). |
 | **Exit** | Ends the run. |
 
@@ -45,9 +45,10 @@ Events an automation can start on:
 | --- | --- |
 | `contact_added` | A contact is created. |
 | `contact_updated` | Your app updates a contact. |
-| `tag_added` | Your app tags a contact. |
-| `order_created` | Your app records a purchase. |
-| `event_triggered` | Anything else; carry your own data in `metadata`. |
+| `tag_added` | Your app tags a contact. The trigger can be limited to one tag. |
+| any name of your own | Whatever your app reports: `trial_started`, `invoice_failed`, `project_created`. Type the name in the trigger, or pick one your app has already sent. |
+
+An automation starts only on its own event name: an automation on `trial_started` ignores `invoice_failed`.
 
 Only **active** automations start; a paused one ignores events. While a contact has a run in progress in an automation, the same event does not start a second run for them in that automation.
 

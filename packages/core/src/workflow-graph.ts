@@ -9,9 +9,13 @@
  * workflow is activated.
  */
 
+import { isValidEventName } from "./workflow-events";
+
 export type GraphNodeRef = {
   id: string;
   type?: string | null;
+  /** The node's settings; go-live checks the trigger's event in it. */
+  data?: Record<string, unknown> | null;
 };
 
 export type GraphEdgeRef = {
@@ -287,6 +291,15 @@ export function validateWorkflowGraph(
 
     if (node.type === "trigger" && incoming.length > 0) {
       reasons.push("Trigger cannot have incoming connections.");
+    }
+
+    if (node.type === "trigger" && node.data !== undefined) {
+      const event = node.data?.event;
+      if (typeof event !== "string" || event === "") {
+        reasons.push("Choose the event that starts the automation.");
+      } else if (!isValidEventName(event)) {
+        reasons.push(`"${event}" is not a valid event name.`);
+      }
     }
 
     if (node.type === "exit" && outgoing.length > 0) {

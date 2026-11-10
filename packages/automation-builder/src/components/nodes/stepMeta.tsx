@@ -23,9 +23,16 @@ const EVENT_LABELS: Record<string, string> = {
   contact_added: "Contact added",
   contact_updated: "Contact updated",
   tag_added: "Tag added",
-  order_created: "Order created",
-  event_triggered: "Custom event",
 };
+
+/** The trigger card's line: the system event's label, or the custom event's name. */
+export function triggerSummary(data: Data): StepSummary {
+  const event = typeof data.event === "string" ? data.event : "";
+  if (event === "") return { text: "Choose an event", incomplete: true };
+  const tag = typeof data.tag === "string" && data.tag.trim() !== "" ? data.tag.trim() : null;
+  if (event === "tag_added" && tag) return { text: `Tag added: ${tag}` };
+  return { text: EVENT_LABELS[event] ?? event };
+}
 
 const UNIT_SINGULAR: Record<string, string> = { minutes: "minute", hours: "hour", days: "day" };
 
@@ -44,9 +51,7 @@ export const STEP_META: Record<string, StepMeta> = {
     kind: "Trigger",
     icon: Zap,
     tone: "text-amber-600",
-    summary: (data) => ({
-      text: data.label || EVENT_LABELS[data.event] || EVENT_LABELS.contact_added,
-    }),
+    summary: (data) => (data.label ? { text: data.label } : triggerSummary(data)),
   },
   action: {
     kind: "Send email",

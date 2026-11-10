@@ -131,17 +131,33 @@ paths:
       operationId: send-event
       summary: Send a contact event
       description: |
-        Identifies a contact by email, creates or updates it, and starts every
-        active automation whose trigger listens for the event.
+        Identifies a contact by email, applies the event to it, stores the event
+        in the contact's history and starts every active automation whose
+        trigger listens for that event name.
+
+        Three names are system events; any other valid name is a custom event.
 
         | Event | Contact must exist | What it does |
         | --- | --- | --- |
         | `contact_added` | no | Creates the contact, or updates `name` and replaces `metadata` of an existing one. |
         | `contact_updated` | yes | Updates `name` and `locale`, merges `metadata` into the contact's metadata. |
-        | `tag_added` | yes | Adds `metadata.tags` to the contact's tags, without duplicates. |
-        | `order_created` | no, created if missing | Starts automations listening for purchases. |
-        | `event_triggered` | no, created if missing | A custom event; carry your own data in `metadata`. |
+        | `tag_added` | yes | Adds `payload.tags` to the contact's tags, without duplicates. |
+        | any other name | no, created if missing | A custom event. Merges `metadata` into an existing contact. |
+
+        `metadata` is contact attributes. `payload` is the event's data: the
+        automation's emails read it as `{{event.*}}`.
+
+        With an `Idempotency-Key`, a repeat of a key the workspace has already
+        used changes and starts nothing and answers `200` with the contact.
       tags: [Events]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Unique per event within the workspace. Wins over `idempotencyKey` in the body.
+          schema:
+            type: string
+            maxLength: 255
       requestBody:
         required: true
         content:
@@ -163,16 +179,17 @@ paths:
                 value:
                   event: tag_added
                   email: user@example.com
-                  metadata:
+                  payload:
                     tags: [onboarded]
-              orderCreated:
-                summary: Purchase
+              customEvent:
+                summary: Custom event with a payload
                 value:
-                  event: order_created
+                  event: invoice_failed
                   email: customer@example.com
-                  metadata:
-                    orderId: A-1049
-                    total: 42
+                  payload:
+                    invoiceId: in_1049
+                    amount: 42
+                    currency: EUR
       responses:
         "200":
           description: The event was applied and matching automations were started.
@@ -188,7 +205,10 @@ paths:
                   data:
                     $ref: "#/components/schemas/Contact"
         "400":
-          description: The body failed validation (`email` missing or invalid, unknown `event`).
+          description: |
+            The body failed validation: `email` missing or invalid, a malformed
+            `event` name, `payload` over 32 KB, `tag_added` without
+            `payload.tags`, or an idempotency key over 255 characters.
           content:
             application/json:
               schema:
@@ -464,7 +484,10 @@ components:
       properties:
         event:
           type: string
-          enum: [contact_added, contact_updated, tag_added, order_created, event_triggered]
+          pattern: "^[a-z0-9][a-z0-9_.:-]{0,63}$"
+          description: |
+            `contact_added`, `contact_updated`, `tag_added`, or any custom name:
+            lowercase letters, digits and `_ . : -`, 64 characters at most.
         email:
           type: string
           format: email
@@ -476,7 +499,18 @@ components:
         metadata:
           type: object
           additionalProperties: true
-          description: Contact attributes. For `tag_added`, `metadata.tags` is an array of strings.
+          description: Contact attributes, merged into the contact. Not part of the event.
+        payload:
+          type: object
+          additionalProperties: true
+          description: |
+            The event's data, at most 32 KB of JSON: `{{event.*}}` in the
+            automation's emails. For `tag_added`, `payload.tags` is required: a
+            non-empty array of strings.
+        idempotencyKey:
+          type: string
+          maxLength: 255
+          description: Same as the `Idempotency-Key` header.
     Contact:
       type: object
       required: [id, projectId, email, unsubscribed, createdAt]

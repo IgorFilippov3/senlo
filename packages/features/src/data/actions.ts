@@ -103,5 +103,7 @@ export interface SenloActions {
     setStatus(workflowId: number, status: Workflow["status"]): Promise<ActionResult<void>>;
     delete(workflowId: number): Promise<ActionResult<void>>;
     stats(workflowId: number): Promise<ActionResult<WorkflowNodeStats[]>>;
+    /** Event names the project has sent, most recent first (trigger suggestions). */
+    eventNames(projectId: number): Promise<ActionResult<string[]>>;
   };
 }

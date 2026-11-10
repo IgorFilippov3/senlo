@@ -1,18 +1,18 @@
 ---
 title: Send an event
-description: POST /api/events creates or updates a contact and starts automations.
+description: POST /api/events records what a contact did and starts the automations listening for it.
 ---
 
 ```bash tab="curl"
 curl -X POST https://senlo.io/api/events \
   -H "Authorization: Bearer $SENLO_API_KEY" \
   -H "Content-Type: application/json" \
+  -H "Idempotency-Key: invoice-in_1049-failed" \
   -d '{
-    "event": "contact_added",
+    "event": "invoice_failed",
     "email": "ada@example.com",
-    "name": "Ada",
-    "locale": "en",
-    "metadata": { "plan": "trial" }
+    "metadata": { "plan": "pro" },
+    "payload": { "invoiceId": "in_1049", "amount": 42, "currency": "EUR" }
   }'
 ```
 
@@ -22,13 +22,13 @@ await fetch("https://senlo.io/api/events", {
   headers: {
     Authorization: `Bearer ${process.env.SENLO_API_KEY}`,
     "Content-Type": "application/json",
+    "Idempotency-Key": "invoice-in_1049-failed",
   },
   body: JSON.stringify({
-    event: "contact_added",
+    event: "invoice_failed",
     email: "ada@example.com",
-    name: "Ada",
-    locale: "en",
-    metadata: { plan: "trial" },
+    metadata: { plan: "pro" },
+    payload: { invoiceId: "in_1049", amount: 42, currency: "EUR" },
   }),
 });
 ```
@@ -37,23 +37,30 @@ await fetch("https://senlo.io/api/events", {
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `event` | string | yes | One of the events below. |
+| `event` | string | yes | A system event (below) or any name of your own: lowercase letters, digits and `_ . : -`, starting with a letter or digit, 64 characters at most. `trial_started`, `invoice.paid`, `billing:failed`. |
 | `email` | string | yes | Identifies the contact in this workspace. |
 | `name` | string | no | The contact's name. |
 | `locale` | string | no | The contact's locale; automations send the template for it. |
-| `metadata` | object | no | Contact attributes. For `tag_added`, `metadata.tags` is an array of strings. |
+| `metadata` | object | no | **Contact attributes.** Merged into the contact's `meta`; not part of the event. |
+| `payload` | object | no | **The event's own data**, at most 32 KB of JSON. Emails of the automation it starts read it as `{{event.*}}`. Not stored on the contact. |
+| `idempotencyKey` | string | no | Same as the `Idempotency-Key` header (the header wins). Up to 255 characters. |
+
+`metadata` describes who the contact is (plan, company, signup source) and stays on the contact. `payload` describes what just happened (the invoice, the order, the trial end date) and travels with the event.
 
 ## Events
+
+Three names are system events with a side effect on the contact. Any other name is a custom event.
 
 | Event | Contact must exist | Effect on the contact |
 | --- | --- | --- |
 | `contact_added` | no | Creates it. For an existing address: updates `name`, replaces `meta` with `metadata` if sent. |
 | `contact_updated` | yes | Updates `name` and `locale`, merges `metadata` into `meta`. |
-| `tag_added` | yes | Adds `metadata.tags` to its tags, without duplicates. |
-| `order_created` | no | Creates it if new. |
-| `event_triggered` | no | Creates it if new. Your own event; put its data in `metadata`. |
+| `tag_added` | yes | Adds `payload.tags` (required, a non-empty array of strings) to its tags, without duplicates. |
+| any other name | no | Creates it if new (which also fires `contact_added`); otherwise updates `name` and `locale` and merges `metadata`. |
 
-Then every **active** [automation](../concepts/triggers-and-automations.mdx) whose trigger listens for the event starts a run for the contact, unless one is already running for them.
+Then the event is stored in the contact's event history, and every **active** [automation](../concepts/triggers-and-automations.mdx) whose trigger listens for that exact name starts a run for the contact, unless one is already running for them. An automation on `tag_added` can be limited to one tag; it then starts only when `payload.tags` contains it.
+
+Events are kept as long as the workspace keeps its delivery log (see data retention in the workspace settings).
 
 ## Response
 
@@ -66,7 +73,7 @@ Then every **active** [automation](../concepts/triggers-and-automations.mdx) who
     "email": "ada@example.com",
     "name": "Ada",
     "locale": "en",
-    "meta": { "plan": "trial" },
+    "meta": { "plan": "pro" },
     "unsubscribed": false,
     "unsubscribedAt": null,
     "createdAt": "2026-11-03T10:15:00.000Z"
@@ -76,21 +83,23 @@ Then every **active** [automation](../concepts/triggers-and-automations.mdx) who
 
 `data` is the contact after the event. `projectId` is the workspace id.
 
+## Idempotency
+
+Send an `Idempotency-Key` header to make retries safe. The first request with a key is processed; a later one with the same key in the same workspace changes nothing, starts nothing, and answers `200` with the contact. Use a key that names the event in your system, such as `invoice-in_1049-failed`.
+
+Without a key, the same event sent twice is applied twice and can start an automation again once the first run has finished.
+
 ## Errors
 
 | Status | When |
 | --- | --- |
-| `400` | `email` missing or invalid, unknown `event`. |
+| `400` | `email` missing or invalid, a malformed `event` name, `payload` over 32 KB, `tag_added` without `payload.tags`, a key over 255 characters. |
 | `401` | No key, or a wrong one. |
-| `402` | Cloud only: an automation run was refused by the plan's limits. The contact change is already saved. |
+| `402` | Cloud only: an automation run was refused by the plan's limits. The contact change and the event are already saved. |
 | `404` | `contact_updated` or `tag_added` for an address that is not a contact. Send `contact_added` first. |
 | `429` | Rate limited. |
 
 See [Errors](./errors.mdx).
-
-## Idempotency
-
-There is no idempotency key. Sending the same event twice applies it twice; for `contact_added` and the update events that is harmless, but it can start an automation again once the first run has finished.
 
 ## Reference
 

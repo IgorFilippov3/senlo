@@ -19,7 +19,7 @@ A **contact** is one email address in one workspace, with a name, a locale and f
 | `email` | Unique per workspace. |
 | `name` | Optional. |
 | `locale` | Picks the language version an automation sends. See [Locales](./templates.mdx#locales). |
-| `meta` | Any JSON object. Sent as `metadata` in events, available to [merge tags](./merge-tags.mdx) in automation emails. `tags` is an array of strings by convention. |
+| `meta` | Any JSON object. Sent as `metadata` in events, available to [merge tags](./merge-tags.mdx) in automation emails. `tags` is an array of strings, added by `tag_added`. |
 | `unsubscribed`, `unsubscribedAt` | Set when the contact unsubscribes. |
 
 ## Created and updated by events
@@ -28,8 +28,10 @@ A **contact** is one email address in one workspace, with a name, a locale and f
 
 - `contact_added` creates the contact. For an address that already exists, it updates `name` and **replaces** `meta` with the `metadata` you send (when you send one).
 - `contact_updated` updates `name` and `locale`, and **merges** `metadata` into `meta`: keys you do not send are kept. The contact must exist (`404` otherwise).
-- `tag_added` adds `metadata.tags` to the contact's tags without duplicates. The contact must exist.
-- `order_created` and `event_triggered` create the contact if it is new, then start automations.
+- `tag_added` adds `payload.tags` to the contact's tags without duplicates. The contact must exist.
+- Any other event name (your own, such as `trial_started`) creates the contact if it is new; for an existing one it updates `name` and `locale` and merges `metadata`. Then it starts automations.
+
+Every event is also kept in the contact's event history, with its `payload`, for as long as the workspace keeps its delivery log.
 
 ## Unsubscribe
 

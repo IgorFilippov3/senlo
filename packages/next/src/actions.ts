@@ -197,6 +197,7 @@ const handlers: HandlerTable<SenloServerActions> = {
     await s.workflow.requireWorkflow(userId, workflowId, "read");
     return s.automation.getWorkflowStats(workflowId);
   }),
+  "workflows.eventNames": read((s, userId, projectId: number) => s.workflow.recentEventNames(userId, projectId)),
 
   "editor.save": {
     refresh: true,

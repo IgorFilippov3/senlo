@@ -215,6 +215,7 @@ describe("services call the ports once per action", () => {
         workflows: { findById: async () => workflow, update: async () => workflow, getNodes: async () => [], getEdges: async () => [] } as never,
         projects,
         campaigns: {} as never,
+        contactEvents: {} as never,
       },
       undefined,
       p.hooks,

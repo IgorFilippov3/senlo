@@ -45,6 +45,8 @@ const defaultEdgeOptions = {
 interface Props {
   triggers?: BuilderTrigger[];
   stats?: WorkflowNodeStats[];
+  /** Event names the project has sent, suggested for a custom event trigger. */
+  eventNames?: string[];
 }
 
 /**
@@ -53,7 +55,7 @@ interface Props {
  * a `+` (at an open end, or on an edge to insert it) and set up in the side
  * panel.
  */
-export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
+export const AutomationCanvas = ({ triggers = [], stats = [], eventNames = [] }: Props) => {
   const { nodes, edges, nodeStats, selectedNodeId, setSelectedNodeId, setNodeStats, validationError, setValidationError } =
     useAutomationStore();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -104,7 +106,7 @@ export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
   const closeError = () => setValidationError(null);
 
   return (
-    <BuilderProvider value={{ triggers }}>
+    <BuilderProvider value={{ triggers, eventNames }}>
       <div className="flex h-full w-full overflow-hidden bg-[#fafafa]" onKeyDown={onKeyDown}>
         <div className="relative flex-1">
           <ReactFlow
@@ -150,8 +152,8 @@ export const AutomationCanvas = ({ triggers = [], stats = [] }: Props) => {
   );
 };
 
-export const AutomationBuilder = ({ triggers, stats }: Props) => (
+export const AutomationBuilder = ({ triggers, stats, eventNames }: Props) => (
   <ReactFlowProvider>
-    <AutomationCanvas triggers={triggers} stats={stats} />
+    <AutomationCanvas triggers={triggers} stats={stats} eventNames={eventNames} />
   </ReactFlowProvider>
 );

@@ -31,7 +31,8 @@ function fakes(graph: { nodes?: any[]; edges?: any[] } = {}) {
     getEdges: async () => graph.edges ?? [],
     saveGraph: vi.fn(async () => {}),
   };
-  return { service: new WorkflowService({ workflows, projects, campaigns }), workflows };
+  const contactEvents = { recentNames: vi.fn(async (_projectId: number, _limit: number) => ["trial_started", "invoice.paid"]) };
+  return { service: new WorkflowService({ workflows, projects, campaigns, contactEvents }), workflows, contactEvents };
 }
 
 const trigger = { id: "t1", type: "trigger", data: { event: "contact_added" }, position: { x: 1.4, y: 2.6 } };
@@ -61,7 +62,7 @@ describe("WorkflowService", () => {
   it("activates a valid saved graph", async () => {
     const { service, workflows } = fakes({
       nodes: [
-        { id: "t", type: "trigger", data: {} },
+        { id: "t", type: "trigger", data: { event: "trial_started" } },
         { id: "x", type: "exit", data: {} },
       ],
       edges: [{ id: "e", sourceNodeId: "t", targetNodeId: "x", sourceHandle: null }],
@@ -70,12 +71,46 @@ describe("WorkflowService", () => {
     expect(workflows.update).toHaveBeenCalledWith(10, { status: "ACTIVE" });
   });
 
+  it("refuses to activate a trigger without an event or with a malformed one", async () => {
+    for (const [data, reason] of [
+      [{}, "Choose the event that starts the automation."],
+      [{ event: "" }, "Choose the event that starts the automation."],
+      [{ event: "Trial Started" }, '"Trial Started" is not a valid event name.'],
+    ] as const) {
+      const { service, workflows } = fakes({ nodes: [{ id: "t", type: "trigger", data }] });
+      const e = await service.setStatus("alice", 10, "ACTIVE").catch((x) => x);
+      expect(e.details.reasons).toContain(reason);
+      expect(workflows.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it("saves a draft trigger without an event, refuses a malformed name or tag", async () => {
+    const { service, workflows } = fakes();
+    await service.saveGraph("alice", 10, { nodes: [{ id: "t1", type: "trigger", data: { event: "" } }], edges: [] });
+    await service.saveGraph("alice", 10, { nodes: [{ id: "t1", type: "trigger", data: { event: "invoice.paid" } }], edges: [] });
+    expect(workflows.saveGraph).toHaveBeenCalledTimes(2);
+
+    for (const data of [{ event: "Bad Name" }, { event: 5 }, { event: "tag_added", tag: 5 }]) {
+      const e = await service.saveGraph("alice", 10, { nodes: [{ id: "t1", type: "trigger", data }], edges: [] }).catch((x) => x);
+      expect(e, JSON.stringify(data)).toBeInstanceOf(FormValidationError);
+      expect(e.fieldErrors.t1).toBeDefined();
+    }
+    expect(workflows.saveGraph).toHaveBeenCalledTimes(2);
+  });
+
+  it("suggests the project's recent event names to its users only", async () => {
+    const { service, contactEvents } = fakes();
+    expect(await service.recentEventNames("alice", 1)).toEqual(["trial_started", "invoice.paid"]);
+    expect(contactEvents.recentNames).toHaveBeenCalledWith(1, 50);
+    await expect(service.recentEventNames("alice", 2)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
   it("creates a draft with a trigger node", async () => {
     const { service, workflows } = fakes();
     await expect(service.create("alice", 1, { name: " " })).rejects.toBeInstanceOf(FormValidationError);
     const w = await service.create("alice", 1, { name: " Welcome " });
     expect(w).toMatchObject({ id: 30, projectId: 1, name: "Welcome", status: "DRAFT" });
-    expect(workflows.saveGraph).toHaveBeenCalledWith(30, [expect.objectContaining({ type: "trigger", data: { label: "Contact Added", event: "contact_added" } })], []);
+    expect(workflows.saveGraph).toHaveBeenCalledWith(30, [expect.objectContaining({ type: "trigger", data: { event: "contact_added" } })], []);
   });
 
   it("rejects a malformed graph, dangling edges and duplicate ids", async () => {

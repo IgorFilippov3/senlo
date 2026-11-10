@@ -45,6 +45,17 @@ export function useWorkflowStats(
   });
 }
 
+/** Event names the project has sent: suggestions for a custom event trigger. */
+export function useRecentEventNames(projectId: number) {
+  const actions = useSenloActions();
+  return useQuery({
+    queryKey: queryKeys.workflows.eventNames(projectId),
+    queryFn: async () => unwrap(await actions.workflows.eventNames(projectId)),
+    enabled: !!projectId,
+    staleTime: 60_000,
+  });
+}
+
 function useInvalidateWorkflows() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: queryKeys.workflows.lists() });
