@@ -11,6 +11,7 @@ import { fixedBaseUrl, type ResolveBaseUrl } from "./base-url";
 import { consoleLogger, type Logger } from "./logger";
 import type {
   ContactRepository,
+  IContactEventRepository,
   IAiProviderRepository,
   IDashboardRepository,
   IApiKeyRepository,
@@ -57,6 +58,7 @@ export interface Repositories {
   apiKeys: IApiKeyRepository;
   campaigns: ICampaignRepository;
   contacts: ContactRepository;
+  contactEvents: IContactEventRepository;
   dashboard: IDashboardRepository;
   executions: IWorkflowExecutionRepository;
   projects: IProjectRepository;
@@ -174,6 +176,7 @@ export function createServices({
     r.workflows,
     r.executions,
     r.contacts,
+    r.contactEvents,
     queues.automation,
     trigger,
     logger,
@@ -187,7 +190,7 @@ export function createServices({
     trigger,
     automation,
     audience,
-    events: new EventIngestionService(r.contacts, audience, automation),
+    events: new EventIngestionService(r.contacts, r.contactEvents, audience, automation),
     aiDesign: new AiDesignService(r.projects, r.aiProviders, undefined, guard),
     aiProvider: new AiProviderService(r.aiProviders, guard, hooks),
     auth: new AuthService(r.apiKeys),

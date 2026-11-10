@@ -3,6 +3,7 @@ import type {
   User,
   Project,
   Contact,
+  ContactEvent,
   Campaign,
   CampaignEvent,
   EmailProvider,
@@ -191,6 +192,31 @@ export interface ContactRepository {
   ): Promise<Contact | null>;
 }
 
+/**
+ * The event log (`contact_events`): every event a contact did, kept for the
+ * project's log retention. Automations read it ("did this contact do X").
+ */
+export interface IContactEventRepository {
+  /**
+   * Stores the event. When the project already has an event with this
+   * idempotency key, stores nothing and returns null: the caller must not
+   * dispatch it again.
+   */
+  record(data: {
+    projectId: number;
+    contactId: number;
+    name: string;
+    payload: Record<string, unknown>;
+    idempotencyKey?: string | null;
+  }): Promise<ContactEvent | null>;
+  /** The event stored with this key in the project, if any. */
+  findByIdempotencyKey(projectId: number, idempotencyKey: string): Promise<ContactEvent | null>;
+  /** Whether the contact did `name` at or after `since`. */
+  existsSince(contactId: number, name: string, since: Date): Promise<boolean>;
+  /** Event names the project used, most recently used first (builder suggestions). */
+  recentNames(projectId: number, limit: number): Promise<string[]>;
+}
+
 export interface IApiKeyRepository {
   /** The key whose stored hash matches (`hashApiKey`). */
   findByHash(keyHash: string): Promise<ApiKey | null>;
@@ -360,4 +386,6 @@ export interface ILogRetentionRepository {
   deleteEvents(projectId: number, options: { before: Date; limit: number }): Promise<number>;
   /** The record of who opened or clicked on a day before `beforeDay` (`YYYY-MM-DD`); only today's matters. */
   deleteDailyUniques(options: { beforeDay: string; limit: number }): Promise<number>;
+  /** Events of the project's contacts (`contact_events`) stored before `before`. */
+  deleteContactEvents(projectId: number, options: { before: Date; limit: number }): Promise<number>;
 }

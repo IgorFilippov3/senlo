@@ -19,25 +19,33 @@ export const LOG_RETENTION_BATCH_SIZE = 5_000;
 export const PENDING_GRACE_DAYS = 3;
 
 export interface LogRetentionResult {
-  /** `not_backfilled`: the statistics were not backfilled yet, so no log row or event was deleted. */
+  /**
+   * `not_backfilled`: the statistics were not backfilled yet, so no log row
+   * or campaign event was deleted (contact events were: they have no counters).
+   */
   status: "done" | "not_backfilled";
   sendLogs: number;
   events: number;
+  /** Rows of the automation event log (`contact_events`). */
+  contactEvents: number;
   dailyUniques: number;
   /** Projects with a retention that were cleaned. */
   projects: number;
 }
 
 /**
- * The daily cleanup: deletes delivery log rows and raw campaign events older
- * than each project's retention (`RetentionPolicy`), in batches. A project
- * whose retention is `null` (the self-hosted default) is not touched.
- * Statistics stay: they are daily counters, written when the rows were.
+ * The daily cleanup: deletes delivery log rows, raw campaign events and the
+ * automation event log older than each project's retention
+ * (`RetentionPolicy`), in batches. A project whose retention is `null` (the
+ * self-hosted default) is not touched. Statistics stay: they are daily
+ * counters, written when the rows were.
  *
- * Nothing is deleted until the statistics backfill has run: the rows it
- * would count are the only copy of the history before the counters existed.
- * The record of today's unique openers is pruned either way: it is not
- * history, only what makes today's unique count exact.
+ * No delivery log row or campaign event is deleted until the statistics
+ * backfill has run: the rows it would count are the only copy of the history
+ * before the counters existed. The event log has no counters, so it follows
+ * the retention either way. The record of today's unique openers is pruned
+ * either way too: it is not history, only what makes today's unique count
+ * exact.
  */
 export class LogRetentionService {
   constructor(
@@ -56,16 +64,17 @@ export class LogRetentionService {
     const beforeDay = new Date(now.getTime() - DAY_MS).toISOString().slice(0, 10);
     const dailyUniques = await this.drain(() => this.repo.deleteDailyUniques({ beforeDay, limit }), limit);
 
-    if (!(await this.repo.isStatsBackfilled())) {
+    const backfilled = await this.repo.isStatsBackfilled();
+    if (!backfilled) {
       this.logger.warn(
-        "Log retention skipped: the daily statistics are not backfilled yet. Run `pnpm db:backfill-stats`.",
+        "Log retention skipped for delivery logs and campaign events: the daily statistics are not backfilled yet. Run `pnpm db:backfill-stats`.",
       );
-      return { status: "not_backfilled", sendLogs: 0, events: 0, dailyUniques, projects: 0 };
     }
 
     const keepPendingSince = new Date(now.getTime() - PENDING_GRACE_DAYS * DAY_MS);
     let sendLogs = 0;
     let events = 0;
+    let contactEvents = 0;
     let projects = 0;
 
     for (const projectId of await this.repo.listProjectIds()) {
@@ -80,21 +89,35 @@ export class LogRetentionService {
       }
 
       const before = new Date(now.getTime() - days * DAY_MS);
-      const logs = await this.drain(
-        () => this.repo.deleteSendLogs(projectId, { before, keepPendingSince, limit }),
-        limit,
-      );
-      const raw = await this.drain(() => this.repo.deleteEvents(projectId, { before, limit }), limit);
+      const logs = backfilled
+        ? await this.drain(() => this.repo.deleteSendLogs(projectId, { before, keepPendingSince, limit }), limit)
+        : 0;
+      const raw = backfilled ? await this.drain(() => this.repo.deleteEvents(projectId, { before, limit }), limit) : 0;
+      const contact = await this.drain(() => this.repo.deleteContactEvents(projectId, { before, limit }), limit);
       projects += 1;
       sendLogs += logs;
       events += raw;
-      if (logs > 0 || raw > 0) {
-        this.logger.info("Log retention: rows deleted", { projectId, retentionDays: days, sendLogs: logs, events: raw });
+      contactEvents += contact;
+      if (logs > 0 || raw > 0 || contact > 0) {
+        this.logger.info("Log retention: rows deleted", {
+          projectId,
+          retentionDays: days,
+          sendLogs: logs,
+          events: raw,
+          contactEvents: contact,
+        });
       }
     }
 
-    this.logger.info("Log retention done", { projects, sendLogs, events, dailyUniques });
-    return { status: "done", sendLogs, events, dailyUniques, projects };
+    this.logger.info("Log retention done", { projects, sendLogs, events, contactEvents, dailyUniques });
+    return {
+      status: backfilled ? "done" : "not_backfilled",
+      sendLogs,
+      events,
+      contactEvents,
+      dailyUniques,
+      projects,
+    };
   }
 
   /** Repeats a batch delete until a batch comes back short; the total removed. */

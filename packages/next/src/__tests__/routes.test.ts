@@ -54,15 +54,32 @@ describe("events and triggered", () => {
   });
 
   it("ingests for the key's project and logs the success", async () => {
-    const ingest = vi.fn(async () => ({ event: { event: "signup" }, contact: { email: "a@b.c" } }));
+    const ingest = vi.fn(async () => ({ event: { event: "signup" }, contact: { email: "a@b.c" }, duplicate: false }));
     const { routes, logger } = fakeHost({ events: { ingest } });
 
     const response = await routes.events.POST(post("/api/events", { event: "signup" }, bearer));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ success: true, data: { email: "a@b.c" } });
-    expect(ingest).toHaveBeenCalledWith(7, { event: "signup" });
+    expect(ingest).toHaveBeenCalledWith(7, { event: "signup" }, { idempotencyKey: null });
     expect(logger.info).toHaveBeenCalledWith("Event processed via API", { event: "signup", projectId: 7 });
+  });
+
+  it("passes the Idempotency-Key header and answers a repeat with 200", async () => {
+    const ingest = vi.fn(async () => ({ event: { event: "signup" }, contact: { email: "a@b.c" }, duplicate: true }));
+    const { routes, logger } = fakeHost({ events: { ingest } });
+
+    const response = await routes.events.POST(
+      post("/api/events", { event: "signup" }, { ...bearer, "Idempotency-Key": "k-1" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(ingest).toHaveBeenCalledWith(7, { event: "signup" }, { idempotencyKey: "k-1" });
+    expect(logger.info).toHaveBeenCalledWith("Event processed via API", {
+      event: "signup",
+      duplicate: true,
+      projectId: 7,
+    });
   });
 
   it("answers a service error with its status and logs it as a warning", async () => {

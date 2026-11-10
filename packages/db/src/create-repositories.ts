@@ -9,6 +9,7 @@ import { AiProviderRepository } from "./repositories/aiProviderRepository";
 import { ApiKeyRepository } from "./repositories/apiKeyRepository";
 import { CampaignRepository } from "./repositories/campaignRepository";
 import { ContactRepository } from "./repositories/contactRepository";
+import { ContactEventRepository } from "./repositories/contactEventRepository";
 import { DashboardRepository } from "./repositories/dashboardRepository";
 import { EmailProviderRepository } from "./repositories/emailProviderRepository";
 import { EmailTemplateRepository } from "./repositories/emailTemplateRepository";
@@ -37,6 +38,7 @@ export function createRepositories(db: Database, { secrets }: RepositoryOptions)
     apiKeys: new ApiKeyRepository(db),
     campaigns: new CampaignRepository(db),
     contacts: new ContactRepository(db),
+    contactEvents: new ContactEventRepository(db),
     dashboard: new DashboardRepository(db),
     executions: new WorkflowExecutionRepository(db),
     logRetention: new LogRetentionRepository(db),

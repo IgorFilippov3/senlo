@@ -7,7 +7,14 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { ILogRetentionRepository } from "@senlo/core";
 import { isCampaignStatsBackfilled } from "../campaign-stats";
 import * as schema from "../schema";
-import { campaignDailyUniques, campaignEvents, campaigns, projects, triggeredSendLogs } from "../schema";
+import {
+  campaignDailyUniques,
+  campaignEvents,
+  campaigns,
+  contactEvents,
+  projects,
+  triggeredSendLogs,
+} from "../schema";
 
 /**
  * The deletes behind the daily retention job. Each statement removes at
@@ -57,6 +64,23 @@ export class LogRetentionRepository implements ILogRetentionRepository {
         FROM ${campaignEvents} e
         WHERE e.campaign_id IN (SELECT ${campaigns.id} FROM ${campaigns} WHERE ${campaigns.projectId} = ${projectId})
           AND e.occurred_at < ${before.toISOString()}::timestamptz
+        LIMIT ${limit}
+      )
+    `);
+    return affected(result);
+  }
+
+  async deleteContactEvents(
+    projectId: number,
+    { before, limit }: { before: Date; limit: number },
+  ): Promise<number> {
+    // Picked through `(project_id, created_at)`.
+    const result = await this.db.execute(sql`
+      DELETE FROM ${contactEvents}
+      WHERE id IN (
+        SELECT id FROM ${contactEvents}
+        WHERE project_id = ${projectId}
+          AND created_at < ${before.toISOString()}::timestamptz
         LIMIT ${limit}
       )
     `);

@@ -103,7 +103,7 @@ describe("services call the ports once per action", () => {
       {} as never,
       contacts as never,
       {} as never,
-      { triggerEvent: async () => {} } as never,
+      { handleEvent: async () => ({ event: null, duplicate: false }) } as never,
       projects,
       undefined,
       p.hooks,
@@ -124,7 +124,7 @@ describe("services call the ports once per action", () => {
     };
     const workflows = { findById: async () => workflow, getNodes: async () => [], findByProject: async () => [workflow] };
     const make = (p: ReturnType<typeof ports>) =>
-      new AutomationService(workflows as never, executions as never, {} as never, {} as never, {} as never, silent, p.hooks);
+      new AutomationService(workflows as never, executions as never, {} as never, {} as never, {} as never, {} as never, silent, p.hooks);
 
     const p = ports();
     await make(p).triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });

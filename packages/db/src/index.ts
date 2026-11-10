@@ -23,6 +23,7 @@ export * from "./repositories/projectRepository";
 export * from "./repositories/emailTemplateRepository";
 export * from "./repositories/campaignRepository";
 export * from "./repositories/contactRepository";
+export * from "./repositories/contactEventRepository";
 export * from "./repositories/emailProviderRepository";
 export * from "./repositories/aiProviderRepository";
 export * from "./repositories/apiKeyRepository";

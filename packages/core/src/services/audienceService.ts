@@ -24,13 +24,21 @@ export class AudienceService {
     this.access = access ?? new AccessGuard(projects);
   }
 
-  async createContact(data: {
-    projectId: number;
-    email: string;
-    name?: string | null;
-    locale?: string | null;
-    meta?: Record<string, any> | null;
-  }): Promise<Contact> {
+  /**
+   * Creates the contact (or updates a known address) and fires
+   * `contact_added`. `event` carries what the events API received with it:
+   * the payload and idempotency key of that `contact_added`.
+   */
+  async createContact(
+    data: {
+      projectId: number;
+      email: string;
+      name?: string | null;
+      locale?: string | null;
+      meta?: Record<string, any> | null;
+    },
+    event: { payload?: Record<string, unknown>; idempotencyKey?: string | null } = {},
+  ): Promise<Contact> {
     // An upsert of a known address is an update, not a new contact: only a
     // new one is checked against a plan and counted.
     const isNew = !(await this.contactRepo.findByEmail(data.projectId, data.email));
@@ -41,12 +49,12 @@ export class AudienceService {
       await this.hooks.recordUsage({ type: "contact.created", projectId: data.projectId, contactId: contact.id });
     }
 
-    // Trigger workflows for 'contact_added' event
-    await this.automationService.triggerEvent({
-      event: "contact_added",
+    await this.automationService.handleEvent({
       projectId: data.projectId,
       contactId: contact.id,
-      metadata: contact.meta as Record<string, any>,
+      name: "contact_added",
+      payload: event.payload,
+      idempotencyKey: event.idempotencyKey,
     });
 
     return contact;

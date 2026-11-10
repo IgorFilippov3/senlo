@@ -3,10 +3,12 @@ import {
   IWorkflowRepository,
   IWorkflowExecutionRepository,
   ContactRepository,
+  IContactEventRepository,
 } from "../ports";
 import { TriggerService } from "./triggerService";
 import { AutomationJobData } from "../queue/types";
-import { WorkflowNodeStats, WorkflowEventType } from "../domain";
+import type { ContactEvent, WorkflowNodeStats } from "../domain";
+import { triggerMatches } from "../workflow-events";
 import { ServiceHooks } from "../hooks";
 import { consoleLogger, type Logger } from "../logger";
 import { allowAllOutbound, fetchWithPolicy, type OutboundPolicy } from "../outbound";
@@ -16,6 +18,7 @@ export class AutomationService {
     private readonly workflowRepo: IWorkflowRepository,
     private readonly executionRepo: IWorkflowExecutionRepository,
     private readonly contactRepo: ContactRepository,
+    private readonly contactEvents: Pick<IContactEventRepository, "record">,
     private readonly automationQueue: Queue<AutomationJobData>,
     private readonly triggerService: TriggerService,
     private readonly logger: Logger = consoleLogger,
@@ -89,34 +92,55 @@ export class AutomationService {
   }
 
   /**
-   * Trigger workflows for a specific event. A plan refusal
-   * (`QuotaExceededError`) comes out of the first run it stops: the runs
-   * before it have started, and the caller (events API, contact creation)
-   * reports the reason.
+   * The one way an event enters automations (events API, contact creation
+   * from the UI or an import): store it in the event log, then dispatch it.
+   * An idempotency key the project has already used stores and dispatches
+   * nothing (`duplicate: true`).
+   *
+   * Dispatch order is fixed: goals, then runs waiting for this event, then
+   * triggers (the first two arrive with goals and wait-for-event), so the
+   * event that ends a run may also start a new one.
+   *
+   * A plan refusal (`QuotaExceededError`) comes out of the first run it
+   * stops: the runs before it have started and the event stays stored; the
+   * caller (events API, contact creation) reports the reason.
    */
-  async triggerEvent(options: {
-    event: WorkflowEventType;
+  async handleEvent(options: {
     projectId: number;
     contactId: number;
-    metadata?: Record<string, any>;
-  }) {
-    const { event, projectId, contactId } = options;
+    name: string;
+    payload?: Record<string, unknown>;
+    idempotencyKey?: string | null;
+  }): Promise<{ event: ContactEvent | null; duplicate: boolean }> {
+    const { projectId, contactId, name } = options;
+    const payload = options.payload ?? {};
 
+    const event = await this.contactEvents.record({
+      projectId,
+      contactId,
+      name,
+      payload,
+      idempotencyKey: options.idempotencyKey ?? null,
+    });
+    if (!event) return { event: null, duplicate: true };
+
+    await this.dispatchTriggers(projectId, contactId, { name, payload });
+    return { event, duplicate: false };
+  }
+
+  /** Starts every ACTIVE workflow of the project whose trigger node accepts the event. */
+  private async dispatchTriggers(
+    projectId: number,
+    contactId: number,
+    event: { name: string; payload: Record<string, unknown> },
+  ): Promise<void> {
     const workflows = await this.workflowRepo.findByProject(projectId);
     for (const workflow of workflows) {
-      if (workflow.status === "ACTIVE") {
-        const nodes = await this.workflowRepo.getNodes(workflow.id);
-        const hasTrigger = nodes.some(
-          (n) => n.type === "trigger" && n.data.event === event,
-        );
-
-        if (hasTrigger) {
-          await this.triggerWorkflow({
-            workflowId: workflow.id,
-            contactId,
-            projectId,
-          });
-        }
+      if (workflow.status !== "ACTIVE") continue;
+      const nodes = await this.workflowRepo.getNodes(workflow.id);
+      const listens = nodes.some((n) => n.type === "trigger" && triggerMatches(n.data, event));
+      if (listens) {
+        await this.triggerWorkflow({ workflowId: workflow.id, contactId, projectId });
       }
     }
   }

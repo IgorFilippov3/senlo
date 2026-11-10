@@ -5,6 +5,7 @@
 import {
   pgTable,
   serial,
+  bigserial,
   integer,
   text,
   timestamp,
@@ -524,6 +525,43 @@ export const suppressions = pgTable(
   },
   (table) => ({
     unq: unique().on(table.projectId, table.email),
+  }),
+);
+
+/**
+ * The automation event log: every event of a contact (system or custom),
+ * with its payload. Kept for the project's log retention (deleted by the
+ * daily retention job); runs copy what they need into their own context.
+ */
+export const contactEvents = pgTable(
+  "contact_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    contactId: integer("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    payload: jsonb("payload").notNull().default({}),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    contactNameCreatedIdx: index("contact_events_contact_name_created_idx").on(
+      t.contactId,
+      t.name,
+      t.createdAt.desc(),
+    ),
+    projectCreatedIdx: index("contact_events_project_created_idx").on(t.projectId, t.createdAt),
+    // NULL keys are distinct in Postgres, so only events sent with a key are unique.
+    projectIdempotencyUnq: unique("contact_events_project_idempotency_key_unq").on(
+      t.projectId,
+      t.idempotencyKey,
+    ),
   }),
 );
 

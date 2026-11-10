@@ -93,12 +93,19 @@ export interface CampaignEvent {
 
 export type WorkflowStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
 
-export type WorkflowEventType =
-  | "contact_added"
-  | "contact_updated"
-  | "tag_added"
-  | "order_created"
-  | "event_triggered";
+/** An event name: one of `SYSTEM_EVENT_TYPES` or a custom name matching `EVENT_NAME_PATTERN`. */
+export type WorkflowEventType = string;
+
+/** One stored event of a contact (`contact_events`), kept for the project's log retention. */
+export interface ContactEvent {
+  id: number;
+  projectId: number;
+  contactId: number;
+  name: string;
+  payload: Record<string, unknown>;
+  idempotencyKey: string | null;
+  createdAt: Date;
+}
 
 export interface Workflow {
   id: number;

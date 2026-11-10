@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { WORKFLOW_EVENT_TYPES } from "./services/eventIngestionService";
+import { EVENT_NAME_PATTERN, MAX_IDEMPOTENCY_KEY_LENGTH, SYSTEM_EVENT_TYPES } from "./workflow-events";
 
 /**
  * The public API, as the docs page renders it. Hand-written for now; the
@@ -189,21 +189,37 @@ export const openApiSpec = {
       post: {
         summary: "Send a contact event",
         description: [
-          "The universal entry point for automations. Each event identifies a contact",
-          "by email, updates it, and starts any workflow whose trigger node listens",
-          "for that event type.",
+          "The universal entry point for automations. Each event names a contact by email,",
+          "is stored in the contact's event history and starts every active workflow whose",
+          "trigger listens for that event name.",
+          "",
+          "Three names are system events with a side effect on the contact; any other name",
+          "(`trial_started`, `invoice.paid`) is a custom event.",
           "",
           "| Event | Contact must exist | What it does |",
           "| --- | --- | --- |",
-          "| `contact_added` | no — it is created | Creates the contact. |",
+          "| `contact_added` | no — it is created | Creates the contact (or updates a known address). |",
           "| `contact_updated` | **yes** | Updates `name`, `locale`, merges `metadata` into the contact. |",
-          "| `tag_added` | **yes** | Merges `metadata.tags` into the contact's existing tags, de-duplicated. |",
-          "| `order_created` | no — created if missing | Signals a purchase. |",
-          "| `event_triggered` | no — created if missing | Generic custom event; use `metadata` to carry your own payload. |",
+          "| `tag_added` | **yes** | Adds `payload.tags` to the contact's tags, de-duplicated. |",
+          "| any other name | no — created if missing | A custom event. |",
           "",
-          "`metadata` is merged into the contact's `meta` object, so previously sent",
-          "keys survive unless you overwrite them.",
+          "`metadata` is contact attributes: merged into the contact's `meta`, so earlier keys",
+          "survive unless you overwrite them. `payload` is the event's own data: emails read it",
+          "as `{{event.*}}`; it is not stored on the contact.",
+          "",
+          "Send an `Idempotency-Key` header (or `idempotencyKey` in the body) to make a retry",
+          "safe: a key the project has already used returns `200` with the contact and",
+          "starts nothing.",
         ].join("\n"),
+        parameters: [
+          {
+            name: "Idempotency-Key",
+            in: "header",
+            required: false,
+            schema: { type: "string", maxLength: MAX_IDEMPOTENCY_KEY_LENGTH },
+            description: "Unique per event within the project. Wins over `idempotencyKey` in the body.",
+          },
+        ],
         tags: ["Events"],
         requestBody: {
           required: true,
@@ -215,7 +231,8 @@ export const openApiSpec = {
                 properties: {
                   event: {
                     type: "string",
-                    enum: [...WORKFLOW_EVENT_TYPES],
+                    pattern: EVENT_NAME_PATTERN.source,
+                    description: `A system event (${SYSTEM_EVENT_TYPES.map((e) => `\`${e}\``).join(", ")}) or any custom name: lowercase letters, digits and \`_ . : -\`, 64 characters at most.`,
                   },
                   email: { type: "string", format: "email" },
                   name: { type: "string" },
@@ -226,8 +243,17 @@ export const openApiSpec = {
                   },
                   metadata: {
                     type: "object",
+                    description: "Contact attributes, merged into the contact's `meta`. Not part of the event.",
+                  },
+                  payload: {
+                    type: "object",
                     description:
-                      "Arbitrary attributes merged into the contact's `meta`. For `tag_added`, `metadata.tags` must be an array of strings.",
+                      "The event's data, at most 32 KB of JSON: `{{event.*}}` in emails. For `tag_added`, `payload.tags` is required: a non-empty array of strings.",
+                  },
+                  idempotencyKey: {
+                    type: "string",
+                    maxLength: MAX_IDEMPOTENCY_KEY_LENGTH,
+                    description: "Same as the `Idempotency-Key` header.",
                   },
                 },
               },
@@ -247,15 +273,15 @@ export const openApiSpec = {
                   value: {
                     event: "tag_added",
                     email: "user@example.com",
-                    metadata: { tags: ["onboarded"] },
+                    payload: { tags: ["onboarded"] },
                   },
                 },
-                order_created: {
-                  summary: "Purchase",
+                custom: {
+                  summary: "Custom event with a payload",
                   value: {
-                    event: "order_created",
+                    event: "invoice_failed",
                     email: "customer@example.com",
-                    metadata: { orderId: "A-1049", total: 42 },
+                    payload: { invoiceId: "in_1049", amount: 42, currency: "EUR" },
                   },
                 },
               },
@@ -279,7 +305,7 @@ export const openApiSpec = {
           },
           400: {
             description:
-              "`email` or `event` is missing, or the event name is not supported",
+              "`email` or `event` is missing, the event name is malformed, the payload is over 32 KB, or `tag_added` has no `payload.tags`",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/Error" },

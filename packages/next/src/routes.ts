@@ -39,7 +39,11 @@ export function createSenloRoutes(host: SenloHost) {
     (
       label: string,
       success: string,
-      run: (projectId: number, body: unknown) => Promise<{ response: Response; log: Record<string, unknown> }>,
+      run: (
+        projectId: number,
+        body: unknown,
+        req: NextRequest,
+      ) => Promise<{ response: Response; log: Record<string, unknown> }>,
     ): Handler =>
     async (req) => {
       const limited = await host.rateLimit.limitRequest(req, "api");
@@ -51,7 +55,7 @@ export function createSenloRoutes(host: SenloHost) {
 
       try {
         const body = await req.json().catch(() => ({}));
-        const { response, log } = await run(projectId, body);
+        const { response, log } = await run(projectId, body, req);
         host.logger.info(success, { ...log, projectId });
         return response;
       } catch (error) {
@@ -76,11 +80,14 @@ export function createSenloRoutes(host: SenloHost) {
   return {
     /** `POST /api/events`: the universal trigger. */
     events: {
-      POST: apiRoute("Event", "Event processed via API", async (projectId, body) => {
-        const { event, contact } = await services().events.ingest(projectId, body);
+      POST: apiRoute("Event", "Event processed via API", async (projectId, body, req) => {
+        const { event, contact, duplicate } = await services().events.ingest(projectId, body, {
+          idempotencyKey: req.headers.get("idempotency-key"),
+        });
+        // A repeated idempotency key answers like the first request did.
         return {
           response: NextResponse.json({ success: true, data: contact }),
-          log: { event: event.event },
+          log: duplicate ? { event: event.event, duplicate } : { event: event.event },
         };
       }),
     },

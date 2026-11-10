@@ -15,6 +15,7 @@ const DAY = 24 * 60 * 60 * 1000;
 function fakeRepo(rows: Record<number, number>, { backfilled = true } = {}) {
   const logs = { ...rows };
   const events = { ...rows };
+  const contactEvents = { ...rows };
   const repo = {
     isStatsBackfilled: vi.fn(async () => backfilled),
     listProjectIds: vi.fn(async () => Object.keys(rows).map(Number)),
@@ -29,8 +30,13 @@ function fakeRepo(rows: Record<number, number>, { backfilled = true } = {}) {
       return n;
     }),
     deleteDailyUniques: vi.fn(async () => 0),
+    deleteContactEvents: vi.fn(async (projectId: number, { limit }: { limit: number }) => {
+      const n = Math.min(limit, contactEvents[projectId] ?? 0);
+      contactEvents[projectId] -= n;
+      return n;
+    }),
   } satisfies ILogRetentionRepository;
-  return { repo, logs, events };
+  return { repo, logs, events, contactEvents };
 }
 
 const service = (repo: ILogRetentionRepository, retention?: RetentionPolicy, batchSize = 10) =>
@@ -38,13 +44,14 @@ const service = (repo: ILogRetentionRepository, retention?: RetentionPolicy, bat
 
 describe("LogRetentionService", () => {
   it("deletes in batches until a batch comes back short", async () => {
-    const { repo, logs, events } = fakeRepo({ 1: 25 });
+    const { repo, logs, events, contactEvents } = fakeRepo({ 1: 25 });
 
     const result = await service(repo, fixedLogRetention(30)).run();
 
-    expect(result).toMatchObject({ status: "done", sendLogs: 25, events: 25, projects: 1 });
+    expect(result).toMatchObject({ status: "done", sendLogs: 25, events: 25, contactEvents: 25, projects: 1 });
     expect(logs[1]).toBe(0);
     expect(events[1]).toBe(0);
+    expect(contactEvents[1]).toBe(0);
     // 10 + 10 + 5: the short third batch ends the loop.
     expect(repo.deleteSendLogs).toHaveBeenCalledTimes(3);
     expect(repo.deleteEvents).toHaveBeenCalledTimes(3);
@@ -61,6 +68,7 @@ describe("LogRetentionService", () => {
       limit: 10,
     });
     expect(repo.deleteEvents).toHaveBeenCalledWith(1, { before: new Date(NOW.getTime() - 7 * DAY), limit: 10 });
+    expect(repo.deleteContactEvents).toHaveBeenCalledWith(1, { before: new Date(NOW.getTime() - 7 * DAY), limit: 10 });
   });
 
   it("deletes nothing without a retention: self-hosted without LOG_RETENTION_DAYS", async () => {
@@ -72,14 +80,15 @@ describe("LogRetentionService", () => {
     expect(result).toMatchObject({ status: "done", sendLogs: 0, events: 0, projects: 0 });
     expect(repo.deleteSendLogs).not.toHaveBeenCalled();
     expect(repo.deleteEvents).not.toHaveBeenCalled();
+    expect(repo.deleteContactEvents).not.toHaveBeenCalled();
   });
 
-  it("deletes no log row or event before the statistics backfill, but prunes old uniques", async () => {
+  it("deletes no log row or campaign event before the statistics backfill, but prunes old uniques and contact events", async () => {
     const { repo } = fakeRepo({ 1: 5 }, { backfilled: false });
 
     const result = await service(repo, fixedLogRetention(1)).run();
 
-    expect(result.status).toBe("not_backfilled");
+    expect(result).toMatchObject({ status: "not_backfilled", sendLogs: 0, events: 0, contactEvents: 5 });
     expect(repo.deleteSendLogs).not.toHaveBeenCalled();
     expect(repo.deleteEvents).not.toHaveBeenCalled();
     expect(repo.deleteDailyUniques).toHaveBeenCalledWith({ beforeDay: "2026-11-06", limit: 10 });
