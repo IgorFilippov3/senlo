@@ -1,0 +1,50 @@
+---
+title: Cancel automation runs
+description: POST /api/automations/cancel ends a contact's runs in progress.
+---
+
+```bash tab="curl"
+curl -X POST https://senlo.io/api/automations/cancel \
+  -H "Authorization: Bearer $SENLO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "ada@example.com", "workflowId": 12 }'
+```
+
+```ts tab="Node"
+await fetch("https://senlo.io/api/automations/cancel", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.SENLO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ email: "ada@example.com", workflowId: 12 }),
+});
+```
+
+Ends the contact's [automation](../concepts/triggers-and-automations.mdx) runs in progress. Their remaining steps (waits, emails, checks) do not run. Use it when something in your app makes a flow pointless: the overdue invoice was paid, the user deleted their account, the trial converted.
+
+The contact can enter the automation again with its next event.
+
+## Body
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `email` | string | yes | The contact in this workspace. |
+| `workflowId` | integer | no | Only runs of this automation (its id is in the editor's URL). Without it, the contact's runs in every automation of the workspace. |
+
+## Response
+
+```json
+{ "success": true, "data": { "cancelled": 1 } }
+```
+
+`cancelled` is the number of runs ended; `0` when none was in progress.
+
+## Errors
+
+| Status | When |
+| --- | --- |
+| `400` | `email` missing or invalid, `workflowId` not a positive integer. |
+| `401` | No key, or a wrong one. |
+| `404` | No contact with this email, or no automation with this id, in the workspace. |
+| `429` | Rate limited. |

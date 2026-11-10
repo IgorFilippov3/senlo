@@ -21,7 +21,7 @@ import { renderEmailDesign } from "../renderer/renderEmailDesign";
 import type { EmailDesignDocument } from "../emailDesign";
 import { AutomationService } from "../services/automationService";
 import { consoleLogger, type Logger } from "../logger";
-import { QuotaExceededError } from "../errors";
+import { QuotaExceededError, RetryableStepError } from "../errors";
 import { allowAllOutbound, type OutboundPolicy } from "../outbound";
 import { ServiceHooks } from "../hooks";
 import {
@@ -465,13 +465,25 @@ export class AutomationWorkerProcessor {
     private readonly settings: Pick<MailSettings, "appUrl">,
   ) {}
 
+  /**
+   * One step of a run. A retryable step error comes back out, so BullMQ
+   * retries the job with backoff. When the last attempt fails on an error the
+   * step could not handle itself (the database unreachable), the run is
+   * ended FAILED rather than left RUNNING until the sweeper finds it.
+   */
   async processAutomationJob(job: Job<AutomationJobData>) {
     const { executionId, nodeId } = job.data;
-    await this.automationService.processStep(
-      executionId,
-      nodeId,
-      this.settings.appUrl,
-    );
+    const attempt = { attemptsMade: job.attemptsMade, attempts: job.opts.attempts ?? 1 };
+    try {
+      await this.automationService.processStep(executionId, nodeId, this.settings.appUrl, attempt);
+    } catch (error) {
+      if (attempt.attemptsMade + 1 >= attempt.attempts && !(error instanceof RetryableStepError)) {
+        await this.automationService
+          .failExhaustedRun(executionId, nodeId, error instanceof Error ? error.message : String(error))
+          .catch(() => {});
+      }
+      throw error;
+    }
   }
 }
 

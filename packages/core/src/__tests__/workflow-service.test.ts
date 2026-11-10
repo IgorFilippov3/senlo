@@ -218,7 +218,7 @@ describe("WorkflowService", () => {
         .catch((x) => x);
       expect(e).toBeInstanceOf(ValidationError);
       expect(e.message).toBe("Pause the automation to save an incomplete draft.");
-      expect(e.details.reasons).toContain("An API Check is missing a Yes branch.");
+      expect(e.details.reasons).toContain("A Condition is missing a Yes branch.");
       expect(workflows.saveGraph).not.toHaveBeenCalled();
       expect(workflows.publishVersion).not.toHaveBeenCalled();
     });

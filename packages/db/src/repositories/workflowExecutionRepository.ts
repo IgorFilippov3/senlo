@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, lt, asc, isNotNull } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import {
@@ -118,6 +118,42 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
     });
   }
 
+  async findDue(before: Date, limit: number): Promise<Array<{ id: number; currentNodeId: string }>> {
+    // Picked through (status, wake_at).
+    const rows = await this.db
+      .select({ id: schema.workflowExecutions.id, currentNodeId: schema.workflowExecutions.currentNodeId })
+      .from(schema.workflowExecutions)
+      .where(
+        and(
+          eq(schema.workflowExecutions.status, "RUNNING"),
+          lt(schema.workflowExecutions.wakeAt, before),
+          isNotNull(schema.workflowExecutions.currentNodeId),
+        ),
+      )
+      .orderBy(asc(schema.workflowExecutions.wakeAt))
+      .limit(limit);
+    return rows.map((r) => ({ id: r.id, currentNodeId: r.currentNodeId! }));
+  }
+
+  async cancelRunning(
+    contactId: number,
+    { workflowId, exitReason }: { workflowId?: number; exitReason: ExecutionExitReason },
+  ): Promise<number[]> {
+    const now = new Date();
+    const rows = await this.db
+      .update(schema.workflowExecutions)
+      .set({ status: "CANCELLED", exitReason, completedAt: now, wakeAt: null, updatedAt: now })
+      .where(
+        and(
+          eq(schema.workflowExecutions.contactId, contactId),
+          eq(schema.workflowExecutions.status, "RUNNING"),
+          workflowId !== undefined ? eq(schema.workflowExecutions.workflowId, workflowId) : undefined,
+        ),
+      )
+      .returning({ id: schema.workflowExecutions.id });
+    return rows.map((r) => r.id);
+  }
+
   async claimStep(executionId: number, nodeId: string): Promise<WorkflowStepExecution> {
     const [created] = await this.db
       .insert(schema.workflowStepExecutions)
@@ -224,7 +260,7 @@ async function completeStepRow(tx: Tx, step: CompleteStep): Promise<void> {
   await tx
     .update(schema.workflowStepExecutions)
     .set({
-      status: "COMPLETED",
+      status: step.status ?? "COMPLETED",
       completedAt: new Date(),
       ...(step.result !== undefined ? { result: step.result } : {}),
     })

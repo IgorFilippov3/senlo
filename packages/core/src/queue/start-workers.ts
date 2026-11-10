@@ -20,6 +20,7 @@ import { LogRetentionService } from "../services/logRetentionService";
 import {
   createMaintenanceQueue,
   createMaintenanceWorker,
+  scheduleAutomationSweep,
   scheduleLogRetention,
 } from "./maintenance";
 import { createQueues, type QueueConnection } from "./queue";
@@ -37,7 +38,7 @@ export interface RunningWorkers {
 
 /**
  * Starts the email and automation workers, and the maintenance worker with
- * the daily log retention run. Everything an app's worker process used to
+ * the automation sweeper and the daily log retention run. Everything an app's worker process used to
  * assemble by hand - queues, services, processors, logging - so a second
  * app runs the same workers with one call.
  */
@@ -98,23 +99,23 @@ export function startWorkers({
     ["automation", createAutomationWorker(automationProcessor, connection)],
   ];
 
-  // The retention job runs daily even with nothing to delete (self-hosted
-  // without LOG_RETENTION_DAYS): it also prunes the record of yesterday's
-  // unique openers.
-  const maintenanceQueue = repositories.logRetention ? createMaintenanceQueue(connection) : null;
-  if (maintenanceQueue && repositories.logRetention) {
-    const logRetention = new LogRetentionService(
-      repositories.logRetention,
-      new ServiceHooks({ retention }, logger),
-      logger,
-    );
-    workers.push(["maintenance", createMaintenanceWorker(logRetention, connection)]);
-    scheduleLogRetention(maintenanceQueue).catch((error) =>
-      logger.error("Failed to schedule log retention", {
-        error: error instanceof Error ? error.message : String(error),
-      }),
-    );
-  }
+  // The maintenance worker runs the automation sweeper every five minutes
+  // and, with a retention repository, the daily cleanup. The retention job
+  // runs even with nothing to delete (self-hosted without
+  // LOG_RETENTION_DAYS): it also prunes the record of yesterday's unique
+  // openers.
+  const maintenanceQueue = createMaintenanceQueue(connection);
+  const logRetention = repositories.logRetention
+    ? new LogRetentionService(repositories.logRetention, new ServiceHooks({ retention }, logger), logger)
+    : undefined;
+  workers.push([
+    "maintenance",
+    createMaintenanceWorker({ retention: logRetention, automation: services.automation }, connection),
+  ]);
+  const scheduleFailed = (what: string) => (error: unknown) =>
+    logger.error(`Failed to schedule ${what}`, { error: error instanceof Error ? error.message : String(error) });
+  scheduleAutomationSweep(maintenanceQueue).catch(scheduleFailed("the automation sweeper"));
+  if (logRetention) scheduleLogRetention(maintenanceQueue).catch(scheduleFailed("log retention"));
 
   for (const [name, worker] of workers) {
     worker.on("completed", (job) =>
@@ -133,7 +134,7 @@ export function startWorkers({
     async close() {
       await Promise.all(workers.map(([, worker]) => worker.close()));
       await Promise.all(Object.values(queues).map((queue) => queue.close()));
-      await maintenanceQueue?.close();
+      await maintenanceQueue.close();
     },
   };
 }

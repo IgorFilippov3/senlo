@@ -33,6 +33,7 @@ export * from "./outbound";
 export * from "./base-url";
 export * from "./workflow-graph";
 export * from "./workflow-events";
+export * from "./workflow-conditions";
 export * from "./workflow-step-data";
 export * from "./rate-limit";
 export * from "./merge-tags";

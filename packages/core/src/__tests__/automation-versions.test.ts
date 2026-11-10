@@ -119,7 +119,11 @@ describe("runs and versions", () => {
     await service.processStep(1, "wait", "https://app.test");
     await service.processStep(1, "mail", "https://app.test");
     expect(runs.get(1)).toMatchObject({ status: "FAILED", exitReason: "error" });
-    expect(steps.get("1:mail")).toMatchObject({ status: "FAILED", result: { error: "provider down" } });
+    // Not a refusal of the send service, so retryable; this was the only attempt.
+    expect(steps.get("1:mail")).toMatchObject({
+      status: "FAILED",
+      result: { error: "Email step could not queue the send: provider down" },
+    });
   });
 });
 
@@ -172,7 +176,7 @@ describe("cursor and idempotent steps", () => {
     const graph: Graph = {
       nodes: [
         { id: "t", type: "trigger", data: { event: "x" } },
-        { id: "c", type: "condition", data: { url: "https://x.io" } },
+        { id: "c", type: "condition", data: { mode: "api", url: "https://x.io" } },
         { id: "yes", type: "exit", data: {} },
         { id: "no", type: "exit", data: {} },
       ],

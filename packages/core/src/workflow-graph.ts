@@ -10,6 +10,7 @@
  */
 
 import { isValidEventName } from "./workflow-events";
+import { validateConditionGroup } from "./workflow-conditions";
 
 export type GraphNodeRef = {
   id: string;
@@ -207,7 +208,7 @@ export function validateWorkflowConnection(
     if (!sourceHandle || !CONDITION_HANDLES.has(sourceHandle)) {
       return {
         valid: false,
-        reason: "API Check branches must use Yes or No.",
+        reason: "Condition branches must use Yes or No.",
       };
     }
 
@@ -300,6 +301,32 @@ export function validateWorkflowGraph(
       } else if (!isValidEventName(event)) {
         reasons.push(`"${event}" is not a valid event name.`);
       }
+      if (node.data?.filters !== undefined) {
+        reasons.push(...validateConditionGroup(node.data.filters, "trigger").map((r) => `Trigger filters: ${r}`));
+      }
+    }
+
+    if (node.type === "condition" && node.data !== undefined) {
+      const data = node.data ?? {};
+      if (data.mode === "rules") {
+        reasons.push(
+          ...validateConditionGroup(data.conditions, "condition", {
+            emailNodeIds: nodes.filter((n) => n.type === "action").map((n) => n.id),
+            stepNodeIds: nodes.map((n) => n.id),
+          }),
+        );
+      } else if (data.mode === "api") {
+        if (typeof data.url !== "string" || data.url.trim() === "") reasons.push("A Condition has no URL to call.");
+      } else {
+        reasons.push("Choose how a Condition decides: rules or your API.");
+      }
+    }
+
+    if (node.type === "delay" && node.data?.mode === "until") {
+      const until = node.data.until as { source?: unknown; path?: unknown } | undefined;
+      if (!until || (until.source !== "event" && until.source !== "contact") || typeof until.path !== "string" || until.path.trim() === "") {
+        reasons.push("A Wait until step has no date field.");
+      }
     }
 
     if (node.type === "exit" && outgoing.length > 0) {
@@ -319,16 +346,16 @@ export function validateWorkflowGraph(
       });
 
       if (invalidHandles.length > 0) {
-        reasons.push("API Check branches must use Yes or No.");
+        reasons.push("Condition branches must use Yes or No.");
       }
       if (yesEdges.length > 1 || noEdges.length > 1) {
-        reasons.push("An API Check branch has more than one next step.");
+        reasons.push("A Condition branch has more than one next step.");
       }
       if (yesEdges.length === 0) {
-        reasons.push("An API Check is missing a Yes branch.");
+        reasons.push("A Condition is missing a Yes branch.");
       }
       if (noEdges.length === 0) {
-        reasons.push("An API Check is missing a No branch.");
+        reasons.push("A Condition is missing a No branch.");
       }
     }
   }

@@ -52,6 +52,10 @@ An automation starts only on its own event name: an automation on `trial_started
 
 Only **active** automations start; a paused one ignores events, while runs already in progress go on.
 
+A run that is no longer wanted (the invoice got paid, the user left) is ended with [`POST /api/automations/cancel`](../api/cancel-automations.mdx).
+
+When a step fails because something is briefly unavailable (the Condition URL times out or answers `5xx` or `429`), it is retried a few times with growing pauses. If it still fails, or fails for a lasting reason, the step's **If this step fails** setting decides: **Stop the run** (the default) or **Continue**: a Condition then takes its **No** branch, any other step is skipped and the run goes on. A run whose step is lost on a server restart is picked up again within a few minutes.
+
 Going live, and saving an active automation, publishes its graph as a new version. New runs start on the latest version; a run in progress finishes on the version it started on, so editing a live automation never breaks a contact halfway through. Saving an active automation therefore needs a complete graph; pause it to keep an unfinished draft. While a contact has a run in progress in an automation, the same event does not start a second run for them in that automation.
 
 Use an automation when the email depends on what the user does over time: onboarding sequences, trial reminders, a follow-up a few days after an order.

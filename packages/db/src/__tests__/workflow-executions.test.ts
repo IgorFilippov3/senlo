@@ -104,6 +104,49 @@ describe("guarded run transitions", () => {
     expect(await executions.findById(run.id)).toMatchObject({ status: "COMPLETED", exitReason: "exit_node", wakeAt: null });
   });
 
+  it("finds RUNNING runs due before a time, oldest first", async () => {
+    const a = await start();
+    const b = await start();
+    const c = await start();
+    const now = Date.now();
+    await executions.moveCursor(a.run.id, { from: "t", to: "a", wakeAt: new Date(now - 10 * 60_000) });
+    await executions.moveCursor(b.run.id, { from: "t", to: "a", wakeAt: new Date(now - 20 * 60_000) });
+    await executions.moveCursor(c.run.id, { from: "t", to: "a", wakeAt: new Date(now + 60_000) });
+
+    expect(await executions.findDue(new Date(now - 2 * 60_000), 10)).toEqual([
+      { id: b.run.id, currentNodeId: "a" },
+      { id: a.run.id, currentNodeId: "a" },
+    ]);
+    expect(await executions.findDue(new Date(now), 1)).toHaveLength(1);
+
+    await executions.finish(b.run.id, { status: "COMPLETED", exitReason: "completed" });
+    expect((await executions.findDue(new Date(now), 10)).map((r) => r.id)).toEqual([a.run.id]);
+  });
+
+  it("cancels a contact's RUNNING runs, of one workflow when given", async () => {
+    const first = await start();
+    const second = await start();
+    // Same contact in another workflow of the same project.
+    const [other] = await db
+      .insert(schema.workflows)
+      .values({ projectId: first.projectId, name: "Other", status: "ACTIVE" })
+      .returning();
+    const otherVersion = await new WorkflowRepository(db).publishVersion(other.id, { nodes: [], edges: [] });
+    const otherRun = await executions.create({
+      workflowId: other.id,
+      contactId: first.contactId,
+      versionId: otherVersion.id,
+      context: { steps: {} },
+      currentNodeId: "t",
+    });
+
+    expect(await executions.cancelRunning(first.contactId, { workflowId: other.id, exitReason: "cancelled_api" })).toEqual([otherRun!.id]);
+    expect(await executions.cancelRunning(first.contactId, { exitReason: "cancelled_api" })).toEqual([first.run.id]);
+    expect(await executions.cancelRunning(first.contactId, { exitReason: "cancelled_api" })).toEqual([]);
+    expect(await executions.findById(first.run.id)).toMatchObject({ status: "CANCELLED", exitReason: "cancelled_api", wakeAt: null });
+    expect(await executions.findById(second.run.id)).toMatchObject({ status: "RUNNING" });
+  });
+
   it("claims a step once and hands the same row back", async () => {
     const { run } = await start();
     const first = await executions.claimStep(run.id, "a");

@@ -44,6 +44,11 @@ export interface AutomationState {
   insertNode: (edgeId: string, type: string) => void;
 }
 
+/** What a new step starts with: a Condition calls an API until rules are set (the panel switches it). */
+function defaultStepData(type: string): Record<string, unknown> {
+  return type === "condition" ? { mode: "api" } : {};
+}
+
 export const useAutomationStore = create<AutomationState>((set, get) => ({
   nodes: [],
   edges: [],
@@ -139,7 +144,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
 
     const newNodeId = nanoid();
     // Laid out on the canvas from the graph's structure.
-    const newNode: Node = { id: newNodeId, type, data: {}, position: { x: 0, y: 0 } };
+    const newNode: Node = { id: newNodeId, type, data: defaultStepData(type), position: { x: 0, y: 0 } };
 
     const newEdge: Edge = {
       id: nanoid(),
@@ -156,7 +161,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
   },
   insertNode: (edgeId, type) => {
     if (!(INSERTABLE_TYPES as readonly string[]).includes(type)) return;
-    const newNode: Node = { id: nanoid(), type, data: {}, position: { x: 0, y: 0 } };
+    const newNode: Node = { id: nanoid(), type, data: defaultStepData(type), position: { x: 0, y: 0 } };
     const edges = insertStep(get().edges, edgeId, newNode, nanoid);
     if (!edges) return;
     set({ nodes: [...get().nodes, newNode], edges, selectedNodeId: newNode.id });

@@ -33,17 +33,3 @@ export interface WorkflowEvent {
   name: string;
   payload: Record<string, unknown>;
 }
-
-/**
- * Whether a trigger node's data accepts the event: the name must be equal;
- * a `tag_added` trigger with a `tag` also needs that tag in `payload.tags`.
- * Full `filters` come with the condition engine.
- */
-export function triggerMatches(data: Record<string, unknown>, event: WorkflowEvent): boolean {
-  if (data.event !== event.name) return false;
-  if (event.name === "tag_added" && typeof data.tag === "string" && data.tag.trim() !== "") {
-    const tags = event.payload.tags;
-    return Array.isArray(tags) && tags.includes(data.tag.trim());
-  }
-  return true;
-}

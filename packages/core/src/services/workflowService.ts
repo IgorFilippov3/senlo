@@ -179,6 +179,22 @@ export class WorkflowService {
     }
 
     for (const node of graph.nodes) {
+      if (node.type === "condition" && node.data.mode !== undefined && node.data.mode !== "api" && node.data.mode !== "rules") {
+        throw new FormValidationError({ [node.id]: ['A Condition decides by "rules" or "api"'] });
+      }
+      if (node.type === "delay" && node.data.mode !== undefined && node.data.mode !== "for" && node.data.mode !== "until") {
+        throw new FormValidationError({ [node.id]: ['A Wait is "for" a time or "until" a date'] });
+      }
+    }
+
+    for (const node of graph.nodes) {
+      const onError = node.data.onError;
+      if (onError !== undefined && onError !== "fail" && onError !== "continue") {
+        throw new FormValidationError({ [node.id]: ['"If this step fails" must be "fail" or "continue"'] });
+      }
+    }
+
+    for (const node of graph.nodes) {
       if (node.type !== "action") continue;
       const campaignId = actionCampaignId(node);
       if (campaignId === null) continue;

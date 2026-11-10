@@ -15,6 +15,7 @@ import {
 } from "@senlo/ui";
 import { STEP_META } from "./nodes/stepMeta";
 import { TriggerConfig } from "./TriggerConfig";
+import { OnErrorField } from "./OnErrorField";
 
 interface Trigger {
   id: number;
@@ -97,6 +98,11 @@ export const SidePanel = ({ triggers = [], onDelete }: Props) => {
                 placeholder="e.g. Welcome Email"
               />
             </FormField>
+            <OnErrorField
+              type="action"
+              value={node.data.onError}
+              onChange={(onError) => updateNodeData(node.id, { onError })}
+            />
           </div>
         );
       case "delay":
@@ -150,7 +156,7 @@ export const SidePanel = ({ triggers = [], onDelete }: Props) => {
               />
               <p className="text-[10px] text-gray-400 mt-1">
                 Senlo will send a POST request to this URL. Status 200 = YES,
-                any other = NO.
+                any other = NO. A timeout, 429 or 5xx is retried first.
               </p>
               <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-100">
                 <p className="text-[9px] font-bold text-blue-700 uppercase mb-1">
@@ -169,6 +175,11 @@ export const SidePanel = ({ triggers = [], onDelete }: Props) => {
                 </p>
               </div>
             </FormField>
+            <OnErrorField
+              type="condition"
+              value={node.data.onError}
+              onChange={(onError) => updateNodeData(node.id, { onError })}
+            />
           </div>
         );
       case "update_contact":
@@ -204,6 +215,11 @@ export const SidePanel = ({ triggers = [], onDelete }: Props) => {
                 placeholder="e.g. Mark as Warmed"
               />
             </FormField>
+            <OnErrorField
+              type="update_contact"
+              value={node.data.onError}
+              onChange={(onError) => updateNodeData(node.id, { onError })}
+            />
           </div>
         );
       case "exit":

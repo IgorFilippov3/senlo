@@ -185,6 +185,68 @@ export const openApiSpec = {
         },
       },
     },
+    "/automations/cancel": {
+      post: {
+        summary: "Cancel a contact's automation runs",
+        description: [
+          "Ends the contact's runs in progress (`CANCELLED`), in every automation of the",
+          "workspace or in one (`workflowId`). Their remaining steps do not run. Use it when",
+          "something in your app makes a flow pointless: the invoice was paid, the user",
+          "deleted their account. The contact can enter the automation again on its next event.",
+        ].join("\n"),
+        tags: ["Events"],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email"],
+                properties: {
+                  email: { type: "string", format: "email" },
+                  workflowId: {
+                    type: "integer",
+                    description: "Only runs of this automation. Without it, every automation of the workspace.",
+                  },
+                },
+              },
+              examples: {
+                all: { summary: "Every automation", value: { email: "user@example.com" } },
+                one: { summary: "One automation", value: { email: "user@example.com", workflowId: 12 } },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Runs cancelled; `cancelled` is how many (0 when none was in progress)",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: { type: "object", properties: { cancelled: { type: "integer" } } },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            description: "`email` missing or invalid, `workflowId` not a positive integer",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+          },
+          401: {
+            description: "Missing or invalid API key",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+          },
+          404: {
+            description: "No contact with this email, or no such automation, in the workspace",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+          },
+        },
+      },
+    },
     "/events": {
       post: {
         summary: "Send a contact event",

@@ -144,3 +144,17 @@ export class DatabaseError extends AppError {
     this.name = "DatabaseError";
   }
 }
+
+/**
+ * A workflow step failed for a reason that may pass: a network failure or
+ * timeout, a 5xx or 429 from the user's URL, the database or queue briefly
+ * unreachable. The automation worker lets BullMQ retry the job (with
+ * backoff); on the last attempt the step's `onError` applies. Every other
+ * error of a step is permanent and applies `onError` at once.
+ */
+export class RetryableStepError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RetryableStepError";
+  }
+}

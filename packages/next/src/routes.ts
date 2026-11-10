@@ -92,6 +92,17 @@ export function createSenloRoutes(host: SenloHost) {
       }),
     },
 
+    /** `POST /api/automations/cancel`: end a contact's runs in progress. */
+    automationsCancel: {
+      POST: apiRoute("Cancel automations", "Automation runs cancelled via API", async (projectId, body) => {
+        const result = await services().automation.cancelFromRequest(projectId, body);
+        return {
+          response: NextResponse.json({ success: true, data: result }),
+          log: { cancelled: result.cancelled },
+        };
+      }),
+    },
+
     /** `POST /api/triggered`: send one triggered email. */
     triggered: {
       POST: apiRoute("Triggered email", "Triggered email queued via API", async (projectId, body) => {

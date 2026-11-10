@@ -200,7 +200,8 @@ export interface WorkflowStepExecution {
   id: number;
   executionId: number;
   nodeId: string;
-  status: "PENDING" | "COMPLETED" | "FAILED";
+  /** SKIPPED: the step failed and its `onError` was "continue" (or, later, it did not apply). */
+  status: "PENDING" | "COMPLETED" | "FAILED" | "SKIPPED";
   result?: Record<string, any> | null;
   startedAt: Date;
   completedAt?: Date | null;

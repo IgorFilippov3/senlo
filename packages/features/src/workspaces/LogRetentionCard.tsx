@@ -33,8 +33,9 @@ export function LogRetentionCard({ days, note }: LogRetentionCardProps) {
               <span className="font-semibold text-zinc-900">
                 {days === null ? "indefinitely" : `for ${days} ${days === 1 ? "day" : "days"}`}
               </span>
-              : each send's log entry with the data it was sent with, and the raw delivery, open and
-              click events.{days === null ? "" : " Older ones are deleted daily."}
+              : each send's log entry with the data it was sent with, the raw delivery, open and
+              click events, and the contacts' event history used by automations.
+              {days === null ? "" : " Older ones are deleted daily."}
             </p>
           )}
           <p>

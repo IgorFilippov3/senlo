@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isSystemEvent, isValidEventName, triggerMatches } from "../workflow-events";
+import { isSystemEvent, isValidEventName } from "../workflow-events";
+import { triggerAccepts } from "../workflow-conditions";
+
+const anyone = { email: "a@b.co" };
+const triggerMatches = (data: Record<string, unknown>, event: { name: string; payload: Record<string, unknown> }) =>
+  triggerAccepts(data, event, anyone);
 
 describe("workflow events", () => {
   it("knows the system events", () => {

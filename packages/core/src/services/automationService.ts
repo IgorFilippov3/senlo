@@ -11,19 +11,63 @@ import { AutomationJobData } from "../queue/types";
 import type {
   ContactEvent,
   ExecutionContext,
+  ExecutionExitReason,
   WorkflowExecution,
   WorkflowNodeStats,
   WorkflowVersion,
 } from "../domain";
 import { buildStepData } from "../workflow-step-data";
-import { triggerMatches, type WorkflowEvent } from "../workflow-events";
+import type { WorkflowEvent } from "../workflow-events";
+import {
+  asDate,
+  contactValue,
+  evaluateConditions,
+  lookupsOf,
+  lookupKey,
+  triggerAccepts,
+  triggerFiltersOf,
+  valueAt,
+  type ConditionGroup,
+  type ConditionSnapshot,
+} from "../workflow-conditions";
 import { ServiceHooks } from "../hooks";
 import { consoleLogger, type Logger } from "../logger";
-import { allowAllOutbound, fetchWithPolicy, type OutboundPolicy } from "../outbound";
+import { allowAllOutbound, fetchWithPolicy, OutboundRefusedError, type OutboundPolicy } from "../outbound";
+import { AppError, NotFoundError, QuotaExceededError, RetryableStepError } from "../errors";
+import { parseInput } from "../validation";
+import { z } from "zod";
 
 /** The queue job of a run's step; stable, so a second add of it is ignored. */
 export function automationJobId(executionId: number, nodeId: string): string {
   return `wf-${executionId}-${nodeId}`;
+}
+
+/** A run whose step is due this long without its job is re-queued by the sweeper. */
+export const SWEEP_GRACE_MS = 2 * 60 * 1000;
+
+/** Runs the sweeper looks at per pass. */
+export const SWEEP_BATCH_SIZE = 500;
+
+/** Body of `POST /api/automations/cancel`. */
+export const CancelRunsRequestSchema = z.object({
+  email: z.string().trim().min(1, "Email is required").email(),
+  workflowId: z.number().int().positive().optional(),
+});
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** How long the API check waits for the user's endpoint. */
+export const API_CHECK_TIMEOUT_MS = 10_000;
+
+/** What a step does when it fails for good (`node.data.onError`). */
+export type StepOnError = "fail" | "continue";
+
+/** Where a job is in its retries; the worker passes BullMQ's counters. */
+export interface StepAttempt {
+  /** Attempts made before this one. */
+  attemptsMade: number;
+  /** Attempts the job has in total. */
+  attempts: number;
 }
 
 /** Versions one worker process keeps in memory. */
@@ -34,7 +78,7 @@ export class AutomationService {
     private readonly workflowRepo: IWorkflowRepository,
     private readonly executionRepo: IWorkflowExecutionRepository,
     private readonly contactRepo: ContactRepository,
-    private readonly contactEvents: Pick<IContactEventRepository, "record">,
+    private readonly contactEvents: Pick<IContactEventRepository, "record" | "existsSince">,
     private readonly automationQueue: Queue<AutomationJobData>,
     private readonly triggerService: TriggerService,
     private readonly logger: Logger = consoleLogger,
@@ -131,7 +175,7 @@ export class AutomationService {
       executionId: execution.id,
     });
 
-    await this.advance(execution.id, version, triggerNode.id);
+    await this.advance(execution, version, triggerNode.id);
 
     return execution;
   }
@@ -177,7 +221,8 @@ export class AutomationService {
    * Starts every ACTIVE workflow of the project whose active version's
    * trigger accepts the event. The lookup goes through the trigger event
    * name copied onto the workflow (indexed), then the version's trigger node
-   * decides on the rest (the tag of a `tag_added` trigger).
+   * decides on the rest: its filters on the contact and the event's payload
+   * (`triggerAccepts`).
    */
   private async dispatchTriggers(
     projectId: number,
@@ -185,11 +230,17 @@ export class AutomationService {
     event: WorkflowEvent,
   ): Promise<void> {
     const workflows = await this.workflowRepo.findActiveByTrigger(projectId, event.name);
+    // Read once, and only when a trigger has filters.
+    let contact: ConditionSnapshot["contact"] | null | undefined;
     for (const workflow of workflows) {
       if (!workflow.activeVersionId) continue;
       const version = await this.loadVersion(workflow.activeVersionId);
       const trigger = version?.graph.nodes.find((n) => n.type === "trigger");
-      if (trigger && triggerMatches(trigger.data, event)) {
+      if (!trigger) continue;
+      if (contact === undefined && triggerFiltersOf(trigger.data)) {
+        contact = await this.contactSnapshot(contactId);
+      }
+      if (triggerAccepts(trigger.data, event, contact ?? { email: "" })) {
         await this.triggerWorkflow({ workflowId: workflow.id, contactId, projectId, event });
       }
     }
@@ -202,6 +253,7 @@ export class AutomationService {
     executionId: number,
     nodeId: string,
     baseUrl: string,
+    attempt: StepAttempt = { attemptsMade: 0, attempts: 1 },
   ): Promise<void> {
     const execution = await this.executionRepo.findById(executionId);
     if (!execution || execution.status !== "RUNNING") return;
@@ -235,14 +287,15 @@ export class AutomationService {
     // Each step runs at most once per run. A redelivered job whose step is
     // already COMPLETED only moves the cursor on, along the branch it took.
     const step = await this.executionRepo.claimStep(executionId, nodeId);
-    if (step.status === "COMPLETED") {
+    if (step.status === "COMPLETED" || step.status === "SKIPPED") {
       const branch = typeof step.result?.branch === "string" ? step.result.branch : undefined;
-      await this.advance(executionId, version, nodeId, branch);
+      await this.advance(execution, version, nodeId, branch);
       return;
     }
 
     try {
       let branch: string | undefined;
+      let result: Record<string, unknown> | null = null;
 
       switch (node.type) {
         case "action":
@@ -251,11 +304,25 @@ export class AutomationService {
           break;
 
         case "condition":
-          branch = await this.handleApiCondition(execution, node.data, baseUrl);
+          if (node.data.mode === "rules") {
+            const outcome = await this.handleRuleCondition(execution, node.data);
+            branch = outcome.branch;
+            result = { branch, matched: outcome.matched };
+          } else if (node.data.mode === "api") {
+            branch = await this.handleApiCondition(execution, node.data, baseUrl);
+          } else {
+            throw new Error('Condition step has no mode ("rules" or "api")');
+          }
           break;
 
         case "delay":
           // The job was queued with the delay, so if we are here, it is over.
+          // A "wait until" step checks its date now: a missing or unreadable
+          // one is an error of this step (its onError applies).
+          if (node.data.mode === "until") {
+            const until = await this.untilTime(execution, node.data.until);
+            result = { until: until.toISOString() };
+          }
           break;
 
         case "update_contact":
@@ -275,21 +342,92 @@ export class AutomationService {
           throw new Error(`Unknown step type "${node.type}"`);
       }
 
-      await this.advance(executionId, version, nodeId, branch, {
+      await this.advance(execution, version, nodeId, branch, {
         id: step.id,
-        result: branch ? { branch } : null,
+        result: result ?? (branch ? { branch } : null),
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error("Workflow step failed", { executionId, nodeId, error: message });
-      await this.executionRepo.updateStepExecution(step.id, {
-        status: "FAILED",
-        result: { error: message },
-        completedAt: new Date(),
-      });
-      // Ended, so the contact is not blocked from entering again.
-      await this.executionRepo.finish(executionId, { status: "FAILED", exitReason: "error", from: nodeId });
+      await this.handleStepError(execution, version, node, step.id, error, attempt);
     }
+  }
+
+  /**
+   * A step threw. A retryable error before the last attempt is rethrown, so
+   * BullMQ runs the job again with backoff (the step row stays PENDING with
+   * the error, the cursor stays). Otherwise the step's `onError` decides:
+   * "fail" (the default) ends the run FAILED; "continue" sends a condition
+   * down its No branch and skips any other step. A plan refusal always
+   * fails the run.
+   */
+  private async handleStepError(
+    execution: WorkflowExecution,
+    version: WorkflowVersion,
+    node: { id: string; type: string; data: Record<string, any> },
+    stepId: number,
+    error: unknown,
+    attempt: StepAttempt,
+  ): Promise<void> {
+    const executionId = execution.id;
+    const message = error instanceof Error ? error.message : String(error);
+    const retryable = error instanceof RetryableStepError;
+    const lastAttempt = attempt.attemptsMade + 1 >= attempt.attempts;
+
+    if (retryable && !lastAttempt) {
+      this.logger.warn("Workflow step failed, will retry", {
+        executionId,
+        nodeId: node.id,
+        attempt: attempt.attemptsMade + 1,
+        of: attempt.attempts,
+        error: message,
+      });
+      await this.executionRepo.updateStepExecution(stepId, {
+        result: { error: message, attempts: attempt.attemptsMade + 1 },
+      });
+      throw error;
+    }
+
+    const onError: StepOnError =
+      node.data.onError === "continue" && !(error instanceof QuotaExceededError) ? "continue" : "fail";
+
+    if (onError === "continue" && node.type !== "exit") {
+      this.logger.warn("Workflow step failed; continuing (onError: continue)", {
+        executionId,
+        nodeId: node.id,
+        error: message,
+      });
+      if (node.type === "condition") {
+        await this.advance(execution, version, node.id, "no", {
+          id: stepId,
+          result: { branch: "no", error: message },
+        });
+      } else {
+        await this.advance(execution, version, node.id, undefined, {
+          id: stepId,
+          status: "SKIPPED",
+          result: { skipped: "error", error: message },
+        });
+      }
+      return;
+    }
+
+    this.logger.error("Workflow step failed", { executionId, nodeId: node.id, error: message, retryable });
+    await this.executionRepo.updateStepExecution(stepId, {
+      status: "FAILED",
+      result: { error: message },
+      completedAt: new Date(),
+    });
+    // Ended, so the contact is not blocked from entering again.
+    await this.executionRepo.finish(executionId, { status: "FAILED", exitReason: "error", from: node.id });
+  }
+
+  /**
+   * Ends a run whose job ran out of attempts on an error `processStep` did
+   * not handle (the database unreachable before the step started). Called by
+   * the worker; a run that moved on or ended meanwhile is left alone.
+   */
+  async failExhaustedRun(executionId: number, nodeId: string, error: string): Promise<void> {
+    const ended = await this.executionRepo.finish(executionId, { status: "FAILED", exitReason: "error", from: nodeId });
+    if (ended) this.logger.error("Workflow run failed: its job ran out of attempts", { executionId, nodeId, error });
   }
 
   private async handleEmailAction(execution: WorkflowExecution, data: any, dedupeKey: string): Promise<void> {
@@ -302,7 +440,7 @@ export class AutomationService {
     const contact = await this.contactRepo.findById(execution.contactId);
     if (!contact) throw new Error("Contact not found");
 
-    await this.triggerService.sendTriggeredEmail({
+    await this.sendStepEmail({
       campaignId: Number(campaignId),
       projectId: workflow.projectId,
       to: contact.email,
@@ -310,6 +448,21 @@ export class AutomationService {
       dedupeKey,
       locale: contact.locale || undefined,
     });
+  }
+
+  /**
+   * The send behind an email step. The service's own refusals (missing
+   * trigger, no provider, plan limit) are permanent; anything else (the
+   * database or the queue unreachable) may pass and is retried. The dedupe
+   * key makes a retry safe.
+   */
+  private async sendStepEmail(options: Parameters<TriggerService["sendTriggeredEmail"]>[0]): Promise<void> {
+    try {
+      await this.triggerService.sendTriggeredEmail(options);
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new RetryableStepError(`Email step could not queue the send: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private async handleApiCondition(
@@ -335,24 +488,43 @@ export class AutomationService {
     });
 
     // The URL is the user's: a shared instance refuses internal addresses
-    // through the policy, redirects included.
-    const response = await fetchWithPolicy(
-      url,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: contact.email,
-          name: contact.name,
-          locale: contact.locale ?? null,
-          metadata: contact.meta,
-          meta: contact.meta,
-          // The trigger event, so the endpoint can decide on what happened.
-          event: execution.context.event ?? null,
-        }),
-      },
-      this.outbound,
-    );
+    // through the policy, redirects included. A refusal or a malformed URL is
+    // permanent; a network failure or a timeout may pass and is retried.
+    let response: Response;
+    try {
+      response = await fetchWithPolicy(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(API_CHECK_TIMEOUT_MS),
+          body: JSON.stringify({
+            email: contact.email,
+            name: contact.name,
+            locale: contact.locale ?? null,
+            metadata: contact.meta,
+            meta: contact.meta,
+            // The trigger event, so the endpoint can decide on what happened.
+            event: execution.context.event ?? null,
+          }),
+        },
+        this.outbound,
+      );
+    } catch (error) {
+      if (error instanceof OutboundRefusedError) throw error;
+      const name = error instanceof Error ? error.name : "";
+      if (error instanceof TypeError || name === "TimeoutError" || name === "AbortError") {
+        throw new RetryableStepError(`API check request failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      throw error;
+    }
+    // Only the status is read.
+    await response.body?.cancel().catch(() => {});
+
+    // The endpoint is down or asks to slow down: try again rather than take "no".
+    if (response.status >= 500 || response.status === 429) {
+      throw new RetryableStepError(`API check answered ${response.status}`);
+    }
 
     const result = response.status === 200 ? "yes" : "no";
     this.logger.debug("API Check result", {
@@ -412,12 +584,13 @@ export class AutomationService {
    * and a job for a step the run has left is dropped by `processStep`.
    */
   private async advance(
-    executionId: number,
+    run: WorkflowExecution,
     version: WorkflowVersion,
     fromNodeId: string,
     handle?: string,
     completeStep?: CompleteStep,
   ): Promise<void> {
+    const executionId = run.id;
     const { nodes, edges } = version.graph;
     const outgoing = edges.filter(
       (e) => e.sourceNodeId === fromNodeId && (!handle || e.sourceHandle === handle),
@@ -441,7 +614,7 @@ export class AutomationService {
       return;
     }
 
-    const delay = target.type === "delay" ? this.parseDelay(target.data) : 0;
+    const delay = target.type === "delay" ? await this.delayOf(run, target.data) : 0;
     const moved = await this.executionRepo.moveCursor(executionId, {
       from: fromNodeId,
       to: target.id,
@@ -461,6 +634,89 @@ export class AutomationService {
     );
   }
 
+  /**
+   * How long to wait before a delay step: its duration ("for", the default),
+   * or until a date read from the trigger event or the contact ("until"),
+   * with an offset. A date in the past waits nothing. An unreadable date
+   * waits nothing either: the step itself then fails on it, so its
+   * `onError` applies there.
+   */
+  private async delayOf(run: WorkflowExecution, data: Record<string, any>): Promise<number> {
+    if (data.mode !== "until") return this.parseDelay(data);
+    try {
+      return Math.max(0, (await this.untilTime(run, data.until)).getTime() - Date.now());
+    } catch {
+      return 0;
+    }
+  }
+
+  /** The date a "wait until" step waits for: the field's date plus or minus the offset. */
+  private async untilTime(run: WorkflowExecution, until: any): Promise<Date> {
+    if (!until || (until.source !== "event" && until.source !== "contact") || typeof until.path !== "string") {
+      throw new Error("Wait until: no date field chosen");
+    }
+    let raw: unknown;
+    if (until.source === "event") {
+      raw = valueAt(run.context.event?.payload ?? {}, until.path);
+    } else {
+      const contact = await this.contactSnapshot(run.contactId);
+      if (!contact) throw new Error("Contact not found");
+      raw = contactValue(contact, until.path);
+    }
+    const at = asDate(raw);
+    if (at === null) {
+      throw new Error(`Wait until: ${until.source}.${until.path} is ${raw === undefined ? "missing" : "not a date"}`);
+    }
+    const offset = until.offset ? this.parseDelay(until.offset) : 0;
+    return new Date(until.offset?.direction === "before" ? at - offset : at + offset);
+  }
+
+  /** The contact as conditions read it, or null when it is gone. */
+  private async contactSnapshot(contactId: number): Promise<ConditionSnapshot["contact"] | null> {
+    const contact = await this.contactRepo.findById(contactId);
+    if (!contact) return null;
+    return {
+      email: contact.email,
+      name: contact.name ?? null,
+      locale: contact.locale ?? null,
+      unsubscribed: Boolean((contact as { unsubscribed?: boolean }).unsubscribed),
+      meta: (contact.meta as Record<string, unknown> | null) ?? {},
+    };
+  }
+
+  /**
+   * A Condition step in rules mode: the contact, the trigger event, step
+   * outputs, and the history lookups the rules need, then Yes or No. The
+   * step result keeps the branch and whether the rules matched.
+   */
+  private async handleRuleCondition(
+    execution: WorkflowExecution,
+    data: Record<string, any>,
+  ): Promise<{ branch: "yes" | "no"; matched: boolean }> {
+    const group = data.conditions as ConditionGroup | undefined;
+    if (!group || !Array.isArray(group.rules)) throw new Error("Condition has no rules");
+    const contact = await this.contactSnapshot(execution.contactId);
+    if (!contact) throw new Error("Contact not found");
+
+    const lookups = new Map<string, boolean>();
+    for (const rule of lookupsOf(group)) {
+      if (rule.source === "history") {
+        const since = rule.withinDays ? new Date(Date.now() - rule.withinDays * DAY_MS) : new Date(0);
+        lookups.set(lookupKey(rule), await this.contactEvents.existsSince(execution.contactId, rule.event, since));
+      } else {
+        throw new Error("Email rules are not supported yet");
+      }
+    }
+
+    const matched = evaluateConditions(group, {
+      contact,
+      event: execution.context.event?.payload ?? {},
+      steps: execution.context.steps,
+      lookups,
+    });
+    return { branch: matched ? "yes" : "no", matched };
+  }
+
   private parseDelay(data: any): number {
     const { duration, unit } = data; // e.g., { duration: 1, unit: 'days' }
     if (!duration) return 0;
@@ -473,6 +729,64 @@ export class AutomationService {
     };
 
     return duration * (multipliers[unit] || 0);
+  }
+
+  /**
+   * The sweeper (every few minutes, `maintenance-queue`): re-queues the job
+   * of each RUNNING run whose step was due more than `SWEEP_GRACE_MS` ago and
+   * has no job waiting, delayed or running. That is a job lost to a Redis
+   * restart, or to a crash between the cursor move and the queue add. The
+   * job id is the run's and step's, so a job still in the queue is left as
+   * is; a job that failed for good is replaced. A stale one is dropped by
+   * `processStep` through the cursor.
+   */
+  async recoverDueRuns(now: Date = new Date()): Promise<{ checked: number; requeued: number }> {
+    const due = await this.executionRepo.findDue(new Date(now.getTime() - SWEEP_GRACE_MS), SWEEP_BATCH_SIZE);
+    let requeued = 0;
+    for (const run of due) {
+      const jobId = automationJobId(run.id, run.currentNodeId);
+      const existing = await this.automationQueue.getJob(jobId);
+      if (existing) {
+        const state = await existing.getState();
+        if (state !== "failed" && state !== "completed" && state !== "unknown") continue;
+        await existing.remove();
+      }
+      await this.automationQueue.add(
+        `workflow-${run.id}-${run.currentNodeId}`,
+        { executionId: run.id, nodeId: run.currentNodeId },
+        { jobId },
+      );
+      requeued += 1;
+    }
+    if (requeued > 0) this.logger.warn("Sweeper re-queued workflow runs", { requeued, checked: due.length });
+    return { checked: due.length, requeued };
+  }
+
+  /**
+   * `POST /api/automations/cancel`: cancels the contact's RUNNING runs in
+   * the project (of one workflow, when `workflowId` is given). The contact
+   * and the workflow must belong to the API key's project.
+   */
+  async cancelFromRequest(projectId: number, rawBody: unknown): Promise<{ cancelled: number }> {
+    const req = parseInput(CancelRunsRequestSchema, rawBody);
+    const contact = await this.contactRepo.findByEmail(projectId, req.email);
+    if (!contact) throw new NotFoundError("Contact");
+    if (req.workflowId !== undefined) {
+      const workflow = await this.workflowRepo.findById(req.workflowId);
+      if (!workflow || workflow.projectId !== projectId) throw new NotFoundError("Workflow");
+    }
+    const ids = await this.cancelContactRuns(contact.id, { workflowId: req.workflowId, exitReason: "cancelled_api" });
+    return { cancelled: ids.length };
+  }
+
+  /** Cancels a contact's RUNNING runs; their queued jobs are dropped when they come. */
+  async cancelContactRuns(
+    contactId: number,
+    options: { workflowId?: number; exitReason: ExecutionExitReason },
+  ): Promise<number[]> {
+    const ids = await this.executionRepo.cancelRunning(contactId, options);
+    if (ids.length > 0) this.logger.info("Workflow runs cancelled", { contactId, runs: ids, reason: options.exitReason });
+    return ids;
   }
 
   async getWorkflowStats(workflowId: number): Promise<WorkflowNodeStats[]> {

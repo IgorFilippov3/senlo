@@ -1,6 +1,6 @@
 {
   "name": "@senlo/automation-builder",
-  "version": "0.0.21",
+  "version": "0.0.23",
   "description": "Visual drag-and-drop workflow editor for Senlo",
   "license": "AGPL-3.0-or-later",
   "author": {

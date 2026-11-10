@@ -37,14 +37,17 @@ function setup(defs: ReturnType<typeof workflow>[], { duplicate = false } = {}) 
     getVersion: vi.fn(async (id: number) => defs.find((d) => d.version.id === id)?.version ?? null),
   };
   const contactEvents = {
+    existsSince: vi.fn(async () => false),
     record: vi.fn(async (d: { projectId: number; contactId: number; name: string; payload: Record<string, unknown>; idempotencyKey?: string | null }) =>
       duplicate ? null : { id: 1, createdAt: new Date(), ...d, idempotencyKey: d.idempotencyKey ?? null },
     ),
   };
+  // A tag filter reads the contact.
+  const contacts = { findById: vi.fn(async (id: number) => ({ id, email: "a@b.co", name: null, locale: null, meta: {} })) };
   const service = new AutomationService(
     workflows as never,
     {} as never,
-    {} as never,
+    contacts as never,
     contactEvents,
     {} as never,
     {} as never,

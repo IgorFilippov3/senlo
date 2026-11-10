@@ -98,6 +98,20 @@ describe("events and triggered", () => {
     );
   });
 
+  it("cancels runs for the key's project", async () => {
+    const cancelFromRequest = vi.fn(async () => ({ cancelled: 2 }));
+    const { routes, logger } = fakeHost({ automation: { cancelFromRequest } });
+
+    const unauthorized = await routes.automationsCancel.POST(post("/api/automations/cancel", { email: "a@b.c" }));
+    expect(unauthorized.status).toBe(401);
+
+    const response = await routes.automationsCancel.POST(post("/api/automations/cancel", { email: "a@b.c" }, bearer));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true, data: { cancelled: 2 } });
+    expect(cancelFromRequest).toHaveBeenCalledWith(7, { email: "a@b.c" });
+    expect(logger.info).toHaveBeenCalledWith("Automation runs cancelled via API", { cancelled: 2, projectId: 7 });
+  });
+
   it("returns the limiter's response before touching the key", async () => {
     const { routes, rateLimit, host } = fakeHost();
     vi.mocked(rateLimit.limitRequest).mockResolvedValueOnce(new Response(null, { status: 429 }) as never);

@@ -34,7 +34,12 @@ export const PUBLIC_PATH_PREFIXES = [
 export const AUTH_PATH_PREFIXES = ["/login", "/register"] as const;
 
 /** Routes authenticated by an API key in the Authorization header instead of a session. */
-export const API_KEY_PATH_PREFIXES = ["/api/v1/", "/api/events", "/api/triggered"] as const;
+export const API_KEY_PATH_PREFIXES = [
+  "/api/v1/",
+  "/api/events",
+  "/api/triggered",
+  "/api/automations/cancel",
+] as const;
 
 /**
  * Whether `pathname` needs no session. `extraPrefixes` are the host's own

@@ -80,7 +80,7 @@ describe("run context", () => {
     const { service, queue } = setup(
       [
         { id: "t", type: "trigger", data: { event: "order_created" } },
-        { id: "check", type: "condition", data: { url: "https://hooks.example.com/check" } },
+        { id: "check", type: "condition", data: { mode: "api", url: "https://hooks.example.com/check" } },
         { id: "yes", type: "exit", data: {} },
       ],
       [

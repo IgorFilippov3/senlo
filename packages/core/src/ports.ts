@@ -372,9 +372,10 @@ export interface NewWorkflowExecution {
   currentNodeId: string;
 }
 
-/** The step row to mark COMPLETED in the same transaction as a cursor move or an end. */
+/** The step row to close (COMPLETED by default) in the same transaction as a cursor move or an end. */
 export interface CompleteStep {
   id: number;
+  status?: "COMPLETED" | "SKIPPED";
   result?: Record<string, unknown> | null;
 }
 
@@ -410,6 +411,18 @@ export interface IWorkflowExecutionRepository {
       completeStep?: CompleteStep;
     },
   ): Promise<boolean>;
+
+  /**
+   * RUNNING runs whose cursor step was due before `before`: their job may be
+   * lost (Redis restart, a crash between the cursor move and the queue add).
+   * Oldest first, at most `limit`.
+   */
+  findDue(before: Date, limit: number): Promise<Array<{ id: number; currentNodeId: string }>>;
+  /** Cancels the contact's RUNNING runs (of one workflow, when given); their ids. */
+  cancelRunning(
+    contactId: number,
+    options: { workflowId?: number; exitReason: ExecutionExitReason },
+  ): Promise<number[]>;
 
   /**
    * The step's row in the run, created PENDING on first call. A redelivered

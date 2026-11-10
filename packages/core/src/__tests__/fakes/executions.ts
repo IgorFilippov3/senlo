@@ -18,7 +18,7 @@ export function fakeExecutions() {
       if (row.id === step.id) {
         steps.set(key, {
           ...row,
-          status: "COMPLETED",
+          status: step.status ?? "COMPLETED",
           completedAt: new Date(),
           ...(step.result !== undefined ? { result: step.result } : {}),
         });
@@ -68,6 +68,23 @@ export function fakeExecutions() {
     }),
     updateStepExecution: vi.fn(async (id: number, data: Partial<WorkflowStepExecution>) => {
       for (const [key, row] of steps) if (row.id === id) steps.set(key, { ...row, ...data });
+    }),
+    findDue: vi.fn(async (before: Date, limit: number) =>
+      [...runs.values()]
+        .filter((r) => r.status === "RUNNING" && r.currentNodeId && r.wakeAt && r.wakeAt < before)
+        .sort((a, b) => a.wakeAt!.getTime() - b.wakeAt!.getTime())
+        .slice(0, limit)
+        .map((r) => ({ id: r.id, currentNodeId: r.currentNodeId! })),
+    ),
+    cancelRunning: vi.fn(async (contactId: number, o: { workflowId?: number; exitReason: string }) => {
+      const ids: number[] = [];
+      for (const run of runs.values()) {
+        if (run.contactId !== contactId || run.status !== "RUNNING") continue;
+        if (o.workflowId !== undefined && run.workflowId !== o.workflowId) continue;
+        runs.set(run.id, { ...run, status: "CANCELLED", exitReason: o.exitReason, wakeAt: null });
+        ids.push(run.id);
+      }
+      return ids;
     }),
     getStepExecutions: async (executionId: number) => [...steps.values()].filter((s) => s.executionId === executionId),
     getNodeStats: async () => [],
