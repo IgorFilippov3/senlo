@@ -182,6 +182,7 @@ export function createServices({
     logger,
     hooks,
     outbound,
+    r.sendLogs,
   );
 
   const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects, guard, hooks);

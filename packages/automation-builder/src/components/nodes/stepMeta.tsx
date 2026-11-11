@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Clock, LogOut, Mail, Split, UserCog, Zap } from "lucide-react";
 import type { BuilderTrigger } from "../BuilderContext";
+import { countRules, describeGroup, describeUntil } from "../../conditions/rules";
 
 type Data = Record<string, any>;
 
@@ -30,8 +31,19 @@ export function triggerSummary(data: Data): StepSummary {
   const event = typeof data.event === "string" ? data.event : "";
   if (event === "") return { text: "Choose an event", incomplete: true };
   const tag = typeof data.tag === "string" && data.tag.trim() !== "" ? data.tag.trim() : null;
-  if (event === "tag_added" && tag) return { text: `Tag added: ${tag}` };
-  return { text: EVENT_LABELS[event] ?? event };
+  const base = event === "tag_added" && tag ? `Tag added: ${tag}` : EVENT_LABELS[event] ?? event;
+  const filters = data.filters && Array.isArray(data.filters.rules) ? countRules(data.filters) : 0;
+  return { text: filters > 0 ? `${base}, ${filters} ${filters === 1 ? "filter" : "filters"}` : base };
+}
+
+/** A Condition's card line: its rules, or the URL it calls. */
+export function conditionSummary(data: Data): StepSummary {
+  if (data.label) return { text: data.label };
+  if (data.mode === "rules") {
+    const text = describeGroup(data.conditions, () => "email");
+    return text ? { text } : { text: "Set the rules", incomplete: true };
+  }
+  return urlSummary(data.url);
 }
 
 const UNIT_SINGULAR: Record<string, string> = { minutes: "minute", hours: "hour", days: "day" };
@@ -70,16 +82,20 @@ export const STEP_META: Record<string, StepMeta> = {
     icon: Clock,
     tone: "text-violet-600",
     summary: (data) => {
+      if (data.mode === "until") {
+        const text = describeUntil(data.until);
+        return text ? { text } : { text: "Choose the date to wait for", incomplete: true };
+      }
       const duration = Number(data.duration) || 1;
       const unit = (data.unit as string) || "days";
       return { text: `${duration} ${duration === 1 ? UNIT_SINGULAR[unit] ?? unit : unit}` };
     },
   },
   condition: {
-    kind: "API check",
+    kind: "Condition",
     icon: Split,
     tone: "text-emerald-600",
-    summary: (data) => urlSummary(data.url),
+    summary: (data) => conditionSummary(data),
   },
   update_contact: {
     kind: "Update contact",

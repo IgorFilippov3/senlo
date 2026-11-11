@@ -10,8 +10,10 @@ import { validateWorkflowGraph } from "@senlo/core";
 import { AutomationBuilder, useAutomationStore } from "@senlo/automation-builder";
 import { WorkflowEditorShell } from "../automations/WorkflowEditorShell";
 import { useProjectCampaigns } from "../data/campaigns";
+import { useLogRetention } from "../data/workspaces";
 import {
   WorkflowNotReadyError,
+  useFieldSuggestions,
   useRecentEventNames,
   useSaveWorkflowGraph,
   useSetWorkflowStatus,
@@ -48,6 +50,13 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
   const changeStatus = useSetWorkflowStatus();
   const { data: triggers = [] } = useProjectCampaigns(workflow.projectId);
   const { data: eventNames = [] } = useRecentEventNames(workflow.projectId);
+  // Payload keys follow the event the trigger listens for, as it is on screen.
+  const triggerEvent = (nodes.find((n) => n.type === "trigger")?.data as { event?: unknown } | undefined)?.event;
+  const { data: fieldSuggestions } = useFieldSuggestions(
+    workflow.projectId,
+    typeof triggerEvent === "string" && triggerEvent !== "" ? triggerEvent : null,
+  );
+  const { data: retention } = useLogRetention(workflow.projectId);
   const { data: stats = [] } = useWorkflowStats(workflow.id, {
     enabled: status === "ACTIVE",
     refetchInterval: 10000,
@@ -138,7 +147,13 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
       onDismissGoLiveErrors={() => setGoLiveErrors(null)}
       goLiveErrorsTitle={errorsTitle}
     >
-      <AutomationBuilder triggers={triggers} stats={stats} eventNames={eventNames} />
+      <AutomationBuilder
+        triggers={triggers}
+        stats={stats}
+        eventNames={eventNames}
+        fieldSuggestions={fieldSuggestions}
+        historyRetentionDays={retention?.days}
+      />
     </WorkflowEditorShell>
   );
 }

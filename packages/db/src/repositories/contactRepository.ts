@@ -217,4 +217,19 @@ export class ContactRepository extends BaseRepository<
 
     return row ? this.mapToEntity(row) : null;
   }
+
+  async attributeKeys(projectId: number, sample: number): Promise<string[]> {
+    const result = (await this.db.execute(sql`
+      SELECT DISTINCT k AS key
+      FROM (
+        SELECT meta FROM ${contacts}
+        WHERE project_id = ${projectId} AND jsonb_typeof(meta) = 'object'
+        ORDER BY id DESC
+        LIMIT ${sample}
+      ) c, jsonb_object_keys(c.meta) AS k
+      ORDER BY 1
+      LIMIT 200
+    `)) as unknown as { rows: Array<{ key: string }> };
+    return result.rows.map((r) => r.key);
+  }
 }

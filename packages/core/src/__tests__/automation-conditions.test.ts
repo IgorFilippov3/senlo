@@ -14,7 +14,11 @@ const edge = (from: string, to: string, handle: string | null = null): Omit<Work
 });
 const DAY = 24 * 60 * 60 * 1000;
 
-function setup(nodes: Node[], edges: Omit<WorkflowEdge, "workflowId">[], { meta = {} as Record<string, unknown>, history = [] as Array<{ name: string; at: Date }> } = {}) {
+function setup(
+  nodes: Node[],
+  edges: Omit<WorkflowEdge, "workflowId">[],
+  { meta = {} as Record<string, unknown>, history = [] as Array<{ name: string; at: Date }>, opened = [] as number[] } = {},
+) {
   const version: WorkflowVersion = { id: 1, workflowId: 10, version: 1, graph: { nodes, edges }, settings: {}, createdAt: new Date() };
   const { repo: executions, runs, steps } = fakeExecutions();
   const workflow = { id: 10, projectId: 1, status: "ACTIVE", activeVersionId: 1, triggerEvent: "x" };
@@ -29,16 +33,22 @@ function setup(nodes: Node[], edges: Omit<WorkflowEdge, "workflowId">[], { meta 
     existsSince: vi.fn(async (_c: number, name: string, since: Date) => history.some((h) => h.name === name && h.at >= since)),
   };
   const queue = { add: vi.fn(async () => ({})) };
+  let nextLogId = 100;
+  const trigger = { sendTriggeredEmail: vi.fn(async () => ({ success: true, logId: nextLogId++ })) };
+  const engagement = { hasEngagement: vi.fn(async (logId: number, type: "OPEN" | "CLICK") => type === "OPEN" && opened.includes(logId)) };
   const service = new AutomationService(
     workflows as never,
     executions,
     { findById: async () => contact } as never,
     contactEvents as never,
     queue as never,
-    { sendTriggeredEmail: vi.fn(async () => ({})) } as never,
+    trigger as never,
     quiet(),
+    undefined,
+    undefined,
+    engagement,
   );
-  return { service, runs, steps, queue, contactEvents, contact };
+  return { service, runs, steps, queue, contactEvents, contact, engagement };
 }
 
 const trigger = (data: Record<string, unknown> = { event: "x" }): Node => ({ id: "t", type: "trigger", data });
@@ -84,6 +94,43 @@ describe("Condition in rules mode", () => {
     await old.service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
     await old.service.processStep(1, "c", "https://app.test");
     expect(old.runs.get(1)).toMatchObject({ currentNodeId: "yes" });
+  });
+
+  it("an email rule reads opens of the email the run's email step sent", async () => {
+    const nodes: Node[] = [
+      trigger(),
+      { id: "m", type: "action", data: { triggerId: 5 } },
+      { id: "c", type: "condition", data: { mode: "rules", conditions: { op: "and", rules: [{ source: "email", nodeId: "m", state: "not_opened" }] } } },
+      ...exits,
+    ];
+    const edges = [edge("t", "m"), edge("m", "c"), ...branches("c")];
+
+    const unopened = setup(nodes, edges);
+    await unopened.service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+    await unopened.service.processStep(1, "m", "https://app.test");
+    expect(unopened.steps.get("1:m")).toMatchObject({ result: { sendLogId: 100 } });
+    await unopened.service.processStep(1, "c", "https://app.test");
+    expect(unopened.engagement.hasEngagement).toHaveBeenCalledWith(100, "OPEN");
+    expect(unopened.runs.get(1)).toMatchObject({ currentNodeId: "yes" });
+
+    const opened = setup(nodes, edges, { opened: [100] });
+    await opened.service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+    await opened.service.processStep(1, "m", "https://app.test");
+    await opened.service.processStep(1, "c", "https://app.test");
+    expect(opened.runs.get(1)).toMatchObject({ currentNodeId: "no" });
+  });
+
+  it("an email rule about a step the run did not pass through counts as not opened", async () => {
+    const nodes: Node[] = [
+      trigger(),
+      { id: "c", type: "condition", data: { mode: "rules", conditions: { op: "and", rules: [{ source: "email", nodeId: "elsewhere", state: "opened" }] } } },
+      ...exits,
+    ];
+    const { service, runs, engagement } = setup(nodes, [edge("t", "c"), ...branches("c")]);
+    await service.triggerWorkflow({ workflowId: 10, contactId: 3, projectId: 1 });
+    await service.processStep(1, "c", "https://app.test");
+    expect(engagement.hasEngagement).not.toHaveBeenCalled();
+    expect(runs.get(1)).toMatchObject({ currentNodeId: "no" });
   });
 
   it("a condition without a mode fails the step", async () => {

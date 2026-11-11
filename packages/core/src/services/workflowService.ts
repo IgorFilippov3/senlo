@@ -8,6 +8,7 @@ import { ServiceHooks } from "../hooks";
 import type { Workflow, WorkflowEdge, WorkflowGraphSnapshot, WorkflowNode, WorkflowStatus } from "../domain";
 import { FormValidationError, ValidationError } from "../errors";
 import type {
+  ContactRepository,
   ICampaignRepository,
   IContactEventRepository,
   IProjectRepository,
@@ -72,7 +73,19 @@ export interface WorkflowServiceRepositories {
   workflows: IWorkflowRepository;
   projects: Pick<IProjectRepository, "findById">;
   campaigns: Pick<ICampaignRepository, "findById">;
-  contactEvents: Pick<IContactEventRepository, "recentNames">;
+  contactEvents: Pick<IContactEventRepository, "recentNames" | "payloadKeys">;
+  contacts: Pick<ContactRepository, "attributeKeys">;
+}
+
+/** How many contacts and events field suggestions are read from. */
+export const FIELD_SUGGESTION_SAMPLE = 500;
+
+/** What the rule builder suggests for a field. */
+export interface FieldSuggestions {
+  /** Contact attribute keys seen in the project. */
+  contact: string[];
+  /** Payload keys of recent events with the trigger's name. */
+  event: string[];
 }
 
 /** How many event names the trigger panel suggests. */
@@ -126,6 +139,22 @@ export class WorkflowService {
   async recentEventNames(userId: string, projectId: number): Promise<string[]> {
     await this.access.requireProject(userId, projectId, "read");
     return this.repos.contactEvents.recentNames(projectId, RECENT_EVENT_NAMES_LIMIT);
+  }
+
+  /**
+   * Field names for the rule builder: the project's contact attributes, and
+   * the payload keys its events named `eventName` carried. Sampled from the
+   * latest rows; a suggestion, not a schema.
+   */
+  async fieldSuggestions(userId: string, projectId: number, eventName?: string | null): Promise<FieldSuggestions> {
+    await this.access.requireProject(userId, projectId, "read");
+    const [contact, event] = await Promise.all([
+      this.repos.contacts.attributeKeys(projectId, FIELD_SUGGESTION_SAMPLE),
+      eventName && isValidEventName(eventName)
+        ? this.repos.contactEvents.payloadKeys(projectId, eventName, FIELD_SUGGESTION_SAMPLE)
+        : Promise.resolve([]),
+    ]);
+    return { contact, event };
   }
 
   async getGraph(

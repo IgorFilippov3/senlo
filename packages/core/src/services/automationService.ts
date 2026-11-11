@@ -4,6 +4,7 @@ import {
   IWorkflowExecutionRepository,
   ContactRepository,
   IContactEventRepository,
+  ITriggeredSendLogRepository,
   CompleteStep,
 } from "../ports";
 import { TriggerService } from "./triggerService";
@@ -56,6 +57,9 @@ export const CancelRunsRequestSchema = z.object({
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Without a send log repository no email was ever opened (a host that builds the service by hand). */
+const noEngagement: Pick<ITriggeredSendLogRepository, "hasEngagement"> = { hasEngagement: async () => false };
+
 /** How long the API check waits for the user's endpoint. */
 export const API_CHECK_TIMEOUT_MS = 10_000;
 
@@ -85,6 +89,8 @@ export class AutomationService {
     private readonly hooks: ServiceHooks = ServiceHooks.none,
     /** Where the "API condition" node may POST; see `OutboundPolicy`. */
     private readonly outbound: OutboundPolicy = allowAllOutbound,
+    /** Opens and clicks of an automation's emails, for email rules. */
+    private readonly engagement: Pick<ITriggeredSendLogRepository, "hasEngagement"> = noEngagement,
   ) {}
 
   /** Versions are immutable, so each worker process keeps the ones it has read. */
@@ -300,7 +306,10 @@ export class AutomationService {
       switch (node.type) {
         case "action":
           // The key makes a redelivered send reuse the first one's log and job.
-          await this.handleEmailAction(execution, node.data, `wf-${executionId}-${nodeId}`);
+          {
+            const sendLogId = await this.handleEmailAction(execution, node.data, `wf-${executionId}-${nodeId}`);
+            result = sendLogId !== null ? { sendLogId } : null;
+          }
           break;
 
         case "condition":
@@ -430,7 +439,8 @@ export class AutomationService {
     if (ended) this.logger.error("Workflow run failed: its job ran out of attempts", { executionId, nodeId, error });
   }
 
-  private async handleEmailAction(execution: WorkflowExecution, data: any, dedupeKey: string): Promise<void> {
+  /** Sends the step's email; the send log id, kept in the step result for email rules. */
+  private async handleEmailAction(execution: WorkflowExecution, data: any, dedupeKey: string): Promise<number | null> {
     const campaignId = data.triggerId;
     if (!campaignId) throw new Error("No trigger chosen for the email step (triggerId)");
 
@@ -440,7 +450,7 @@ export class AutomationService {
     const contact = await this.contactRepo.findById(execution.contactId);
     if (!contact) throw new Error("Contact not found");
 
-    await this.sendStepEmail({
+    return this.sendStepEmail({
       campaignId: Number(campaignId),
       projectId: workflow.projectId,
       to: contact.email,
@@ -456,9 +466,10 @@ export class AutomationService {
    * database or the queue unreachable) may pass and is retried. The dedupe
    * key makes a retry safe.
    */
-  private async sendStepEmail(options: Parameters<TriggerService["sendTriggeredEmail"]>[0]): Promise<void> {
+  private async sendStepEmail(options: Parameters<TriggerService["sendTriggeredEmail"]>[0]): Promise<number | null> {
     try {
-      await this.triggerService.sendTriggeredEmail(options);
+      const sent = await this.triggerService.sendTriggeredEmail(options);
+      return typeof sent?.logId === "number" ? sent.logId : null;
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new RetryableStepError(`Email step could not queue the send: ${error instanceof Error ? error.message : String(error)}`);
@@ -704,7 +715,7 @@ export class AutomationService {
         const since = rule.withinDays ? new Date(Date.now() - rule.withinDays * DAY_MS) : new Date(0);
         lookups.set(lookupKey(rule), await this.contactEvents.existsSince(execution.contactId, rule.event, since));
       } else {
-        throw new Error("Email rules are not supported yet");
+        lookups.set(lookupKey(rule), await this.emailEngagement(execution.id, rule.nodeId, rule.state));
       }
     }
 
@@ -715,6 +726,17 @@ export class AutomationService {
       lookups,
     });
     return { branch: matched ? "yes" : "no", matched };
+  }
+
+  /**
+   * Whether the email an email step of this run sent was opened / clicked.
+   * A step the run did not pass through (another branch) sent nothing: no.
+   */
+  private async emailEngagement(executionId: number, nodeId: string, state: string): Promise<boolean> {
+    const steps = await this.executionRepo.getStepExecutions(executionId);
+    const sendLogId = steps.find((s) => s.nodeId === nodeId)?.result?.sendLogId;
+    if (typeof sendLogId !== "number") return false;
+    return this.engagement.hasEngagement(sendLogId, state.endsWith("clicked") ? "CLICK" : "OPEN");
   }
 
   private parseDelay(data: any): number {

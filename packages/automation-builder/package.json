@@ -1,6 +1,6 @@
 {
   "name": "@senlo/automation-builder",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "Visual drag-and-drop workflow editor for Senlo",
   "license": "AGPL-3.0-or-later",
   "author": {
@@ -36,7 +36,9 @@
     "build": "tsc --noEmit",
     "build:package": "tsup",
     "dev": "tsc --noEmit --watch",
-    "dev:package": "tsup --watch"
+    "dev:package": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@senlo/core": "workspace:*",
@@ -55,6 +57,7 @@
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
+    "@types/react-dom": "^19.0.0",
+    "vitest": "^5.0.0"
   }
 }

@@ -177,6 +177,30 @@ describe("db:upgrade-automations --before-push", () => {
   });
 });
 
+describe("email engagement", () => {
+  it("an open or click of the log's campaign and address, at or after its send", async () => {
+    const { campaignId } = await seedCampaign(db);
+    const logs = new TriggeredSendLogRepository(db);
+    const log = await logs.create({ campaignId, email: "Ann@x.io", status: "SUCCESS", error: null, data: null });
+    const sentAt = (await logs.findById(log.id))!.sentAt;
+
+    expect(await logs.hasEngagement(log.id, "OPEN")).toBe(false);
+
+    // Before the send, another address, another type: none count.
+    await db.insert(schema.campaignEvents).values([
+      { campaignId, email: "ann@x.io", type: "OPEN", occurredAt: new Date(sentAt.getTime() - 60_000) },
+      { campaignId, email: "bob@x.io", type: "OPEN", occurredAt: new Date(sentAt.getTime() + 60_000) },
+      { campaignId, email: "ann@x.io", type: "DELIVERED", occurredAt: new Date(sentAt.getTime() + 60_000) },
+    ]);
+    expect(await logs.hasEngagement(log.id, "OPEN")).toBe(false);
+
+    await db.insert(schema.campaignEvents).values({ campaignId, email: "ann@x.io", type: "OPEN", occurredAt: new Date(sentAt.getTime() + 120_000) });
+    expect(await logs.hasEngagement(log.id, "OPEN")).toBe(true);
+    expect(await logs.hasEngagement(log.id, "CLICK")).toBe(false);
+    expect(await logs.hasEngagement(999_999, "OPEN")).toBe(false);
+  });
+});
+
 describe("send log dedupe key", () => {
   it("creates one row per key and counts it once", async () => {
     const { campaignId } = await seedCampaign(db);

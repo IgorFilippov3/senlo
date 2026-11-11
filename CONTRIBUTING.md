@@ -67,6 +67,7 @@ Tests use [Vitest](https://vitest.dev) and need no database or Redis.
 pnpm test:core      # packages/core: services, renderer, blocks, queues
 pnpm test:editor    # packages/editor: editor state
 pnpm test:next      # packages/next: route handlers, loaders, actions
+pnpm test:builder   # packages/automation-builder: rule editing, step summaries
 pnpm test           # all of the above
 
 pnpm test:core:update     # refresh renderer snapshots after an intended change

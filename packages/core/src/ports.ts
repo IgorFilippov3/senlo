@@ -188,6 +188,8 @@ export interface ContactRepository {
   findByProject(projectId: number): Promise<Contact[]>;
   findById(id: number): Promise<Contact | null>;
   findByEmail(projectId: number, email: string): Promise<Contact | null>;
+  /** Top-level attribute keys (`meta`) of the project's latest `sample` contacts, sorted. */
+  attributeKeys(projectId: number, sample: number): Promise<string[]>;
   /** Marks the contact unsubscribed, with the time. */
   unsubscribe(id: number): Promise<void>;
   update(
@@ -219,6 +221,8 @@ export interface IContactEventRepository {
   existsSince(contactId: number, name: string, since: Date): Promise<boolean>;
   /** Event names the project used, most recently used first (builder suggestions). */
   recentNames(projectId: number, limit: number): Promise<string[]>;
+  /** Top-level payload keys of the project's latest `sample` events named `name`, sorted. */
+  payloadKeys(projectId: number, name: string, sample: number): Promise<string[]>;
 }
 
 export interface IApiKeyRepository {
@@ -297,6 +301,13 @@ export interface ITriggeredSendLogRepository {
     dedupeKey: string,
   ): Promise<{ log: TriggeredSendLog; created: boolean }>;
   findByDedupeKey(dedupeKey: string): Promise<TriggeredSendLog | null>;
+  /**
+   * Whether the email of this log row was opened (`OPEN`) or clicked
+   * (`CLICK`): an event of its campaign, for its address, at or after its
+   * send. Events do not carry the log id, so a later send of the same
+   * trigger to the same address counts too.
+   */
+  hasEngagement(logId: number, type: "OPEN" | "CLICK"): Promise<boolean>;
   findById(id: number): Promise<TriggeredSendLog | null>;
   update(
     id: number,

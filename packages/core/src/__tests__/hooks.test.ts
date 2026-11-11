@@ -224,6 +224,7 @@ describe("services call the ports once per action", () => {
         projects,
         campaigns: {} as never,
         contactEvents: {} as never,
+        contacts: {} as never,
       },
       undefined,
       p.hooks,

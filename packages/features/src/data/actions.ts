@@ -105,5 +105,10 @@ export interface SenloActions {
     stats(workflowId: number): Promise<ActionResult<WorkflowNodeStats[]>>;
     /** Event names the project has sent, most recent first (trigger suggestions). */
     eventNames(projectId: number): Promise<ActionResult<string[]>>;
+    /** Contact attributes and the payload keys of `eventName`'s recent events (rule builder suggestions). */
+    fieldSuggestions(
+      projectId: number,
+      eventName: string | null,
+    ): Promise<ActionResult<{ contact: string[]; event: string[] }>>;
   };
 }

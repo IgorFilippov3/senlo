@@ -41,8 +41,19 @@ function fakes(graph: { nodes?: any[]; edges?: any[] } = {}) {
     findActiveByTrigger: async () => [],
   };
   const versions: WorkflowVersion[] = [];
-  const contactEvents = { recentNames: vi.fn(async (_projectId: number, _limit: number) => ["trial_started", "invoice.paid"]) };
-  return { service: new WorkflowService({ workflows, projects, campaigns, contactEvents }), workflows, contactEvents, rows, versions };
+  const contactEvents = {
+    recentNames: vi.fn(async (_projectId: number, _limit: number) => ["trial_started", "invoice.paid"]),
+    payloadKeys: vi.fn(async (_projectId: number, name: string, _sample: number) => (name === "trial_started" ? ["plan", "trial_ends_at"] : [])),
+  };
+  const contacts = { attributeKeys: vi.fn(async (_projectId: number, _sample: number) => ["company", "plan"]) };
+  return {
+    service: new WorkflowService({ workflows, projects, campaigns, contactEvents, contacts }),
+    workflows,
+    contactEvents,
+    contacts,
+    rows,
+    versions,
+  };
 }
 
 const trigger = { id: "t1", type: "trigger", data: { event: "contact_added" }, position: { x: 1.4, y: 2.6 } };
@@ -106,6 +117,18 @@ describe("WorkflowService", () => {
       expect(e.fieldErrors.t1).toBeDefined();
     }
     expect(workflows.saveGraph).toHaveBeenCalledTimes(2);
+  });
+
+  it("suggests contact attributes and the payload keys of the trigger's event", async () => {
+    const { service, contactEvents } = fakes();
+    expect(await service.fieldSuggestions("alice", 1, "trial_started")).toEqual({
+      contact: ["company", "plan"],
+      event: ["plan", "trial_ends_at"],
+    });
+    expect(contactEvents.payloadKeys).toHaveBeenCalledWith(1, "trial_started", 500);
+    expect(await service.fieldSuggestions("alice", 1, null)).toEqual({ contact: ["company", "plan"], event: [] });
+    expect(await service.fieldSuggestions("alice", 1, "Bad Name")).toMatchObject({ event: [] });
+    await expect(service.fieldSuggestions("alice", 2, "x")).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("suggests the project's recent event names to its users only", async () => {

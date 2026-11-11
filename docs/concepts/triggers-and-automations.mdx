@@ -34,8 +34,8 @@ An **automation** is a workflow drawn in the automation builder. It starts with 
 | Step | What it does |
 | --- | --- |
 | **Send email** | Sends a trigger's template to the contact, in the contact's locale. The template sees the contact and the event's `payload` as `{{event.*}}` ([merge tags](./merge-tags.mdx#automation-emails)). |
-| **Delay** | Waits a number of minutes, hours or days before the next step. |
-| **Condition** | Posts the contact (`email`, `name`, `locale`, `metadata`) and the trigger `event` (`{ name, payload }`) to a URL you set. A `200` takes the **yes** branch, anything else **no**. |
+| **Wait** | Waits a number of minutes, hours or days, or **until a date** read from the trigger event or the contact, with an offset ("3 days before `trial_ends_at`"). |
+| **Condition** | Takes the **yes** or **no** branch. **Rules** check the contact, the trigger event, the contact's history and earlier emails without any code of yours; **Call my API** posts the contact and the trigger `event` (`{ name, payload }`) to your URL, and a `200` means **yes**. |
 | **Update contact** | Merges fields into the contact's metadata (tags are added, not replaced). |
 | **Exit** | Ends the run. |
 
@@ -49,6 +49,21 @@ Events an automation can start on:
 | any name of your own | Whatever your app reports: `trial_started`, `invoice_failed`, `project_created`. Type the name in the trigger, or pick one your app has already sent. |
 
 An automation starts only on its own event name: an automation on `trial_started` ignores `invoice_failed`.
+
+A trigger can also have **filters** ("Only when"): rules on the contact or the event's payload, such as "the contact's plan is pro" or "the order total is at least 100". The run starts only when they hold. This is how `contact_updated` watches one field.
+
+### Condition rules
+
+| Rule on | Checks | Example |
+| --- | --- | --- |
+| Contact | A field (`email`, `name`, `locale`, `unsubscribed`, `tags`) or an attribute from `metadata` | `plan` is `pro`; `tags` contains `beta` |
+| Trigger event | A field of the event's `payload` (dots for nested ones: `order.total`) | `reason` is `too_expensive` |
+| Contact history | Whether the contact sent an event, ever or in the last N days | did not do `project_created` in the last 3 days |
+| Email | Whether the email of an earlier email step was opened or clicked | Welcome email was not opened |
+
+Rules are combined with **all** or **any**, and can be grouped once ("all of: A, and any of B or C"). Numbers compare as numbers, ISO dates as dates, everything else as text without regard to case. A field that is missing only satisfies "is not set" and "is not".
+
+History rules read the contact's event history, which is kept as long as the workspace keeps its email details; an older event does not count. Email opens are counted from the tracking pixel, so a client that blocks images never reports an open.
 
 Only **active** automations start; a paused one ignores events, while runs already in progress go on.
 
@@ -71,7 +86,8 @@ Use an automation when the email depends on what the user does over time: onboar
 | Send an email your code decides on, right now | Trigger |
 | Send to an address that is not a contact | Trigger |
 | Send a sequence, with waits | Automation |
-| Branch on something your backend knows | Automation with a Condition step |
+| Branch on what the contact did or the event carried | Automation with a Condition step (rules) |
+| Branch on something only your backend knows | Automation with a Condition step (your API) |
 | Let non-developers change who gets what, without a deploy | Automation |
 
 Both send through the same templates, provider, suppression list and unsubscribe links.

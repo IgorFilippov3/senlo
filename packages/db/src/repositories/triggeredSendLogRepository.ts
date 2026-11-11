@@ -1,5 +1,5 @@
 import { eq, desc, sql, and } from "drizzle-orm";
-import { campaignDailyStats, triggeredSendLogs } from "../schema";
+import { campaignDailyStats, campaignEvents, triggeredSendLogs } from "../schema";
 import {
   addCampaignStats,
   countersForLog,
@@ -118,6 +118,23 @@ export class TriggeredSendLogRepository extends BaseRepository<
       const [existing] = await tx.select().from(triggeredSendLogs).where(eq(triggeredSendLogs.dedupeKey, dedupeKey));
       return { log: this.mapToEntity(existing), created: false };
     });
+  }
+
+  async hasEngagement(logId: number, type: "OPEN" | "CLICK"): Promise<boolean> {
+    // Through (campaign_id, type, occurred_at), then the address.
+    const result = (await this.db.execute(sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM ${triggeredSendLogs} l
+        JOIN ${campaignEvents} e
+          ON e.campaign_id = l.campaign_id
+         AND e.type = ${type}
+         AND e.occurred_at >= l.sent_at
+         AND lower(e.email) = lower(l.email)
+        WHERE l.id = ${logId}
+      ) AS engaged
+    `)) as unknown as { rows: Array<{ engaged: boolean }> };
+    return Boolean(result.rows[0]?.engaged);
   }
 
   async findByDedupeKey(dedupeKey: string): Promise<TriggeredSendLog | null> {

@@ -18,7 +18,7 @@ import type { WorkflowNodeStats } from "@senlo/core";
 import { Button, Dialog } from "@senlo/ui";
 import { useAutomationStore } from "../store/automationStore";
 import { EDGE_TYPE, PLACEHOLDER_TYPE, layoutWorkflow } from "../layout/layoutWorkflow";
-import { BuilderProvider, type BuilderTrigger } from "./BuilderContext";
+import { BuilderProvider, type BuilderFieldSuggestions, type BuilderTrigger } from "./BuilderContext";
 import { DeleteStepDialog } from "./DeleteStepDialog";
 import { SidePanel } from "./SidePanel";
 import { WorkflowEdge } from "./edges/WorkflowEdge";
@@ -47,7 +47,13 @@ interface Props {
   stats?: WorkflowNodeStats[];
   /** Event names the project has sent, suggested for a custom event trigger. */
   eventNames?: string[];
+  /** Field names for the rule builder. */
+  fieldSuggestions?: BuilderFieldSuggestions;
+  /** Days the workspace keeps its event history; shown next to history rules. */
+  historyRetentionDays?: number | null;
 }
+
+const NO_FIELDS: BuilderFieldSuggestions = { contact: [], event: [] };
 
 /**
  * The automation canvas. Steps are laid out from the graph's structure and
@@ -55,7 +61,13 @@ interface Props {
  * a `+` (at an open end, or on an edge to insert it) and set up in the side
  * panel.
  */
-export const AutomationCanvas = ({ triggers = [], stats = [], eventNames = [] }: Props) => {
+export const AutomationCanvas = ({
+  triggers = [],
+  stats = [],
+  eventNames = [],
+  fieldSuggestions = NO_FIELDS,
+  historyRetentionDays,
+}: Props) => {
   const { nodes, edges, nodeStats, selectedNodeId, setSelectedNodeId, setNodeStats, validationError, setValidationError } =
     useAutomationStore();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -106,7 +118,7 @@ export const AutomationCanvas = ({ triggers = [], stats = [], eventNames = [] }:
   const closeError = () => setValidationError(null);
 
   return (
-    <BuilderProvider value={{ triggers, eventNames }}>
+    <BuilderProvider value={{ triggers, eventNames, fieldSuggestions, historyRetentionDays }}>
       <div className="flex h-full w-full overflow-hidden bg-[#fafafa]" onKeyDown={onKeyDown}>
         <div className="relative flex-1">
           <ReactFlow
@@ -152,8 +164,8 @@ export const AutomationCanvas = ({ triggers = [], stats = [], eventNames = [] }:
   );
 };
 
-export const AutomationBuilder = ({ triggers, stats, eventNames }: Props) => (
+export const AutomationBuilder = (props: Props) => (
   <ReactFlowProvider>
-    <AutomationCanvas triggers={triggers} stats={stats} eventNames={eventNames} />
+    <AutomationCanvas {...props} />
   </ReactFlowProvider>
 );

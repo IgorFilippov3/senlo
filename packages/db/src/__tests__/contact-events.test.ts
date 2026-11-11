@@ -10,6 +10,7 @@ import type { Database } from "../client";
 import * as schema from "../schema";
 import { ContactEventRepository } from "../repositories/contactEventRepository";
 import { LogRetentionRepository } from "../repositories/logRetentionRepository";
+import { ContactRepository } from "../repositories/contactRepository";
 import { createTestDb } from "./test-db";
 
 const quiet: Logger = { debug() {}, info() {}, warn() {}, error() {} };
@@ -114,5 +115,19 @@ describe("contact events", () => {
     await events.record({ projectId, contactId, name: "x", payload: {} });
     await db.delete(schema.contacts).where(eq(schema.contacts.id, contactId));
     expect(await events.listByContact(contactId)).toEqual([]);
+  });
+
+  it("suggests payload keys of an event name and the project's contact attributes", async () => {
+    const { projectId, contactId } = await seedContact();
+    await events.record({ projectId, contactId, name: "trial_started", payload: { plan: "pro", trial_ends_at: "2026-12-01" } });
+    await events.record({ projectId, contactId, name: "trial_started", payload: { seats: 3 } });
+    await events.record({ projectId, contactId, name: "other", payload: { secret: 1 } });
+    expect(await events.payloadKeys(projectId, "trial_started", 100)).toEqual(["plan", "seats", "trial_ends_at"]);
+    expect(await events.payloadKeys(projectId, "trial_started", 1)).toEqual(["seats"]);
+
+    await db.update(schema.contacts).set({ meta: { company: "Acme", plan: "pro" } }).where(eq(schema.contacts.id, contactId));
+    await db.insert(schema.contacts).values({ projectId, email: "b@x.io", meta: { plan: "free", locale_hint: "de" } });
+    await db.insert(schema.contacts).values({ projectId, email: "c@x.io", meta: ["not", "an", "object"] });
+    expect(await new ContactRepository(db).attributeKeys(projectId, 100)).toEqual(["company", "locale_hint", "plan"]);
   });
 });

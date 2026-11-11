@@ -56,6 +56,17 @@ export function useRecentEventNames(projectId: number) {
   });
 }
 
+/** Field names for the rule builder: contact attributes, and payload keys of the trigger's event. */
+export function useFieldSuggestions(projectId: number, eventName: string | null) {
+  const actions = useSenloActions();
+  return useQuery({
+    queryKey: queryKeys.workflows.fieldSuggestions(projectId, eventName),
+    queryFn: async () => unwrap(await actions.workflows.fieldSuggestions(projectId, eventName)),
+    enabled: !!projectId,
+    staleTime: 60_000,
+  });
+}
+
 function useInvalidateWorkflows() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: queryKeys.workflows.lists() });

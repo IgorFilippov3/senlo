@@ -1,5 +1,5 @@
 import React, { useId } from "react";
-import { isSystemEvent, isValidEventName } from "@senlo/core";
+import { isSystemEvent, isValidEventName, type ConditionGroup } from "@senlo/core";
 import {
   FormField,
   Input,
@@ -10,7 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@senlo/ui";
+import { Button } from "@senlo/ui";
+import { emptyGroup, newRule } from "../conditions/rules";
 import { useBuilderContext } from "./BuilderContext";
+import { RuleEditor } from "./RuleEditor";
 
 /** The select's value for a custom event; not an event name (no underscore prefix is valid). */
 const CUSTOM = "__custom__";
@@ -39,6 +42,7 @@ export function TriggerConfig({ data, onChange }: Props) {
   const event = typeof data.event === "string" ? data.event : "";
   const mode = isSystemEvent(event) ? event : CUSTOM;
   const tag = typeof data.tag === "string" ? data.tag : "";
+  const filters = data.filters as ConditionGroup | undefined;
 
   const invalid = mode === CUSTOM && event !== "" && !isValidEventName(event);
   const suggestions = eventNames
@@ -126,6 +130,29 @@ export function TriggerConfig({ data, onChange }: Props) {
           </p>
         </FormField>
       )}
+      <FormField>
+        <Label>Only when</Label>
+        {filters && filters.rules.length > 0 ? (
+          <RuleEditor
+            group={filters}
+            place="trigger"
+            onChange={(next) => onChange({ filters: next.rules.length > 0 ? next : undefined })}
+          />
+        ) : (
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onChange({ filters: { ...emptyGroup(), rules: [newRule("contact")] } })}
+            >
+              Add a filter
+            </Button>
+            <p className="text-[10px] text-gray-400 mt-1">
+              Start only for some contacts or events, e.g. a contact whose plan is pro, or an order over 100.
+            </p>
+          </div>
+        )}
+      </FormField>
     </div>
   );
 }

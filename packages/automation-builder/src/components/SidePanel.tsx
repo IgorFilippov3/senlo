@@ -16,6 +16,8 @@ import {
 import { STEP_META } from "./nodes/stepMeta";
 import { TriggerConfig } from "./TriggerConfig";
 import { OnErrorField } from "./OnErrorField";
+import { ConditionConfig } from "./ConditionConfig";
+import { DelayConfig } from "./DelayConfig";
 
 interface Trigger {
   id: number;
@@ -106,81 +108,10 @@ export const SidePanel = ({ triggers = [], onDelete }: Props) => {
           </div>
         );
       case "delay":
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2">
-              <FormField>
-                <Label>Wait Duration</Label>
-                <Input
-                  type="number"
-                  value={(node.data.duration as number) || 1}
-                  onChange={(e) =>
-                    updateNodeData(node.id, {
-                      duration: parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
-              </FormField>
-              <FormField>
-                <Label>Unit</Label>
-                <Select
-                  value={(node.data.unit as string) || "days"}
-                  onValueChange={(val) =>
-                    updateNodeData(node.id, { unit: val })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="minutes">Minutes</SelectItem>
-                    <SelectItem value="hours">Hours</SelectItem>
-                    <SelectItem value="days">Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormField>
-            </div>
-          </div>
-        );
+        return <DelayConfig data={node.data} onChange={(data) => updateNodeData(node.id, data)} />;
       case "condition":
         return (
-          <div className="space-y-4">
-            <FormField>
-              <Label>API Check URL</Label>
-              <Input
-                value={(node.data.url as string) || ""}
-                onChange={(e) =>
-                  updateNodeData(node.id, { url: e.target.value })
-                }
-                placeholder="https://api.example.com/check"
-              />
-              <p className="text-[10px] text-gray-400 mt-1">
-                Senlo will send a POST request to this URL. Status 200 = YES,
-                any other = NO. A timeout, 429 or 5xx is retried first.
-              </p>
-              <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-100">
-                <p className="text-[9px] font-bold text-blue-700 uppercase mb-1">
-                  Testing Tip
-                </p>
-                <p className="text-[10px] text-blue-600">
-                  Use{" "}
-                  <code className="bg-white px-1 py-0.5 rounded border border-blue-200">
-                    /api/debug/check
-                  </code>{" "}
-                  to test. It returns YES if email contains "pass" or{" "}
-                  <code className="bg-white px-1 py-0.5 rounded border border-blue-200">
-                    test_check: true
-                  </code>{" "}
-                  in metadata.
-                </p>
-              </div>
-            </FormField>
-            <OnErrorField
-              type="condition"
-              value={node.data.onError}
-              onChange={(onError) => updateNodeData(node.id, { onError })}
-            />
-          </div>
+          <ConditionConfig nodeId={node.id} data={node.data} onChange={(data) => updateNodeData(node.id, data)} />
         );
       case "update_contact":
         return (

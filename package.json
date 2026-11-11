@@ -26,6 +26,7 @@
     "test:core": "pnpm --filter @senlo/core test",
     "test:core:update": "pnpm --filter @senlo/core test:update",
     "test:db": "pnpm --filter @senlo/db test",
+    "test:builder": "pnpm --filter @senlo/automation-builder test",
     "test:editor": "pnpm --filter @senlo/editor test",
     "test:next": "pnpm --filter @senlo/next test",
     "test:editor:update": "pnpm --filter @senlo/editor test:update"
