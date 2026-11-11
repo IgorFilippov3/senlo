@@ -5,7 +5,14 @@
 import { z } from "zod";
 import { AccessGuard, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
-import type { Workflow, WorkflowEdge, WorkflowGraphSnapshot, WorkflowNode, WorkflowStatus } from "../domain";
+import type {
+  Workflow,
+  WorkflowEdge,
+  WorkflowGraphSnapshot,
+  WorkflowNode,
+  WorkflowSettings,
+  WorkflowStatus,
+} from "../domain";
 import { FormValidationError, ValidationError } from "../errors";
 import type {
   ContactRepository,
@@ -16,6 +23,7 @@ import type {
 } from "../ports";
 import { parseInput } from "../validation";
 import { validateWorkflowGraph } from "../workflow-graph";
+import { validateWorkflowSettings } from "../workflow-settings";
 import { isValidEventName } from "../workflow-events";
 
 /**
@@ -45,6 +53,20 @@ export type GraphNode = z.infer<typeof GraphNodeSchema>;
 export type GraphEdge = z.infer<typeof GraphEdgeSchema>;
 export type WorkflowGraph = z.infer<typeof WorkflowGraphSchema>;
 
+const DurationSchema = z.object({
+  duration: z.number().int().positive(),
+  unit: z.enum(["minutes", "hours", "days"]),
+});
+
+/** A workflow's settings as the builder sends them; the rules inside are checked by `validateWorkflowSettings`. */
+export const WorkflowSettingsSchema = z
+  .object({
+    kind: z.enum(["transactional", "lifecycle"]).optional(),
+    goal: z.object({ event: z.string().trim(), filters: z.unknown().optional() }).strict().optional(),
+    entry: z.object({ mode: z.enum(["once", "after_exit"]), cooldown: DurationSchema.optional() }).strict().optional(),
+  })
+  .strict();
+
 export const CreateWorkflowSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(255),
 });
@@ -59,7 +81,15 @@ export function defaultTriggerNode(): Omit<WorkflowNode, "workflowId"> {
 }
 
 /** The step types the builder and the engine know. */
-export const WORKFLOW_NODE_TYPES = ["trigger", "action", "delay", "condition", "update_contact", "exit"] as const;
+export const WORKFLOW_NODE_TYPES = [
+  "trigger",
+  "action",
+  "delay",
+  "condition",
+  "wait_event",
+  "update_contact",
+  "exit",
+] as const;
 
 /** Which trigger (campaign) an action node sends (`data.triggerId`). */
 function actionCampaignId(node: GraphNode): number | null {
@@ -251,7 +281,7 @@ export class WorkflowService {
     // once, runs in flight finish on the version they started on. So it must
     // be complete; an incomplete one can be kept as a draft only after a pause.
     const live = workflow.status === "ACTIVE";
-    if (live) this.requireLaunchable(snapshot, "Pause the automation to save an incomplete draft.");
+    if (live) this.requireLaunchable(snapshot, workflow.settings, "Pause the automation to save an incomplete draft.");
 
     await this.repos.workflows.saveGraph(id, snapshot.nodes, snapshot.edges);
     let version: number | undefined;
@@ -263,25 +293,67 @@ export class WorkflowService {
     });
   }
 
-  /** `ValidationError` with every reason when the graph cannot run. */
-  private requireLaunchable(graph: WorkflowGraphSnapshot, message: string): void {
+  /** `ValidationError` with every reason when the graph or the settings cannot run. */
+  private requireLaunchable(graph: WorkflowGraphSnapshot, settings: WorkflowSettings | undefined, message: string): void {
     const check = validateWorkflowGraph(
       graph.nodes,
       graph.edges.map((e) => ({ source: e.sourceNodeId, target: e.targetNodeId, sourceHandle: e.sourceHandle })),
     );
-    if (!check.valid) throw new ValidationError(message, { reasons: check.reasons });
+    const reasons = [...(check.valid ? [] : check.reasons), ...validateWorkflowSettings(settings)];
+    if (reasons.length > 0) throw new ValidationError(message, { reasons });
   }
 
   /**
-   * Publishes the graph as the next version, unless it equals the active
-   * one (a pause and resume, or a save without changes, makes no version).
+   * Publishes the graph and the workflow's settings as the next version,
+   * unless both equal the active one (a pause and resume, or a save without
+   * changes, makes no version).
    */
   private async publishIfChanged(workflow: Workflow, graph: WorkflowGraphSnapshot) {
+    const settings = workflow.settings ?? {};
     if (workflow.activeVersionId) {
       const active = await this.repos.workflows.getVersion(workflow.activeVersionId);
-      if (active && sameGraph(active.graph, graph)) return null;
+      if (active && sameGraph(active.graph, graph) && sameValue(active.settings, settings)) return null;
     }
-    return this.repos.workflows.publishVersion(workflow.id, graph);
+    return this.repos.workflows.publishVersion(workflow.id, graph, settings);
+  }
+
+  /** The live graph of a workflow, as a version stores it. */
+  private async liveGraph(id: number): Promise<WorkflowGraphSnapshot> {
+    const [nodes, edges] = await Promise.all([this.repos.workflows.getNodes(id), this.repos.workflows.getEdges(id)]);
+    return {
+      nodes: nodes.map(({ id: nodeId, type, data }) => ({ id: nodeId, type, data })),
+      edges: edges.map(({ id: edgeId, sourceNodeId, targetNodeId, sourceHandle }) => ({
+        id: edgeId,
+        sourceNodeId,
+        targetNodeId,
+        sourceHandle: sourceHandle ?? null,
+      })),
+    };
+  }
+
+  /**
+   * Stores the workflow's settings (goal, entry rules, kind). On a live
+   * workflow this publishes a new version with the saved graph, like a
+   * graph save (D2): new runs follow the new settings, runs in progress keep
+   * theirs.
+   */
+  async updateSettings(userId: string, id: number, rawSettings: unknown): Promise<WorkflowSettings> {
+    const workflow = await this.requireWorkflow(userId, id, "write");
+    const settings = parseInput(WorkflowSettingsSchema, rawSettings) as WorkflowSettings;
+    const problems = validateWorkflowSettings(settings);
+    if (problems.length > 0) throw new ValidationError("These settings cannot be saved.", { reasons: problems });
+
+    let version: number | undefined;
+    if (workflow.status === "ACTIVE") {
+      const graph = await this.liveGraph(id);
+      this.requireLaunchable(graph, settings, "These settings cannot be saved on a live automation.");
+      await this.repos.workflows.update(id, { settings });
+      version = (await this.publishIfChanged({ ...workflow, settings }, graph))?.version;
+    } else {
+      await this.repos.workflows.update(id, { settings });
+    }
+    await this.audit(userId, "settings_saved", workflow, version !== undefined ? { version } : undefined);
+    return settings;
   }
 
   /**
@@ -292,20 +364,8 @@ export class WorkflowService {
   async setStatus(userId: string, id: number, status: WorkflowStatus): Promise<Workflow> {
     const workflow = await this.requireWorkflow(userId, id, "write");
     if (status === "ACTIVE") {
-      const [nodes, edges] = await Promise.all([
-        this.repos.workflows.getNodes(id),
-        this.repos.workflows.getEdges(id),
-      ]);
-      const graph: WorkflowGraphSnapshot = {
-        nodes: nodes.map(({ id: nodeId, type, data }) => ({ id: nodeId, type, data })),
-        edges: edges.map(({ id: edgeId, sourceNodeId, targetNodeId, sourceHandle }) => ({
-          id: edgeId,
-          sourceNodeId,
-          targetNodeId,
-          sourceHandle: sourceHandle ?? null,
-        })),
-      };
-      this.requireLaunchable(graph, "This automation cannot go live yet.");
+      const graph = await this.liveGraph(id);
+      this.requireLaunchable(graph, workflow.settings, "This automation cannot go live yet.");
       // The version first: an ACTIVE workflow always has one to start runs on.
       await this.publishIfChanged(workflow, graph);
     }
@@ -330,6 +390,11 @@ export class WorkflowService {
       details,
     });
   }
+}
+
+/** Equal values, object keys in any order. */
+function sameValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(canonical(a ?? {})) === JSON.stringify(canonical(b ?? {}));
 }
 
 /** Equal graphs: same nodes (id, type, data) and edges, in any order. */

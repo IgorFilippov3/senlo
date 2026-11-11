@@ -1,4 +1,4 @@
-import { eq, and, sql, lt, asc, isNotNull } from "drizzle-orm";
+import { eq, and, sql, lt, asc, isNotNull, isNull } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import {
@@ -38,6 +38,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
         versionId: data.versionId,
         context: data.context,
         currentNodeId: data.currentNodeId,
+        goalEvent: data.goalEvent ?? null,
         wakeAt: new Date(),
       })
       .onConflictDoNothing()
@@ -105,7 +106,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
       const now = new Date();
       const ended = await tx
         .update(schema.workflowExecutions)
-        .set({ status: end.status, exitReason: end.exitReason, completedAt: now, wakeAt: null, updatedAt: now })
+        .set({ status: end.status, exitReason: end.exitReason, completedAt: now, wakeAt: null, waitingEvent: null, updatedAt: now })
         .where(
           and(
             eq(schema.workflowExecutions.id, id),
@@ -135,6 +136,80 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
     return rows.map((r) => ({ id: r.id, currentNodeId: r.currentNodeId! }));
   }
 
+  async findWaiting(contactId: number, eventName: string): Promise<WorkflowExecution[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.workflowExecutions)
+      .where(
+        and(
+          eq(schema.workflowExecutions.contactId, contactId),
+          eq(schema.workflowExecutions.waitingEvent, eventName),
+          eq(schema.workflowExecutions.status, "RUNNING"),
+        ),
+      );
+    return rows.map((r) => this.mapToExecution(r));
+  }
+
+  async findByGoal(contactId: number, eventName: string): Promise<WorkflowExecution[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.workflowExecutions)
+      .where(
+        and(
+          eq(schema.workflowExecutions.contactId, contactId),
+          eq(schema.workflowExecutions.goalEvent, eventName),
+          eq(schema.workflowExecutions.status, "RUNNING"),
+        ),
+      );
+    return rows.map((r) => this.mapToExecution(r));
+  }
+
+  async startWait(id: number, { nodeId, event, wakeAt }: { nodeId: string; event: string; wakeAt: Date }): Promise<boolean> {
+    const rows = await this.db
+      .update(schema.workflowExecutions)
+      .set({ waitingEvent: event, wakeAt, updatedAt: new Date() })
+      .where(
+        and(
+          eq(schema.workflowExecutions.id, id),
+          eq(schema.workflowExecutions.status, "RUNNING"),
+          eq(schema.workflowExecutions.currentNodeId, nodeId),
+          isNull(schema.workflowExecutions.waitingEvent),
+        ),
+      )
+      .returning({ id: schema.workflowExecutions.id });
+    return rows.length > 0;
+  }
+
+  async resolveWait(id: number, { nodeId, event }: { nodeId: string; event: string }): Promise<boolean> {
+    const rows = await this.db
+      .update(schema.workflowExecutions)
+      .set({ waitingEvent: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(schema.workflowExecutions.id, id),
+          eq(schema.workflowExecutions.status, "RUNNING"),
+          eq(schema.workflowExecutions.currentNodeId, nodeId),
+          eq(schema.workflowExecutions.waitingEvent, event),
+        ),
+      )
+      .returning({ id: schema.workflowExecutions.id });
+    return rows.length > 0;
+  }
+
+  async setStepOutput(id: number, nodeId: string, output: unknown): Promise<void> {
+    await this.db
+      .update(schema.workflowExecutions)
+      .set({
+        context: sql`jsonb_set(
+          jsonb_set(${schema.workflowExecutions.context}, '{steps}', coalesce(${schema.workflowExecutions.context} -> 'steps', '{}'::jsonb)),
+          array['steps', ${nodeId}::text],
+          ${JSON.stringify(output ?? null)}::jsonb
+        )`,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.workflowExecutions.id, id));
+  }
+
   async cancelRunning(
     contactId: number,
     { workflowId, exitReason }: { workflowId?: number; exitReason: ExecutionExitReason },
@@ -142,7 +217,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
     const now = new Date();
     const rows = await this.db
       .update(schema.workflowExecutions)
-      .set({ status: "CANCELLED", exitReason, completedAt: now, wakeAt: null, updatedAt: now })
+      .set({ status: "CANCELLED", exitReason, completedAt: now, wakeAt: null, waitingEvent: null, updatedAt: now })
       .where(
         and(
           eq(schema.workflowExecutions.contactId, contactId),

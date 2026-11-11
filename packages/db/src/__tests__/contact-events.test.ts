@@ -130,4 +130,16 @@ describe("contact events", () => {
     await db.insert(schema.contacts).values({ projectId, email: "c@x.io", meta: ["not", "an", "object"] });
     expect(await new ContactRepository(db).attributeKeys(projectId, 100)).toEqual(["company", "locale_hint", "plan"]);
   });
+
+  it("lists a contact's events of a name since a time, newest first", async () => {
+    const { projectId, contactId } = await seedContact();
+    const old = await events.record({ projectId, contactId, name: "paid", payload: { n: 1 } });
+    await age(old!.id, 5);
+    await events.record({ projectId, contactId, name: "paid", payload: { n: 2 } });
+    await events.record({ projectId, contactId, name: "paid", payload: { n: 3 } });
+    await events.record({ projectId, contactId, name: "other", payload: {} });
+
+    expect((await events.listSince(contactId, "paid", daysAgo(1), 10)).map((e) => e.payload.n)).toEqual([3, 2]);
+    expect((await events.listSince(contactId, "paid", daysAgo(10), 1)).map((e) => e.payload.n)).toEqual([3]);
+  });
 });

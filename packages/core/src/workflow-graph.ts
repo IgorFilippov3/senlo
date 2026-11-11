@@ -48,6 +48,13 @@ const LINEAR_NODE_TYPES = new Set([
 
 const CONDITION_HANDLES = new Set(["yes", "no"]);
 
+/** Steps with a Yes and a No branch. */
+const BRANCHING_TYPES: Record<string, string> = { condition: "Condition", wait_event: "Wait for event" };
+
+export function isBranchingType(type?: string | null): boolean {
+  return !!type && type in BRANCHING_TYPES;
+}
+
 const VIRTUAL_CHILD_ID = "__virtual_child__";
 
 export function normalizeHandle(handle?: string | null): string | null {
@@ -204,11 +211,11 @@ export function validateWorkflowConnection(
     return { valid: false, reason: "These steps are already connected." };
   }
 
-  if (sourceNode.type === "condition") {
+  if (isBranchingType(sourceNode.type)) {
     if (!sourceHandle || !CONDITION_HANDLES.has(sourceHandle)) {
       return {
         valid: false,
-        reason: "Condition branches must use Yes or No.",
+        reason: `${BRANCHING_TYPES[sourceNode.type!]} branches must use Yes or No.`,
       };
     }
 
@@ -322,6 +329,20 @@ export function validateWorkflowGraph(
       }
     }
 
+    if (node.type === "wait_event" && node.data !== undefined) {
+      const data = node.data ?? {};
+      if (typeof data.event !== "string" || !isValidEventName(data.event)) {
+        reasons.push("A Wait for event step needs a valid event name.");
+      }
+      const timeout = data.timeout as { duration?: unknown; unit?: unknown } | undefined;
+      if (!timeout || !Number.isInteger(timeout.duration) || (timeout.duration as number) < 1 || !["minutes", "hours", "days"].includes(timeout.unit as string)) {
+        reasons.push("A Wait for event step needs a timeout.");
+      }
+      if (data.filters !== undefined) {
+        reasons.push(...validateConditionGroup(data.filters, "trigger").map((r) => `Wait for event filters: ${r.replace("A trigger filter", "A filter")}`));
+      }
+    }
+
     if (node.type === "delay" && node.data?.mode === "until") {
       const until = node.data.until as { source?: unknown; path?: unknown } | undefined;
       if (!until || (until.source !== "event" && until.source !== "contact") || typeof until.path !== "string" || until.path.trim() === "") {
@@ -337,7 +358,8 @@ export function validateWorkflowGraph(
       reasons.push("A step has more than one next step.");
     }
 
-    if (node.type === "condition") {
+    if (isBranchingType(node.type)) {
+      const label = BRANCHING_TYPES[node.type!];
       const yesEdges = outgoingEdges(edges, node.id, "yes");
       const noEdges = outgoingEdges(edges, node.id, "no");
       const invalidHandles = outgoing.filter((edge) => {
@@ -346,16 +368,16 @@ export function validateWorkflowGraph(
       });
 
       if (invalidHandles.length > 0) {
-        reasons.push("Condition branches must use Yes or No.");
+        reasons.push(`${label} branches must use Yes or No.`);
       }
       if (yesEdges.length > 1 || noEdges.length > 1) {
-        reasons.push("A Condition branch has more than one next step.");
+        reasons.push(`A ${label} branch has more than one next step.`);
       }
       if (yesEdges.length === 0) {
-        reasons.push("A Condition is missing a Yes branch.");
+        reasons.push(`A ${label} is missing a Yes branch.`);
       }
       if (noEdges.length === 0) {
-        reasons.push("A Condition is missing a No branch.");
+        reasons.push(`A ${label} is missing a No branch.`);
       }
     }
   }

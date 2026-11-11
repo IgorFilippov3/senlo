@@ -1,3 +1,4 @@
+import type { ConditionGroup } from "./workflow-conditions";
 /** An account. `passwordHash` is set for credentials sign-in only. */
 export interface User {
   id: string;
@@ -117,8 +118,34 @@ export interface Workflow {
   activeVersionId?: number | null;
   /** The active version's trigger event name, for the trigger lookup. */
   triggerEvent?: string | null;
+  /** The draft's settings (goal, entry rules, kind); published with the graph. */
+  settings?: WorkflowSettings;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * How a workflow treats contacts, besides its graph. Copied into each
+ * version, so a run follows the settings it started with.
+ */
+export interface WorkflowSettings {
+  /**
+   * `transactional` (default): mail the contact asked for; an unsubscribed
+   * or suppressed contact's email step is skipped and the run goes on.
+   * `lifecycle`: marketing mail (win-back, nurture, upsell); such a contact
+   * ends the run, and unsubscribing ends their runs at once.
+   */
+  kind?: "transactional" | "lifecycle";
+  /** When the contact does `event` (and `filters` hold), every run of theirs in this workflow ends: the goal is reached. */
+  goal?: { event: string; filters?: ConditionGroup };
+  /**
+   * Who may enter. `after_exit` (default): again once the previous run ended;
+   * `once`: never twice. `cooldown`: not within this time after the last start.
+   */
+  entry?: {
+    mode: "once" | "after_exit";
+    cooldown?: { duration: number; unit: "minutes" | "hours" | "days" };
+  };
 }
 
 /** A workflow's graph as the builder saved it, without the workflow id. */
@@ -137,8 +164,7 @@ export interface WorkflowVersion {
   /** 1, 2, 3 per workflow. */
   version: number;
   graph: WorkflowGraphSnapshot;
-  /** Entry rules, goal, kind (later phases). */
-  settings: Record<string, unknown>;
+  settings: WorkflowSettings;
   createdAt: Date;
 }
 
@@ -189,8 +215,12 @@ export interface WorkflowExecution {
   context: ExecutionContext;
   /** The cursor: the step the run is at. Null only on rows from before cursors. */
   currentNodeId: string | null;
-  /** When the cursor step is due. */
+  /** When the cursor step is due (for a run waiting for an event: its timeout). */
   wakeAt?: Date | null;
+  /** The event a Wait for event step waits for; set only while it waits. */
+  waitingEvent?: string | null;
+  /** The goal event, copied from the version's settings at start. */
+  goalEvent?: string | null;
   exitReason?: ExecutionExitReason | null;
   startedAt: Date;
   completedAt?: Date | null;

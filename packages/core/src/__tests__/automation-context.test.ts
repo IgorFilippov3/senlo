@@ -41,6 +41,7 @@ describe("run context", () => {
       versionId: 7,
       context: { event: { name: "order_created", payload: { total: 42 } }, steps: {} },
       currentNodeId: "t",
+      goalEvent: null,
     });
   });
 

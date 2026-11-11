@@ -147,6 +147,38 @@ describe("guarded run transitions", () => {
     expect(await executions.findById(second.run.id)).toMatchObject({ status: "RUNNING" });
   });
 
+  it("waits for an event: one start, one resolution, and the waiting runs are found by event", async () => {
+    const { run, contactId } = await start();
+    await executions.moveCursor(run.id, { from: "t", to: "a", wakeAt: new Date() });
+    const timeout = new Date(Date.now() + 3 * 86_400_000);
+
+    expect(await executions.startWait(run.id, { nodeId: "b", event: "paid", wakeAt: timeout })).toBe(false);
+    expect(await executions.startWait(run.id, { nodeId: "a", event: "paid", wakeAt: timeout })).toBe(true);
+    expect(await executions.startWait(run.id, { nodeId: "a", event: "paid", wakeAt: timeout })).toBe(false);
+    expect((await executions.findWaiting(contactId, "paid")).map((r) => r.id)).toEqual([run.id]);
+    expect(await executions.findWaiting(contactId, "other")).toEqual([]);
+
+    expect(await executions.resolveWait(run.id, { nodeId: "a", event: "paid" })).toBe(true);
+    expect(await executions.resolveWait(run.id, { nodeId: "a", event: "paid" })).toBe(false);
+    expect(await executions.findWaiting(contactId, "paid")).toEqual([]);
+  });
+
+  it("finds runs by goal and stores step outputs in the context", async () => {
+    const ids = await seedWorkflow();
+    const run = await executions.create({ ...ids, context: { event: { name: "x", payload: { a: 1 } }, steps: {} }, currentNodeId: "t", goalEvent: "paid" });
+    expect((await executions.findByGoal(ids.contactId, "paid")).map((r) => r.id)).toEqual([run!.id]);
+
+    await executions.setStepOutput(run!.id, "w", { plan: "pro" });
+    await executions.setStepOutput(run!.id, "h", null);
+    expect((await executions.findById(run!.id))?.context).toEqual({
+      event: { name: "x", payload: { a: 1 } },
+      steps: { w: { plan: "pro" }, h: null },
+    });
+
+    await executions.finish(run!.id, { status: "COMPLETED", exitReason: "goal" });
+    expect(await executions.findByGoal(ids.contactId, "paid")).toEqual([]);
+  });
+
   it("claims a step once and hands the same row back", async () => {
     const { run } = await start();
     const first = await executions.claimStep(run.id, "a");
@@ -174,6 +206,18 @@ describe("db:upgrade-automations --before-push", () => {
     expect(await executions.findById(newer.id)).toMatchObject({ status: "RUNNING" });
     expect(await executions.getStepExecutions(newer.id)).toEqual([expect.objectContaining({ status: "COMPLETED" })]);
     expect(await prepareAutomationsForPush(db)).toEqual({ duplicateRunsCancelled: 0, duplicateStepsDeleted: 0 });
+  });
+});
+
+describe("workflow settings", () => {
+  it("are stored on the draft and copied into the version", async () => {
+    const ids = await seedWorkflow();
+    const workflows = new WorkflowRepository(db);
+    const settings = { kind: "lifecycle" as const, goal: { event: "paid" }, entry: { mode: "once" as const } };
+    await workflows.update(ids.workflowId, { settings });
+    expect((await workflows.findById(ids.workflowId))?.settings).toEqual(settings);
+    const v = await workflows.publishVersion(ids.workflowId, { nodes: [], edges: [] }, settings);
+    expect((await workflows.getVersion(v.id))?.settings).toEqual(settings);
   });
 });
 

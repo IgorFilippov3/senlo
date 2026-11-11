@@ -199,7 +199,8 @@ describe("WorkflowService", () => {
     it("going live publishes the saved graph as a version", async () => {
       const { service, workflows } = fakes({ nodes: liveNodes, edges: liveEdges });
       await service.setStatus("alice", 10, "ACTIVE");
-      expect(workflows.publishVersion).toHaveBeenCalledWith(10, { nodes: liveNodes, edges: liveEdges });
+      // No settings stored: the version gets empty ones.
+      expect(workflows.publishVersion).toHaveBeenCalledWith(10, { nodes: liveNodes, edges: liveEdges }, {});
       expect(workflows.update).toHaveBeenCalledWith(10, { status: "ACTIVE" });
     });
 
@@ -254,6 +255,55 @@ describe("WorkflowService", () => {
         expect(e.fieldErrors.n[0]).toContain(type);
       }
       expect(workflows.saveGraph).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("settings", () => {
+    const liveNodes = [
+      { id: "t", type: "trigger", data: { event: "payment_failed" } },
+      { id: "x", type: "exit", data: {} },
+    ];
+    const liveEdges = [{ id: "e", sourceNodeId: "t", targetNodeId: "x", sourceHandle: null }];
+
+    it("stores a draft's settings without publishing", async () => {
+      const { service, workflows } = fakes({ nodes: liveNodes, edges: liveEdges });
+      const settings = { kind: "lifecycle", goal: { event: "payment_succeeded" }, entry: { mode: "once" } };
+      expect(await service.updateSettings("alice", 10, settings)).toEqual(settings);
+      expect(workflows.update).toHaveBeenCalledWith(10, { settings });
+      expect(workflows.publishVersion).not.toHaveBeenCalled();
+    });
+
+    it("on a live workflow publishes a version with the saved graph and the new settings", async () => {
+      const { service, workflows, rows } = fakes({ nodes: liveNodes, edges: liveEdges });
+      await service.setStatus("alice", 10, "ACTIVE");
+      rows.set(10, { ...rows.get(10)!, status: "ACTIVE" });
+
+      await service.updateSettings("alice", 10, { goal: { event: "payment_succeeded" } });
+
+      expect(workflows.publishVersion).toHaveBeenLastCalledWith(10, { nodes: liveNodes, edges: liveEdges }, { goal: { event: "payment_succeeded" } });
+      expect(workflows.publishVersion).toHaveBeenCalledTimes(2);
+    });
+
+    it("refuses malformed settings with the reasons", async () => {
+      const { service, workflows } = fakes();
+      await expect(service.updateSettings("alice", 10, { kind: "marketing" })).rejects.toBeInstanceOf(FormValidationError);
+      await expect(service.updateSettings("alice", 10, { other: 1 })).rejects.toBeInstanceOf(FormValidationError);
+      const e = await service.updateSettings("alice", 10, { goal: { event: "Bad Name" } }).catch((x) => x);
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.details.reasons).toEqual(["The goal needs a valid event name."]);
+      const f = await service
+        .updateSettings("alice", 10, { goal: { event: "paid", filters: { op: "and", rules: [{ source: "history", event: "x", did: true }] } } })
+        .catch((x) => x);
+      expect(f.details.reasons).toEqual(["Goal filters: A trigger filter can only check the contact or the event."]);
+      expect(workflows.update).not.toHaveBeenCalled();
+      await expect(service.updateSettings("alice", 20, {})).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it("go-live checks the stored settings too", async () => {
+      const { service, rows } = fakes({ nodes: liveNodes, edges: liveEdges });
+      rows.set(10, { ...rows.get(10)!, settings: { goal: { event: "" } } });
+      const e = await service.setStatus("alice", 10, "ACTIVE").catch((x) => x);
+      expect(e.details.reasons).toContain("The goal needs a valid event name.");
     });
   });
 });

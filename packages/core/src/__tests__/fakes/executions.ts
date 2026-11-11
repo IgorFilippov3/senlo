@@ -32,7 +32,15 @@ export function fakeExecutions() {
         (r) => r.workflowId === d.workflowId && r.contactId === d.contactId && r.status === "RUNNING",
       );
       if (taken) return null;
-      const run: WorkflowExecution = { ...d, id: runs.size + 1, status: "RUNNING", startedAt: new Date(), wakeAt: new Date() };
+      const run: WorkflowExecution = {
+        ...d,
+        goalEvent: d.goalEvent ?? null,
+        waitingEvent: null,
+        id: runs.size + 1,
+        status: "RUNNING",
+        startedAt: new Date(),
+        wakeAt: new Date(),
+      };
       runs.set(run.id, run);
       return run;
     }),
@@ -54,7 +62,7 @@ export function fakeExecutions() {
         complete(e.completeStep);
         const run = runs.get(id);
         if (!run || run.status !== "RUNNING" || (e.from !== undefined && run.currentNodeId !== e.from)) return false;
-        runs.set(id, { ...run, status: e.status, exitReason: e.exitReason, completedAt: new Date(), wakeAt: null });
+        runs.set(id, { ...run, status: e.status, exitReason: e.exitReason, completedAt: new Date(), wakeAt: null, waitingEvent: null });
         return true;
       },
     ),
@@ -76,6 +84,28 @@ export function fakeExecutions() {
         .slice(0, limit)
         .map((r) => ({ id: r.id, currentNodeId: r.currentNodeId! })),
     ),
+    findWaiting: vi.fn(async (contactId: number, eventName: string) =>
+      [...runs.values()].filter((r) => r.contactId === contactId && r.status === "RUNNING" && r.waitingEvent === eventName),
+    ),
+    findByGoal: vi.fn(async (contactId: number, eventName: string) =>
+      [...runs.values()].filter((r) => r.contactId === contactId && r.status === "RUNNING" && r.goalEvent === eventName),
+    ),
+    startWait: vi.fn(async (id: number, w: { nodeId: string; event: string; wakeAt: Date }) => {
+      const run = runs.get(id);
+      if (!run || run.status !== "RUNNING" || run.currentNodeId !== w.nodeId || run.waitingEvent) return false;
+      runs.set(id, { ...run, waitingEvent: w.event, wakeAt: w.wakeAt });
+      return true;
+    }),
+    resolveWait: vi.fn(async (id: number, w: { nodeId: string; event: string }) => {
+      const run = runs.get(id);
+      if (!run || run.status !== "RUNNING" || run.currentNodeId !== w.nodeId || run.waitingEvent !== w.event) return false;
+      runs.set(id, { ...run, waitingEvent: null });
+      return true;
+    }),
+    setStepOutput: vi.fn(async (id: number, nodeId: string, output: unknown) => {
+      const run = runs.get(id);
+      if (run) runs.set(id, { ...run, context: { ...run.context, steps: { ...run.context.steps, [nodeId]: output } } });
+    }),
     cancelRunning: vi.fn(async (contactId: number, o: { workflowId?: number; exitReason: string }) => {
       const ids: number[] = [];
       for (const run of runs.values()) {

@@ -586,6 +586,8 @@ export const workflows = pgTable(
     activeVersionId: integer("active_version_id"),
     /** The active version's trigger event name, copied for the trigger lookup. */
     triggerEvent: text("trigger_event"),
+    /** `WorkflowSettings` of the draft (goal, entry rules, kind); published with the graph. */
+    settings: jsonb("settings").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -659,6 +661,10 @@ export const workflowExecutions = pgTable(
     currentNodeId: text("current_node_id"),
     /** When the cursor step is due; the sweeper re-queues runs past it. */
     wakeAt: timestamp("wake_at", { withTimezone: true }),
+    /** The event a Wait for event step waits for; null when not waiting. */
+    waitingEvent: text("waiting_event"),
+    /** The goal event of the run's version; the run ends when the contact does it. */
+    goalEvent: text("goal_event"),
     /** `ExecutionExitReason`: why the run ended. */
     exitReason: text("exit_reason"),
     startedAt: timestamp("started_at", { withTimezone: true })
@@ -676,6 +682,13 @@ export const workflowExecutions = pgTable(
       .on(t.workflowId, t.contactId)
       .where(sql`${t.status} = 'RUNNING'`),
     statusWakeIdx: index("workflow_executions_status_wake_at_idx").on(t.status, t.wakeAt),
+    // An event finds the runs waiting for it and the runs it completes.
+    waitingIdx: index("workflow_executions_contact_waiting_idx")
+      .on(t.contactId, t.waitingEvent)
+      .where(sql`${t.status} = 'RUNNING'`),
+    goalIdx: index("workflow_executions_contact_goal_idx")
+      .on(t.contactId, t.goalEvent)
+      .where(sql`${t.status} = 'RUNNING'`),
   }),
 );
 

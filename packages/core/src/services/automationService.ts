@@ -57,6 +57,20 @@ export const CancelRunsRequestSchema = z.object({
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** A timeout job up to this early still ends the wait (clocks of the queue and the database). */
+const WAIT_CLOCK_SLACK_MS = 1000;
+
+/** Events a Wait for event step looks back through for one passing its filters. */
+const WAIT_LOOKBACK_LIMIT = 50;
+
+type LazyContact = () => Promise<ConditionSnapshot["contact"] | null>;
+
+/** Reads the contact on first use, once. */
+function lazyContact(read: () => Promise<ConditionSnapshot["contact"] | null>): LazyContact {
+  let pending: Promise<ConditionSnapshot["contact"] | null> | undefined;
+  return () => (pending ??= read());
+}
+
 /** Without a send log repository no email was ever opened (a host that builds the service by hand). */
 const noEngagement: Pick<ITriggeredSendLogRepository, "hasEngagement"> = { hasEngagement: async () => false };
 
@@ -82,7 +96,7 @@ export class AutomationService {
     private readonly workflowRepo: IWorkflowRepository,
     private readonly executionRepo: IWorkflowExecutionRepository,
     private readonly contactRepo: ContactRepository,
-    private readonly contactEvents: Pick<IContactEventRepository, "record" | "existsSince">,
+    private readonly contactEvents: Pick<IContactEventRepository, "record" | "existsSince" | "listSince">,
     private readonly automationQueue: Queue<AutomationJobData>,
     private readonly triggerService: TriggerService,
     private readonly logger: Logger = consoleLogger,
@@ -169,6 +183,7 @@ export class AutomationService {
       versionId: version.id,
       context,
       currentNodeId: triggerNode.id,
+      goalEvent: version.settings.goal?.event ?? null,
     });
     if (!execution) {
       // Lost the race to a concurrent entry: that run is the one, counted once.
@@ -219,7 +234,11 @@ export class AutomationService {
     });
     if (!event) return { event: null, duplicate: true };
 
-    await this.dispatchTriggers(projectId, contactId, { name, payload });
+    // The contact is read once, and only when a goal, wait or trigger has filters.
+    const contact = lazyContact(() => this.contactSnapshot(contactId));
+    await this.completeGoals(contactId, { name, payload }, contact);
+    await this.resumeWaiting(contactId, { name, payload, eventId: event.id }, contact);
+    await this.dispatchTriggers(projectId, contactId, { name, payload }, contact);
     return { event, duplicate: false };
   }
 
@@ -234,23 +253,146 @@ export class AutomationService {
     projectId: number,
     contactId: number,
     event: WorkflowEvent,
+    contact: LazyContact,
   ): Promise<void> {
     const workflows = await this.workflowRepo.findActiveByTrigger(projectId, event.name);
-    // Read once, and only when a trigger has filters.
-    let contact: ConditionSnapshot["contact"] | null | undefined;
     for (const workflow of workflows) {
       if (!workflow.activeVersionId) continue;
       const version = await this.loadVersion(workflow.activeVersionId);
       const trigger = version?.graph.nodes.find((n) => n.type === "trigger");
       if (!trigger) continue;
-      if (contact === undefined && triggerFiltersOf(trigger.data)) {
-        contact = await this.contactSnapshot(contactId);
-      }
-      if (triggerAccepts(trigger.data, event, contact ?? { email: "" })) {
+      const snapshot = triggerFiltersOf(trigger.data) ? await contact() : null;
+      if (triggerAccepts(trigger.data, event, snapshot ?? { email: "" })) {
         await this.triggerWorkflow({ workflowId: workflow.id, contactId, projectId, event });
       }
     }
   }
+
+  /**
+   * Goals first: every RUNNING run of the contact whose goal is this event
+   * (and whose goal filters hold) ends COMPLETED with `goal`, wherever it is
+   * (a delay, a wait), so the rest of its steps do not run.
+   */
+  private async completeGoals(contactId: number, event: WorkflowEvent, contact: LazyContact): Promise<void> {
+    for (const run of await this.executionRepo.findByGoal(contactId, event.name)) {
+      const version = run.versionId ? await this.loadVersion(run.versionId) : null;
+      const filters = version?.settings.goal?.filters;
+      if (filters && Array.isArray(filters.rules) && filters.rules.length > 0) {
+        const snapshot = await contact();
+        if (!snapshot || !evaluateConditions(filters, { contact: snapshot, event: event.payload, steps: run.context.steps })) {
+          continue;
+        }
+      }
+      if (await this.executionRepo.finish(run.id, { status: "COMPLETED", exitReason: "goal" })) {
+        this.logger.info("Workflow run reached its goal", { executionId: run.id, event: event.name });
+      }
+    }
+  }
+
+  /**
+   * Then the runs waiting for this event at a Wait for event step: the event
+   * (if its filters hold) wins the wait against the timeout, its payload
+   * becomes the step's output, and the run takes Yes.
+   */
+  private async resumeWaiting(
+    contactId: number,
+    event: WorkflowEvent & { eventId: number },
+    contact: LazyContact,
+  ): Promise<void> {
+    for (const run of await this.executionRepo.findWaiting(contactId, event.name)) {
+      const version = run.versionId ? await this.loadVersion(run.versionId) : null;
+      const node = version?.graph.nodes.find((n) => n.id === run.currentNodeId);
+      if (!version || !node || node.type !== "wait_event") continue;
+      if (!(await this.waitFiltersHold(node.data, event.payload, run, contact))) continue;
+      if (!(await this.executionRepo.resolveWait(run.id, { nodeId: node.id, event: event.name }))) continue;
+
+      await this.executionRepo.setStepOutput(run.id, node.id, event.payload);
+      const step = await this.executionRepo.claimStep(run.id, node.id);
+      const fresh = (await this.executionRepo.findById(run.id)) ?? run;
+      await this.advance(fresh, version, node.id, "yes", {
+        id: step.id,
+        result: { branch: "yes", eventId: event.eventId },
+      });
+    }
+  }
+
+  private async waitFiltersHold(
+    data: Record<string, any>,
+    payload: Record<string, unknown>,
+    run: WorkflowExecution,
+    contact: LazyContact,
+  ): Promise<boolean> {
+    const filters = data.filters as ConditionGroup | undefined;
+    if (!filters || !Array.isArray(filters.rules) || filters.rules.length === 0) return true;
+    const snapshot = await contact();
+    return !!snapshot && evaluateConditions(filters, { contact: snapshot, event: payload, steps: run.context.steps });
+  }
+
+  /**
+   * A Wait for event step. The contact may have done it already (since the
+   * run started, or since the step started): then Yes at once. Otherwise the
+   * run starts waiting and a timeout job is queued; the event (through
+   * `resumeWaiting`) or the timeout (this step again, once due) ends the
+   * wait, whichever wins the guarded update.
+   */
+  private async handleWaitEvent(
+    execution: WorkflowExecution,
+    node: { id: string; data: Record<string, any> },
+    step: { startedAt: Date },
+  ): Promise<"waiting" | { branch: "yes" | "no"; result: Record<string, unknown> }> {
+    const event = node.data.event;
+    if (typeof event !== "string" || event === "") throw new Error("Wait for event: no event chosen");
+    const contact = lazyContact(() => this.contactSnapshot(execution.contactId));
+
+    if (execution.waitingEvent === event) {
+      // Already waiting: the timeout job, or an early copy of a job.
+      if (execution.wakeAt && execution.wakeAt.getTime() > Date.now() + WAIT_CLOCK_SLACK_MS) return "waiting";
+      if (!(await this.executionRepo.resolveWait(execution.id, { nodeId: node.id, event }))) return "waiting";
+      return { branch: "no", result: { branch: "no", timedOut: true } };
+    }
+
+    const since = node.data.since === "step_start" ? step.startedAt : execution.startedAt;
+    const done = await this.findDoneEvent(execution, node, event, since, contact);
+    if (done) {
+      await this.executionRepo.setStepOutput(execution.id, node.id, done.payload);
+      return { branch: "yes", result: { branch: "yes", eventId: done.id } };
+    }
+
+    const timeout = this.parseDelay(node.data.timeout ?? {});
+    if (timeout <= 0) throw new Error("Wait for event: no timeout");
+    const wakeAt = new Date(Date.now() + timeout);
+    if (!(await this.executionRepo.startWait(execution.id, { nodeId: node.id, event, wakeAt }))) return "waiting";
+
+    // The event may have come between the look above and the wait: look once more.
+    const raced = await this.findDoneEvent(execution, node, event, since, contact);
+    if (raced && (await this.executionRepo.resolveWait(execution.id, { nodeId: node.id, event }))) {
+      await this.executionRepo.setStepOutput(execution.id, node.id, raced.payload);
+      return { branch: "yes", result: { branch: "yes", eventId: raced.id } };
+    }
+
+    await this.automationQueue.add(
+      `workflow-${execution.id}-${node.id}-timeout`,
+      { executionId: execution.id, nodeId: node.id },
+      { delay: timeout, jobId: `${automationJobId(execution.id, node.id)}-timeout` },
+    );
+    return "waiting";
+  }
+
+  /** The newest `event` since `since` that passes the step's filters. */
+  private async findDoneEvent(
+    execution: WorkflowExecution,
+    node: { data: Record<string, any> },
+    event: string,
+    since: Date,
+    contact: LazyContact,
+  ): Promise<ContactEvent | null> {
+    const events = await this.contactEvents.listSince(execution.contactId, event, since, WAIT_LOOKBACK_LIMIT);
+    for (const candidate of events) {
+      if (await this.waitFiltersHold(node.data, candidate.payload, execution, contact)) return candidate;
+    }
+    return null;
+  }
+
 
   /**
    * Process a single step in a workflow execution.
@@ -333,6 +475,14 @@ export class AutomationService {
             result = { until: until.toISOString() };
           }
           break;
+
+        case "wait_event": {
+          const outcome = await this.handleWaitEvent(execution, node, step);
+          if (outcome === "waiting") return;
+          branch = outcome.branch;
+          result = outcome.result;
+          break;
+        }
 
         case "update_contact":
           await this.handleUpdateContactAction(execution, node.data);

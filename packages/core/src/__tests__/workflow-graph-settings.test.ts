@@ -47,4 +47,28 @@ describe("go-live checks of step settings", () => {
     ];
     expect(reasons(nodes as never, [{ source: "t", target: "w" }])).toEqual(["A Wait until step has no date field."]);
   });
+
+  it("a Wait for event branches like a Condition and needs an event and a timeout", () => {
+    const nodes = (data: Record<string, unknown>) => [
+      { id: "t", type: "trigger", data: { event: "x" } },
+      { id: "w", type: "wait_event", data },
+      { id: "y", type: "exit", data: {} },
+      { id: "n", type: "exit", data: {} },
+    ];
+    const branches = [
+      { source: "t", target: "w" },
+      { source: "w", target: "y", sourceHandle: "yes" },
+      { source: "w", target: "n", sourceHandle: "no" },
+    ];
+    expect(reasons(nodes({ event: "paid", timeout: { duration: 3, unit: "days" } }) as never, branches)).toEqual([]);
+    expect(reasons(nodes({}) as never, branches)).toEqual([
+      "A Wait for event step needs a valid event name.",
+      "A Wait for event step needs a timeout.",
+    ]);
+    // Without the No edge its exit is also left unconnected.
+    expect(reasons(nodes({ event: "paid", timeout: { duration: 3, unit: "days" } }) as never, branches.slice(0, 2))).toEqual([
+      "A Wait for event is missing a No branch.",
+      "Some steps are not connected to the trigger.",
+    ]);
+  });
 });

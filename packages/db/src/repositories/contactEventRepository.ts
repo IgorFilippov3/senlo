@@ -69,6 +69,18 @@ export class ContactEventRepository implements IContactEventRepository {
     return Boolean(row);
   }
 
+  async listSince(contactId: number, name: string, since: Date, limit: number): Promise<ContactEvent[]> {
+    const rows = await this.db
+      .select()
+      .from(contactEvents)
+      .where(
+        and(eq(contactEvents.contactId, contactId), eq(contactEvents.name, name), gte(contactEvents.createdAt, since)),
+      )
+      .orderBy(desc(contactEvents.createdAt), desc(contactEvents.id))
+      .limit(limit);
+    return rows.map((r) => this.map(r));
+  }
+
   async recentNames(projectId: number, limit: number): Promise<string[]> {
     const last = max(contactEvents.createdAt);
     const rows = await this.db

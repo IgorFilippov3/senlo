@@ -7,6 +7,7 @@ import {
   WorkflowNode,
   WorkflowEdge,
   WorkflowGraphSnapshot,
+  WorkflowSettings,
   WorkflowVersion,
 } from "@senlo/core";
 
@@ -23,7 +24,7 @@ function mapVersion(row: typeof schema.workflowVersions.$inferSelect): WorkflowV
     workflowId: row.workflowId,
     version: row.version,
     graph: row.graph as WorkflowGraphSnapshot,
-    settings: (row.settings as Record<string, unknown> | null) ?? {},
+    settings: (row.settings as WorkflowSettings | null) ?? {},
     createdAt: row.createdAt,
   };
 }
@@ -42,6 +43,7 @@ export class WorkflowRepository
     return {
       ...row,
       status: row.status as Workflow["status"],
+      settings: (row.settings as WorkflowSettings | null) ?? {},
     };
   }
 
@@ -146,7 +148,7 @@ export class WorkflowRepository
   async publishVersion(
     workflowId: number,
     graph: WorkflowGraphSnapshot,
-    settings: Record<string, unknown> = {},
+    settings: WorkflowSettings = {},
   ): Promise<WorkflowVersion> {
     return this.db.transaction(async (tx) => {
       // Lock the workflow row: two publishes of one workflow take turns, so

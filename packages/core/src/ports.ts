@@ -22,6 +22,7 @@ import type {
   WorkflowExecution,
   ExecutionContext,
   WorkflowGraphSnapshot,
+  WorkflowSettings,
   WorkflowVersion,
   ExecutionExitReason,
   WorkflowStepExecution,
@@ -219,6 +220,8 @@ export interface IContactEventRepository {
   findByIdempotencyKey(projectId: number, idempotencyKey: string): Promise<ContactEvent | null>;
   /** Whether the contact did `name` at or after `since`. */
   existsSince(contactId: number, name: string, since: Date): Promise<boolean>;
+  /** The contact's `name` events at or after `since`, newest first, at most `limit`. */
+  listSince(contactId: number, name: string, since: Date, limit: number): Promise<ContactEvent[]>;
   /** Event names the project used, most recently used first (builder suggestions). */
   recentNames(projectId: number, limit: number): Promise<string[]>;
   /** Top-level payload keys of the project's latest `sample` events named `name`, sorted. */
@@ -366,7 +369,7 @@ export interface IWorkflowRepository {
   publishVersion(
     workflowId: number,
     graph: WorkflowGraphSnapshot,
-    settings?: Record<string, unknown>,
+    settings?: WorkflowSettings,
   ): Promise<WorkflowVersion>;
   getVersion(id: number): Promise<WorkflowVersion | null>;
   /** ACTIVE workflows of the project whose active version's trigger listens for `eventName`. */
@@ -381,6 +384,8 @@ export interface NewWorkflowExecution {
   context: ExecutionContext;
   /** The trigger step. */
   currentNodeId: string;
+  /** The version's goal event, if it has one. */
+  goalEvent?: string | null;
 }
 
 /** The step row to close (COMPLETED by default) in the same transaction as a cursor move or an end. */
@@ -429,6 +434,22 @@ export interface IWorkflowExecutionRepository {
    * Oldest first, at most `limit`.
    */
   findDue(before: Date, limit: number): Promise<Array<{ id: number; currentNodeId: string }>>;
+  /** The contact's RUNNING runs waiting for `eventName` (a Wait for event step). */
+  findWaiting(contactId: number, eventName: string): Promise<WorkflowExecution[]>;
+  /** The contact's RUNNING runs whose goal is `eventName`. */
+  findByGoal(contactId: number, eventName: string): Promise<WorkflowExecution[]>;
+  /**
+   * The run at `nodeId` starts waiting for `event` until `wakeAt` (the
+   * timeout). False when it is not RUNNING at that step or already waits.
+   */
+  startWait(id: number, wait: { nodeId: string; event: string; wakeAt: Date }): Promise<boolean>;
+  /**
+   * Ends the wait: whoever gets true (the event or the timeout) picks the
+   * branch. False when the run no longer waits for `event` at `nodeId`.
+   */
+  resolveWait(id: number, wait: { nodeId: string; event: string }): Promise<boolean>;
+  /** Stores a step's output in the run's context (`context.steps[nodeId]`). */
+  setStepOutput(id: number, nodeId: string, output: unknown): Promise<void>;
   /** Cancels the contact's RUNNING runs (of one workflow, when given); their ids. */
   cancelRunning(
     contactId: number,

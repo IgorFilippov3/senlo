@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import type { Workflow, WorkflowVersion } from "../domain";
 import type { Logger } from "../logger";
 import { AutomationService } from "../services/automationService";
+import { fakeExecutions } from "./fakes/executions";
 
 const silent: Logger = { debug() {}, info() {}, warn() {}, error() {} };
 
@@ -38,15 +39,17 @@ function setup(defs: ReturnType<typeof workflow>[], { duplicate = false } = {}) 
   };
   const contactEvents = {
     existsSince: vi.fn(async () => false),
+    listSince: vi.fn(async () => []),
     record: vi.fn(async (d: { projectId: number; contactId: number; name: string; payload: Record<string, unknown>; idempotencyKey?: string | null }) =>
       duplicate ? null : { id: 1, createdAt: new Date(), ...d, idempotencyKey: d.idempotencyKey ?? null },
     ),
   };
   // A tag filter reads the contact.
   const contacts = { findById: vi.fn(async (id: number) => ({ id, email: "a@b.co", name: null, locale: null, meta: {} })) };
+  // No runs: goals and waits find nothing.
   const service = new AutomationService(
     workflows as never,
-    {} as never,
+    fakeExecutions().repo,
     contacts as never,
     contactEvents,
     {} as never,
