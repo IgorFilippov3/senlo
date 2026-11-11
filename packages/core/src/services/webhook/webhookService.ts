@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Campaign, TriggeredSendLog } from "../../domain";
+import type { ContactBlockedListener } from "../../ports";
 import { consoleLogger, type Logger } from "../../logger";
 import type {
   ContactRepository,
@@ -59,6 +60,8 @@ export class WebhookService {
       sendGridWebhookAdapter,
       mailjetWebhookAdapter,
     ],
+    /** Told after a bounce or spam report suppresses an address (automations end lifecycle runs). */
+    private readonly onContactBlocked?: ContactBlockedListener,
   ) {
     this.adapters = new Map(adapters.map((a) => [a.type, a]));
   }
@@ -341,6 +344,12 @@ export class WebhookService {
     const existing = await this.repos.suppressions.findByProjectAndEmail(projectId, email);
     if (!existing) {
       await this.repos.suppressions.create({ projectId, email, reason });
+      await this.onContactBlocked?.({ projectId, email, reason }).catch((error) =>
+        this.logger.error("Contact blocked listener failed", {
+          projectId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
     }
   }
 }

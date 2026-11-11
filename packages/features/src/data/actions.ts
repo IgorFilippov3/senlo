@@ -17,6 +17,7 @@ import type {
   TimeSeriesData,
   Workflow,
   WorkflowNodeStats,
+  WorkflowRunStats,
 } from "@senlo/core";
 import type { CreateWorkspaceValues } from "../workspaces/CreateWorkspaceDialog";
 import type { WorkspaceFormValues } from "../workspaces/WorkspaceFields";
@@ -105,6 +106,8 @@ export interface SenloActions {
     stats(workflowId: number): Promise<ActionResult<WorkflowNodeStats[]>>;
     /** Event names the project has sent, most recent first (trigger suggestions). */
     eventNames(projectId: number): Promise<ActionResult<string[]>>;
+    /** Runs by outcome; conversion = goal / started. */
+    runStats(workflowId: number): Promise<ActionResult<WorkflowRunStats>>;
     /** Contact attributes and the payload keys of `eventName`'s recent events (rule builder suggestions). */
     fieldSuggestions(
       projectId: number,

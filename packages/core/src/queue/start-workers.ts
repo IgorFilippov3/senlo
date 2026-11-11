@@ -88,6 +88,7 @@ export function startWorkers({
     logger,
     new ServiceHooks({ usage, quota }, logger),
     outbound,
+    services.automation.onContactBlocked,
   );
   const automationProcessor = new AutomationWorkerProcessor(
     services.automation,

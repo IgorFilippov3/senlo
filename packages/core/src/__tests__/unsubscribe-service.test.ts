@@ -80,4 +80,20 @@ describe("UnsubscribeService.process", () => {
     const token = await encodeUnsubscribeToken({ contactId: 999, campaignId: 42 }, SECRET);
     expect(await service.process(token)).toEqual({ ok: false, reason: "not_found" });
   });
+
+  it("tells the listener (automations end lifecycle runs); a failing listener does not stop the unsubscribe", async () => {
+    const { repos } = fakes();
+    const listener = vi.fn(async () => {});
+    const service = new UnsubscribeService(repos, { linkSigningSecret: SECRET }, listener);
+    const token = await encodeUnsubscribeToken({ contactId: 7, projectId: 1, email: "ann@example.com", campaignId: 42 }, SECRET);
+    await service.process(token);
+    expect(listener).toHaveBeenCalledWith({ projectId: 1, email: "ann@example.com", reason: "UNSUBSCRIBE" });
+
+    const quiet = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const failing = new UnsubscribeService(fakes().repos, { linkSigningSecret: SECRET }, async () => {
+      throw new Error("down");
+    }, quiet);
+    expect(await failing.process(token)).toEqual({ ok: true, alreadyUnsubscribed: false });
+    expect(quiet.error).toHaveBeenCalledWith("Contact blocked listener failed", { projectId: 1, error: "down" });
+  });
 });

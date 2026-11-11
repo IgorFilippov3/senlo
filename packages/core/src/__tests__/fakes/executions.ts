@@ -7,7 +7,7 @@ import type { CompleteStep, IWorkflowExecutionRepository, NewWorkflowExecution }
  * database one: one RUNNING run per contact and workflow, cursor moves and
  * ends only from the expected state, one step row per run and step.
  */
-export function fakeExecutions() {
+export function fakeExecutions({ lifecycleVersions = [] as number[] } = {}) {
   const runs = new Map<number, WorkflowExecution>();
   const steps = new Map<string, WorkflowStepExecution>();
   let stepIds = 0;
@@ -106,11 +106,12 @@ export function fakeExecutions() {
       const run = runs.get(id);
       if (run) runs.set(id, { ...run, context: { ...run.context, steps: { ...run.context.steps, [nodeId]: output } } });
     }),
-    cancelRunning: vi.fn(async (contactId: number, o: { workflowId?: number; exitReason: string }) => {
+    cancelRunning: vi.fn(async (contactId: number, o: { workflowId?: number; exitReason: string; lifecycleOnly?: boolean }) => {
       const ids: number[] = [];
       for (const run of runs.values()) {
         if (run.contactId !== contactId || run.status !== "RUNNING") continue;
         if (o.workflowId !== undefined && run.workflowId !== o.workflowId) continue;
+        if (o.lifecycleOnly && !lifecycleVersions.includes(run.versionId ?? -1)) continue;
         runs.set(run.id, { ...run, status: "CANCELLED", exitReason: o.exitReason, wakeAt: null });
         ids.push(run.id);
       }
@@ -118,6 +119,11 @@ export function fakeExecutions() {
     }),
     getStepExecutions: async (executionId: number) => [...steps.values()].filter((s) => s.executionId === executionId),
     getNodeStats: async () => [],
+    lastStartedAt: vi.fn(async (workflowId: number, contactId: number) => {
+      const starts = [...runs.values()].filter((r) => r.workflowId === workflowId && r.contactId === contactId).map((r) => r.startedAt.getTime());
+      return starts.length > 0 ? new Date(Math.max(...starts)) : null;
+    }),
+    getRunStats: async () => ({ started: 0, running: 0, completed: 0, goal: 0, failed: 0, cancelled: 0 }),
   } satisfies IWorkflowExecutionRepository;
 
   /** A run put in place by hand, as an old row or another process would leave it. */

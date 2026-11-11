@@ -183,6 +183,7 @@ export function createServices({
     hooks,
     outbound,
     r.sendLogs,
+    r.suppressions,
   );
 
   const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects, guard, hooks);
@@ -203,10 +204,10 @@ export function createServices({
     savedRow: new SavedRowService(r.savedRows, r.projects, guard),
     template: new TemplateService(r, queues.email, settings, guard, hooks, resolveBaseUrl),
     tracking: new TrackingService(r, settings),
-    unsubscribe: new UnsubscribeService(r, settings),
+    unsubscribe: new UnsubscribeService(r, settings, automation.onContactBlocked, logger),
     upload: new UploadService(storage ?? noStorage),
     user: new UserService(r.users, undefined, { onUserCreated, logger }),
-    webhook: new WebhookService(r, logger),
+    webhook: new WebhookService(r, logger, undefined, automation.onContactBlocked),
     workflow: new WorkflowService(r, guard, hooks),
   };
 }

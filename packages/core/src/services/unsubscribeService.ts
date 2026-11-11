@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { MailSettings } from "../config";
+import type { ContactBlockedListener } from "../ports";
+import { consoleLogger, type Logger } from "../logger";
 import type {
   ContactRepository,
   ICampaignRepository,
@@ -42,6 +44,9 @@ export class UnsubscribeService {
   constructor(
     private readonly repos: UnsubscribeServiceRepositories,
     private readonly settings: Pick<MailSettings, "linkSigningSecret">,
+    /** Told after an unsubscribe (automations end the contact's lifecycle runs). */
+    private readonly onContactBlocked?: ContactBlockedListener,
+    private readonly logger: Logger = consoleLogger,
   ) {}
 
   async process(
@@ -98,6 +103,15 @@ export class UnsubscribeService {
       await suppressions.create({ projectId: recipientProjectId, email, reason: "UNSUBSCRIBE" });
     } else {
       return { ok: false, reason: "not_found" };
+    }
+
+    if (this.onContactBlocked && recipientProjectId) {
+      await this.onContactBlocked({ projectId: recipientProjectId, email, reason: "UNSUBSCRIBE" }).catch((error) =>
+        this.logger.error("Contact blocked listener failed", {
+          projectId: recipientProjectId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
     }
 
     // Only onto a campaign of the recipient's own project.

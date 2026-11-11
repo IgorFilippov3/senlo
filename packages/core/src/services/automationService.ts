@@ -5,6 +5,8 @@ import {
   ContactRepository,
   IContactEventRepository,
   ITriggeredSendLogRepository,
+  ISuppressionRepository,
+  ContactBlockedListener,
   CompleteStep,
 } from "../ports";
 import { TriggerService } from "./triggerService";
@@ -15,6 +17,7 @@ import type {
   ExecutionExitReason,
   WorkflowExecution,
   WorkflowNodeStats,
+  WorkflowRunStats,
   WorkflowVersion,
 } from "../domain";
 import { buildStepData } from "../workflow-step-data";
@@ -71,6 +74,11 @@ function lazyContact(read: () => Promise<ConditionSnapshot["contact"] | null>): 
   return () => (pending ??= read());
 }
 
+/** Without a suppression repository nobody is blocked (the email worker still checks before sending). */
+const noSendBlocks: Pick<ISuppressionRepository, "findSendBlock"> = { findSendBlock: async () => null };
+
+const DURATION_MS: Record<string, number> = { minutes: 60_000, hours: 3_600_000, days: DAY_MS };
+
 /** Without a send log repository no email was ever opened (a host that builds the service by hand). */
 const noEngagement: Pick<ITriggeredSendLogRepository, "hasEngagement"> = { hasEngagement: async () => false };
 
@@ -105,6 +113,8 @@ export class AutomationService {
     private readonly outbound: OutboundPolicy = allowAllOutbound,
     /** Opens and clicks of an automation's emails, for email rules. */
     private readonly engagement: Pick<ITriggeredSendLogRepository, "hasEngagement"> = noEngagement,
+    /** Unsubscribed and suppressed addresses: their email steps are skipped, lifecycle runs end. */
+    private readonly sendBlocks: Pick<ISuppressionRepository, "findSendBlock"> = noSendBlocks,
   ) {}
 
   /** Versions are immutable, so each worker process keeps the ones it has read. */
@@ -154,6 +164,8 @@ export class AutomationService {
       return null;
     }
 
+    if (!(await this.mayEnter(workflowId, contactId, projectId, version))) return null;
+
     const triggerNode = version.graph.nodes.find((n) => n.type === "trigger");
     if (!triggerNode) {
       // Go-live refuses such a graph; a version without a trigger cannot start.
@@ -199,6 +211,35 @@ export class AutomationService {
     await this.advance(execution, version, triggerNode.id);
 
     return execution;
+  }
+
+  /**
+   * The version's entry rules, before a run starts: `once` lets a contact in
+   * a single time ever; a cooldown not again within that time after their
+   * last start. A lifecycle workflow does not start for a contact who
+   * unsubscribed or is suppressed. A contact with a run in progress is
+   * handled by the caller (one run at a time).
+   */
+  private async mayEnter(
+    workflowId: number,
+    contactId: number,
+    projectId: number,
+    version: WorkflowVersion,
+  ): Promise<boolean> {
+    const { entry, kind } = version.settings;
+    if (entry?.mode === "once" || entry?.cooldown) {
+      const last = await this.executionRepo.lastStartedAt(workflowId, contactId);
+      if (last && entry.mode === "once") return false;
+      if (last && entry.cooldown) {
+        const window = entry.cooldown.duration * (DURATION_MS[entry.cooldown.unit] ?? 0);
+        if (Date.now() - last.getTime() < window) return false;
+      }
+    }
+    if (kind === "lifecycle") {
+      const contact = await this.contactRepo.findById(contactId);
+      if (!contact || (await this.sendBlocks.findSendBlock(projectId, contact.email))) return false;
+    }
+    return true;
   }
 
   /**
@@ -446,13 +487,28 @@ export class AutomationService {
       let result: Record<string, unknown> | null = null;
 
       switch (node.type) {
-        case "action":
+        case "action": {
           // The key makes a redelivered send reuse the first one's log and job.
-          {
-            const sendLogId = await this.handleEmailAction(execution, node.data, `wf-${executionId}-${nodeId}`);
-            result = sendLogId !== null ? { sendLogId } : null;
+          const sent = await this.handleEmailAction(execution, node.data, `wf-${executionId}-${nodeId}`);
+          if ("blocked" in sent) {
+            // The contact may not get mail (D5): a lifecycle run ends, a
+            // transactional one skips the email and goes on.
+            const skipped = { id: step.id, status: "SKIPPED" as const, result: { skipped: sent.blocked } };
+            if (version.settings.kind === "lifecycle") {
+              await this.executionRepo.finish(executionId, {
+                status: "CANCELLED",
+                exitReason: sent.blocked === "UNSUBSCRIBE" ? "unsubscribed" : "suppressed",
+                from: nodeId,
+                completeStep: skipped,
+              });
+            } else {
+              await this.advance(execution, version, nodeId, undefined, skipped);
+            }
+            return;
           }
+          result = sent.sendLogId !== null ? { sendLogId: sent.sendLogId } : null;
           break;
+        }
 
         case "condition":
           if (node.data.mode === "rules") {
@@ -589,8 +645,15 @@ export class AutomationService {
     if (ended) this.logger.error("Workflow run failed: its job ran out of attempts", { executionId, nodeId, error });
   }
 
-  /** Sends the step's email; the send log id, kept in the step result for email rules. */
-  private async handleEmailAction(execution: WorkflowExecution, data: any, dedupeKey: string): Promise<number | null> {
+  /**
+   * Sends the step's email: the send log id, kept in the step result for
+   * email rules, or why the contact may not get it.
+   */
+  private async handleEmailAction(
+    execution: WorkflowExecution,
+    data: any,
+    dedupeKey: string,
+  ): Promise<{ sendLogId: number | null } | { blocked: "UNSUBSCRIBE" | "BOUNCE" | "SPAM" }> {
     const campaignId = data.triggerId;
     if (!campaignId) throw new Error("No trigger chosen for the email step (triggerId)");
 
@@ -600,7 +663,10 @@ export class AutomationService {
     const contact = await this.contactRepo.findById(execution.contactId);
     if (!contact) throw new Error("Contact not found");
 
-    return this.sendStepEmail({
+    const block = await this.sendBlocks.findSendBlock(workflow.projectId, contact.email);
+    if (block) return { blocked: block.reason };
+
+    const sendLogId = await this.sendStepEmail({
       campaignId: Number(campaignId),
       projectId: workflow.projectId,
       to: contact.email,
@@ -608,6 +674,7 @@ export class AutomationService {
       dedupeKey,
       locale: contact.locale || undefined,
     });
+    return { sendLogId };
   }
 
   /**
@@ -964,4 +1031,25 @@ export class AutomationService {
   async getWorkflowStats(workflowId: number): Promise<WorkflowNodeStats[]> {
     return this.executionRepo.getNodeStats(workflowId);
   }
+
+  /** The workflow's runs by outcome; conversion is `goal / started`. */
+  async getRunStats(workflowId: number): Promise<WorkflowRunStats> {
+    return this.executionRepo.getRunStats(workflowId);
+  }
+
+  /**
+   * A contact may no longer get mail (unsubscribed, bounced, reported as
+   * spam): their lifecycle runs end at once (D5). Transactional runs go on;
+   * their email steps skip the address. Wired as the `ContactBlockedListener`
+   * of the unsubscribe and webhook services and the email worker.
+   */
+  readonly onContactBlocked: ContactBlockedListener = async ({ projectId, email, reason }) => {
+    const contact = await this.contactRepo.findByEmail(projectId, email);
+    if (!contact) return;
+    const ids = await this.executionRepo.cancelRunning(contact.id, {
+      exitReason: reason === "UNSUBSCRIBE" ? "unsubscribed" : "suppressed",
+      lifecycleOnly: true,
+    });
+    if (ids.length > 0) this.logger.info("Lifecycle runs ended: the contact may no longer get mail", { contactId: contact.id, runs: ids, reason });
+  };
 }

@@ -1,5 +1,6 @@
 import { Worker, Job } from "bullmq";
 import type { EmailJobData, AutomationJobData } from "./types";
+import type { ContactBlockedListener } from "../ports";
 import {
   ICampaignRepository,
   IEmailProviderRepository,
@@ -56,6 +57,8 @@ export class EmailWorkerProcessor {
     private readonly hooks: ServiceHooks = ServiceHooks.none,
     /** Handed to the SMTP mailer: where a user's SMTP host may be. */
     private readonly outbound: OutboundPolicy = allowAllOutbound,
+    /** Told after a permanent bounce at send time suppresses the address. */
+    private readonly onContactBlocked?: ContactBlockedListener,
   ) {}
 
   /**
@@ -429,7 +432,15 @@ export class EmailWorkerProcessor {
     }
     if (this.suppressionRepo) {
       const existing = await this.suppressionRepo.findByProjectAndEmail(projectId, email);
-      if (!existing) await this.suppressionRepo.create({ projectId, email, reason: "BOUNCE" });
+      if (!existing) {
+        await this.suppressionRepo.create({ projectId, email, reason: "BOUNCE" });
+        await this.onContactBlocked?.({ projectId, email, reason: "BOUNCE" }).catch((error) =>
+          this.logger.error("Contact blocked listener failed", {
+            projectId,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      }
     }
   }
 

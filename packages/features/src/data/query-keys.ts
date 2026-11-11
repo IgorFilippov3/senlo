@@ -48,6 +48,7 @@ export const queryKeys = {
     lists: () => [...queryKeys.workflows.all, "list"] as const,
     byProject: (projectId: number) => [...queryKeys.workflows.lists(), projectId] as const,
     stats: (id: number) => [...queryKeys.workflows.all, "stats", id] as const,
+    runStats: (id: number) => [...queryKeys.workflows.all, "runStats", id] as const,
     eventNames: (projectId: number) => [...queryKeys.workflows.all, "eventNames", projectId] as const,
     fieldSuggestions: (projectId: number, eventName: string | null) =>
       [...queryKeys.workflows.all, "fieldSuggestions", projectId, eventName] as const,

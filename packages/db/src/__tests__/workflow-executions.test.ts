@@ -209,6 +209,52 @@ describe("db:upgrade-automations --before-push", () => {
   });
 });
 
+describe("entry, kind and stats", () => {
+  it("knows when the contact's last run of a workflow started", async () => {
+    const { workflowId, contactId, versionId } = await seedWorkflow();
+    const run = (await executions.create({ workflowId, contactId, versionId, context: { steps: {} }, currentNodeId: "t" }))!;
+    expect((await executions.lastStartedAt(workflowId, contactId))?.getTime()).toBe(run.startedAt.getTime());
+    expect(await executions.lastStartedAt(workflowId, contactId + 1000)).toBeNull();
+  });
+
+  it("cancels only runs of lifecycle versions with lifecycleOnly", async () => {
+    const ids = await seedWorkflow();
+    const workflows = new WorkflowRepository(db);
+    const lifecycle = await workflows.publishVersion(ids.workflowId, { nodes: [], edges: [] }, { kind: "lifecycle" });
+    const [other] = await db.insert(schema.workflows).values({ projectId: ids.projectId, name: "T", status: "ACTIVE" }).returning();
+    const transactional = await workflows.publishVersion(other.id, { nodes: [], edges: [] }, {});
+    const a = await executions.create({ workflowId: ids.workflowId, contactId: ids.contactId, versionId: lifecycle.id, context: { steps: {} }, currentNodeId: "t" });
+    const b = await executions.create({ workflowId: other.id, contactId: ids.contactId, versionId: transactional.id, context: { steps: {} }, currentNodeId: "t" });
+
+    expect(await executions.cancelRunning(ids.contactId, { exitReason: "unsubscribed", lifecycleOnly: true })).toEqual([a!.id]);
+    expect(await executions.findById(a!.id)).toMatchObject({ status: "CANCELLED", exitReason: "unsubscribed" });
+    expect(await executions.findById(b!.id)).toMatchObject({ status: "RUNNING" });
+  });
+
+  it("counts runs by outcome and SKIPPED steps", async () => {
+    const ids = await seedWorkflow();
+    const make = async (contactEmail: string) => {
+      const [c] = await db.insert(schema.contacts).values({ projectId: ids.projectId, email: contactEmail }).returning();
+      return (await executions.create({ workflowId: ids.workflowId, contactId: c.id, versionId: ids.versionId, context: { steps: {} }, currentNodeId: "t" }))!;
+    };
+    const goal = await make("g@x.io");
+    const done = await make("d@x.io");
+    const failed = await make("f@x.io");
+    const cancelled = await make("c@x.io");
+    await make("r@x.io");
+    await executions.finish(goal.id, { status: "COMPLETED", exitReason: "goal" });
+    await executions.finish(done.id, { status: "COMPLETED", exitReason: "exit_node" });
+    await executions.finish(failed.id, { status: "FAILED", exitReason: "error" });
+    await executions.finish(cancelled.id, { status: "CANCELLED", exitReason: "suppressed" });
+
+    expect(await executions.getRunStats(ids.workflowId)).toEqual({ started: 5, running: 1, completed: 1, goal: 1, failed: 1, cancelled: 1 });
+
+    const step = await executions.claimStep(done.id, "m");
+    await executions.updateStepExecution(step.id, { status: "SKIPPED" });
+    expect((await executions.getNodeStats(ids.workflowId)).find((s) => s.nodeId === "m")).toMatchObject({ total: 1, skipped: 1 });
+  });
+});
+
 describe("workflow settings", () => {
   it("are stored on the draft and copied into the version", async () => {
     const ids = await seedWorkflow();

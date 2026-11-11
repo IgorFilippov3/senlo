@@ -176,6 +176,9 @@ export type ExecutionExitReason =
   | "invalid_run"
   | "upgrade"
   | "cancelled_api"
+  | "goal"
+  | "unsubscribed"
+  | "suppressed"
   | (string & {});
 
 export interface WorkflowNode {
@@ -243,6 +246,20 @@ export interface WorkflowNodeStats {
   active: number;
   completed: number;
   failed: number;
+  /** The step did not apply (a blocked contact's email) or failed with `onError: continue`. */
+  skipped: number;
+}
+
+/** A workflow's runs by outcome. Conversion = `goal / started`. */
+export interface WorkflowRunStats {
+  started: number;
+  running: number;
+  /** Ended at the end of a branch or an Exit step (not by the goal). */
+  completed: number;
+  /** Ended by the goal event. */
+  goal: number;
+  failed: number;
+  cancelled: number;
 }
 
 export type EmailProviderType =

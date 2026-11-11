@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, Clock, Users, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, SkipForward, Users, XCircle } from "lucide-react";
 import { useAutomationStore } from "../../store/automationStore";
 
 /**
@@ -26,6 +26,12 @@ export const NodeStats = ({ nodeId }: { nodeId: string }) => {
         <span className="flex items-center gap-1" title="Completed">
           <CheckCircle2 size={12} className="text-emerald-500" />
           {stats.completed}
+        </span>
+      )}
+      {stats.skipped > 0 && (
+        <span className="flex items-center gap-1" title="Skipped (blocked contact, or failed and continued)">
+          <SkipForward size={12} className="text-amber-500" />
+          {stats.skipped}
         </span>
       )}
       {stats.failed > 0 && (

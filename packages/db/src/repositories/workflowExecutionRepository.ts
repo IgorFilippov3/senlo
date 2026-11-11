@@ -1,4 +1,4 @@
-import { eq, and, sql, lt, asc, isNotNull, isNull } from "drizzle-orm";
+import { eq, and, sql, lt, asc, isNotNull, isNull, max } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import {
@@ -10,6 +10,7 @@ import {
   WorkflowExecution,
   WorkflowStepExecution,
   WorkflowNodeStats,
+  WorkflowRunStats,
 } from "@senlo/core";
 
 export class WorkflowExecutionRepository implements IWorkflowExecutionRepository {
@@ -212,9 +213,13 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
 
   async cancelRunning(
     contactId: number,
-    { workflowId, exitReason }: { workflowId?: number; exitReason: ExecutionExitReason },
+    { workflowId, exitReason, lifecycleOnly }: { workflowId?: number; exitReason: ExecutionExitReason; lifecycleOnly?: boolean },
   ): Promise<number[]> {
     const now = new Date();
+    const lifecycleVersions = sql`${schema.workflowExecutions.versionId} IN (
+      SELECT ${schema.workflowVersions.id} FROM ${schema.workflowVersions}
+      WHERE ${schema.workflowVersions.settings} ->> 'kind' = 'lifecycle'
+    )`;
     const rows = await this.db
       .update(schema.workflowExecutions)
       .set({ status: "CANCELLED", exitReason, completedAt: now, wakeAt: null, waitingEvent: null, updatedAt: now })
@@ -223,10 +228,44 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
           eq(schema.workflowExecutions.contactId, contactId),
           eq(schema.workflowExecutions.status, "RUNNING"),
           workflowId !== undefined ? eq(schema.workflowExecutions.workflowId, workflowId) : undefined,
+          lifecycleOnly ? lifecycleVersions : undefined,
         ),
       )
       .returning({ id: schema.workflowExecutions.id });
     return rows.map((r) => r.id);
+  }
+
+  async lastStartedAt(workflowId: number, contactId: number): Promise<Date | null> {
+    const [row] = await this.db
+      .select({ at: max(schema.workflowExecutions.startedAt) })
+      .from(schema.workflowExecutions)
+      .where(
+        and(eq(schema.workflowExecutions.workflowId, workflowId), eq(schema.workflowExecutions.contactId, contactId)),
+      );
+    return row?.at ?? null;
+  }
+
+  async getRunStats(workflowId: number): Promise<WorkflowRunStats> {
+    const rows = await this.db
+      .select({
+        status: schema.workflowExecutions.status,
+        exitReason: schema.workflowExecutions.exitReason,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(schema.workflowExecutions)
+      .where(eq(schema.workflowExecutions.workflowId, workflowId))
+      .groupBy(schema.workflowExecutions.status, schema.workflowExecutions.exitReason);
+    const stats: WorkflowRunStats = { started: 0, running: 0, completed: 0, goal: 0, failed: 0, cancelled: 0 };
+    for (const row of rows) {
+      const n = Number(row.count);
+      stats.started += n;
+      if (row.status === "RUNNING") stats.running += n;
+      else if (row.status === "FAILED") stats.failed += n;
+      else if (row.status === "CANCELLED") stats.cancelled += n;
+      else if (row.exitReason === "goal") stats.goal += n;
+      else stats.completed += n;
+    }
+    return stats;
   }
 
   async claimStep(executionId: number, nodeId: string): Promise<WorkflowStepExecution> {
@@ -302,6 +341,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
           active: 0,
           completed: 0,
           failed: 0,
+          skipped: 0,
         });
       }
 
@@ -314,6 +354,8 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
         stats.completed += row.count;
       } else if (row.status === "FAILED") {
         stats.failed += row.count;
+      } else if (row.status === "SKIPPED") {
+        stats.skipped += row.count;
       }
     }
 

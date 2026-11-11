@@ -20,6 +20,7 @@ import type {
   WorkflowNode,
   WorkflowEdge,
   WorkflowExecution,
+  WorkflowRunStats,
   ExecutionContext,
   WorkflowGraphSnapshot,
   WorkflowSettings,
@@ -198,6 +199,18 @@ export interface ContactRepository {
     data: Partial<Omit<Contact, "id" | "projectId" | "createdAt">>,
   ): Promise<Contact | null>;
 }
+
+/**
+ * Told when a contact may no longer get mail: they unsubscribed, or a
+ * bounce or spam report put the address on the suppression list. Automations
+ * end the contact's lifecycle runs. A listener that throws is logged by the
+ * caller and never stops the unsubscribe or the webhook.
+ */
+export type ContactBlockedListener = (event: {
+  projectId: number;
+  email: string;
+  reason: "UNSUBSCRIBE" | "BOUNCE" | "SPAM";
+}) => Promise<void>;
 
 /**
  * The event log (`contact_events`): every event a contact did, kept for the
@@ -450,11 +463,18 @@ export interface IWorkflowExecutionRepository {
   resolveWait(id: number, wait: { nodeId: string; event: string }): Promise<boolean>;
   /** Stores a step's output in the run's context (`context.steps[nodeId]`). */
   setStepOutput(id: number, nodeId: string, output: unknown): Promise<void>;
-  /** Cancels the contact's RUNNING runs (of one workflow, when given); their ids. */
+  /**
+   * Cancels the contact's RUNNING runs (of one workflow, when given; only
+   * runs of lifecycle versions, with `lifecycleOnly`); their ids.
+   */
   cancelRunning(
     contactId: number,
-    options: { workflowId?: number; exitReason: ExecutionExitReason },
+    options: { workflowId?: number; exitReason: ExecutionExitReason; lifecycleOnly?: boolean },
   ): Promise<number[]>;
+  /** When the contact's latest run of the workflow started; null when never. */
+  lastStartedAt(workflowId: number, contactId: number): Promise<Date | null>;
+  /** The workflow's runs by outcome (test runs excluded later). */
+  getRunStats(workflowId: number): Promise<WorkflowRunStats>;
 
   /**
    * The step's row in the run, created PENDING on first call. A redelivered

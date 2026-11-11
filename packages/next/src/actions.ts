@@ -197,6 +197,10 @@ const handlers: HandlerTable<SenloServerActions> = {
     await s.workflow.requireWorkflow(userId, workflowId, "read");
     return s.automation.getWorkflowStats(workflowId);
   }),
+  "workflows.runStats": read(async (s, userId, workflowId: number) => {
+    await s.workflow.requireWorkflow(userId, workflowId, "read");
+    return s.automation.getRunStats(workflowId);
+  }),
   "workflows.eventNames": read((s, userId, projectId: number) => s.workflow.recentEventNames(userId, projectId)),
   "workflows.fieldSuggestions": read((s, userId, projectId: number, eventName: string | null) =>
     s.workflow.fieldSuggestions(userId, projectId, eventName),

@@ -45,6 +45,20 @@ export function useWorkflowStats(
   });
 }
 
+/** The workflow's runs by outcome (started, running, completed, goal, failed, cancelled). */
+export function useWorkflowRunStats(
+  workflowId: number,
+  options?: { enabled?: boolean; refetchInterval?: number },
+) {
+  const actions = useSenloActions();
+  return useQuery({
+    queryKey: queryKeys.workflows.runStats(workflowId),
+    queryFn: async () => unwrap(await actions.workflows.runStats(workflowId)),
+    enabled: options?.enabled,
+    refetchInterval: options?.refetchInterval,
+  });
+}
+
 /** Event names the project has sent: suggestions for a custom event trigger. */
 export function useRecentEventNames(projectId: number) {
   const actions = useSenloActions();
