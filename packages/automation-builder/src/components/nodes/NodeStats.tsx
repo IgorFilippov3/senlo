@@ -1,13 +1,13 @@
 import React from "react";
 import { CheckCircle2, Clock, SkipForward, Users, XCircle } from "lucide-react";
-import { useAutomationStore } from "../../store/automationStore";
+import { useNodeStats } from "../BuilderContext";
 
 /**
  * The live counts strip at the bottom of a step card. Its height is
  * `STATS_HEIGHT` in the layout: keep them in step.
  */
 export const NodeStats = ({ nodeId }: { nodeId: string }) => {
-  const stats = useAutomationStore((state) => state.nodeStats[nodeId]);
+  const stats = useNodeStats(nodeId);
   if (!stats) return null;
 
   return (

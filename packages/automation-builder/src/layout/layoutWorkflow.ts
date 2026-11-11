@@ -79,12 +79,14 @@ export interface LayoutOptions {
   selectedId?: string | null;
   /** Steps that show a stats strip (and are taller for it). */
   withStats?: Set<string>;
+  /** `+` placeholders at open ends (the editor); a preview leaves them out. */
+  placeholders?: boolean;
 }
 
 export function layoutWorkflow(
   nodes: Node[],
   edges: Edge[],
-  { selectedId = null, withStats = new Set() }: LayoutOptions = {},
+  { selectedId = null, withStats = new Set(), placeholders = true }: LayoutOptions = {},
 ): { nodes: Node[]; edges: Edge[] } {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const outgoing = new Map<string, Edge[]>();
@@ -103,6 +105,7 @@ export function layoutWorkflow(
     const slots = slotsOf(node).map((slot) => {
       const edge = edgeForSlot(node, slot, out);
       if (!edge) {
+        if (!placeholders) return { slot, child: null };
         const id = `__add__:${node.id}:${slot.handle ?? "next"}`;
         return { slot, child: { kind: "placeholder", id, parentId: node.id, slot } as Item };
       }

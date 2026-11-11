@@ -1,4 +1,6 @@
 import React, { createContext, useContext } from "react";
+import type { WorkflowNodeStats } from "@senlo/core";
+import { useAutomationStore } from "../store/automationStore";
 
 export interface BuilderTrigger {
   id: number;
@@ -24,6 +26,14 @@ interface BuilderContextValue {
    * unknown). A history rule cannot look further back.
    */
   historyRetentionDays?: number | null;
+  /**
+   * A preview (`WorkflowPreview`): no `+`, no selection, and step counts come
+   * from `nodeStats` below instead of the editor's store, so a preview never
+   * reads or changes the graph of an open editor.
+   */
+  readOnly?: boolean;
+  /** Counts by node id for a read-only canvas. */
+  nodeStats?: Record<string, WorkflowNodeStats>;
 }
 
 const BuilderContext = createContext<BuilderContextValue>({
@@ -35,3 +45,10 @@ const BuilderContext = createContext<BuilderContextValue>({
 export const BuilderProvider = BuilderContext.Provider;
 
 export const useBuilderContext = () => useContext(BuilderContext);
+
+/** A step's counts: the editor's store, or the preview's own. */
+export function useNodeStats(nodeId: string): WorkflowNodeStats | undefined {
+  const { readOnly, nodeStats } = useBuilderContext();
+  const fromStore = useAutomationStore((state) => state.nodeStats[nodeId]);
+  return readOnly ? nodeStats?.[nodeId] : fromStore;
+}

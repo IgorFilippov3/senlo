@@ -21,6 +21,16 @@
   animation: slideIn var(--sl-transition-normal);
 }
 
+/* Wider dialogs: a size, not a className. The module's rules are unlayered and
+   win over Tailwind's max-w-* utilities. */
+.sizeLg {
+  max-width: 768px;
+}
+
+.sizeXl {
+  max-width: 1024px;
+}
+
 .header {
   padding: var(--sl-space-6);
   padding-bottom: var(--sl-space-4);

@@ -351,7 +351,7 @@ export function WorkflowRunsDialog({
 }) {
   const [tab, setTab] = useState<"runs" | "contact">("runs");
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} title="Runs" className="max-w-3xl w-full">
+    <Dialog isOpen={isOpen} onClose={onClose} title="Runs" size="lg">
       <div className="flex gap-1 mb-4 border-b border-gray-200">
         {(["runs", "contact"] as const).map((t) => (
           <button

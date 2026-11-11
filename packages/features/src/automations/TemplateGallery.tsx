@@ -7,14 +7,13 @@
 import React, { useState } from "react";
 import {
   WORKFLOW_TEMPLATE_CATEGORIES,
-  type WorkflowExportEdge,
-  type WorkflowExportNode,
   type WorkflowTemplate,
   type WorkflowTemplateCategory,
 } from "@senlo/core";
 import { Badge, Button, Card, Dialog, Input } from "@senlo/ui";
 import { Check, Copy, Mail, Target, Zap } from "lucide-react";
 import { FormErrorBanner } from "../shared";
+import { LazyWorkflowPreview } from "./LazyWorkflowPreview";
 
 const emailCount = (t: WorkflowTemplate) => t.workflow.nodes.filter((n) => n.type === "action").length;
 const triggerEvent = (t: WorkflowTemplate) => t.events.find((e) => e.role === "trigger")?.name ?? "";
@@ -93,57 +92,6 @@ export function TemplateGallery({
 const UNIT_SINGULAR: Record<string, string> = { minutes: "minute", hours: "hour", days: "day" };
 const span = (n: number, unit: string) => `${n} ${n === 1 ? UNIT_SINGULAR[unit] ?? unit : unit}`;
 
-/** One step as a line of the preview. */
-export function describeTemplateStep(node: WorkflowExportNode): string {
-  const d = node.data as Record<string, any>;
-  switch (node.type) {
-    case "trigger":
-      return `Trigger: ${d.event}${d.tag ? ` (tag "${d.tag}")` : ""}`;
-    case "action":
-      return `Email: "${d.label ?? d.emailRef ?? "choose an email"}"`;
-    case "delay":
-      if (d.mode === "until") {
-        const offset = d.until?.offset;
-        const shift = offset ? ` ${offset.direction === "before" ? "−" : "+"} ${span(offset.duration, offset.unit)}` : "";
-        return `Wait until ${d.until?.source}.${d.until?.path}${shift}`;
-      }
-      return `Wait ${span(Number(d.duration) || 1, d.unit ?? "days")}`;
-    case "wait_event":
-      return `Wait up to ${span(d.timeout?.duration, d.timeout?.unit)} for ${d.event}`;
-    case "condition":
-      return `Condition: ${d.label ?? "rules"}`;
-    case "update_contact":
-      return "Update contact";
-    case "http_request":
-      return `HTTP request: ${d.method ?? "POST"} ${d.url ?? ""}`.trim();
-    case "exit":
-      return "End";
-    default:
-      return node.type;
-  }
-}
-
-/** The steps in graph order, each with the branch it is on ("If yes" / "If no"). */
-function orderedSteps(nodes: WorkflowExportNode[], edges: WorkflowExportEdge[]) {
-  const out: Array<{ node: WorkflowExportNode; depth: number; branch: string | null }> = [];
-  const seen = new Set<string>();
-  const visit = (id: string, depth: number, branch: string | null) => {
-    if (seen.has(id)) return;
-    seen.add(id);
-    const node = nodes.find((n) => n.id === id);
-    if (!node) return;
-    out.push({ node, depth, branch });
-    const outgoing = edges.filter((e) => e.source === id);
-    for (const e of outgoing) {
-      const branched = e.sourceHandle === "yes" || e.sourceHandle === "no";
-      visit(e.target, branched ? depth + 1 : depth, branched ? e.sourceHandle : null);
-    }
-  };
-  const root = nodes.find((n) => n.type === "trigger");
-  if (root) visit(root.id, 0, null);
-  return out;
-}
-
 /** An example request for an event of the template, to paste into the app. */
 export function templateEventExample(name: string, payload?: Record<string, unknown>): string {
   const body = { event: name, email: "user@example.com", ...(payload ? { payload } : {}) };
@@ -199,7 +147,7 @@ export function TemplatePreviewDialog({
       onClose={onClose}
       title={template.name}
       description={template.summary}
-      className="max-w-3xl w-full"
+      size="xl"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -211,32 +159,23 @@ export function TemplatePreviewDialog({
         </>
       }
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <h4 className="text-sm font-semibold text-gray-900">Steps</h4>
-            <Badge variant="outline" className="text-[10px]">
-              {settings.kind ?? "transactional"}
-            </Badge>
-          </div>
-          <ol className="space-y-1 text-sm text-gray-700">
-            {orderedSteps(template.workflow.nodes, template.workflow.edges).map(({ node, depth, branch }) => (
-              <li key={node.id} style={{ paddingLeft: depth * 16 }}>
-                {branch && <span className="text-gray-400">{branch === "yes" ? "If yes: " : "If no: "}</span>}
-                {describeTemplateStep(node)}
-              </li>
-            ))}
-          </ol>
-          <p className="text-xs text-gray-500">
-            {settings.goal ? `Goal: ${settings.goal.event} · ` : ""}Entry: {entry}
-          </p>
-          <p className="text-xs text-gray-500">
-            Email steps start empty; choose an email for each in the editor (a trigger with the same name is picked for you).
-          </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2">
+          <LazyWorkflowPreview nodes={template.workflow.nodes} edges={template.workflow.edges} className="h-[460px]" />
         </div>
 
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-gray-900">Your app sends</h4>
+          <div className="space-y-1 text-xs text-gray-600">
+            <Badge variant="outline" className="text-[10px]">
+              {settings.kind ?? "transactional"}
+            </Badge>
+            {settings.goal && <p>Goal: <span className="font-mono">{settings.goal.event}</span></p>}
+            <p>Entry: {entry}</p>
+            <p className="text-gray-500">
+              Email steps start empty: choose an email for each in the editor (a trigger with the same name is picked for you).
+            </p>
+          </div>
+          <h4 className="text-sm font-semibold text-gray-900 pt-2">Your app sends</h4>
           <ul className="space-y-2">
             {template.events.map((e) => (
               <li key={e.name} className="border border-gray-200 rounded-lg p-2">

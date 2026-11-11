@@ -23,6 +23,11 @@ export interface DialogProps {
   className?: string;
   /** Whether to disable opening animations */
   disableAnimation?: boolean;
+  /**
+   * Maximum width: `default` 500px, `lg` 768px, `xl` 1024px. Use this rather
+   * than a `max-w-*` class, which the dialog's own rule overrides.
+   */
+  size?: "default" | "lg" | "xl";
 }
 
 /**
@@ -62,6 +67,7 @@ export const Dialog = React.forwardRef<HTMLDivElement, DialogProps>(
       footer,
       className,
       disableAnimation,
+      size = "default",
     },
     ref,
   ) => {
@@ -100,6 +106,8 @@ export const Dialog = React.forwardRef<HTMLDivElement, DialogProps>(
           ref={ref}
           className={cn(
             styles.content,
+            size === "lg" && styles.sizeLg,
+            size === "xl" && styles.sizeXl,
             className,
             disableAnimation && styles.noAnimation,
           )}

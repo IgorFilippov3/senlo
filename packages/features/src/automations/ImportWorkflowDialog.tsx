@@ -15,6 +15,7 @@ import {
 import { Button, Dialog, Input } from "@senlo/ui";
 import { useProjectCampaigns } from "../data/campaigns";
 import { WorkflowNotReadyError, useImportWorkflow } from "../data/workflows";
+import { LazyWorkflowPreview } from "./LazyWorkflowPreview";
 
 const NONE = "";
 
@@ -110,6 +111,7 @@ export function ImportWorkflowDialog({
       onClose={close}
       title="Import automation"
       description="Create a draft from an automation exported from Senlo."
+      size={file ? "lg" : "default"}
       footer={
         <>
           <Button variant="ghost" onClick={close}>
@@ -133,6 +135,7 @@ export function ImportWorkflowDialog({
 
         {file && (
           <>
+            <LazyWorkflowPreview nodes={file.nodes} edges={file.edges} className="h-[300px]" />
             <label className="block space-y-1">
               <span className="text-sm font-medium text-gray-900">Name</span>
               <Input value={name} onChange={(e) => setName(e.target.value)} />

@@ -12,7 +12,7 @@ import { STEP_META } from "./stepMeta";
  * strip when there is one).
  */
 export const StepNode = ({ id, type, data, selected }: NodeProps) => {
-  const { triggers } = useBuilderContext();
+  const { triggers, readOnly } = useBuilderContext();
   const meta = STEP_META[type] ?? STEP_META.action;
   const Icon = meta.icon;
   const summary = meta.summary(data as Record<string, any>, { triggers });
@@ -20,10 +20,13 @@ export const StepNode = ({ id, type, data, selected }: NodeProps) => {
   return (
     <div
       className={cn(
-        "w-[280px] cursor-pointer rounded-xl border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow]",
+        "w-[280px] rounded-xl border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow]",
+        !readOnly && "cursor-pointer",
         selected
           ? "border-blue-500 ring-4 ring-blue-500/10"
-          : "border-gray-200 hover:border-gray-300 hover:shadow-[0_2px_6px_rgba(16,24,40,0.08)]",
+          : readOnly
+            ? "border-gray-200"
+            : "border-gray-200 hover:border-gray-300 hover:shadow-[0_2px_6px_rgba(16,24,40,0.08)]",
       )}
     >
       {type !== "trigger" && <Handle type="target" position={Position.Top} isConnectable={false} />}

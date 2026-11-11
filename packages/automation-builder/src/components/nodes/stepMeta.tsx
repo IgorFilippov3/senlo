@@ -82,6 +82,8 @@ export const STEP_META: Record<string, StepMeta> = {
     tone: "text-blue-600",
     summary: (data, { triggers }) => {
       if (data.label) return { text: data.label };
+      // An export or a template names the email by its trigger's name.
+      if (typeof data.emailRef === "string" && data.emailRef !== "") return { text: data.emailRef };
       const id = data.triggerId;
       if (id === undefined || id === null || id === "") return { text: "Choose an email", incomplete: true };
       const trigger = triggers.find((t) => String(t.id) === String(id));

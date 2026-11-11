@@ -89,11 +89,11 @@ A run that is no longer wanted (the invoice got paid, the user left) is ended wi
 
 ### Templates
 
-**Create Automation** opens a gallery of ready-made flows: welcome, onboarding with an activation check, confirm-email reminder, invite your team, trial ending, failed payment (dunning), renewal reminder, usage limit upsell, review request, abandoned checkout, re-activation after 14 days idle, win-back after cancel, lead nurture, milestone. A template shows its steps, its settings and the events your app must send, with an example request for each. **Use template** creates a draft: the steps, the goal and entry rules are set; each email step is labeled with what it should say and starts empty, unless the workspace has a trigger with that name. Choose the emails, then go live.
+**Create Automation** opens a gallery of ready-made flows: welcome, onboarding with an activation check, confirm-email reminder, invite your team, trial ending, failed payment (dunning), renewal reminder, usage limit upsell, review request, abandoned checkout, re-activation after 14 days idle, win-back after cancel, lead nurture, milestone. A template shows its flow as the editor draws it, its settings and the events your app must send, with an example request for each. **Use template** creates a draft: the steps, the goal and entry rules are set; each email step is labeled with what it should say and starts empty, unless the workspace has a trigger with that name. Choose the emails, then go live.
 
 ### Export and import
 
-**Export** in the editor's header downloads the automation as JSON: its saved draft and settings. **Import** on the Automations page creates a draft from such a file, in this or another workspace or instance. Each email step names its trigger; the import maps it to a trigger here (one with the same name is chosen for you) or leaves the step empty. HTTP request header values are not exported: enter them again before going live. The same works over the API: [Automations as data](../api/workflows.mdx).
+**Export** in the editor's header downloads the automation as JSON: its saved draft and settings. **Import** on the Automations page shows the file's flow, then creates a draft from it, in this or another workspace or instance. Each email step names its trigger; the import maps it to a trigger here (one with the same name is chosen for you) or leaves the step empty. HTTP request header values are not exported: enter them again before going live. The same works over the API: [Automations as data](../api/workflows.mdx).
 
 ### Frequency cap
 

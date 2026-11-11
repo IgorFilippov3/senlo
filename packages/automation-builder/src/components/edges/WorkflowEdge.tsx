@@ -5,6 +5,7 @@ import { useAutomationStore } from "../../store/automationStore";
 import { BRANCH_SPLIT, type WorkflowEdgeData } from "../../layout/layoutWorkflow";
 import { INSERTABLE_TYPES } from "../../store/graphOps";
 import { AddStepMenu } from "../AddStepMenu";
+import { useBuilderContext } from "../BuilderContext";
 
 const STROKE = "#d4d4d8";
 
@@ -26,6 +27,7 @@ export const WorkflowEdge = ({
 }: EdgeProps) => {
   const { label, insertable } = (data ?? { insertable: false }) as WorkflowEdgeData;
   const insertNode = useAutomationStore((state) => state.insertNode);
+  const { readOnly } = useBuilderContext();
 
   const [path] = getSmoothStepPath({
     sourceX,
@@ -54,7 +56,7 @@ export const WorkflowEdge = ({
             {label}
           </div>
         )}
-        {insertable && (
+        {insertable && !readOnly && (
           <div
             className="nodrag nopan absolute"
             style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${plusY}px)`, pointerEvents: "all" }}

@@ -3,7 +3,6 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   applyNodeChanges,
@@ -22,26 +21,12 @@ import { BuilderProvider, type BuilderFieldSuggestions, type BuilderTrigger } fr
 import { DeleteStepDialog } from "./DeleteStepDialog";
 import { SidePanel } from "./SidePanel";
 import { WorkflowEdge } from "./edges/WorkflowEdge";
-import { ExitNode } from "./nodes/ExitNode";
 import { PlaceholderNode } from "./nodes/PlaceholderNode";
-import { StepNode } from "./nodes/StepNode";
+import { STEP_NODE_TYPES, defaultEdgeOptions } from "./nodes/nodeTypes";
 
-const nodeTypes = {
-  trigger: StepNode,
-  action: StepNode,
-  delay: StepNode,
-  condition: StepNode,
-  wait_event: StepNode,
-  update_contact: StepNode,
-  exit: ExitNode,
-  [PLACEHOLDER_TYPE]: PlaceholderNode,
-};
+const nodeTypes = { ...STEP_NODE_TYPES, [PLACEHOLDER_TYPE]: PlaceholderNode };
 
 const edgeTypes = { [EDGE_TYPE]: WorkflowEdge };
-
-const defaultEdgeOptions = {
-  markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#d4d4d8" },
-};
 
 interface Props {
   triggers?: BuilderTrigger[];
