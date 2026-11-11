@@ -36,6 +36,7 @@ An **automation** is a workflow drawn in the automation builder. It starts with 
 | **Send email** | Sends a trigger's template to the contact, in the contact's locale. The template sees the contact and the event's `payload` as `{{event.*}}` ([merge tags](./merge-tags.mdx#automation-emails)). |
 | **Wait** | Waits a number of minutes, hours or days, or **until a date** read from the trigger event or the contact, with an offset ("3 days before `trial_ends_at`"). |
 | **Condition** | Takes the **yes** or **no** branch. **Rules** check the contact, the trigger event, the contact's history and earlier emails without any code of yours; **Call my API** posts the contact and the trigger `event` (`{ name, payload }`) to your URL, and a `200` means **yes**. |
+| **Wait for event** | Waits until the contact does an event (**yes**) or a time passes (**no**). If they already did it since the run started, it takes **yes** at once. The event's `payload` is this step's output for later rules. |
 | **Update contact** | Merges fields into the contact's metadata (tags are added, not replaced). |
 | **Exit** | Ends the run. |
 
@@ -66,6 +67,16 @@ Rules are combined with **all** or **any**, and can be grouped once ("all of: A,
 History rules read the contact's event history, which is kept as long as the workspace keeps its email details; an older event does not count. Email opens are counted from the tracking pixel, so a client that blocks images never reports an open.
 
 Only **active** automations start; a paused one ignores events, while runs already in progress go on.
+
+### Settings
+
+Each automation has **Settings** next to Go Live:
+
+- **Kind.** *Transactional* (the default) is mail the contact expects from what they did: an unsubscribed or suppressed contact's emails are skipped and the rest of the run goes on. *Lifecycle* is marketing mail (win-back, nurture, upsell): such a contact leaves the automation the moment they unsubscribe or bounce, and it never starts for them. Put `{{unsubscribe_url}}` in every lifecycle email.
+- **Goal.** An event, with optional filters, that means the automation did its job ("`payment_succeeded`" for a dunning flow). When the contact does it, their run ends as a success wherever it is, so no further reminder goes out. The header shows runs started and how many reached the goal (the conversion).
+- **Entry.** *Again after the previous run ends* (the default), with an optional cooldown ("not again within 7 days of the last start"), or *only once per contact*.
+
+Like a graph change, saving the settings of an active automation publishes a new version: runs in progress keep the settings they started with.
 
 A run that is no longer wanted (the invoice got paid, the user left) is ended with [`POST /api/automations/cancel`](../api/cancel-automations.mdx).
 

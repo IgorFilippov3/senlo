@@ -1,3 +1,4 @@
+import { isBranchingType } from "@senlo/core";
 import type { Edge, Node } from "@xyflow/react";
 
 /**
@@ -55,7 +56,7 @@ type Item =
 
 function slotsOf(node: Node): Slot[] {
   if (node.type === "exit") return [];
-  if (node.type === "condition") {
+  if (isBranchingType(node.type)) {
     return [
       { handle: "yes", label: "Yes" },
       { handle: "no", label: "No" },
@@ -70,7 +71,7 @@ function sizeOf(node: Node, hasStats: boolean): { width: number; height: number 
 }
 
 function edgeForSlot(node: Node, slot: Slot, outgoing: Edge[]): Edge | undefined {
-  if (node.type === "condition") return outgoing.find((e) => e.sourceHandle === slot.handle);
+  if (isBranchingType(node.type)) return outgoing.find((e) => e.sourceHandle === slot.handle);
   return outgoing[0];
 }
 
@@ -179,7 +180,7 @@ export function layoutWorkflow(
 
     const children = item.slots.flatMap((s) => (s.child ? [s.child] : []));
     if (children.length === 0) return;
-    const gap = node.type === "condition" ? BRANCH_GAP : STEP_GAP;
+    const gap = isBranchingType(node.type) ? BRANCH_GAP : STEP_GAP;
     const childTop = top + height + gap;
     const total = children.reduce((acc, c) => acc + columnWidth(c), 0) + COLUMN_GAP * (children.length - 1);
     let left = centerX - total / 2;
@@ -200,7 +201,7 @@ export function layoutWorkflow(
   for (const edge of edges) {
     const source = byId.get(edge.source);
     if (!source || !byId.has(edge.target)) continue;
-    const isBranch = source.type === "condition";
+    const isBranch = isBranchingType(source.type);
     const handle = isBranch ? edge.sourceHandle : null;
     outEdges.push({
       ...edge,

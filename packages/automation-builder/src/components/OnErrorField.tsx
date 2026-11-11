@@ -31,7 +31,9 @@ export function OnErrorField({ type, value, onChange }: Props) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="fail">Stop the run</SelectItem>
-          <SelectItem value="continue">{type === "condition" ? "Take the No branch" : "Skip it and continue"}</SelectItem>
+          <SelectItem value="continue">
+            {type === "condition" || type === "wait_event" ? "Take the No branch" : "Skip it and continue"}
+          </SelectItem>
         </SelectContent>
       </Select>
       <p className="text-[10px] text-gray-400 mt-1">

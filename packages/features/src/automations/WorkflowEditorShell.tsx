@@ -3,7 +3,7 @@
 import React from "react";
 import type { WorkflowStatus } from "@senlo/core";
 import { Button, Badge } from "@senlo/ui";
-import { Save, Play, Pause, ChevronLeft, AlertCircle } from "lucide-react";
+import { Save, Play, Pause, ChevronLeft, AlertCircle, Settings2 } from "lucide-react";
 import { GoLiveErrorsDialog } from "./WorkflowDialogs";
 
 export interface WorkflowEditorShellProps {
@@ -22,6 +22,10 @@ export interface WorkflowEditorShellProps {
   onDismissGoLiveErrors: () => void;
   /** Title of the reasons dialog; "Cannot go live" by default. */
   goLiveErrorsTitle?: string;
+  /** Opens the automation's settings (goal, entry, kind). */
+  onOpenSettings?: () => void;
+  /** A line under the name: the runs and the conversion. */
+  summary?: React.ReactNode;
   /** The builder canvas. */
   children: React.ReactNode;
 }
@@ -39,6 +43,8 @@ export function WorkflowEditorShell({
   goLiveErrors,
   onDismissGoLiveErrors,
   goLiveErrorsTitle,
+  onOpenSettings,
+  summary,
   children,
 }: WorkflowEditorShellProps) {
   const isActive = status === "ACTIVE";
@@ -65,6 +71,7 @@ export function WorkflowEditorShell({
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                   Automation Builder
                 </span>
+                {summary && <span className="text-[11px] text-gray-500 tabular-nums">{summary}</span>}
               </div>
             </div>
           </div>
@@ -75,6 +82,15 @@ export function WorkflowEditorShell({
                 <AlertCircle size={14} className="shrink-0" />
                 {error}
               </span>
+            )}
+            {onOpenSettings && (
+              <Button
+                variant="outline"
+                className="font-semibold text-xs uppercase tracking-wider h-9 border-gray-200"
+                onClick={onOpenSettings}
+              >
+                <Settings2 size={14} className="mr-2" /> Settings
+              </Button>
             )}
             <Button
               variant="outline"

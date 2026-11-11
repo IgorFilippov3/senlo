@@ -197,6 +197,10 @@ const handlers: HandlerTable<SenloServerActions> = {
     await s.workflow.requireWorkflow(userId, workflowId, "read");
     return s.automation.getWorkflowStats(workflowId);
   }),
+  // Like a graph save: the editor keeps its own state.
+  "workflows.updateSettings": write(async (s, userId, workflowId: number, settings: unknown) => {
+    return s.workflow.updateSettings(userId, workflowId, settings);
+  }, false),
   "workflows.runStats": read(async (s, userId, workflowId: number) => {
     await s.workflow.requireWorkflow(userId, workflowId, "read");
     return s.automation.getRunStats(workflowId);

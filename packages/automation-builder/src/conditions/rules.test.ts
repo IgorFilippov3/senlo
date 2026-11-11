@@ -14,7 +14,7 @@ import {
   withOperator,
   withSource,
 } from "./rules";
-import { conditionSummary, triggerSummary } from "../components/nodes/stepMeta";
+import { conditionSummary, triggerSummary, waitEventSummary } from "../components/nodes/stepMeta";
 
 const rule = (value: string) => ({ source: "event" as const, path: "reason", operator: "eq" as const, value });
 
@@ -100,5 +100,13 @@ describe("descriptions", () => {
     expect(triggerSummary({ event: "trial_started", filters: { op: "and", rules: [rule("a"), rule("b")] } })).toEqual({
       text: "trial_started, 2 filters",
     });
+  });
+
+  it("card line of a Wait for event step", () => {
+    expect(waitEventSummary({ event: "" })).toEqual({ text: "Choose an event to wait for", incomplete: true });
+    expect(waitEventSummary({ event: "project_created", timeout: { duration: 3, unit: "days" } })).toEqual({
+      text: "project_created, up to 3 days",
+    });
+    expect(waitEventSummary({ event: "paid", timeout: { duration: 1, unit: "hours" } })).toEqual({ text: "paid, up to 1 hour" });
   });
 });

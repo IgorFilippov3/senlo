@@ -46,7 +46,9 @@ export interface AutomationState {
 
 /** What a new step starts with: a Condition calls an API until rules are set (the panel switches it). */
 function defaultStepData(type: string): Record<string, unknown> {
-  return type === "condition" ? { mode: "api" } : {};
+  if (type === "condition") return { mode: "api" };
+  if (type === "wait_event") return { event: "", timeout: { duration: 3, unit: "days" } };
+  return {};
 }
 
 export const useAutomationStore = create<AutomationState>((set, get) => ({

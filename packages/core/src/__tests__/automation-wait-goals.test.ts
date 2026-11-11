@@ -147,6 +147,14 @@ describe("Wait for event", () => {
     expect(runs.get(1)).toMatchObject({ currentNodeId: "yes" });
   });
 
+  it("a step that cannot run (no event) takes No with onError: continue", async () => {
+    const { service, runs, steps, send } = setup([waitFlow({ event: "", onError: "continue" })]);
+    await send("signed_up");
+    await service.processStep(1, "w", "https://app.test");
+    expect(runs.get(1)).toMatchObject({ currentNodeId: "no" });
+    expect(steps.get("1:w")).toMatchObject({ status: "COMPLETED", result: { branch: "no" } });
+  });
+
   it("since the step started: an event before the step does not count", async () => {
     const { service, runs, steps, send, executions } = setup([waitFlow({ since: "step_start" })]);
     await send("signed_up");

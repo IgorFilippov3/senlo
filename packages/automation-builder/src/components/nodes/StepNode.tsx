@@ -1,3 +1,4 @@
+import { isBranchingType } from "@senlo/core";
 import React from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { cn } from "@senlo/ui";
@@ -47,7 +48,7 @@ export const StepNode = ({ id, type, data, selected }: NodeProps) => {
 
       <NodeStats nodeId={id} />
 
-      {type === "condition" ? (
+      {isBranchingType(type) ? (
         <>
           <Handle type="source" id="yes" position={Position.Bottom} isConnectable={false} />
           <Handle type="source" id="no" position={Position.Bottom} isConnectable={false} />

@@ -31,6 +31,7 @@ const nodeTypes = {
   action: StepNode,
   delay: StepNode,
   condition: StepNode,
+  wait_event: StepNode,
   update_contact: StepNode,
   exit: ExitNode,
   [PLACEHOLDER_TYPE]: PlaceholderNode,

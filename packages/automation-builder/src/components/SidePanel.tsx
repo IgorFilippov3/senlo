@@ -18,6 +18,7 @@ import { TriggerConfig } from "./TriggerConfig";
 import { OnErrorField } from "./OnErrorField";
 import { ConditionConfig } from "./ConditionConfig";
 import { DelayConfig } from "./DelayConfig";
+import { WaitEventConfig } from "./WaitEventConfig";
 
 interface Trigger {
   id: number;
@@ -113,6 +114,8 @@ export const SidePanel = ({ triggers = [], onDelete }: Props) => {
         return (
           <ConditionConfig nodeId={node.id} data={node.data} onChange={(data) => updateNodeData(node.id, data)} />
         );
+      case "wait_event":
+        return <WaitEventConfig data={node.data} onChange={(data) => updateNodeData(node.id, data)} />;
       case "update_contact":
         return (
           <div className="space-y-4">

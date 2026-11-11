@@ -1,7 +1,8 @@
+import { isBranchingType } from "@senlo/core";
 import type { Edge, Node } from "@xyflow/react";
 
 /** Step types that can go in the middle of a chain (an End would cut it off). */
-export const INSERTABLE_TYPES = ["action", "delay", "condition", "update_contact"] as const;
+export const INSERTABLE_TYPES = ["action", "delay", "condition", "wait_event", "update_contact"] as const;
 
 function reachable(startIds: string[], edges: Edge[]): Set<string> {
   const seen = new Set(startIds);
@@ -27,7 +28,7 @@ function reachable(startIds: string[], edges: Edge[]): Set<string> {
 export function stepsRemovedBy(nodes: Node[], edges: Edge[], id: string): Set<string> {
   const node = nodes.find((n) => n.id === id);
   if (!node) return new Set();
-  if (node.type !== "condition") return new Set([id]);
+  if (!isBranchingType(node.type)) return new Set([id]);
 
   const rest = edges.filter((e) => e.source !== id && e.target !== id);
   const roots = nodes
@@ -53,7 +54,7 @@ export function deleteStep(
   const kept = edges.filter((e) => !removed.has(e.source) && !removed.has(e.target));
 
   // Join the parent(s) to the only child, through the same handle as before.
-  if (node && node.type !== "condition" && outgoing.length === 1) {
+  if (node && !isBranchingType(node.type) && outgoing.length === 1) {
     const childId = outgoing[0].target;
     for (const incoming of edges.filter((e) => e.target === id)) {
       const handle = incoming.sourceHandle ?? null;
@@ -87,7 +88,7 @@ export function insertStep(
     {
       id: newId(),
       source: node.id,
-      sourceHandle: node.type === "condition" ? "yes" : null,
+      sourceHandle: isBranchingType(node.type) ? "yes" : null,
       target: edge.target,
     },
   ];

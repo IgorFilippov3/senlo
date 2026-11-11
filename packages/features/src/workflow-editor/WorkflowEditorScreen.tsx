@@ -5,9 +5,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import type { Workflow, WorkflowEdge, WorkflowNode } from "@senlo/core";
+import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowSettings } from "@senlo/core";
 import { validateWorkflowGraph } from "@senlo/core";
-import { AutomationBuilder, useAutomationStore } from "@senlo/automation-builder";
+import { AutomationBuilder, WorkflowSettingsForm, useAutomationStore } from "@senlo/automation-builder";
+import { Button, Dialog } from "@senlo/ui";
 import { WorkflowEditorShell } from "../automations/WorkflowEditorShell";
 import { useProjectCampaigns } from "../data/campaigns";
 import { useLogRetention } from "../data/workspaces";
@@ -16,6 +17,8 @@ import {
   useFieldSuggestions,
   useRecentEventNames,
   useSaveWorkflowGraph,
+  useSaveWorkflowSettings,
+  useWorkflowRunStats,
   useSetWorkflowStatus,
   useWorkflowStats,
 } from "../data/workflows";
@@ -57,6 +60,23 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
     typeof triggerEvent === "string" && triggerEvent !== "" ? triggerEvent : null,
   );
   const { data: retention } = useLogRetention(workflow.projectId);
+  const { data: runStats } = useWorkflowRunStats(workflow.id, { refetchInterval: status === "ACTIVE" ? 10000 : undefined });
+
+  const [settings, setSettings] = useState<WorkflowSettings>(workflow.settings ?? {});
+  const [settingsDraft, setSettingsDraft] = useState<WorkflowSettings | null>(null);
+  const [settingsErrors, setSettingsErrors] = useState<string[] | null>(null);
+  const saveSettings = useSaveWorkflowSettings(workflow.id);
+
+  const submitSettings = async () => {
+    if (!settingsDraft) return;
+    setSettingsErrors(null);
+    try {
+      setSettings(await saveSettings.mutateAsync(settingsDraft));
+      setSettingsDraft(null);
+    } catch (error) {
+      setSettingsErrors(error instanceof WorkflowNotReadyError ? error.reasons : [(error as Error).message]);
+    }
+  };
   const { data: stats = [] } = useWorkflowStats(workflow.id, {
     enabled: status === "ACTIVE",
     refetchInterval: 10000,
@@ -146,6 +166,11 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
       goLiveErrors={goLiveErrors}
       onDismissGoLiveErrors={() => setGoLiveErrors(null)}
       goLiveErrorsTitle={errorsTitle}
+      onOpenSettings={() => {
+        setSettingsErrors(null);
+        setSettingsDraft(settings);
+      }}
+      summary={runStats && runStats.started > 0 ? runSummary(runStats, !!settings.goal) : undefined}
     >
       <AutomationBuilder
         triggers={triggers}
@@ -154,6 +179,45 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
         fieldSuggestions={fieldSuggestions}
         historyRetentionDays={retention?.days}
       />
+      <Dialog
+        isOpen={settingsDraft !== null}
+        onClose={() => setSettingsDraft(null)}
+        title="Automation settings"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setSettingsDraft(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void submitSettings()} disabled={saveSettings.isPending}>
+              {saveSettings.isPending ? "Saving..." : status === "ACTIVE" ? "Save and publish" : "Save"}
+            </Button>
+          </>
+        }
+      >
+        {settingsDraft && (
+          <WorkflowSettingsForm
+            value={settingsDraft}
+            onChange={setSettingsDraft}
+            eventNames={eventNames}
+            fieldSuggestions={fieldSuggestions}
+          />
+        )}
+        {settingsErrors && (
+          <ul className="mt-4 list-disc pl-4 text-sm text-red-600 space-y-1">
+            {settingsErrors.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
+      </Dialog>
     </WorkflowEditorShell>
   );
+}
+
+/** "120 runs · 18 reached the goal (15%)", or without a goal "120 runs · 4 running". */
+function runSummary(stats: { started: number; running: number; goal: number }, hasGoal: boolean): string {
+  const runs = `${stats.started} ${stats.started === 1 ? "run" : "runs"}`;
+  if (!hasGoal) return `${runs} · ${stats.running} running`;
+  const rate = Math.round((stats.goal / stats.started) * 100);
+  return `${runs} · ${stats.goal} reached the goal (${rate}%)`;
 }

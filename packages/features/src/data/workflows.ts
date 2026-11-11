@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ActionResult, Workflow } from "@senlo/core";
+import type { ActionResult, Workflow, WorkflowSettings } from "@senlo/core";
 import { useSenloActions } from "./provider";
 import { queryKeys } from "./query-keys";
 import { unwrap } from "./result";
@@ -42,6 +42,14 @@ export function useWorkflowStats(
     queryFn: async () => unwrap(await actions.workflows.stats(workflowId)),
     enabled: options?.enabled,
     refetchInterval: options?.refetchInterval,
+  });
+}
+
+/** Saves goal, entry rules and kind; rejects with `WorkflowNotReadyError` (the reasons) when refused. */
+export function useSaveWorkflowSettings(workflowId: number) {
+  const actions = useSenloActions();
+  return useMutation({
+    mutationFn: async (settings: WorkflowSettings) => unwrapWorkflow(await actions.workflows.updateSettings(workflowId, settings)),
   });
 }
 

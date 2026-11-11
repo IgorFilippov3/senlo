@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Clock, LogOut, Mail, Split, UserCog, Zap } from "lucide-react";
+import { Clock, Hourglass, LogOut, Mail, Split, UserCog, Zap } from "lucide-react";
 import type { BuilderTrigger } from "../BuilderContext";
 import { countRules, describeGroup, describeUntil } from "../../conditions/rules";
 
@@ -34,6 +34,17 @@ export function triggerSummary(data: Data): StepSummary {
   const base = event === "tag_added" && tag ? `Tag added: ${tag}` : EVENT_LABELS[event] ?? event;
   const filters = data.filters && Array.isArray(data.filters.rules) ? countRules(data.filters) : 0;
   return { text: filters > 0 ? `${base}, ${filters} ${filters === 1 ? "filter" : "filters"}` : base };
+}
+
+/** A Wait for event card line: the event and how long it waits. */
+export function waitEventSummary(data: Data): StepSummary {
+  if (data.label) return { text: data.label };
+  const event = typeof data.event === "string" ? data.event : "";
+  if (event === "") return { text: "Choose an event to wait for", incomplete: true };
+  const n = Number(data.timeout?.duration) || 0;
+  if (!n) return { text: event };
+  const unit = (data.timeout?.unit as string) || "days";
+  return { text: `${event}, up to ${n} ${n === 1 ? UNIT_SINGULAR[unit] ?? unit : unit}` };
 }
 
 /** A Condition's card line: its rules, or the URL it calls. */
@@ -97,6 +108,12 @@ export const STEP_META: Record<string, StepMeta> = {
     tone: "text-emerald-600",
     summary: (data) => conditionSummary(data),
   },
+  wait_event: {
+    kind: "Wait for event",
+    icon: Hourglass,
+    tone: "text-sky-600",
+    summary: (data) => waitEventSummary(data),
+  },
   update_contact: {
     kind: "Update contact",
     icon: UserCog,
@@ -117,4 +134,4 @@ export const STEP_META: Record<string, StepMeta> = {
 };
 
 /** The order steps appear in the add menus. */
-export const ADDABLE_TYPES = ["action", "delay", "condition", "update_contact", "exit"] as const;
+export const ADDABLE_TYPES = ["action", "delay", "condition", "wait_event", "update_contact", "exit"] as const;

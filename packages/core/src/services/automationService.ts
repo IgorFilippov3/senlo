@@ -21,6 +21,7 @@ import type {
   WorkflowVersion,
 } from "../domain";
 import { buildStepData } from "../workflow-step-data";
+import { isBranchingType } from "../workflow-graph";
 import type { WorkflowEvent } from "../workflow-events";
 import {
   asDate,
@@ -570,8 +571,8 @@ export class AutomationService {
    * A step threw. A retryable error before the last attempt is rethrown, so
    * BullMQ runs the job again with backoff (the step row stays PENDING with
    * the error, the cursor stays). Otherwise the step's `onError` decides:
-   * "fail" (the default) ends the run FAILED; "continue" sends a condition
-   * down its No branch and skips any other step. A plan refusal always
+   * "fail" (the default) ends the run FAILED; "continue" sends a branching
+   * step (Condition, Wait for event) down its No branch and skips any other. A plan refusal always
    * fails the run.
    */
   private async handleStepError(
@@ -610,7 +611,7 @@ export class AutomationService {
         nodeId: node.id,
         error: message,
       });
-      if (node.type === "condition") {
+      if (isBranchingType(node.type)) {
         await this.advance(execution, version, node.id, "no", {
           id: stepId,
           result: { branch: "no", error: message },
