@@ -272,3 +272,38 @@ describe("debug check", () => {
     expect(await check({ email: "a@x.y" })).toBe(400);
   });
 });
+
+describe("workflows API", () => {
+  it("creates a draft from an export for the key's project", async () => {
+    const importForProject = vi.fn(async () => ({ id: 30, status: "DRAFT" }));
+    const { routes } = fakeHost({ workflow: { importForProject } });
+
+    expect((await routes.workflows.POST(post("/api/workflows", { workflow: {} }))).status).toBe(401);
+    const response = await routes.workflows.POST(post("/api/workflows", { workflow: { name: "W" } }, bearer));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ success: true, data: { id: 30, status: "DRAFT" } });
+    expect(importForProject).toHaveBeenCalledWith(7, { workflow: { name: "W" } });
+  });
+
+  it("exports and publishes by id; a malformed id or another project's workflow is a 404", async () => {
+    const exportForProject = vi.fn(async (_projectId: number, id: number) => {
+      if (id !== 30) throw new NotFoundError("Workflow");
+      return { format: "senlo.workflow", version: 1, name: "W" };
+    });
+    const publishForProject = vi.fn(async () => ({ id: 30, status: "ACTIVE" }));
+    const { routes } = fakeHost({ workflow: { exportForProject, publishForProject } });
+    const authed = (path: string) => new NextRequest(`http://localhost${path}`, { headers: bearer });
+
+    const exported = await routes.workflow.GET(authed("/api/workflows/30"), params({ id: "30" }));
+    expect(exported.status).toBe(200);
+    expect((await exported.json()).data).toMatchObject({ format: "senlo.workflow" });
+    expect(exportForProject).toHaveBeenCalledWith(7, 30);
+
+    expect((await routes.workflow.GET(authed("/api/workflows/31"), params({ id: "31" }))).status).toBe(404);
+    expect((await routes.workflow.GET(authed("/api/workflows/x"), params({ id: "x" }))).status).toBe(404);
+
+    const published = await routes.workflowPublish.POST(post("/api/workflows/30/publish", undefined, bearer), params({ id: "30" }));
+    expect(await published.json()).toEqual({ success: true, data: { id: 30, status: "ACTIVE" } });
+    expect(publishForProject).toHaveBeenCalledWith(7, 30);
+  });
+});

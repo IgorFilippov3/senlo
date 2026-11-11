@@ -3,7 +3,7 @@
 import React from "react";
 import type { WorkflowStatus } from "@senlo/core";
 import { Button, Badge } from "@senlo/ui";
-import { Save, Play, Pause, ChevronLeft, AlertCircle, Settings2, History, FlaskConical } from "lucide-react";
+import { Save, Play, Pause, ChevronLeft, AlertCircle, Settings2, History, FlaskConical, Download } from "lucide-react";
 import { GoLiveErrorsDialog } from "./WorkflowDialogs";
 
 export interface WorkflowEditorShellProps {
@@ -28,6 +28,8 @@ export interface WorkflowEditorShellProps {
   onOpenRuns?: () => void;
   /** Opens the test run dialog. */
   onTestRun?: () => void;
+  /** Downloads the automation as a JSON file. */
+  onExport?: () => void;
   /** A line under the name: the runs and the conversion. */
   summary?: React.ReactNode;
   /** The builder canvas. */
@@ -50,6 +52,7 @@ export function WorkflowEditorShell({
   onOpenSettings,
   onOpenRuns,
   onTestRun,
+  onExport,
   summary,
   children,
 }: WorkflowEditorShellProps) {
@@ -88,6 +91,19 @@ export function WorkflowEditorShell({
                 <AlertCircle size={14} className="shrink-0" />
                 {error}
               </span>
+            )}
+            {onExport && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 border-gray-200"
+                onClick={onExport}
+                disabled={isSaving}
+                aria-label="Export"
+                title="Export as JSON"
+              >
+                <Download size={14} />
+              </Button>
             )}
             {onOpenRuns && (
               <Button

@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   summary: Send transactional email and feed contact events into automations.
   description: |
-    Every request to `/api/events`, `/api/triggered` and `/api/automations/cancel`
-    is authenticated with an
+    Every request to `/api/events`, `/api/triggered`, `/api/automations/cancel`
+    and `/api/workflows` is authenticated with an
     API key sent as a bearer token:
 
     ```
@@ -37,6 +37,8 @@ tags:
     description: Send one transactional email from a trigger.
   - name: Events
     description: Create and update contacts and start automations.
+  - name: Automations
+    description: Automations as data - export, create from an export, publish.
   - name: Unsubscribe
     description: Endpoints recipients reach from the links Senlo puts in every email.
   - name: Provider webhooks
@@ -309,6 +311,118 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/workflows:
+    post:
+      operationId: create-workflow
+      summary: Create an automation from an export
+      description: |
+        Creates a draft automation from the JSON `GET /api/workflows/{id}`
+        returns (or the editor's Export). Each email step's `emailRef` is
+        mapped to a trigger of the workspace: by `emails`, else by name; one
+        that matches none is a 400. HTTP header values are not part of an
+        export and are entered again before going live.
+      tags: [Automations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workflow]
+              properties:
+                workflow:
+                  $ref: "#/components/schemas/WorkflowExport"
+                name:
+                  type: string
+                  maxLength: 255
+                emails:
+                  type: object
+                  description: "`emailRef` to trigger id; `null` leaves the step empty."
+                  additionalProperties:
+                    type: integer
+                    nullable: true
+      responses:
+        "201":
+          description: Draft created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowRef"
+        "400":
+          description: Not an export, unsupported version, unusable settings or steps, or emails without a trigger (`details.reasons`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/workflows/{id}:
+    get:
+      operationId: export-workflow
+      summary: Export an automation
+      description: The automation's saved draft and settings, with trigger names instead of ids and without header values.
+      tags: [Automations]
+      parameters:
+        - $ref: "#/components/parameters/WorkflowId"
+      responses:
+        "200":
+          description: The export.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/WorkflowExport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No automation with this id in the workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/workflows/{id}/publish:
+    post:
+      operationId: publish-workflow
+      summary: Publish an automation
+      description: Goes live with the editor's checks and publishes the draft as a new version.
+      tags: [Automations]
+      parameters:
+        - $ref: "#/components/parameters/WorkflowId"
+      responses:
+        "200":
+          description: Live.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowRef"
+        "400":
+          description: The draft cannot go live; `details.reasons` lists why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No automation with this id in the workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/unsubscribe/{token}:
     post:
       operationId: unsubscribe-one-click
@@ -519,7 +633,80 @@ components:
       type: http
       scheme: bearer
       description: An API key from Workspace → API Keys, starting with `snl_`.
+  parameters:
+    WorkflowId:
+      name: id
+      in: path
+      required: true
+      description: The automation's id (in the editor's URL).
+      schema:
+        type: integer
+
   schemas:
+    WorkflowRef:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          required: [id, status]
+          properties:
+            id:
+              type: integer
+            status:
+              type: string
+              enum: [DRAFT, ACTIVE, PAUSED]
+    WorkflowExport:
+      type: object
+      required: [format, version, name, settings, nodes, edges]
+      properties:
+        format:
+          type: string
+          const: senlo.workflow
+        version:
+          type: integer
+          const: 1
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        settings:
+          type: object
+          description: "`kind`, `goal`, `entry`, as in the editor's Settings."
+        nodes:
+          type: array
+          items:
+            type: object
+            required: [id, type, data]
+            properties:
+              id:
+                type: string
+              type:
+                type: string
+                description: trigger, action, delay, condition, wait_event, update_contact, http_request, exit
+              data:
+                type: object
+                description: The step's options; an email step has `emailRef` (its trigger's name).
+        edges:
+          type: array
+          items:
+            type: object
+            required: [id, source, target]
+            properties:
+              id:
+                type: string
+              source:
+                type: string
+              target:
+                type: string
+              sourceHandle:
+                type: string
+                nullable: true
+                description: "`yes` or `no` from a Condition or Wait for event."
     TriggeredEmailRequest:
       type: object
       required: [to]

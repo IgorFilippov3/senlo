@@ -87,6 +87,10 @@ A run that is no longer wanted (the invoice got paid, the user left) is ended wi
 
 **Test run** runs the saved draft for one contact of the workspace with a sample payload of the trigger event, live or not. Its emails are really sent; delays are skipped and a wait for an event lasts at most a minute. A test run is not counted as a run (on senlo.io, its emails count as emails), does not block a real run of the contact, and stays out of the statistics. Test runs show in the runs list when *Test runs* is ticked.
 
+### Export and import
+
+**Export** in the editor's header downloads the automation as JSON: its saved draft and settings. **Import** on the Automations page creates a draft from such a file, in this or another workspace or instance. Each email step names its trigger; the import maps it to a trigger here (one with the same name is chosen for you) or leaves the step empty. HTTP request header values are not exported: enter them again before going live. The same works over the API: [Automations as data](../api/workflows.mdx).
+
 ### Frequency cap
 
 Under the workspace's **General Settings**, *Automation frequency cap* limits how many automation emails one contact gets: "at most 3 emails per contact in 7 days". An email step over the cap is skipped and the run goes on. Emails sent through [`POST /api/triggered`](../api/triggered.mdx) and test runs are not counted against it.

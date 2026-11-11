@@ -215,6 +215,10 @@ const handlers: HandlerTable<SenloServerActions> = {
   "workflows.fieldSuggestions": read((s, userId, projectId: number, eventName: string | null) =>
     s.workflow.fieldSuggestions(userId, projectId, eventName),
   ),
+  "workflows.export": read((s, userId, workflowId: number) => s.workflow.exportWorkflow(userId, workflowId)),
+  "workflows.import": write((s, userId, projectId: number, input: unknown) =>
+    s.workflow.importWorkflow(userId, projectId, input),
+  ),
   "workflows.runs": read((s, userId, workflowId: number, filter: unknown) =>
     s.automationRuns.listRuns(userId, workflowId, filter),
   ),

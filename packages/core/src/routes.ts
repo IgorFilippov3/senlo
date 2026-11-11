@@ -39,6 +39,7 @@ export const API_KEY_PATH_PREFIXES = [
   "/api/events",
   "/api/triggered",
   "/api/automations/cancel",
+  "/api/workflows",
 ] as const;
 
 /**

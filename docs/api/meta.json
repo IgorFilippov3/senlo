@@ -5,6 +5,7 @@
     "triggered",
     "events",
     "cancel-automations",
+    "workflows",
     "webhooks",
     "tracking-and-unsubscribe",
     "errors"

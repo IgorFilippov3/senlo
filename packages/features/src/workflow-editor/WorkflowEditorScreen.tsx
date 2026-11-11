@@ -19,6 +19,7 @@ import {
   useRecentEventNames,
   useSaveWorkflowGraph,
   useSaveWorkflowSettings,
+  useExportWorkflow,
   useStartTestRun,
   useWorkflowRunStats,
   useSetWorkflowStatus,
@@ -84,6 +85,14 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
   const [testOpen, setTestOpen] = useState(false);
   const [testErrors, setTestErrors] = useState<string[] | null>(null);
   const testRun = useStartTestRun(workflow.id);
+  const exportWorkflow = useExportWorkflow(workflow.id);
+
+  /** Exports the saved draft, so a paused or draft automation is saved first (a live one exports as last saved). */
+  const exportFile = async () => {
+    if (status !== "ACTIVE") await save.mutateAsync({ nodes, edges });
+    const slug = workflow.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "automation";
+    await exportWorkflow.mutateAsync(`${slug}.senlo-automation.json`);
+  };
 
   /**
    * A test run executes the saved draft, so a paused or draft automation is
@@ -177,7 +186,7 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
     }
   };
 
-  const failure = save.error ?? changeStatus.error;
+  const failure = save.error ?? changeStatus.error ?? exportWorkflow.error;
 
   return (
     <WorkflowEditorShell
@@ -200,6 +209,7 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
         setOpenRunId(null);
         setRunsOpen(true);
       }}
+      onExport={() => void exportFile().catch(() => {})}
       onTestRun={() => {
         setTestErrors(null);
         setTestOpen(true);

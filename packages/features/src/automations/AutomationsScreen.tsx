@@ -5,7 +5,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import type { Workflow } from "@senlo/core";
 import { Button, PageHeader } from "@senlo/ui";
 import {
@@ -19,11 +19,13 @@ import { FormErrorBanner } from "../shared/FormErrorBanner";
 import { useCurrentWorkspace } from "../workspaces/WorkspaceScope";
 import { DeleteWorkflowDialog, GoLiveErrorsDialog } from "./WorkflowDialogs";
 import { WorkflowList } from "./WorkflowList";
+import { ImportWorkflowDialog } from "./ImportWorkflowDialog";
 
 /** The workspace's automations: list, go live or pause, delete, open the editor. */
 export function AutomationsScreen() {
   const workspace = useCurrentWorkspace();
-  const { paths, renderLink } = useSenloNavigation();
+  const { paths, renderLink, push } = useSenloNavigation();
+  const [importOpen, setImportOpen] = useState(false);
   const { data: workflows = [], isLoading } = useProjectWorkflows(workspace.id);
   const setStatus = useSetWorkflowStatus();
   const remove = useDeleteWorkflow();
@@ -67,7 +69,15 @@ export function AutomationsScreen() {
       <PageHeader
         title="Automations"
         description="Build automated email sequences and lifecycle triggers."
-        actions={newAutomationLink("Create Automation", true)}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />
+              Import
+            </Button>
+            {newAutomationLink("Create Automation", true)}
+          </div>
+        }
       />
 
       <FormErrorBanner error={toggleError} />
@@ -93,6 +103,16 @@ export function AutomationsScreen() {
       />
 
       <GoLiveErrorsDialog reasons={goLiveErrors} onClose={() => setGoLiveErrors(null)} />
+
+      <ImportWorkflowDialog
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        projectId={workspace.id}
+        onImported={(workflow) => {
+          setImportOpen(false);
+          push(paths.automation(workspace.id, workflow.id));
+        }}
+      />
     </div>
   );
 }

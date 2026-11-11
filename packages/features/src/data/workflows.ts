@@ -143,6 +143,34 @@ export function useStartTestRun(workflowId: number) {
   });
 }
 
+/** Downloads the automation as a JSON file (its saved draft and settings). */
+export function useExportWorkflow(workflowId: number) {
+  const actions = useSenloActions();
+  return useMutation({
+    mutationFn: async (fileName: string) => {
+      const data = unwrap(await actions.workflows.export(workflowId));
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+      return data;
+    },
+  });
+}
+
+/** A new draft from an export file; resolves with the workflow to open. */
+export function useImportWorkflow(projectId: number) {
+  const actions = useSenloActions();
+  const invalidate = useInvalidateWorkflows();
+  return useMutation({
+    mutationFn: async (input: { workflow: unknown; name?: string; emails: Record<string, number | null> }) =>
+      unwrapWorkflow(await actions.workflows.import(projectId, input)),
+    onSettled: invalidate,
+  });
+}
+
 function useInvalidateWorkflows() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: queryKeys.workflows.lists() });

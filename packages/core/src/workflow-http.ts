@@ -74,6 +74,9 @@ export function validateHttpStep(data: unknown): string[] {
           break;
         }
       }
+      // An imported step keeps its header names; the values are entered again.
+      const empty = d.headers.find((h) => h && typeof h.value !== "string" && typeof h.sealed !== "string");
+      if (empty) problems.push(`HTTP request header "${empty.name}" has no value; enter it again.`);
     }
   }
   if (d.timeoutSeconds !== undefined) {

@@ -1,0 +1,81 @@
+---
+title: Automations as data
+description: Export an automation as JSON, create one from an export, and publish it.
+---
+
+```bash tab="curl"
+# Export
+curl https://senlo.io/api/workflows/12 \
+  -H "Authorization: Bearer $SENLO_API_KEY" > onboarding.json
+
+# Create a draft from it (in this or another workspace)
+curl -X POST https://senlo.io/api/workflows \
+  -H "Authorization: Bearer $SENLO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{ \"workflow\": $(jq .data onboarding.json) }"
+
+# Go live
+curl -X POST https://senlo.io/api/workflows/31/publish \
+  -H "Authorization: Bearer $SENLO_API_KEY"
+```
+
+An [automation](../concepts/triggers-and-automations.mdx) can be kept in your repository, copied between workspaces or created by a script. The editor does the same with **Export** (in its header) and **Import** (on the Automations page).
+
+## The export
+
+```json
+{
+  "format": "senlo.workflow",
+  "version": 1,
+  "name": "Onboarding",
+  "settings": { "kind": "lifecycle", "goal": { "event": "project_created" } },
+  "nodes": [
+    { "id": "t1", "type": "trigger", "data": { "event": "signed_up" } },
+    { "id": "m1", "type": "action", "data": { "emailRef": "Welcome email" } }
+  ],
+  "edges": [{ "id": "e1", "source": "t1", "target": "m1", "sourceHandle": null }]
+}
+```
+
+The saved draft and the settings (kind, goal, entry). What only makes sense in one workspace is replaced:
+
+- An email step names its trigger (`emailRef`) instead of its id. On import it is mapped to a trigger of the target workspace.
+- HTTP request headers keep their names only. Their values are stored encrypted and never leave the instance: enter them again in the editor before going live.
+- Step ids are new on import; references to them inside the automation (email and step rules, `{{steps.<id>…}}` in step data) follow. Templates that read `{{steps.<id>…}}` must be updated by hand.
+
+## `GET /api/workflows/{id}`
+
+The automation's export, in `data`. `404` when it is not in the key's workspace.
+
+## `POST /api/workflows`
+
+Creates a **draft** from an export.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `workflow` | object | yes | The export. |
+| `name` | string | no | A new name; the export's otherwise. |
+| `emails` | object | no | `emailRef` to trigger id, for emails whose trigger has another name here; `null` leaves the step empty. |
+
+Every other email is matched to a trigger of the workspace with the same name. One that matches none is an error (in the editor's import it is left empty instead).
+
+```json
+{ "success": true, "data": { "id": 31, "status": "DRAFT" } }
+```
+
+## `POST /api/workflows/{id}/publish`
+
+Goes live with the same checks as **Go Live** in the editor, and publishes the draft as a new version.
+
+```json
+{ "success": true, "data": { "id": 31, "status": "ACTIVE" } }
+```
+
+## Errors
+
+| Status | When |
+| --- | --- |
+| `400` | Not an export, an unsupported version, settings or steps that cannot be used, emails with no trigger (`details.reasons` lists them), or a draft that cannot go live (`details.reasons`). |
+| `401` | No key, or a wrong one. |
+| `404` | No automation with this id in the workspace. |
+| `429` | Rate limited. |

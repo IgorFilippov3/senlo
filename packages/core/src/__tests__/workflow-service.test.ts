@@ -7,9 +7,15 @@ const projects = {
   findById: async (id: number) =>
     ({ 1: { id: 1, userId: "alice" }, 2: { id: 2, userId: "bob" } } as Record<number, Partial<Project>>)[id] as Project ?? null,
 };
+const campaignRows = {
+  100: { id: 100, projectId: 1, name: "Welcome email", type: "TRIGGERED" },
+  101: { id: 101, projectId: 1, name: "Reminder", type: "TRIGGERED" },
+  200: { id: 200, projectId: 2, name: "Welcome email", type: "TRIGGERED" },
+} as Record<number, Partial<Campaign>>;
 const campaigns = {
-  findById: async (id: number) =>
-    ({ 100: { id: 100, projectId: 1 }, 200: { id: 200, projectId: 2 } } as Record<number, Partial<Campaign>>)[id] as Campaign ?? null,
+  findById: async (id: number) => (campaignRows[id] as Campaign) ?? null,
+  findByProject: async (projectId: number) =>
+    Object.values(campaignRows).filter((c) => c.projectId === projectId) as Campaign[],
 };
 
 function fakes(graph: { nodes?: any[]; edges?: any[] } = {}) {
@@ -346,16 +352,111 @@ describe("HTTP request headers", () => {
     expect(workflows.sealSecret).toHaveBeenCalledTimes(1);
   });
 
-  it("refuses a header without a value", async () => {
-    const { service } = fakes();
-    await expect(
-      service.saveGraph("alice", 10, { nodes: [trigger, http([{ name: "A" }])], edges: [] }),
-    ).rejects.toBeInstanceOf(FormValidationError);
+  it("keeps a header without a value by name (an imported step); going live asks for it", async () => {
+    const { service, workflows } = fakes();
+    await service.saveGraph("alice", 10, { nodes: [trigger, http([{ name: "A" }])], edges: [] });
+    const [, nodes] = workflows.saveGraph.mock.calls[0] as unknown as [number, Array<{ id: string; data: Record<string, unknown> }>];
+    expect(nodes.find((n) => n.id === "h")!.data.headers).toEqual([{ name: "A" }]);
   });
 
   it("accepts the restart entry mode", async () => {
     const { service, workflows } = fakes();
     await service.updateSettings("alice", 10, { entry: { mode: "restart" } });
     expect(workflows.update).toHaveBeenCalledWith(10, { settings: { entry: { mode: "restart" } } });
+  });
+});
+
+describe("export and import", () => {
+  const nodes = [
+    { id: "t", type: "trigger", data: { event: "signed_up" } },
+    { id: "m1", type: "action", data: { triggerId: "100", label: "Welcome" } },
+    {
+      id: "c",
+      type: "condition",
+      data: { mode: "rules", conditions: { op: "and", rules: [{ source: "email", nodeId: "m1", state: "not_opened" }] } },
+    },
+    { id: "m2", type: "action", data: { triggerId: "101" } },
+    { id: "h", type: "http_request", data: { url: "https://x.io", body: '{"a": "{{steps.m1.x}}"}', headers: [{ name: "X-Key", sealed: "sealed:k" }] } },
+  ];
+  const edges = [
+    { id: "e1", sourceNodeId: "t", targetNodeId: "m1", sourceHandle: null },
+    { id: "e2", sourceNodeId: "m1", targetNodeId: "c", sourceHandle: null },
+    { id: "e3", sourceNodeId: "c", targetNodeId: "m2", sourceHandle: "yes" },
+    { id: "e4", sourceNodeId: "c", targetNodeId: "h", sourceHandle: "no" },
+  ];
+
+  it("exports the draft with trigger names instead of ids and header names only", async () => {
+    const { service, rows } = fakes({ nodes, edges });
+    rows.set(10, { ...rows.get(10)!, name: "Onboarding", settings: { goal: { event: "paid" } } });
+    const exp = await service.exportWorkflow("alice", 10);
+    expect(exp).toMatchObject({ format: "senlo.workflow", version: 1, name: "Onboarding", settings: { goal: { event: "paid" } } });
+    expect(exp.nodes.find((n) => n.id === "m1")!.data).toEqual({ label: "Welcome", emailRef: "Welcome email" });
+    expect(exp.nodes.find((n) => n.id === "h")!.data.headers).toEqual([{ name: "X-Key" }]);
+    expect(JSON.stringify(exp)).not.toContain("sealed");
+    expect(exp.edges[2]).toEqual({ id: "e3", source: "c", target: "m2", sourceHandle: "yes" });
+    await expect(service.exportWorkflow("alice", 20)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.exportForProject(2, 10)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("imports as a new draft: new ids, references followed, emails mapped by name or left empty", async () => {
+    const source = fakes({ nodes, edges });
+    const exp = await source.service.exportWorkflow("alice", 10);
+    exp.nodes.find((n) => n.id === "m2")!.data.emailRef = "Not here";
+
+    const { service, workflows } = fakes();
+    const created = await service.importWorkflow("alice", 1, { workflow: exp, name: "Copy" });
+    expect(workflows.create).toHaveBeenCalledWith(expect.objectContaining({ projectId: 1, name: "Copy", status: "DRAFT" }));
+
+    const [id, saved, savedEdges] = workflows.saveGraph.mock.calls[0] as unknown as [
+      number,
+      Array<{ id: string; type: string; data: Record<string, any> }>,
+      Array<{ id: string; sourceNodeId: string; targetNodeId: string; sourceHandle: string | null }>,
+    ];
+    expect(id).toBe(created.id);
+    const byType = (t: string) => saved.filter((n) => n.type === t);
+    const [m1, m2] = byType("action");
+    expect(saved.map((n) => n.id)).not.toContain("m1");
+    expect(m1.data).toEqual({ label: "Welcome", triggerId: "100" });
+    expect(m2.data).toEqual({});
+    expect(byType("condition")[0].data.conditions.rules[0].nodeId).toBe(m1.id);
+    expect(byType("http_request")[0].data.body).toBe(`{"a": "{{steps.${m1.id}.x}}"}`);
+    expect(byType("http_request")[0].data.headers).toEqual([{ name: "X-Key" }]);
+    expect(savedEdges.find((e) => e.sourceHandle === "yes")).toMatchObject({ sourceNodeId: byType("condition")[0].id, targetNodeId: m2.id });
+  });
+
+  it("through the API every email must resolve; a chosen id must be a trigger of the workspace", async () => {
+    const source = fakes({ nodes, edges });
+    const exp = await source.service.exportWorkflow("alice", 10);
+    exp.nodes.find((n) => n.id === "m2")!.data.emailRef = "Not here";
+
+    const { service, workflows } = fakes();
+    const e = await service.importForProject(1, { workflow: exp }).catch((x) => x);
+    expect(e).toBeInstanceOf(ValidationError);
+    expect(e.details.reasons).toEqual(['No trigger named "Not here"']);
+    await expect(service.importForProject(1, { workflow: exp, emails: { "Not here": 200 } })).rejects.toThrow("Trigger 200 not found");
+    expect(workflows.create).not.toHaveBeenCalled();
+
+    await service.importForProject(1, { workflow: exp, emails: { "Not here": 101 } });
+    expect(workflows.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a file that is not an export", async () => {
+    const { service } = fakes();
+    await expect(service.importWorkflow("alice", 1, { workflow: { format: "other" } })).rejects.toThrow("Not a Senlo automation export");
+    await expect(service.importWorkflow("alice", 2, { workflow: {} })).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("publishes through the API with the editor's checks", async () => {
+    const live = [
+      { id: "t", type: "trigger", data: { event: "signed_up" } },
+      { id: "x", type: "exit", data: {} },
+    ];
+    const { service, workflows } = fakes({ nodes: live, edges: [{ id: "e", sourceNodeId: "t", targetNodeId: "x", sourceHandle: null }] });
+    expect(await service.publishForProject(1, 10)).toMatchObject({ status: "ACTIVE" });
+    expect(workflows.update).toHaveBeenCalledWith(10, { status: "ACTIVE" });
+    await expect(service.publishForProject(2, 10)).rejects.toBeInstanceOf(NotFoundError);
+
+    const empty = fakes({ nodes: [] });
+    await expect(empty.service.publishForProject(1, 10)).rejects.toBeInstanceOf(ValidationError);
   });
 });

@@ -64,6 +64,22 @@ export function createSenloRoutes(host: SenloHost) {
       }
     };
 
+  /** Like `apiRoute`, for a route with an `[id]` segment: a malformed id is a 404. */
+  const apiIdRoute =
+    (
+      label: string,
+      success: string,
+      run: (projectId: number, id: number, body: unknown) => Promise<{ response: Response; log: Record<string, unknown> }>,
+    ): ParamHandler<{ id: string }> =>
+    async (req, { params }) => {
+      const { id: raw } = await params;
+      const id = Number(raw);
+      if (!Number.isInteger(id) || id <= 0) {
+        return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+      }
+      return apiRoute(label, success, (projectId, body) => run(projectId, id, body))(req);
+    };
+
   /** Signed-in user, rate limited per user. */
   const userRoute =
     (bucket: "upload" | "ai", run: (userId: string, req: NextRequest) => Promise<Response>): Handler =>
@@ -99,6 +115,36 @@ export function createSenloRoutes(host: SenloHost) {
         return {
           response: NextResponse.json({ success: true, data: result }),
           log: { cancelled: result.cancelled },
+        };
+      }),
+    },
+
+    /** `POST /api/workflows`: create a draft automation from an export (D9). */
+    workflows: {
+      POST: apiRoute("Workflow import", "Workflow created via API", async (projectId, body) => {
+        const workflow = await services().workflow.importForProject(projectId, body);
+        return {
+          response: NextResponse.json({ success: true, data: { id: workflow.id, status: workflow.status } }, { status: 201 }),
+          log: { workflowId: workflow.id },
+        };
+      }),
+    },
+
+    /** `GET /api/workflows/[id]`: the automation as an export. */
+    workflow: {
+      GET: apiIdRoute("Workflow export", "Workflow exported via API", async (projectId, id) => {
+        const data = await services().workflow.exportForProject(projectId, id);
+        return { response: NextResponse.json({ success: true, data }), log: { workflowId: id } };
+      }),
+    },
+
+    /** `POST /api/workflows/[id]/publish`: go live, with the editor's checks. */
+    workflowPublish: {
+      POST: apiIdRoute("Workflow publish", "Workflow published via API", async (projectId, id) => {
+        const workflow = await services().workflow.publishForProject(projectId, id);
+        return {
+          response: NextResponse.json({ success: true, data: { id: workflow.id, status: workflow.status } }),
+          log: { workflowId: id },
         };
       }),
     },

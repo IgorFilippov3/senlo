@@ -107,6 +107,7 @@ describe("routes", () => {
     expect(isApiKeyPath("/api/events")).toBe(true);
     expect(isApiKeyPath("/api/triggered")).toBe(true);
     expect(isApiKeyPath("/api/automations/cancel")).toBe(true);
+    expect(isApiKeyPath("/api/workflows/12/publish")).toBe(true);
     expect(isApiKeyPath("/api/v1/anything")).toBe(true);
     expect(isApiKeyPath("/api/ai/generate")).toBe(false);
   });

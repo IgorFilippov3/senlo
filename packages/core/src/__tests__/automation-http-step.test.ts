@@ -185,10 +185,13 @@ describe("helpers", () => {
     expect(validateHttpStep({ url: "https://x.io" })).toEqual([]);
     expect(validateHttpStep({})).toEqual(["An HTTP request has no URL."]);
     expect(validateHttpStep({ url: "ftp://x.io" })).toEqual(["An HTTP request URL must start with http:// or https://."]);
-    expect(validateHttpStep({ url: "https://x.io", method: "TRACE", timeoutSeconds: 99, headers: [{ name: "bad name" }] })).toEqual([
+    expect(validateHttpStep({ url: "https://x.io", method: "TRACE", timeoutSeconds: 99, headers: [{ name: "bad name", value: "v" }] })).toEqual([
       "An HTTP request has an unknown method.",
       "An HTTP request header has an invalid name.",
       "An HTTP request timeout must be 1 to 30 seconds.",
+    ]);
+    expect(validateHttpStep({ url: "https://x.io", headers: [{ name: "X-Key" }] })).toEqual([
+      'HTTP request header "X-Key" has no value; enter it again.',
     ]);
     const graph = validateWorkflowGraph(
       [

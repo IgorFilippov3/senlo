@@ -21,6 +21,7 @@ import type {
   WorkflowRunDetail,
   WorkflowRunStats,
   WorkflowRunSummary,
+  WorkflowExport,
   WorkflowSettings,
 } from "@senlo/core";
 import type { CreateWorkspaceValues } from "../workspaces/CreateWorkspaceDialog";
@@ -143,6 +144,13 @@ export interface SenloActions {
     cancelRun(runId: number): Promise<ActionResult<{ cancelled: boolean }>>;
     /** Starts a test run of the saved draft for a contact, with a sample event payload. */
     testRun(workflowId: number, input: { email: string; payload: Record<string, unknown> }): Promise<ActionResult<{ runId: number }>>;
+    /** The automation as an export file (its saved draft and settings). */
+    export(workflowId: number): Promise<ActionResult<WorkflowExport>>;
+    /** A new draft from an export; `emails` maps each email's trigger name to a trigger here (null: leave it empty). */
+    import(
+      projectId: number,
+      input: { workflow: unknown; name?: string; emails: Record<string, number | null> },
+    ): Promise<ActionResult<Workflow>>;
     /** A contact's runs in every workflow of the project, by email (automation history). */
     contactRuns(projectId: number, email: string): Promise<ActionResult<WorkflowRunSummary[]>>;
   };
