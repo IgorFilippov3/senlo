@@ -18,8 +18,19 @@ export interface Project {
   description?: string | null;
   providerId?: number | null;
   aiProviderId?: number | null;
+  /** Automation limits of the project (frequency cap). */
+  automationSettings?: ProjectAutomationSettings;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** A project's automation limits (`projects.automation_settings`). */
+export interface ProjectAutomationSettings {
+  /**
+   * At most `emails` automation emails per contact in `days` days. An email
+   * step over the cap is skipped (`frequency_cap`) and the run goes on.
+   */
+  frequencyCap?: { emails: number; days: number };
 }
 
 export interface Contact {
@@ -140,10 +151,12 @@ export interface WorkflowSettings {
   goal?: { event: string; filters?: ConditionGroup };
   /**
    * Who may enter. `after_exit` (default): again once the previous run ended;
-   * `once`: never twice. `cooldown`: not within this time after the last start.
+   * `once`: never twice; `restart`: a new trigger event of a contact whose
+   * run is in progress moves that run back to its start, with the new event
+   * (the same run, not a new one). `cooldown`: not within this time after the last start.
    */
   entry?: {
-    mode: "once" | "after_exit";
+    mode: "once" | "after_exit" | "restart";
     cooldown?: { duration: number; unit: "minutes" | "hours" | "days" };
   };
 }
@@ -161,10 +174,12 @@ export interface WorkflowGraphSnapshot {
 export interface WorkflowVersion {
   id: number;
   workflowId: number;
-  /** 1, 2, 3 per workflow. */
+  /** 1, 2, 3 per workflow; a test version (a draft run from the builder) is numbered -1, -2, … */
   version: number;
   graph: WorkflowGraphSnapshot;
   settings: WorkflowSettings;
+  /** A snapshot of the draft for a test run; never active. */
+  isTest?: boolean;
   createdAt: Date;
 }
 
@@ -179,6 +194,7 @@ export type ExecutionExitReason =
   | "goal"
   | "unsubscribed"
   | "suppressed"
+  | "cancelled_user"
   | (string & {});
 
 export interface WorkflowNode {
@@ -225,14 +241,49 @@ export interface WorkflowExecution {
   /** The goal event, copied from the version's settings at start. */
   goalEvent?: string | null;
   exitReason?: ExecutionExitReason | null;
+  /** A test run (started from the builder): not counted, not in stats, delays skipped. */
+  isTest?: boolean;
+  /** How many times a `restart` entry moved the run back to its start; step rows are per generation. */
+  generation?: number;
   startedAt: Date;
   completedAt?: Date | null;
+}
+
+/** A run as the runs list and a contact's history show it. */
+export interface WorkflowRunSummary {
+  id: number;
+  workflowId: number;
+  workflowName?: string;
+  contactId: number;
+  contactEmail: string | null;
+  status: WorkflowExecution["status"];
+  exitReason?: ExecutionExitReason | null;
+  currentNodeId: string | null;
+  isTest: boolean;
+  versionId: number | null;
+  startedAt: Date;
+  completedAt?: Date | null;
+}
+
+/** One run with its steps (of its current generation) and context, for the run timeline. */
+export interface WorkflowRunDetail {
+  run: WorkflowRunSummary & {
+    context: ExecutionContext;
+    wakeAt?: Date | null;
+    waitingEvent?: string | null;
+    generation: number;
+  };
+  steps: WorkflowStepExecution[];
+  /** The graph of the version the run executes, to name and order its steps. */
+  graph: WorkflowGraphSnapshot | null;
 }
 
 export interface WorkflowStepExecution {
   id: number;
   executionId: number;
   nodeId: string;
+  /** The run's generation the row belongs to (see `WorkflowExecution.generation`). */
+  generation?: number;
   /** SKIPPED: the step failed and its `onError` was "continue" (or, later, it did not apply). */
   status: "PENDING" | "COMPLETED" | "FAILED" | "SKIPPED";
   result?: Record<string, any> | null;
@@ -363,6 +414,8 @@ export interface TriggeredSendLog {
   providerMessageId?: string | null;
   error?: string | null;
   data?: Record<string, any> | null;
+  /** The automation run that sent it; null for API and campaign sends. */
+  workflowExecutionId?: number | null;
   sentAt: Date;
 }
 

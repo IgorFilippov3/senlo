@@ -48,6 +48,7 @@ export interface AutomationState {
 function defaultStepData(type: string): Record<string, unknown> {
   if (type === "condition") return { mode: "api" };
   if (type === "wait_event") return { event: "", timeout: { duration: 3, unit: "days" } };
+  if (type === "http_request") return { method: "POST", url: "", headers: [], timeoutSeconds: 10 };
   return {};
 }
 

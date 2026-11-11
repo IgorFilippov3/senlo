@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Clock, Hourglass, LogOut, Mail, Split, UserCog, Zap } from "lucide-react";
+import { Clock, Globe, Hourglass, LogOut, Mail, Split, UserCog, Zap } from "lucide-react";
 import type { BuilderTrigger } from "../BuilderContext";
 import { countRules, describeGroup, describeUntil } from "../../conditions/rules";
 
@@ -125,6 +125,17 @@ export const STEP_META: Record<string, StepMeta> = {
       return { text: `${count} ${count === 1 ? "field" : "fields"}` };
     },
   },
+  http_request: {
+    kind: "HTTP request",
+    icon: Globe,
+    tone: "text-teal-600",
+    summary: (data) => {
+      if (data.label) return { text: data.label };
+      const url = urlSummary(data.url);
+      if (url.incomplete) return { text: "Set the URL to call", incomplete: true };
+      return { text: `${(data.method as string) || "POST"} ${url.text}` };
+    },
+  },
   exit: {
     kind: "End",
     icon: LogOut,
@@ -134,4 +145,4 @@ export const STEP_META: Record<string, StepMeta> = {
 };
 
 /** The order steps appear in the add menus. */
-export const ADDABLE_TYPES = ["action", "delay", "condition", "wait_event", "update_contact", "exit"] as const;
+export const ADDABLE_TYPES = ["action", "delay", "condition", "wait_event", "update_contact", "http_request", "exit"] as const;

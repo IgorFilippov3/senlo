@@ -483,10 +483,10 @@ export class AutomationWorkerProcessor {
    * ended FAILED rather than left RUNNING until the sweeper finds it.
    */
   async processAutomationJob(job: Job<AutomationJobData>) {
-    const { executionId, nodeId } = job.data;
+    const { executionId, nodeId, generation } = job.data;
     const attempt = { attemptsMade: job.attemptsMade, attempts: job.opts.attempts ?? 1 };
     try {
-      await this.automationService.processStep(executionId, nodeId, this.settings.appUrl, attempt);
+      await this.automationService.processStep(executionId, nodeId, this.settings.appUrl, attempt, generation ?? 0);
     } catch (error) {
       if (attempt.attemptsMade + 1 >= attempt.attempts && !(error instanceof RetryableStepError)) {
         await this.automationService

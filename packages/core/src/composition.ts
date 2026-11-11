@@ -31,6 +31,7 @@ import type { AutomationJobData, EmailJobData } from "./queue/types";
 import { AiDesignService, AiProviderService } from "./services/ai";
 import { AudienceService } from "./services/audienceService";
 import { AuthService } from "./services/authService";
+import { AutomationRunsService } from "./services/automationRunsService";
 import { AutomationService } from "./services/automationService";
 import { CampaignService } from "./services/campaignService";
 import { DashboardService } from "./services/dashboardService";
@@ -88,6 +89,8 @@ export interface Services {
   audience: AudienceService;
   auth: AuthService;
   automation: AutomationService;
+  /** The run timeline, cancelling runs, test runs. */
+  automationRuns: AutomationRunsService;
   campaign: CampaignService;
   dashboard: DashboardService;
   emailProvider: EmailProviderService;
@@ -184,6 +187,7 @@ export function createServices({
     outbound,
     r.sendLogs,
     r.suppressions,
+    { projects: r.projects, sendCounts: r.sendLogs },
   );
 
   const audience = new AudienceService(r.suppressions, r.contacts, r.workflows, automation, r.projects, guard, hooks);
@@ -191,6 +195,7 @@ export function createServices({
   return {
     trigger,
     automation,
+    automationRuns: new AutomationRunsService(r, automation, guard, hooks),
     audience,
     events: new EventIngestionService(r.contacts, r.contactEvents, audience, automation),
     aiDesign: new AiDesignService(r.projects, r.aiProviders, undefined, guard),

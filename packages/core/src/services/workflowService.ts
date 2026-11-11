@@ -25,6 +25,7 @@ import { parseInput } from "../validation";
 import { validateWorkflowGraph } from "../workflow-graph";
 import { validateWorkflowSettings } from "../workflow-settings";
 import { isValidEventName } from "../workflow-events";
+import type { HttpStepHeader } from "../workflow-http";
 
 /**
  * A node as the builder holds it. No position: the builder lays the graph
@@ -63,7 +64,10 @@ export const WorkflowSettingsSchema = z
   .object({
     kind: z.enum(["transactional", "lifecycle"]).optional(),
     goal: z.object({ event: z.string().trim(), filters: z.unknown().optional() }).strict().optional(),
-    entry: z.object({ mode: z.enum(["once", "after_exit"]), cooldown: DurationSchema.optional() }).strict().optional(),
+    entry: z
+      .object({ mode: z.enum(["once", "after_exit", "restart"]), cooldown: DurationSchema.optional() })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -88,6 +92,7 @@ export const WORKFLOW_NODE_TYPES = [
   "condition",
   "wait_event",
   "update_contact",
+  "http_request",
   "exit",
 ] as const;
 
@@ -263,6 +268,18 @@ export class WorkflowService {
       }
     }
 
+    if (graph.nodes.some((n) => n.type === "http_request" && n.data.headers !== undefined)) {
+      const stored = new Map((await this.repos.workflows.getNodes(id)).map((n) => [n.id, n]));
+      for (const node of graph.nodes) {
+        if (node.type !== "http_request" || node.data.headers === undefined) continue;
+        const before = stored.get(node.id)?.data?.headers;
+        node.data = {
+          ...node.data,
+          headers: await this.sealHeaders(node.id, node.data.headers, Array.isArray(before) ? before : []),
+        };
+      }
+    }
+
     const snapshot: WorkflowGraphSnapshot = {
       nodes: graph.nodes.map((n) => ({
         id: n.id,
@@ -291,6 +308,37 @@ export class WorkflowService {
       edges: graph.edges.length,
       ...(version !== undefined ? { version } : {}),
     });
+  }
+
+  /**
+   * An HTTP request step's headers as stored: a `value` the builder sends
+   * (new or edited) is sealed into `sealed`; a `sealed` it sends back is kept
+   * as is. No clear value is ever stored or sent back to the client. A
+   * value equal to the one stored under the same name keeps its token, so
+   * saving the same graph again (the editor still holds the clear value it
+   * sent) is not a change and a live workflow publishes no new version.
+   */
+  private async sealHeaders(nodeId: string, raw: unknown, stored: HttpStepHeader[]): Promise<HttpStepHeader[]> {
+    if (!Array.isArray(raw)) throw new FormValidationError({ [nodeId]: ["HTTP request headers are malformed"] });
+    const headers: HttpStepHeader[] = [];
+    for (const item of raw) {
+      const header = item as HttpStepHeader | null;
+      if (!header || typeof header.name !== "string") {
+        throw new FormValidationError({ [nodeId]: ["An HTTP request header has no name"] });
+      }
+      const name = header.name.trim();
+      if (name === "") continue;
+      if (typeof header.value === "string") {
+        const previous = stored.find((h) => h.name === name && typeof h.sealed === "string")?.sealed;
+        const same = previous !== undefined && (await this.repos.workflows.openSecret(previous)) === header.value;
+        headers.push({ name, sealed: same ? previous : await this.repos.workflows.sealSecret(header.value) });
+      } else if (typeof header.sealed === "string") {
+        headers.push({ name, sealed: header.sealed });
+      } else {
+        throw new FormValidationError({ [nodeId]: [`Header "${name}" has no value`] });
+      }
+    }
+    return headers;
   }
 
   /** `ValidationError` with every reason when the graph or the settings cannot run. */

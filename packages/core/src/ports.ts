@@ -27,6 +27,7 @@ import type {
   WorkflowVersion,
   ExecutionExitReason,
   WorkflowStepExecution,
+  WorkflowRunSummary,
 } from "./domain";
 import type {
   CreateEmailTemplateInput,
@@ -324,6 +325,11 @@ export interface ITriggeredSendLogRepository {
    * trigger to the same address counts too.
    */
   hasEngagement(logId: number, type: "OPEN" | "CLICK"): Promise<boolean>;
+  /**
+   * Automation emails (rows with a `workflowExecutionId`) of the project's
+   * triggers sent to `email` at or after `since`: the frequency cap's count.
+   */
+  countAutomationSends(projectId: number, email: string, since: Date): Promise<number>;
   findById(id: number): Promise<TriggeredSendLog | null>;
   update(
     id: number,
@@ -385,6 +391,23 @@ export interface IWorkflowRepository {
     settings?: WorkflowSettings,
   ): Promise<WorkflowVersion>;
   getVersion(id: number): Promise<WorkflowVersion | null>;
+  /**
+   * Stores `graph` as a test version (numbered -1, -2, … per workflow): a
+   * snapshot of the draft a test run executes. Never active.
+   */
+  createTestVersion(
+    workflowId: number,
+    graph: WorkflowGraphSnapshot,
+    settings?: WorkflowSettings,
+  ): Promise<WorkflowVersion>;
+  /**
+   * Secrets inside step data (HTTP request header values): sealed with the
+   * repositories' `SecretCipher` before the graph is stored, opened by the
+   * engine when the step runs. `openSecret` is null when the token cannot be
+   * opened (another key, altered).
+   */
+  sealSecret(value: string): Promise<string>;
+  openSecret(token: string): Promise<string | null>;
   /** ACTIVE workflows of the project whose active version's trigger listens for `eventName`. */
   findActiveByTrigger(projectId: number, eventName: string): Promise<Workflow[]>;
 }
@@ -399,6 +422,19 @@ export interface NewWorkflowExecution {
   currentNodeId: string;
   /** The version's goal event, if it has one. */
   goalEvent?: string | null;
+  /** A test run: no unique RUNNING slot, not counted, not in stats. */
+  isTest?: boolean;
+}
+
+/** Filters of the runs list. */
+export interface WorkflowRunFilter {
+  status?: WorkflowExecution["status"];
+  contactId?: number;
+  /** Include test runs (default: only real ones). */
+  includeTests?: boolean;
+  limit: number;
+  /** Runs with an id below this (the previous page's last id). */
+  beforeId?: number;
 }
 
 /** The step row to close (COMPLETED by default) in the same transaction as a cursor move or an end. */
@@ -414,9 +450,13 @@ export interface CompleteStep {
  * back owns the transition, a stale caller gets `false` and does nothing.
  */
 export interface IWorkflowExecutionRepository {
-  /** Inserts a RUNNING run; null when the contact already has one in this workflow (the unique index decides). */
+  /**
+   * Inserts a RUNNING run; null when the contact already has one in this
+   * workflow (the unique index decides; a test run never conflicts).
+   */
   create(data: NewWorkflowExecution): Promise<WorkflowExecution | null>;
   findById(id: number): Promise<WorkflowExecution | null>;
+  /** The contact's RUNNING run of the workflow (not a test run). */
   findRunningByContact(
     workflowId: number,
     contactId: number,
@@ -446,7 +486,7 @@ export interface IWorkflowExecutionRepository {
    * lost (Redis restart, a crash between the cursor move and the queue add).
    * Oldest first, at most `limit`.
    */
-  findDue(before: Date, limit: number): Promise<Array<{ id: number; currentNodeId: string }>>;
+  findDue(before: Date, limit: number): Promise<Array<{ id: number; currentNodeId: string; generation: number }>>;
   /** The contact's RUNNING runs waiting for `eventName` (a Wait for event step). */
   findWaiting(contactId: number, eventName: string): Promise<WorkflowExecution[]>;
   /** The contact's RUNNING runs whose goal is `eventName`. */
@@ -461,6 +501,16 @@ export interface IWorkflowExecutionRepository {
    * branch. False when the run no longer waits for `event` at `nodeId`.
    */
   resolveWait(id: number, wait: { nodeId: string; event: string }): Promise<boolean>;
+  /**
+   * `restart` entry (D4): moves a RUNNING run back to its trigger step on
+   * `versionId`, with a fresh `context`, the next generation and a new
+   * start time; any wait ends. Null when it is no longer RUNNING; else the
+   * updated run.
+   */
+  restart(
+    id: number,
+    data: { versionId: number; context: ExecutionContext; currentNodeId: string; goalEvent: string | null },
+  ): Promise<WorkflowExecution | null>;
   /** Stores a step's output in the run's context (`context.steps[nodeId]`). */
   setStepOutput(id: number, nodeId: string, output: unknown): Promise<void>;
   /**
@@ -471,21 +521,28 @@ export interface IWorkflowExecutionRepository {
     contactId: number,
     options: { workflowId?: number; exitReason: ExecutionExitReason; lifecycleOnly?: boolean },
   ): Promise<number[]>;
-  /** When the contact's latest run of the workflow started; null when never. */
+  /** Cancels one RUNNING run; false when it already ended. */
+  cancel(id: number, exitReason: ExecutionExitReason): Promise<boolean>;
+  /** When the contact's latest real (not test) run of the workflow started; null when never. */
   lastStartedAt(workflowId: number, contactId: number): Promise<Date | null>;
-  /** The workflow's runs by outcome (test runs excluded later). */
+  /** The workflow's real runs by outcome (test runs are left out). */
   getRunStats(workflowId: number): Promise<WorkflowRunStats>;
+  /** The workflow's runs, newest first, with the contact's email. */
+  listRuns(workflowId: number, filter: WorkflowRunFilter): Promise<WorkflowRunSummary[]>;
+  /** The contact's runs in every workflow, newest first, with the workflow's name. */
+  listContactRuns(contactId: number, limit: number): Promise<WorkflowRunSummary[]>;
 
   /**
    * The step's row in the run, created PENDING on first call. A redelivered
    * job gets the existing row back: COMPLETED means the side effect is done.
    */
-  claimStep(executionId: number, nodeId: string): Promise<WorkflowStepExecution>;
+  claimStep(executionId: number, nodeId: string, generation?: number): Promise<WorkflowStepExecution>;
   updateStepExecution(
     id: number,
     data: Partial<Omit<WorkflowStepExecution, "id" | "startedAt">>,
   ): Promise<void>;
-  getStepExecutions(executionId: number): Promise<WorkflowStepExecution[]>;
+  /** The run's step rows, oldest first; of one generation when given. */
+  getStepExecutions(executionId: number, generation?: number): Promise<WorkflowStepExecution[]>;
   getNodeStats(
     workflowId: number,
   ): Promise<import("./domain").WorkflowNodeStats[]>;

@@ -8,6 +8,7 @@ import {
   ISuppressionRepository,
   ContactBlockedListener,
   CompleteStep,
+  IProjectRepository,
 } from "../ports";
 import { TriggerService } from "./triggerService";
 import { AutomationJobData } from "../queue/types";
@@ -38,13 +39,33 @@ import {
 import { ServiceHooks } from "../hooks";
 import { consoleLogger, type Logger } from "../logger";
 import { allowAllOutbound, fetchWithPolicy, OutboundRefusedError, type OutboundPolicy } from "../outbound";
-import { AppError, NotFoundError, QuotaExceededError, RetryableStepError } from "../errors";
+import { AppError, NotFoundError, QuotaExceededError, RetryableStepError, ValidationError } from "../errors";
 import { parseInput } from "../validation";
 import { z } from "zod";
+import type { StepAttempt, StepContext, StepHandler, StepOutcome } from "../workflow-steps";
+import {
+  HTTP_RESPONSE_BODY_LIMIT,
+  HTTP_STEP_DEFAULT_TIMEOUT_S,
+  httpMethodHasBody,
+  validateHttpStep,
+  type HttpStepData,
+  type HttpStepOutput,
+} from "../workflow-http";
 
-/** The queue job of a run's step; stable, so a second add of it is ignored. */
-export function automationJobId(executionId: number, nodeId: string): string {
-  return `wf-${executionId}-${nodeId}`;
+export type { StepAttempt } from "../workflow-steps";
+
+/**
+ * The queue job of a run's step; stable, so a second add of it is ignored.
+ * A restarted run's later passes (generation > 0) get their own ids, so a
+ * job of an earlier pass never stands in for one of the new pass.
+ */
+export function automationJobId(executionId: number, nodeId: string, generation = 0): string {
+  return generation > 0 ? `wf-${executionId}-g${generation}-${nodeId}` : `wf-${executionId}-${nodeId}`;
+}
+
+/** A step's job data; the generation only once a run was restarted, so the first pass's jobs look as before. */
+function jobData(executionId: number, nodeId: string, generation = 0): AutomationJobData {
+  return generation > 0 ? { executionId, nodeId, generation } : { executionId, nodeId };
 }
 
 /** A run whose step is due this long without its job is re-queued by the sweeper. */
@@ -89,16 +110,93 @@ export const API_CHECK_TIMEOUT_MS = 10_000;
 /** What a step does when it fails for good (`node.data.onError`). */
 export type StepOnError = "fail" | "continue";
 
-/** Where a job is in its retries; the worker passes BullMQ's counters. */
-export interface StepAttempt {
-  /** Attempts made before this one. */
-  attemptsMade: number;
-  /** Attempts the job has in total. */
-  attempts: number;
+/** A test run waits for an event at most this long (the step's timeout is cut to it). */
+export const TEST_RUN_WAIT_CAP_MS = 60_000;
+
+/**
+ * Reads a response body up to `HTTP_RESPONSE_BODY_LIMIT` bytes: JSON when it
+ * parses, else text; a longer body is cut, kept as text and flagged.
+ */
+export async function readLimitedBody(response: Response): Promise<{ body: unknown; truncated?: boolean }> {
+  if (!response.body) return { body: null };
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  let truncated = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (size + value.byteLength > HTTP_RESPONSE_BODY_LIMIT) {
+      chunks.push(value.subarray(0, HTTP_RESPONSE_BODY_LIMIT - size));
+      truncated = true;
+      await reader.cancel().catch(() => {});
+      break;
+    }
+    chunks.push(value);
+    size += value.byteLength;
+  }
+  const bytes = new Uint8Array(chunks.reduce((n, c) => n + c.byteLength, 0));
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const text = new TextDecoder().decode(bytes);
+  if (truncated) return { body: text, truncated: true };
+  if (text.trim() === "") return { body: null };
+  try {
+    return { body: JSON.parse(text) };
+  } catch {
+    return { body: text };
+  }
+}
+
+/**
+ * Fills `{{path}}` merge tags in a JSON template with values from `data`
+ * (`contact.*`, `event.*`, `steps.*`): inside a string literal the value is
+ * escaped as string content, outside it is written as a JSON value (`null`
+ * when missing), so `{"total": {{event.total}}}` keeps its number.
+ */
+export function fillJsonTemplate(template: string, data: Record<string, unknown>): string {
+  let out = "";
+  let inString = false;
+  let i = 0;
+  while (i < template.length) {
+    const ch = template[i];
+    if (ch === "{" && template[i + 1] === "{") {
+      const close = template.indexOf("}}", i + 2);
+      if (close !== -1) {
+        const value = valueAt(data, template.slice(i + 2, close).trim());
+        if (inString) {
+          const text = value === undefined || value === null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
+          out += JSON.stringify(text).slice(1, -1);
+        } else {
+          out += value === undefined ? "null" : JSON.stringify(value);
+        }
+        i = close + 2;
+        continue;
+      }
+    }
+    if (inString && ch === "\\") {
+      out += ch + (template[i + 1] ?? "");
+      i += 2;
+      continue;
+    }
+    if (ch === '"') inString = !inString;
+    out += ch;
+    i += 1;
+  }
+  return out;
 }
 
 /** Versions one worker process keeps in memory. */
 const VERSION_CACHE_SIZE = 500;
+
+/** Where the frequency cap comes from (`createServices` passes both). */
+export interface AutomationLimits {
+  projects?: Pick<IProjectRepository, "findById">;
+  sendCounts?: Pick<ITriggeredSendLogRepository, "countAutomationSends">;
+}
 
 export class AutomationService {
   constructor(
@@ -116,7 +214,14 @@ export class AutomationService {
     private readonly engagement: Pick<ITriggeredSendLogRepository, "hasEngagement"> = noEngagement,
     /** Unsubscribed and suppressed addresses: their email steps are skipped, lifecycle runs end. */
     private readonly sendBlocks: Pick<ISuppressionRepository, "findSendBlock"> = noSendBlocks,
-  ) {}
+    /** The project's frequency cap and the count it is checked against; without them nothing is capped. */
+    private readonly limits: AutomationLimits = {},
+  ) {
+    for (const handler of this.builtinHandlers()) this.handlers.set(handler.type, handler);
+  }
+
+  /** What each step type does, by node type. */
+  private readonly handlers = new Map<string, StepHandler>();
 
   /** Versions are immutable, so each worker process keeps the ones it has read. */
   private readonly versions = new Map<number, WorkflowVersion>();
@@ -178,7 +283,11 @@ export class AutomationService {
     // index below is what actually guarantees one run.
     const existing = await this.executionRepo.findRunningByContact(workflowId, contactId);
     if (existing) {
-      return existing;
+      if (version.settings.entry?.mode !== "restart") return existing;
+      // D4: the same run back to the start with the new event; not a new run, not counted again.
+      const restarted = await this.restartRun(existing, version, triggerNode.id, event);
+      if (restarted) return restarted;
+      // It ended meanwhile: a new run below.
     }
 
     // A run is the unit a plan counts: refused here, before the execution
@@ -211,6 +320,65 @@ export class AutomationService {
 
     await this.advance(execution, version, triggerNode.id);
 
+    return execution;
+  }
+
+  /**
+   * `restart` entry: the contact's run in progress goes back to the trigger
+   * step of the active version with the new event and empty step outputs,
+   * as its next generation (a new pass with its own step rows). Jobs of the
+   * earlier pass are dropped when they come; a wait it was in ends.
+   */
+  private async restartRun(
+    run: WorkflowExecution,
+    version: WorkflowVersion,
+    triggerNodeId: string,
+    event?: WorkflowEvent,
+  ): Promise<WorkflowExecution | null> {
+    const restarted = await this.executionRepo.restart(run.id, {
+      versionId: version.id,
+      context: { ...(event ? { event: { name: event.name, payload: event.payload } } : {}), steps: {} },
+      currentNodeId: triggerNodeId,
+      goalEvent: version.settings.goal?.event ?? null,
+    });
+    if (!restarted) return null;
+    this.logger.info("Workflow run restarted by a new trigger event", {
+      executionId: run.id,
+      generation: restarted.generation ?? 0,
+    });
+    await this.advance(restarted, version, triggerNodeId);
+    return restarted;
+  }
+
+  /**
+   * A test run (from the builder): `version` is a test snapshot of the
+   * draft. The workflow need not be live; entry rules, the plan's run quota
+   * and the one-run-per-contact rule do not apply. Emails are real sends
+   * (counted as sends). Delays are skipped and a wait for an event lasts at
+   * most `TEST_RUN_WAIT_CAP_MS`. Left out of the workflow's statistics.
+   */
+  async startTestRun(options: {
+    workflowId: number;
+    contactId: number;
+    version: WorkflowVersion;
+    event: WorkflowEvent;
+  }): Promise<WorkflowExecution> {
+    const { workflowId, contactId, version, event } = options;
+    const triggerNode = version.graph.nodes.find((n) => n.type === "trigger");
+    if (!triggerNode) throw new ValidationError("The automation has no trigger step");
+    this.versions.set(version.id, version);
+    const execution = await this.executionRepo.create({
+      workflowId,
+      contactId,
+      versionId: version.id,
+      context: { event: { name: event.name, payload: event.payload }, steps: {} },
+      currentNodeId: triggerNode.id,
+      goalEvent: version.settings.goal?.event ?? null,
+      isTest: true,
+    });
+    if (!execution) throw new Error("Test run could not be created");
+    this.logger.info("Workflow test run started", { executionId: execution.id, workflowId, contactId });
+    await this.advance(execution, version, triggerNode.id);
     return execution;
   }
 
@@ -349,7 +517,7 @@ export class AutomationService {
       if (!(await this.executionRepo.resolveWait(run.id, { nodeId: node.id, event: event.name }))) continue;
 
       await this.executionRepo.setStepOutput(run.id, node.id, event.payload);
-      const step = await this.executionRepo.claimStep(run.id, node.id);
+      const step = await this.executionRepo.claimStep(run.id, node.id, run.generation ?? 0);
       const fresh = (await this.executionRepo.findById(run.id)) ?? run;
       await this.advance(fresh, version, node.id, "yes", {
         id: step.id,
@@ -381,43 +549,43 @@ export class AutomationService {
     execution: WorkflowExecution,
     node: { id: string; data: Record<string, any> },
     step: { startedAt: Date },
-  ): Promise<"waiting" | { branch: "yes" | "no"; result: Record<string, unknown> }> {
+  ): Promise<StepOutcome> {
     const event = node.data.event;
     if (typeof event !== "string" || event === "") throw new Error("Wait for event: no event chosen");
     const contact = lazyContact(() => this.contactSnapshot(execution.contactId));
 
     if (execution.waitingEvent === event) {
       // Already waiting: the timeout job, or an early copy of a job.
-      if (execution.wakeAt && execution.wakeAt.getTime() > Date.now() + WAIT_CLOCK_SLACK_MS) return "waiting";
-      if (!(await this.executionRepo.resolveWait(execution.id, { nodeId: node.id, event }))) return "waiting";
-      return { branch: "no", result: { branch: "no", timedOut: true } };
+      if (execution.wakeAt && execution.wakeAt.getTime() > Date.now() + WAIT_CLOCK_SLACK_MS) return { kind: "waiting" };
+      if (!(await this.executionRepo.resolveWait(execution.id, { nodeId: node.id, event }))) return { kind: "waiting" };
+      return { kind: "done", branch: "no", result: { branch: "no", timedOut: true } };
     }
 
     const since = node.data.since === "step_start" ? step.startedAt : execution.startedAt;
     const done = await this.findDoneEvent(execution, node, event, since, contact);
     if (done) {
-      await this.executionRepo.setStepOutput(execution.id, node.id, done.payload);
-      return { branch: "yes", result: { branch: "yes", eventId: done.id } };
+      return { kind: "done", branch: "yes", output: done.payload, result: { branch: "yes", eventId: done.id } };
     }
 
-    const timeout = this.parseDelay(node.data.timeout ?? {});
-    if (timeout <= 0) throw new Error("Wait for event: no timeout");
+    const configured = this.parseDelay(node.data.timeout ?? {});
+    if (configured <= 0) throw new Error("Wait for event: no timeout");
+    const timeout = execution.isTest ? Math.min(configured, TEST_RUN_WAIT_CAP_MS) : configured;
     const wakeAt = new Date(Date.now() + timeout);
-    if (!(await this.executionRepo.startWait(execution.id, { nodeId: node.id, event, wakeAt }))) return "waiting";
+    if (!(await this.executionRepo.startWait(execution.id, { nodeId: node.id, event, wakeAt }))) return { kind: "waiting" };
 
     // The event may have come between the look above and the wait: look once more.
     const raced = await this.findDoneEvent(execution, node, event, since, contact);
     if (raced && (await this.executionRepo.resolveWait(execution.id, { nodeId: node.id, event }))) {
-      await this.executionRepo.setStepOutput(execution.id, node.id, raced.payload);
-      return { branch: "yes", result: { branch: "yes", eventId: raced.id } };
+      return { kind: "done", branch: "yes", output: raced.payload, result: { branch: "yes", eventId: raced.id } };
     }
 
+    const generation = execution.generation ?? 0;
     await this.automationQueue.add(
       `workflow-${execution.id}-${node.id}-timeout`,
-      { executionId: execution.id, nodeId: node.id },
-      { delay: timeout, jobId: `${automationJobId(execution.id, node.id)}-timeout` },
+      jobData(execution.id, node.id, generation),
+      { delay: timeout, jobId: `${automationJobId(execution.id, node.id, generation)}-timeout` },
     );
-    return "waiting";
+    return { kind: "waiting" };
   }
 
   /** The newest `event` since `since` that passes the step's filters. */
@@ -436,25 +604,34 @@ export class AutomationService {
   }
 
 
+  /** Adds a step type, or replaces a built-in one: a new channel is a new handler (see `StepHandler`). */
+  registerStepHandler(handler: StepHandler): void {
+    this.handlers.set(handler.type, handler);
+  }
+
   /**
-   * Process a single step in a workflow execution.
+   * Process a single step in a workflow execution. `generation` is the run's
+   * generation the job was queued for: a job from before a restart is dropped.
    */
   async processStep(
     executionId: number,
     nodeId: string,
     baseUrl: string,
     attempt: StepAttempt = { attemptsMade: 0, attempts: 1 },
+    generation = 0,
   ): Promise<void> {
     const execution = await this.executionRepo.findById(executionId);
     if (!execution || execution.status !== "RUNNING") return;
 
     // The cursor decides: a job for another step (redelivered after the run
-    // moved on, or a duplicate) is dropped.
-    if (execution.currentNodeId !== nodeId) {
+    // moved on, or a duplicate) is dropped, and so is one from an earlier
+    // pass of a restarted run.
+    if (execution.currentNodeId !== nodeId || (execution.generation ?? 0) !== generation) {
       this.logger.debug("Stale workflow job dropped", {
         executionId,
         nodeId,
         currentNodeId: execution.currentNodeId,
+        generation,
       });
       return;
     }
@@ -474,9 +651,10 @@ export class AutomationService {
       return;
     }
 
-    // Each step runs at most once per run. A redelivered job whose step is
-    // already COMPLETED only moves the cursor on, along the branch it took.
-    const step = await this.executionRepo.claimStep(executionId, nodeId);
+    // Each step runs at most once per run (and generation). A redelivered
+    // job whose step is already COMPLETED only moves the cursor on, along the
+    // branch it took.
+    const step = await this.executionRepo.claimStep(executionId, nodeId, generation);
     if (step.status === "COMPLETED" || step.status === "SKIPPED") {
       const branch = typeof step.result?.branch === "string" ? step.result.branch : undefined;
       await this.advance(execution, version, nodeId, branch);
@@ -484,87 +662,171 @@ export class AutomationService {
     }
 
     try {
-      let branch: string | undefined;
-      let result: Record<string, unknown> | null = null;
-
-      switch (node.type) {
-        case "action": {
-          // The key makes a redelivered send reuse the first one's log and job.
-          const sent = await this.handleEmailAction(execution, node.data, `wf-${executionId}-${nodeId}`);
-          if ("blocked" in sent) {
-            // The contact may not get mail (D5): a lifecycle run ends, a
-            // transactional one skips the email and goes on.
-            const skipped = { id: step.id, status: "SKIPPED" as const, result: { skipped: sent.blocked } };
-            if (version.settings.kind === "lifecycle") {
-              await this.executionRepo.finish(executionId, {
-                status: "CANCELLED",
-                exitReason: sent.blocked === "UNSUBSCRIBE" ? "unsubscribed" : "suppressed",
-                from: nodeId,
-                completeStep: skipped,
-              });
-            } else {
-              await this.advance(execution, version, nodeId, undefined, skipped);
-            }
-            return;
-          }
-          result = sent.sendLogId !== null ? { sendLogId: sent.sendLogId } : null;
-          break;
-        }
-
-        case "condition":
-          if (node.data.mode === "rules") {
-            const outcome = await this.handleRuleCondition(execution, node.data);
-            branch = outcome.branch;
-            result = { branch, matched: outcome.matched };
-          } else if (node.data.mode === "api") {
-            branch = await this.handleApiCondition(execution, node.data, baseUrl);
-          } else {
-            throw new Error('Condition step has no mode ("rules" or "api")');
-          }
-          break;
-
-        case "delay":
-          // The job was queued with the delay, so if we are here, it is over.
-          // A "wait until" step checks its date now: a missing or unreadable
-          // one is an error of this step (its onError applies).
-          if (node.data.mode === "until") {
-            const until = await this.untilTime(execution, node.data.until);
-            result = { until: until.toISOString() };
-          }
-          break;
-
-        case "wait_event": {
-          const outcome = await this.handleWaitEvent(execution, node, step);
-          if (outcome === "waiting") return;
-          branch = outcome.branch;
-          result = outcome.result;
-          break;
-        }
-
-        case "update_contact":
-          await this.handleUpdateContactAction(execution, node.data);
-          break;
-
-        case "exit":
-          await this.executionRepo.finish(executionId, {
-            status: "COMPLETED",
-            exitReason: "exit_node",
-            from: nodeId,
-            completeStep: { id: step.id },
-          });
-          return;
-
-        default:
-          throw new Error(`Unknown step type "${node.type}"`);
-      }
-
-      await this.advance(execution, version, nodeId, branch, {
-        id: step.id,
-        result: result ?? (branch ? { branch } : null),
+      const handler = this.handlers.get(node.type);
+      if (!handler) throw new Error(`Unknown step type "${node.type}"`);
+      const outcome = await handler.run({
+        run: execution,
+        version,
+        node,
+        step,
+        contact: lazyContact(() => this.contactSnapshot(execution.contactId)),
+        dedupeKey: automationJobId(executionId, nodeId, generation),
+        attempt,
+        baseUrl,
+        logger: this.logger,
       });
+      await this.applyOutcome(execution, version, node.id, step.id, outcome);
     } catch (error) {
       await this.handleStepError(execution, version, node, step.id, error, attempt);
     }
+  }
+
+  /** What the engine does with a handler's outcome: the same for every step type. */
+  private async applyOutcome(
+    execution: WorkflowExecution,
+    version: WorkflowVersion,
+    nodeId: string,
+    stepId: number,
+    outcome: StepOutcome,
+  ): Promise<void> {
+    switch (outcome.kind) {
+      case "waiting":
+        return;
+      case "end":
+        await this.executionRepo.finish(execution.id, {
+          status: outcome.status,
+          exitReason: outcome.exitReason,
+          from: nodeId,
+          completeStep: { id: stepId, status: outcome.stepStatus, result: outcome.result },
+        });
+        return;
+      case "skipped":
+        await this.advance(execution, version, nodeId, undefined, {
+          id: stepId,
+          status: "SKIPPED",
+          result: { ...(outcome.result ?? {}), skipped: outcome.reason },
+        });
+        return;
+      case "done": {
+        if (outcome.output !== undefined) await this.executionRepo.setStepOutput(execution.id, nodeId, outcome.output);
+        const branch = outcome.branch;
+        await this.advance(execution, version, nodeId, branch, {
+          id: stepId,
+          result: outcome.result ?? (branch ? { branch } : null),
+        });
+        return;
+      }
+    }
+  }
+
+  /** The built-in step types, as handlers. */
+  private builtinHandlers(): StepHandler[] {
+    return [
+      { type: "action", recipient: "contact", run: (ctx) => this.runEmailStep(ctx) },
+      { type: "http_request", recipient: "outward", run: (ctx) => this.runHttpStep(ctx) },
+      { type: "condition", recipient: "none", run: (ctx) => this.runConditionStep(ctx) },
+      { type: "delay", recipient: "none", run: (ctx) => this.runDelayStep(ctx) },
+      { type: "wait_event", recipient: "none", run: (ctx) => this.handleWaitEvent(ctx.run, ctx.node, ctx.step) },
+      {
+        type: "update_contact",
+        recipient: "none",
+        run: async (ctx) => {
+          await this.handleUpdateContactAction(ctx.run, ctx.node.data);
+          return { kind: "done" };
+        },
+      },
+      {
+        type: "exit",
+        recipient: "none",
+        run: async () => ({ kind: "end", status: "COMPLETED", exitReason: "exit_node" }),
+      },
+    ];
+  }
+
+  /**
+   * An email step. The contact may not get mail (D5): a lifecycle run ends,
+   * a transactional one skips the email and goes on. Over the project's
+   * frequency cap the email is skipped too (`frequency_cap`) and the run goes
+   * on; a test run is not capped.
+   */
+  private async runEmailStep(ctx: StepContext): Promise<StepOutcome> {
+    const { run: execution, node, version } = ctx;
+    const campaignId = node.data.triggerId;
+    if (!campaignId) throw new Error("No trigger chosen for the email step (triggerId)");
+
+    const workflow = await this.workflowRepo.findById(execution.workflowId);
+    if (!workflow) throw new Error("Workflow not found");
+
+    const contact = await this.contactRepo.findById(execution.contactId);
+    if (!contact) throw new Error("Contact not found");
+
+    const block = await this.sendBlocks.findSendBlock(workflow.projectId, contact.email);
+    if (block) {
+      if (version.settings.kind === "lifecycle") {
+        return {
+          kind: "end",
+          status: "CANCELLED",
+          exitReason: block.reason === "UNSUBSCRIBE" ? "unsubscribed" : "suppressed",
+          stepStatus: "SKIPPED",
+          result: { skipped: block.reason },
+        };
+      }
+      return { kind: "skipped", reason: block.reason };
+    }
+
+    if (!execution.isTest && (await this.overFrequencyCap(workflow.projectId, contact.email))) {
+      return { kind: "skipped", reason: "frequency_cap" };
+    }
+
+    // The key makes a redelivered send reuse the first one's log and job.
+    const sendLogId = await this.sendStepEmail({
+      campaignId: Number(campaignId),
+      projectId: workflow.projectId,
+      to: contact.email,
+      data: buildStepData(contact, execution.context),
+      dedupeKey: ctx.dedupeKey,
+      locale: contact.locale || undefined,
+      workflowExecutionId: execution.id,
+    });
+    return { kind: "done", result: sendLogId !== null ? { sendLogId } : null };
+  }
+
+  /** Whether the project's cap on automation emails per contact is reached for `email`. */
+  private async overFrequencyCap(projectId: number, email: string): Promise<boolean> {
+    if (!this.limits.projects || !this.limits.sendCounts) return false;
+    const project = await this.limits.projects.findById(projectId);
+    const cap = project?.automationSettings?.frequencyCap;
+    if (!cap || !(cap.emails > 0) || !(cap.days > 0)) return false;
+    const since = new Date(Date.now() - cap.days * DAY_MS);
+    return (await this.limits.sendCounts.countAutomationSends(projectId, email, since)) >= cap.emails;
+  }
+
+  /** A Condition step: by rules, or by the user's API. */
+  private async runConditionStep(ctx: StepContext): Promise<StepOutcome> {
+    const { run: execution, node } = ctx;
+    if (node.data.mode === "rules") {
+      const outcome = await this.handleRuleCondition(execution, node.data);
+      return { kind: "done", branch: outcome.branch, result: { branch: outcome.branch, matched: outcome.matched } };
+    }
+    if (node.data.mode === "api") {
+      const { branch, output } = await this.handleApiCondition(execution, node.data, ctx.baseUrl);
+      return { kind: "done", branch, output, result: { branch, status: output.status } };
+    }
+    throw new Error('Condition step has no mode ("rules" or "api")');
+  }
+
+  /**
+   * A Wait step. The job was queued with the delay, so if we are here, it is
+   * over. A "wait until" step checks its date now: a missing or unreadable
+   * one is an error of this step (its onError applies).
+   */
+  private async runDelayStep(ctx: StepContext): Promise<StepOutcome> {
+    if (ctx.node.data.mode !== "until") return { kind: "done" };
+    const until = await this.untilTime(ctx.run, ctx.node.data.until);
+    return {
+      kind: "done",
+      result: { until: until.toISOString(), ...(ctx.run.isTest ? { skippedForTest: true } : {}) },
+    };
   }
 
   /**
@@ -647,38 +909,6 @@ export class AutomationService {
   }
 
   /**
-   * Sends the step's email: the send log id, kept in the step result for
-   * email rules, or why the contact may not get it.
-   */
-  private async handleEmailAction(
-    execution: WorkflowExecution,
-    data: any,
-    dedupeKey: string,
-  ): Promise<{ sendLogId: number | null } | { blocked: "UNSUBSCRIBE" | "BOUNCE" | "SPAM" }> {
-    const campaignId = data.triggerId;
-    if (!campaignId) throw new Error("No trigger chosen for the email step (triggerId)");
-
-    const workflow = await this.workflowRepo.findById(execution.workflowId);
-    if (!workflow) throw new Error("Workflow not found");
-
-    const contact = await this.contactRepo.findById(execution.contactId);
-    if (!contact) throw new Error("Contact not found");
-
-    const block = await this.sendBlocks.findSendBlock(workflow.projectId, contact.email);
-    if (block) return { blocked: block.reason };
-
-    const sendLogId = await this.sendStepEmail({
-      campaignId: Number(campaignId),
-      projectId: workflow.projectId,
-      to: contact.email,
-      data: buildStepData(contact, execution.context),
-      dedupeKey,
-      locale: contact.locale || undefined,
-    });
-    return { sendLogId };
-  }
-
-  /**
    * The send behind an email step. The service's own refusals (missing
    * trigger, no provider, plan limit) are permanent; anything else (the
    * database or the queue unreachable) may pass and is retried. The dedupe
@@ -694,11 +924,49 @@ export class AutomationService {
     }
   }
 
+  /**
+   * A request to a user's URL, through the outbound policy (a shared
+   * instance refuses internal addresses, redirects included). A refusal or a
+   * malformed URL is permanent; a network failure, a timeout, a 5xx or a 429
+   * may pass and is retried. The status and the body (JSON when it parses,
+   * cut at `HTTP_RESPONSE_BODY_LIMIT`) come back as the step's output.
+   */
+  private async requestOutward(
+    url: string,
+    init: { method: string; headers: Record<string, string>; body?: string },
+    timeoutMs: number,
+    label: string,
+  ): Promise<HttpStepOutput> {
+    let response: Response;
+    try {
+      response = await fetchWithPolicy(url, { ...init, signal: AbortSignal.timeout(timeoutMs) }, this.outbound);
+    } catch (error) {
+      if (error instanceof OutboundRefusedError) throw error;
+      const name = error instanceof Error ? error.name : "";
+      if (error instanceof TypeError || name === "TimeoutError" || name === "AbortError") {
+        throw new RetryableStepError(`${label} request failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      throw error;
+    }
+
+    // The endpoint is down or asks to slow down: try again.
+    if (response.status >= 500 || response.status === 429) {
+      await response.body?.cancel().catch(() => {});
+      throw new RetryableStepError(`${label} answered ${response.status}`);
+    }
+    return { status: response.status, ...(await readLimitedBody(response)) };
+  }
+
+  /**
+   * A Condition step in API mode: POSTs the contact and the trigger event to
+   * the user's endpoint; 200 is Yes, any other answer No. The response is
+   * kept as the step's output (`{{steps.<id>.body.*}}`).
+   */
   private async handleApiCondition(
     execution: WorkflowExecution,
     data: any,
     baseUrl: string,
-  ): Promise<string> {
+  ): Promise<{ branch: "yes" | "no"; output: HttpStepOutput }> {
     let { url } = data;
     if (!url) throw new Error("No URL specified for API condition");
 
@@ -710,59 +978,98 @@ export class AutomationService {
     const contact = await this.contactRepo.findById(execution.contactId);
     if (!contact) throw new Error("Contact not found");
 
-    this.logger.debug("API Check request", {
-      executionId: execution.id,
-      contactId: contact.id,
+    this.logger.debug("API Check request", { executionId: execution.id, contactId: contact.id, url });
+
+    const output = await this.requestOutward(
       url,
-    });
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: contact.email,
+          name: contact.name,
+          locale: contact.locale ?? null,
+          metadata: contact.meta,
+          meta: contact.meta,
+          // The trigger event, so the endpoint can decide on what happened.
+          event: execution.context.event ?? null,
+        }),
+      },
+      API_CHECK_TIMEOUT_MS,
+      "API check",
+    );
 
-    // The URL is the user's: a shared instance refuses internal addresses
-    // through the policy, redirects included. A refusal or a malformed URL is
-    // permanent; a network failure or a timeout may pass and is retried.
-    let response: Response;
-    try {
-      response = await fetchWithPolicy(
-        url,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(API_CHECK_TIMEOUT_MS),
-          body: JSON.stringify({
-            email: contact.email,
-            name: contact.name,
-            locale: contact.locale ?? null,
-            metadata: contact.meta,
-            meta: contact.meta,
-            // The trigger event, so the endpoint can decide on what happened.
-            event: execution.context.event ?? null,
-          }),
-        },
-        this.outbound,
-      );
-    } catch (error) {
-      if (error instanceof OutboundRefusedError) throw error;
-      const name = error instanceof Error ? error.name : "";
-      if (error instanceof TypeError || name === "TimeoutError" || name === "AbortError") {
-        throw new RetryableStepError(`API check request failed: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      throw error;
-    }
-    // Only the status is read.
-    await response.body?.cancel().catch(() => {});
-
-    // The endpoint is down or asks to slow down: try again rather than take "no".
-    if (response.status >= 500 || response.status === 429) {
-      throw new RetryableStepError(`API check answered ${response.status}`);
-    }
-
-    const result = response.status === 200 ? "yes" : "no";
+    const branch = output.status === 200 ? "yes" : "no";
     this.logger.debug("API Check result", {
       executionId: execution.id,
       contactId: contact.id,
-      result,
-      status: response.status,
+      result: branch,
+      status: output.status,
     });
-    return result;
+    return { branch, output };
+  }
+
+  /**
+   * An HTTP request step (outwards: no blocks, no `kind`). Header values are
+   * opened from their sealed form here, never earlier; the body is the
+   * step's JSON with merge tags filled from the contact, the trigger event
+   * and step outputs. A 2xx is done; a 4xx fails the step (its `onError`
+   * applies); 5xx, 429 and network errors are retried. A redelivered job
+   * whose request already answered (the step row has its status) does not
+   * send it again.
+   */
+  private async runHttpStep(ctx: StepContext): Promise<StepOutcome> {
+    const { run: execution, node, step } = ctx;
+    const data = node.data as HttpStepData;
+    const problems = validateHttpStep(data);
+    if (problems.length > 0) throw new Error(problems[0]);
+
+    // Dedupe inside the handler: the answer is kept on the step row before the
+    // run moves on, so a job that runs again after a crash reuses it.
+    const earlier = step.result?.response as HttpStepOutput | undefined;
+    if (earlier && typeof earlier.status === "number") return this.httpOutcome(execution.id, node.id, earlier);
+
+    const method = data.method ?? "POST";
+    const headers: Record<string, string> = {};
+    for (const header of data.headers ?? []) {
+      if (typeof header.sealed !== "string") continue;
+      const value = await this.workflowRepo.openSecret(header.sealed);
+      if (value === null) throw new Error(`HTTP request: the value of header "${header.name}" cannot be decrypted; enter it again`);
+      headers[header.name] = value;
+    }
+
+    let body: string | undefined;
+    if (httpMethodHasBody(method) && data.body && data.body.trim() !== "") {
+      const contact = await this.contactRepo.findById(execution.contactId);
+      if (!contact) throw new Error("Contact not found");
+      body = fillJsonTemplate(data.body, buildStepData(contact, execution.context));
+      try {
+        JSON.parse(body);
+      } catch {
+        throw new Error("HTTP request: the body is not valid JSON after merge tags are filled");
+      }
+      if (!Object.keys(headers).some((h) => h.toLowerCase() === "content-type")) {
+        headers["Content-Type"] = "application/json";
+      }
+    }
+
+    const timeoutMs = (data.timeoutSeconds ?? HTTP_STEP_DEFAULT_TIMEOUT_S) * 1000;
+    const output = await this.requestOutward(data.url!.trim(), { method, headers, body }, timeoutMs, "HTTP request");
+    await this.executionRepo.updateStepExecution(step.id, { result: { response: output } });
+    return this.httpOutcome(execution.id, node.id, output);
+  }
+
+  /** 2xx: done with the response as output. Otherwise the step fails; the response is still kept for later steps. */
+  private async httpOutcome(executionId: number, nodeId: string, output: HttpStepOutput): Promise<StepOutcome> {
+    if (output.status < 200 || output.status >= 300) {
+      await this.executionRepo.setStepOutput(executionId, nodeId, output);
+      throw new Error(`HTTP request answered ${output.status}`);
+    }
+    return {
+      kind: "done",
+      output,
+      result: { status: output.status, ...(output.truncated ? { truncated: true } : {}) },
+    };
   }
 
   private async handleUpdateContactAction(
@@ -843,7 +1150,8 @@ export class AutomationService {
       return;
     }
 
-    const delay = target.type === "delay" ? await this.delayOf(run, target.data) : 0;
+    // A test run does not wait: its delays pass at once.
+    const delay = target.type === "delay" && !run.isTest ? await this.delayOf(run, target.data) : 0;
     const moved = await this.executionRepo.moveCursor(executionId, {
       from: fromNodeId,
       to: target.id,
@@ -855,11 +1163,12 @@ export class AutomationService {
       return;
     }
 
+    const generation = run.generation ?? 0;
     await this.automationQueue.add(
       `workflow-${executionId}-${target.id}`,
-      { executionId, nodeId: target.id },
-      // One job per run and step: adding it again (the sweeper, a retry) is a no-op while it exists.
-      { delay, jobId: automationJobId(executionId, target.id) },
+      jobData(executionId, target.id, generation),
+      // One job per run, pass and step: adding it again (the sweeper, a retry) is a no-op while it exists.
+      { delay, jobId: automationJobId(executionId, target.id, generation) },
     );
   }
 
@@ -933,7 +1242,10 @@ export class AutomationService {
         const since = rule.withinDays ? new Date(Date.now() - rule.withinDays * DAY_MS) : new Date(0);
         lookups.set(lookupKey(rule), await this.contactEvents.existsSince(execution.contactId, rule.event, since));
       } else {
-        lookups.set(lookupKey(rule), await this.emailEngagement(execution.id, rule.nodeId, rule.state));
+        lookups.set(
+          lookupKey(rule),
+          await this.emailEngagement(execution.id, execution.generation ?? 0, rule.nodeId, rule.state),
+        );
       }
     }
 
@@ -950,8 +1262,9 @@ export class AutomationService {
    * Whether the email an email step of this run sent was opened / clicked.
    * A step the run did not pass through (another branch) sent nothing: no.
    */
-  private async emailEngagement(executionId: number, nodeId: string, state: string): Promise<boolean> {
-    const steps = await this.executionRepo.getStepExecutions(executionId);
+  private async emailEngagement(executionId: number, generation: number, nodeId: string, state: string): Promise<boolean> {
+    // Only this pass of the run: an email of a pass before a restart does not count.
+    const steps = await this.executionRepo.getStepExecutions(executionId, generation);
     const sendLogId = steps.find((s) => s.nodeId === nodeId)?.result?.sendLogId;
     if (typeof sendLogId !== "number") return false;
     return this.engagement.hasEngagement(sendLogId, state.endsWith("clicked") ? "CLICK" : "OPEN");
@@ -984,7 +1297,7 @@ export class AutomationService {
     const due = await this.executionRepo.findDue(new Date(now.getTime() - SWEEP_GRACE_MS), SWEEP_BATCH_SIZE);
     let requeued = 0;
     for (const run of due) {
-      const jobId = automationJobId(run.id, run.currentNodeId);
+      const jobId = automationJobId(run.id, run.currentNodeId, run.generation);
       const existing = await this.automationQueue.getJob(jobId);
       if (existing) {
         const state = await existing.getState();
@@ -993,7 +1306,7 @@ export class AutomationService {
       }
       await this.automationQueue.add(
         `workflow-${run.id}-${run.currentNodeId}`,
-        { executionId: run.id, nodeId: run.currentNodeId },
+        jobData(run.id, run.currentNodeId, run.generation),
         { jobId },
       );
       requeued += 1;
@@ -1027,6 +1340,13 @@ export class AutomationService {
     const ids = await this.executionRepo.cancelRunning(contactId, options);
     if (ids.length > 0) this.logger.info("Workflow runs cancelled", { contactId, runs: ids, reason: options.exitReason });
     return ids;
+  }
+
+  /** Cancels one run (the "Cancel run" button); its queued job is dropped when it comes. */
+  async cancelRun(executionId: number, exitReason: ExecutionExitReason = "cancelled_user"): Promise<boolean> {
+    const cancelled = await this.executionRepo.cancel(executionId, exitReason);
+    if (cancelled) this.logger.info("Workflow run cancelled", { executionId, reason: exitReason });
+    return cancelled;
   }
 
   async getWorkflowStats(workflowId: number): Promise<WorkflowNodeStats[]> {

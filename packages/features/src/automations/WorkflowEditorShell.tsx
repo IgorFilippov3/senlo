@@ -3,7 +3,7 @@
 import React from "react";
 import type { WorkflowStatus } from "@senlo/core";
 import { Button, Badge } from "@senlo/ui";
-import { Save, Play, Pause, ChevronLeft, AlertCircle, Settings2 } from "lucide-react";
+import { Save, Play, Pause, ChevronLeft, AlertCircle, Settings2, History, FlaskConical } from "lucide-react";
 import { GoLiveErrorsDialog } from "./WorkflowDialogs";
 
 export interface WorkflowEditorShellProps {
@@ -24,6 +24,10 @@ export interface WorkflowEditorShellProps {
   goLiveErrorsTitle?: string;
   /** Opens the automation's settings (goal, entry, kind). */
   onOpenSettings?: () => void;
+  /** Opens the runs (list, timeline, contact history). */
+  onOpenRuns?: () => void;
+  /** Opens the test run dialog. */
+  onTestRun?: () => void;
   /** A line under the name: the runs and the conversion. */
   summary?: React.ReactNode;
   /** The builder canvas. */
@@ -44,6 +48,8 @@ export function WorkflowEditorShell({
   onDismissGoLiveErrors,
   goLiveErrorsTitle,
   onOpenSettings,
+  onOpenRuns,
+  onTestRun,
   summary,
   children,
 }: WorkflowEditorShellProps) {
@@ -82,6 +88,25 @@ export function WorkflowEditorShell({
                 <AlertCircle size={14} className="shrink-0" />
                 {error}
               </span>
+            )}
+            {onOpenRuns && (
+              <Button
+                variant="outline"
+                className="font-semibold text-xs uppercase tracking-wider h-9 border-gray-200"
+                onClick={onOpenRuns}
+              >
+                <History size={14} className="mr-2" /> Runs
+              </Button>
+            )}
+            {onTestRun && (
+              <Button
+                variant="outline"
+                className="font-semibold text-xs uppercase tracking-wider h-9 border-gray-200"
+                onClick={onTestRun}
+                disabled={isSaving}
+              >
+                <FlaskConical size={14} className="mr-2" /> Test run
+              </Button>
             )}
             {onOpenSettings && (
               <Button

@@ -5,7 +5,7 @@
 import { z } from "zod";
 import { AccessGuard, listInScope, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
-import type { Project } from "../domain";
+import type { Project, ProjectAutomationSettings } from "../domain";
 import { NotFoundError } from "../errors";
 import type {
   IAiProviderRepository,
@@ -52,6 +52,19 @@ export const UpdateWorkspaceSchema = z.object({
   aiProviderId: referenceUpdate,
 });
 
+/** A workspace's automation limits; `frequencyCap: null` removes the cap. */
+export const AutomationSettingsSchema = z
+  .object({
+    frequencyCap: z
+      .object({
+        emails: z.number().int().min(1, "At least 1 email").max(1000),
+        days: z.number().int().min(1, "At least 1 day").max(365),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+
 export type CreateWorkspaceInput = z.input<typeof CreateWorkspaceSchema>;
 export type UpdateWorkspaceInput = z.input<typeof UpdateWorkspaceSchema>;
 
@@ -94,6 +107,35 @@ export class ProjectService {
   async getLogRetention(userId: string, projectId: number): Promise<{ days: number | null }> {
     await this.access.requireProject(userId, projectId, "read");
     return { days: await this.hooks.logRetentionDays(projectId) };
+  }
+
+  /** The workspace's automation limits (the frequency cap of automation emails). */
+  async getAutomationSettings(userId: string, projectId: number): Promise<ProjectAutomationSettings> {
+    const project = await this.access.requireProject(userId, projectId, "read");
+    return project.automationSettings ?? {};
+  }
+
+  /**
+   * Sets or removes the frequency cap: at most N automation emails per
+   * contact in D days. An email step over it is skipped and the run goes on.
+   */
+  async updateAutomationSettings(
+    userId: string,
+    projectId: number,
+    rawInput: unknown,
+  ): Promise<ProjectAutomationSettings> {
+    await this.access.requireProject(userId, projectId, "write");
+    const input = parseInput(AutomationSettingsSchema, rawInput);
+    const settings: ProjectAutomationSettings = input.frequencyCap ? { frequencyCap: input.frequencyCap } : {};
+    const updated = await this.repos.projects.update(projectId, { automationSettings: settings });
+    if (!updated) throw new NotFoundError("Project");
+    await this.hooks.audit({
+      actor: { userId },
+      action: "project.automation_settings_updated",
+      target: { type: "project", id: projectId, projectId },
+      details: { frequencyCap: input.frequencyCap },
+    });
+    return settings;
   }
 
   async create(userId: string, rawInput: unknown): Promise<Project> {

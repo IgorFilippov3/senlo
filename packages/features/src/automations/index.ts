@@ -4,3 +4,4 @@ export * from "./NewWorkflowForm";
 export * from "./WorkflowEditorShell";
 export * from "./AutomationsScreen";
 export * from "./NewWorkflowScreen";
+export * from "./RunsPanel";

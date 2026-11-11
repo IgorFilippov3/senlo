@@ -5,6 +5,7 @@ export const queryKeys = {
     lists: () => [...queryKeys.projects.all, "list"] as const,
     detail: (id: number) => [...queryKeys.projects.all, "detail", id] as const,
     logRetention: (id: number) => [...queryKeys.projects.all, "logRetention", id] as const,
+    automationSettings: (id: number) => [...queryKeys.projects.all, "automationSettings", id] as const,
   },
   templates: {
     all: ["templates"] as const,
@@ -52,5 +53,10 @@ export const queryKeys = {
     eventNames: (projectId: number) => [...queryKeys.workflows.all, "eventNames", projectId] as const,
     fieldSuggestions: (projectId: number, eventName: string | null) =>
       [...queryKeys.workflows.all, "fieldSuggestions", projectId, eventName] as const,
+    runs: (id: number, filter: Record<string, unknown>) => [...queryKeys.workflows.all, "runs", id, filter] as const,
+    allRuns: () => [...queryKeys.workflows.all, "runs"] as const,
+    run: (runId: number) => [...queryKeys.workflows.all, "run", runId] as const,
+    contactRuns: (projectId: number, email: string) =>
+      [...queryKeys.workflows.all, "contactRuns", projectId, email] as const,
   },
 } as const;

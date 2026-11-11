@@ -17,7 +17,7 @@ describe("createServices", () => {
   it("builds every service", () => {
     const services = createServices({ repositories, queues, settings });
     expect(Object.keys(services).sort()).toEqual(
-      ["aiDesign", "aiProvider", "audience", "auth", "automation", "campaign", "dashboard", "emailProvider", "events", "project", "savedRow", "settings", "template", "tracking", "trigger", "unsubscribe", "upload", "user", "webhook", "workflow"],
+      ["aiDesign", "aiProvider", "audience", "auth", "automation", "automationRuns", "campaign", "dashboard", "emailProvider", "events", "project", "savedRow", "settings", "template", "tracking", "trigger", "unsubscribe", "upload", "user", "webhook", "workflow"],
     );
     expect(services.trigger).toBeInstanceOf(TriggerService);
     expect(services.automation).toBeInstanceOf(AutomationService);

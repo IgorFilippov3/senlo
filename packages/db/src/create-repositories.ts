@@ -49,7 +49,7 @@ export function createRepositories(db: Database, { secrets }: RepositoryOptions)
     suppressions: new SuppressionRepository(db),
     templates: new EmailTemplateRepository(db),
     users: new UserRepository(db),
-    workflows: new WorkflowRepository(db),
+    workflows: new WorkflowRepository(db, secrets),
   };
   // Checked here, not at every call site: a repository that drifts from the
   // core interface fails this line.

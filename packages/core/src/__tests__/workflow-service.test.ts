@@ -38,6 +38,14 @@ function fakes(graph: { nodes?: any[]; edges?: any[] } = {}) {
       return v;
     }),
     getVersion: async (id: number) => versions.find((v) => v.id === id) ?? null,
+    createTestVersion: vi.fn(async (workflowId: number, g: WorkflowGraphSnapshot) => {
+      const v: WorkflowVersion = { id: versions.length + 1, workflowId, version: -1, graph: g, settings: {}, isTest: true, createdAt: new Date() };
+      versions.push(v);
+      return v;
+    }),
+    // A stand-in cipher: reversible, and visibly not the clear value.
+    sealSecret: vi.fn(async (value: string) => `sealed:${value}`),
+    openSecret: vi.fn(async (token: string) => (token.startsWith("sealed:") ? token.slice(7) : null)),
     findActiveByTrigger: async () => [],
   };
   const versions: WorkflowVersion[] = [];
@@ -305,5 +313,49 @@ describe("WorkflowService", () => {
       const e = await service.setStatus("alice", 10, "ACTIVE").catch((x) => x);
       expect(e.details.reasons).toContain("The goal needs a valid event name.");
     });
+  });
+});
+
+describe("HTTP request headers", () => {
+  const http = (headers: unknown[]) => ({ id: "h", type: "http_request", data: { url: "https://x.io", headers } });
+
+  it("seals a header value on save and never stores it in clear", async () => {
+    const { service, workflows } = fakes();
+    await service.saveGraph("alice", 10, {
+      nodes: [trigger, http([{ name: "Authorization", value: "Bearer s3cret" }, { name: " ", value: "dropped" }])],
+      edges: [{ id: "e", source: "t1", target: "h" }],
+    });
+    const [, nodes] = workflows.saveGraph.mock.calls[0] as unknown as [number, Array<{ id: string; data: Record<string, unknown> }>];
+    expect(nodes.find((n) => n.id === "h")!.data.headers).toEqual([{ name: "Authorization", sealed: "sealed:Bearer s3cret" }]);
+    expect(JSON.stringify(nodes)).not.toContain('"value"');
+  });
+
+  it("keeps the stored token for an unchanged value or a sealed one sent back", async () => {
+    const stored = http([{ name: "A", sealed: "sealed:one" }, { name: "B", sealed: "sealed:two" }]);
+    const { service, workflows } = fakes({ nodes: [trigger, stored] });
+    await service.saveGraph("alice", 10, {
+      nodes: [trigger, http([{ name: "A", value: "one" }, { name: "B", sealed: "sealed:two" }, { name: "C", value: "three" }])],
+      edges: [{ id: "e", source: "t1", target: "h" }],
+    });
+    const [, nodes] = workflows.saveGraph.mock.calls[0] as unknown as [number, Array<{ id: string; data: Record<string, unknown> }>];
+    expect(nodes.find((n) => n.id === "h")!.data.headers).toEqual([
+      { name: "A", sealed: "sealed:one" },
+      { name: "B", sealed: "sealed:two" },
+      { name: "C", sealed: "sealed:three" },
+    ]);
+    expect(workflows.sealSecret).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a header without a value", async () => {
+    const { service } = fakes();
+    await expect(
+      service.saveGraph("alice", 10, { nodes: [trigger, http([{ name: "A" }])], edges: [] }),
+    ).rejects.toBeInstanceOf(FormValidationError);
+  });
+
+  it("accepts the restart entry mode", async () => {
+    const { service, workflows } = fakes();
+    await service.updateSettings("alice", 10, { entry: { mode: "restart" } });
+    expect(workflows.update).toHaveBeenCalledWith(10, { settings: { entry: { mode: "restart" } } });
   });
 });

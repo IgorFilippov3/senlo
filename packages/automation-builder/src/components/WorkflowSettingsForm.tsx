@@ -132,15 +132,27 @@ export function WorkflowSettingsForm({
 
         <FormField>
           <Label>Entry</Label>
-          <Select value={entry.mode} onValueChange={(mode) => setEntry({ mode: mode as Entry["mode"] })}>
+          <Select
+            value={entry.mode}
+            onValueChange={(mode) =>
+              setEntry(mode === "after_exit" ? { mode: "after_exit" } : { mode: mode as Entry["mode"], cooldown: undefined })
+            }
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="after_exit">Again after the previous run ends</SelectItem>
               <SelectItem value="once">Only once per contact</SelectItem>
+              <SelectItem value="restart">Restart the run on a new trigger event</SelectItem>
             </SelectContent>
           </Select>
+          {entry.mode === "restart" && (
+            <p className="text-[11px] text-gray-500 mt-1">
+              A contact already in the automation goes back to the first step with the new event, instead of being
+              skipped. The same run starts over; it is not counted again. Good for &quot;14 days without a login&quot;.
+            </p>
+          )}
           {entry.mode === "after_exit" && (
             <div className="mt-2 flex items-center gap-2 text-[12px] text-gray-600">
               <span>Not again within</span>

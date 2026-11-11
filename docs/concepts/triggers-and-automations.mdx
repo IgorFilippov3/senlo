@@ -35,9 +35,10 @@ An **automation** is a workflow drawn in the automation builder. It starts with 
 | --- | --- |
 | **Send email** | Sends a trigger's template to the contact, in the contact's locale. The template sees the contact and the event's `payload` as `{{event.*}}` ([merge tags](./merge-tags.mdx#automation-emails)). |
 | **Wait** | Waits a number of minutes, hours or days, or **until a date** read from the trigger event or the contact, with an offset ("3 days before `trial_ends_at`"). |
-| **Condition** | Takes the **yes** or **no** branch. **Rules** check the contact, the trigger event, the contact's history and earlier emails without any code of yours; **Call my API** posts the contact and the trigger `event` (`{ name, payload }`) to your URL, and a `200` means **yes**. |
+| **Condition** | Takes the **yes** or **no** branch. **Rules** check the contact, the trigger event, the contact's history and earlier emails without any code of yours; **Call my API** posts the contact and the trigger `event` (`{ name, payload }`) to your URL, and a `200` means **yes**. Your endpoint's answer is kept as the step's output (`{{steps.<id>.body.*}}`). |
 | **Wait for event** | Waits until the contact does an event (**yes**) or a time passes (**no**). If they already did it since the run started, it takes **yes** at once. The event's `payload` is this step's output for later rules. |
 | **Update contact** | Merges fields into the contact's metadata (tags are added, not replaced). |
+| **HTTP request** | Calls a URL of yours (a webhook, your CRM, Slack's incoming webhook): method, headers, a JSON body with merge tags (`{{contact.email}}`, `{{event.total}}`, `{{steps.<id>.body.*}}`), a timeout (10 seconds by default, 30 at most). A `2xx` answer goes on; its status and JSON body (up to 64 KB, a longer one is cut and flagged) are the step's output for later steps: `{ status, body }`. Other answers fail the step. Header values are stored encrypted and never shown again in the builder. |
 | **Exit** | Ends the run. |
 
 Events an automation can start on:
@@ -74,13 +75,23 @@ Each automation has **Settings** next to Go Live:
 
 - **Kind.** *Transactional* (the default) is mail the contact expects from what they did: an unsubscribed or suppressed contact's emails are skipped and the rest of the run goes on. *Lifecycle* is marketing mail (win-back, nurture, upsell): such a contact leaves the automation the moment they unsubscribe or bounce, and it never starts for them. Put `{{unsubscribe_url}}` in every lifecycle email.
 - **Goal.** An event, with optional filters, that means the automation did its job ("`payment_succeeded`" for a dunning flow). When the contact does it, their run ends as a success wherever it is, so no further reminder goes out. The header shows runs started and how many reached the goal (the conversion).
-- **Entry.** *Again after the previous run ends* (the default), with an optional cooldown ("not again within 7 days of the last start"), or *only once per contact*.
+- **Entry.** *Again after the previous run ends* (the default), with an optional cooldown ("not again within 7 days of the last start"), *only once per contact*, or *restart the run on a new trigger event*: a contact already in the automation goes back to its first step with the new event instead of being skipped. It is the same run starting over, not a new one (on senlo.io it is not counted again). This is how "14 days without a login" works: trigger on `logged_in`, wait 14 days, send; every login starts the wait over.
 
 Like a graph change, saving the settings of an active automation publishes a new version: runs in progress keep the settings they started with.
 
-A run that is no longer wanted (the invoice got paid, the user left) is ended with [`POST /api/automations/cancel`](../api/cancel-automations.mdx).
+A run that is no longer wanted (the invoice got paid, the user left) is ended with [`POST /api/automations/cancel`](../api/cancel-automations.mdx), or with **Cancel run** in the editor.
 
-When a step fails because something is briefly unavailable (the Condition URL times out or answers `5xx` or `429`), it is retried a few times with growing pauses. If it still fails, or fails for a lasting reason, the step's **If this step fails** setting decides: **Stop the run** (the default) or **Continue**: a Condition then takes its **No** branch, any other step is skipped and the run goes on. A run whose step is lost on a server restart is picked up again within a few minutes.
+### Runs and test runs
+
+**Runs** in the editor's header lists the automation's runs, newest first, filtered by status or contact. A run opens as a timeline: each step, the branch it took, why it was skipped (an unsubscribed contact, the frequency cap), its error, and the run's context (the trigger event and step outputs). **Contact history** shows one contact's runs across all automations of the workspace.
+
+**Test run** runs the saved draft for one contact of the workspace with a sample payload of the trigger event, live or not. Its emails are really sent; delays are skipped and a wait for an event lasts at most a minute. A test run is not counted as a run (on senlo.io, its emails count as emails), does not block a real run of the contact, and stays out of the statistics. Test runs show in the runs list when *Test runs* is ticked.
+
+### Frequency cap
+
+Under the workspace's **General Settings**, *Automation frequency cap* limits how many automation emails one contact gets: "at most 3 emails per contact in 7 days". An email step over the cap is skipped and the run goes on. Emails sent through [`POST /api/triggered`](../api/triggered.mdx) and test runs are not counted against it.
+
+When a step fails because something is briefly unavailable (the Condition or HTTP request URL times out or answers `5xx` or `429`), it is retried a few times with growing pauses. If it still fails, or fails for a lasting reason, the step's **If this step fails** setting decides: **Stop the run** (the default) or **Continue**: a Condition then takes its **No** branch, any other step is skipped and the run goes on. A run whose step is lost on a server restart is picked up again within a few minutes.
 
 Going live, and saving an active automation, publishes its graph as a new version. New runs start on the latest version; a run in progress finishes on the version it started on, so editing a live automation never breaks a contact halfway through. Saving an active automation therefore needs a complete graph; pause it to keep an unfinished draft. While a contact has a run in progress in an automation, the same event does not start a second run for them in that automation.
 

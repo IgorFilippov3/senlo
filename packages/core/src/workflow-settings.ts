@@ -34,8 +34,8 @@ export function validateWorkflowSettings(value: unknown): string[] {
 
   if (settings.entry !== undefined) {
     const entry = settings.entry as WorkflowSettings["entry"];
-    if (!entry || (entry.mode !== "once" && entry.mode !== "after_exit")) {
-      problems.push('Entry must be "once" or "after_exit".');
+    if (!entry || (entry.mode !== "once" && entry.mode !== "after_exit" && entry.mode !== "restart")) {
+      problems.push('Entry must be "once", "after_exit" or "restart".');
     }
     const cooldown = entry?.cooldown;
     if (

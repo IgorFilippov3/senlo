@@ -1,4 +1,4 @@
-import { eq, and, sql, lt, asc, isNotNull, isNull, max } from "drizzle-orm";
+import { eq, and, sql, lt, asc, desc, isNotNull, isNull, max } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import {
@@ -10,7 +10,9 @@ import {
   WorkflowExecution,
   WorkflowStepExecution,
   WorkflowNodeStats,
+  WorkflowRunFilter,
   WorkflowRunStats,
+  WorkflowRunSummary,
 } from "@senlo/core";
 
 export class WorkflowExecutionRepository implements IWorkflowExecutionRepository {
@@ -40,8 +42,10 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
         context: data.context,
         currentNodeId: data.currentNodeId,
         goalEvent: data.goalEvent ?? null,
+        isTest: data.isTest ?? false,
         wakeAt: new Date(),
       })
+      // A test run is outside the index's predicate, so it never conflicts.
       .onConflictDoNothing()
       .returning();
     return row ? this.mapToExecution(row) : null;
@@ -67,6 +71,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
           eq(schema.workflowExecutions.workflowId, workflowId),
           eq(schema.workflowExecutions.contactId, contactId),
           eq(schema.workflowExecutions.status, "RUNNING"),
+          eq(schema.workflowExecutions.isTest, false),
         ),
       );
     return row ? this.mapToExecution(row) : null;
@@ -120,10 +125,14 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
     });
   }
 
-  async findDue(before: Date, limit: number): Promise<Array<{ id: number; currentNodeId: string }>> {
+  async findDue(before: Date, limit: number): Promise<Array<{ id: number; currentNodeId: string; generation: number }>> {
     // Picked through (status, wake_at).
     const rows = await this.db
-      .select({ id: schema.workflowExecutions.id, currentNodeId: schema.workflowExecutions.currentNodeId })
+      .select({
+        id: schema.workflowExecutions.id,
+        currentNodeId: schema.workflowExecutions.currentNodeId,
+        generation: schema.workflowExecutions.generation,
+      })
       .from(schema.workflowExecutions)
       .where(
         and(
@@ -134,7 +143,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
       )
       .orderBy(asc(schema.workflowExecutions.wakeAt))
       .limit(limit);
-    return rows.map((r) => ({ id: r.id, currentNodeId: r.currentNodeId! }));
+    return rows.map((r) => ({ id: r.id, currentNodeId: r.currentNodeId!, generation: r.generation }));
   }
 
   async findWaiting(contactId: number, eventName: string): Promise<WorkflowExecution[]> {
@@ -197,6 +206,72 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
     return rows.length > 0;
   }
 
+  async restart(
+    id: number,
+    data: { versionId: number; context: ExecutionContext; currentNodeId: string; goalEvent: string | null },
+  ): Promise<WorkflowExecution | null> {
+    const now = new Date();
+    const [row] = await this.db
+      .update(schema.workflowExecutions)
+      .set({
+        versionId: data.versionId,
+        context: data.context,
+        currentNodeId: data.currentNodeId,
+        goalEvent: data.goalEvent,
+        generation: sql`${schema.workflowExecutions.generation} + 1`,
+        waitingEvent: null,
+        wakeAt: now,
+        startedAt: now,
+        updatedAt: now,
+      })
+      .where(and(eq(schema.workflowExecutions.id, id), eq(schema.workflowExecutions.status, "RUNNING")))
+      .returning();
+    return row ? this.mapToExecution(row) : null;
+  }
+
+  async cancel(id: number, exitReason: ExecutionExitReason): Promise<boolean> {
+    const now = new Date();
+    const rows = await this.db
+      .update(schema.workflowExecutions)
+      .set({ status: "CANCELLED", exitReason, completedAt: now, wakeAt: null, waitingEvent: null, updatedAt: now })
+      .where(and(eq(schema.workflowExecutions.id, id), eq(schema.workflowExecutions.status, "RUNNING")))
+      .returning({ id: schema.workflowExecutions.id });
+    return rows.length > 0;
+  }
+
+  async listRuns(workflowId: number, filter: WorkflowRunFilter): Promise<WorkflowRunSummary[]> {
+    const w = schema.workflowExecutions;
+    const rows = await this.db
+      .select({ run: w, contactEmail: schema.contacts.email })
+      .from(w)
+      .leftJoin(schema.contacts, eq(schema.contacts.id, w.contactId))
+      .where(
+        and(
+          eq(w.workflowId, workflowId),
+          filter.includeTests ? undefined : eq(w.isTest, false),
+          filter.status ? eq(w.status, filter.status) : undefined,
+          filter.contactId !== undefined ? eq(w.contactId, filter.contactId) : undefined,
+          filter.beforeId !== undefined ? lt(w.id, filter.beforeId) : undefined,
+        ),
+      )
+      .orderBy(desc(w.id))
+      .limit(filter.limit);
+    return rows.map((r) => mapSummary(r.run, { contactEmail: r.contactEmail }));
+  }
+
+  async listContactRuns(contactId: number, limit: number): Promise<WorkflowRunSummary[]> {
+    const w = schema.workflowExecutions;
+    const rows = await this.db
+      .select({ run: w, workflowName: schema.workflows.name, contactEmail: schema.contacts.email })
+      .from(w)
+      .innerJoin(schema.workflows, eq(schema.workflows.id, w.workflowId))
+      .leftJoin(schema.contacts, eq(schema.contacts.id, w.contactId))
+      .where(eq(w.contactId, contactId))
+      .orderBy(desc(w.id))
+      .limit(limit);
+    return rows.map((r) => mapSummary(r.run, { contactEmail: r.contactEmail, workflowName: r.workflowName }));
+  }
+
   async setStepOutput(id: number, nodeId: string, output: unknown): Promise<void> {
     await this.db
       .update(schema.workflowExecutions)
@@ -240,7 +315,11 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
       .select({ at: max(schema.workflowExecutions.startedAt) })
       .from(schema.workflowExecutions)
       .where(
-        and(eq(schema.workflowExecutions.workflowId, workflowId), eq(schema.workflowExecutions.contactId, contactId)),
+        and(
+          eq(schema.workflowExecutions.workflowId, workflowId),
+          eq(schema.workflowExecutions.contactId, contactId),
+          eq(schema.workflowExecutions.isTest, false),
+        ),
       );
     return row?.at ?? null;
   }
@@ -253,7 +332,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
         count: sql<number>`count(*)::int`,
       })
       .from(schema.workflowExecutions)
-      .where(eq(schema.workflowExecutions.workflowId, workflowId))
+      .where(and(eq(schema.workflowExecutions.workflowId, workflowId), eq(schema.workflowExecutions.isTest, false)))
       .groupBy(schema.workflowExecutions.status, schema.workflowExecutions.exitReason);
     const stats: WorkflowRunStats = { started: 0, running: 0, completed: 0, goal: 0, failed: 0, cancelled: 0 };
     for (const row of rows) {
@@ -268,12 +347,16 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
     return stats;
   }
 
-  async claimStep(executionId: number, nodeId: string): Promise<WorkflowStepExecution> {
+  async claimStep(executionId: number, nodeId: string, generation = 0): Promise<WorkflowStepExecution> {
     const [created] = await this.db
       .insert(schema.workflowStepExecutions)
-      .values({ executionId, nodeId, status: "PENDING" })
+      .values({ executionId, nodeId, generation, status: "PENDING" })
       .onConflictDoNothing({
-        target: [schema.workflowStepExecutions.executionId, schema.workflowStepExecutions.nodeId],
+        target: [
+          schema.workflowStepExecutions.executionId,
+          schema.workflowStepExecutions.nodeId,
+          schema.workflowStepExecutions.generation,
+        ],
       })
       .returning();
     if (created) return mapStep(created);
@@ -284,6 +367,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
         and(
           eq(schema.workflowStepExecutions.executionId, executionId),
           eq(schema.workflowStepExecutions.nodeId, nodeId),
+          eq(schema.workflowStepExecutions.generation, generation),
         ),
       );
     return mapStep(existing);
@@ -299,13 +383,17 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
       .where(eq(schema.workflowStepExecutions.id, id));
   }
 
-  async getStepExecutions(
-    executionId: number,
-  ): Promise<WorkflowStepExecution[]> {
+  async getStepExecutions(executionId: number, generation?: number): Promise<WorkflowStepExecution[]> {
     const rows = await this.db
       .select()
       .from(schema.workflowStepExecutions)
-      .where(eq(schema.workflowStepExecutions.executionId, executionId));
+      .where(
+        and(
+          eq(schema.workflowStepExecutions.executionId, executionId),
+          generation !== undefined ? eq(schema.workflowStepExecutions.generation, generation) : undefined,
+        ),
+      )
+      .orderBy(asc(schema.workflowStepExecutions.startedAt), asc(schema.workflowStepExecutions.id));
 
     return rows.map(mapStep);
   }
@@ -325,7 +413,7 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
           schema.workflowExecutions.id,
         ),
       )
-      .where(eq(schema.workflowExecutions.workflowId, workflowId))
+      .where(and(eq(schema.workflowExecutions.workflowId, workflowId), eq(schema.workflowExecutions.isTest, false)))
       .groupBy(
         schema.workflowStepExecutions.nodeId,
         schema.workflowStepExecutions.status,
@@ -361,6 +449,26 @@ export class WorkflowExecutionRepository implements IWorkflowExecutionRepository
 
     return Array.from(statsMap.values());
   }
+}
+
+function mapSummary(
+  row: typeof schema.workflowExecutions.$inferSelect,
+  extra: { contactEmail: string | null; workflowName?: string },
+): WorkflowRunSummary {
+  return {
+    id: row.id,
+    workflowId: row.workflowId,
+    ...(extra.workflowName !== undefined ? { workflowName: extra.workflowName } : {}),
+    contactId: row.contactId,
+    contactEmail: extra.contactEmail,
+    status: row.status as WorkflowRunSummary["status"],
+    exitReason: row.exitReason,
+    currentNodeId: row.currentNodeId,
+    isTest: row.isTest,
+    versionId: row.versionId,
+    startedAt: row.startedAt,
+    completedAt: row.completedAt,
+  };
 }
 
 function mapStep(row: typeof schema.workflowStepExecutions.$inferSelect): WorkflowStepExecution {

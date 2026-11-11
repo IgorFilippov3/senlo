@@ -72,6 +72,7 @@ describe("run context", () => {
       },
       locale: "de",
       dedupeKey: `wf-${run!.id}-mail`,
+      workflowExecutionId: run!.id,
     });
   });
 

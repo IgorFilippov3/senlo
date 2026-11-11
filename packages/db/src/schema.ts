@@ -150,6 +150,8 @@ export const projects = pgTable(
     aiProviderId: integer("ai_provider_id").references(() => aiProviders.id, {
       onDelete: "set null",
     }),
+    /** `ProjectAutomationSettings`: the frequency cap of automation emails. */
+    automationSettings: jsonb("automation_settings").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -399,6 +401,8 @@ export const triggeredSendLogs = pgTable(
      * a second send with the key reuses this row instead of sending again.
      */
     dedupeKey: text("dedupe_key").unique("triggered_send_logs_dedupe_key_unq"),
+    /** The automation run that sent it, for the frequency cap; null for an API send. */
+    workflowExecutionId: integer("workflow_execution_id"),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -419,6 +423,10 @@ export const triggeredSendLogs = pgTable(
       t.email,
       t.sentAt.desc(),
     ),
+    // The frequency cap: automation emails to an address lately.
+    executionEmailSentIdx: index("triggered_send_logs_email_sent_at_auto_idx")
+      .on(t.email, t.sentAt)
+      .where(sql`${t.workflowExecutionId} IS NOT NULL`),
   }),
 );
 
@@ -614,6 +622,8 @@ export const workflowVersions = pgTable(
     /** `{ nodes, edges }` as saved. */
     graph: jsonb("graph").notNull(),
     settings: jsonb("settings").notNull().default({}),
+    /** A snapshot of the draft for a test run (numbered below zero); never active. */
+    isTest: boolean("is_test").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -665,6 +675,10 @@ export const workflowExecutions = pgTable(
     waitingEvent: text("waiting_event"),
     /** The goal event of the run's version; the run ends when the contact does it. */
     goalEvent: text("goal_event"),
+    /** A test run from the editor: not counted by the plan, not in stats, no delays. */
+    isTest: boolean("is_test").notNull().default(false),
+    /** Passes through the graph: a `restart` entry starts the run over with the next one. */
+    generation: integer("generation").notNull().default(0),
     /** `ExecutionExitReason`: why the run ended. */
     exitReason: text("exit_reason"),
     startedAt: timestamp("started_at", { withTimezone: true })
@@ -678,9 +692,10 @@ export const workflowExecutions = pgTable(
   (t) => ({
     // One run per contact per workflow at a time, decided by the database:
     // two events in a row can no longer both start one.
-    runningUnq: uniqueIndex("workflow_executions_running_contact_unq")
+    // Renamed with phase 5 (test runs left out), so `db:push` replaces the old one.
+    runningUnq: uniqueIndex("workflow_executions_running_real_contact_unq")
       .on(t.workflowId, t.contactId)
-      .where(sql`${t.status} = 'RUNNING'`),
+      .where(sql`${t.status} = 'RUNNING' AND ${t.isTest} = false`),
     statusWakeIdx: index("workflow_executions_status_wake_at_idx").on(t.status, t.wakeAt),
     // An event finds the runs waiting for it and the runs it completes.
     waitingIdx: index("workflow_executions_contact_waiting_idx")
@@ -700,6 +715,8 @@ export const workflowStepExecutions = pgTable(
       .notNull()
       .references(() => workflowExecutions.id, { onDelete: "cascade" }),
     nodeId: text("node_id").notNull(),
+    /** The run's pass through the graph this row belongs to (see `workflow_executions.generation`). */
+    generation: integer("generation").notNull().default(0),
     status: text("status").notNull(),
     result: jsonb("result"),
     startedAt: timestamp("started_at", { withTimezone: true })
@@ -709,6 +726,10 @@ export const workflowStepExecutions = pgTable(
   },
   (t) => ({
     // Each step runs at most once per run: a redelivered job finds its row.
-    executionNodeUnq: unique("workflow_step_executions_execution_node_unq").on(t.executionId, t.nodeId),
+    executionNodeUnq: unique("workflow_step_executions_execution_node_generation_unq").on(
+      t.executionId,
+      t.nodeId,
+      t.generation,
+    ),
   }),
 );

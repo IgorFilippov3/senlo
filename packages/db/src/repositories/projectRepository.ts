@@ -4,7 +4,7 @@ import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 
-import type { IProjectRepository, Project } from "@senlo/core";
+import type { IProjectRepository, Project, ProjectAutomationSettings } from "@senlo/core";
 
 /**
  * Repository for managing projects in the database.
@@ -39,6 +39,7 @@ export class ProjectRepository
       description: row.description ?? undefined,
       providerId: row.providerId ?? undefined,
       aiProviderId: row.aiProviderId ?? undefined,
+      automationSettings: (row.automationSettings as ProjectAutomationSettings | null) ?? {},
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -104,6 +105,7 @@ export class ProjectRepository
       providerId?: number | null;
       aiProviderId?: number | null;
       organizationId?: string | null;
+      automationSettings?: ProjectAutomationSettings;
     },
   ): Promise<Project | null> {
     const [row] = await this.db

@@ -146,24 +146,40 @@ export async function prepareAutomationsForPush(db: Db): Promise<AutomationsPreP
   if (!(await tableExists(db, "workflow_executions"))) {
     return { duplicateRunsCancelled: 0, duplicateStepsDeleted: 0 };
   }
+  // Test runs (phase 5) may run beside a real one; before the column exists there are none.
+  const real = (await columnExists(db, "workflow_executions", "is_test")) ? sql`AND is_test = false` : sql``;
   const runs = await db.execute(sql`
     UPDATE workflow_executions
     SET status = 'CANCELLED', completed_at = now()
-    WHERE status = 'RUNNING'
+    WHERE status = 'RUNNING' ${real}
       AND id NOT IN (
-        SELECT max(id) FROM workflow_executions WHERE status = 'RUNNING' GROUP BY workflow_id, contact_id
+        SELECT max(id) FROM workflow_executions WHERE status = 'RUNNING' ${real} GROUP BY workflow_id, contact_id
       )
   `);
+  // One row per step and pass (generation, phase 5).
+  const samePass = (await columnExists(db, "workflow_step_executions", "generation"))
+    ? sql`AND s.generation = newer.generation`
+    : sql``;
   const steps = (await tableExists(db, "workflow_step_executions"))
     ? await db.execute(sql`
         DELETE FROM workflow_step_executions s
         USING workflow_step_executions newer
         WHERE s.execution_id = newer.execution_id
           AND s.node_id = newer.node_id
+          ${samePass}
           AND s.id < newer.id
       `)
     : null;
   return { duplicateRunsCancelled: affected(runs), duplicateStepsDeleted: steps ? affected(steps) : 0 };
+}
+
+async function columnExists(db: Db, table: string, column: string): Promise<boolean> {
+  const result = (await db.execute(sql`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns WHERE table_name = ${table} AND column_name = ${column}
+    ) AS present
+  `)) as unknown as { rows: Array<{ present: boolean }> };
+  return Boolean(result.rows[0]?.present);
 }
 
 async function tableExists(db: Db, table: string): Promise<boolean> {

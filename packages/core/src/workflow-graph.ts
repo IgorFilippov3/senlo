@@ -11,6 +11,7 @@
 
 import { isValidEventName } from "./workflow-events";
 import { validateConditionGroup } from "./workflow-conditions";
+import { validateHttpStep } from "./workflow-http";
 
 export type GraphNodeRef = {
   id: string;
@@ -44,6 +45,7 @@ const LINEAR_NODE_TYPES = new Set([
   "action",
   "delay",
   "update_contact",
+  "http_request",
 ]);
 
 const CONDITION_HANDLES = new Set(["yes", "no"]);
@@ -341,6 +343,10 @@ export function validateWorkflowGraph(
       if (data.filters !== undefined) {
         reasons.push(...validateConditionGroup(data.filters, "trigger").map((r) => `Wait for event filters: ${r.replace("A trigger filter", "A filter")}`));
       }
+    }
+
+    if (node.type === "http_request" && node.data !== undefined) {
+      reasons.push(...validateHttpStep(node.data));
     }
 
     if (node.type === "delay" && node.data?.mode === "until") {

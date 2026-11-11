@@ -12,6 +12,7 @@ import { useSenloDialogs } from "../dialogs/registry";
 import { useSenloNavigation } from "../layout/navigation-context";
 import { useCurrentWorkspace } from "./WorkspaceScope";
 import { LogRetentionCard } from "./LogRetentionCard";
+import { FrequencyCapCard } from "./FrequencyCapCard";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
 export interface WorkspaceSettingsScreenProps {
@@ -57,9 +58,10 @@ export function WorkspaceSettingsScreen({ retentionNote }: WorkspaceSettingsScre
             error={update.error?.message}
             // A failed lookup shows no card rather than a wrong "indefinitely".
             retention={
-              retention.isError ? null : (
-                <LogRetentionCard days={retention.data?.days} note={retentionNote} />
-              )
+              <div className="space-y-8">
+                {retention.isError ? null : <LogRetentionCard days={retention.data?.days} note={retentionNote} />}
+                <FrequencyCapCard projectId={workspace.id} />
+              </div>
             }
           />
         )}

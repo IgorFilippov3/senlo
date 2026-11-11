@@ -10,6 +10,7 @@ import { validateWorkflowGraph } from "@senlo/core";
 import { AutomationBuilder, WorkflowSettingsForm, useAutomationStore } from "@senlo/automation-builder";
 import { Button, Dialog } from "@senlo/ui";
 import { WorkflowEditorShell } from "../automations/WorkflowEditorShell";
+import { TestRunDialog, WorkflowRunsDialog } from "../automations/RunsPanel";
 import { useProjectCampaigns } from "../data/campaigns";
 import { useLogRetention } from "../data/workspaces";
 import {
@@ -18,6 +19,7 @@ import {
   useRecentEventNames,
   useSaveWorkflowGraph,
   useSaveWorkflowSettings,
+  useStartTestRun,
   useWorkflowRunStats,
   useSetWorkflowStatus,
   useWorkflowStats,
@@ -77,6 +79,30 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
       setSettingsErrors(error instanceof WorkflowNotReadyError ? error.reasons : [(error as Error).message]);
     }
   };
+  const [runsOpen, setRunsOpen] = useState(false);
+  const [openRunId, setOpenRunId] = useState<number | null>(null);
+  const [testOpen, setTestOpen] = useState(false);
+  const [testErrors, setTestErrors] = useState<string[] | null>(null);
+  const testRun = useStartTestRun(workflow.id);
+
+  /**
+   * A test run executes the saved draft, so a paused or draft automation is
+   * saved first. A live one is not (its save publishes): it tests the graph
+   * as last saved.
+   */
+  const startTestRun = async (input: { email: string; payload: Record<string, unknown> }) => {
+    setTestErrors(null);
+    try {
+      if (status !== "ACTIVE") await save.mutateAsync({ nodes, edges });
+      const { runId } = await testRun.mutateAsync(input);
+      setTestOpen(false);
+      setOpenRunId(runId);
+      setRunsOpen(true);
+    } catch (error) {
+      setTestErrors(error instanceof WorkflowNotReadyError ? error.reasons : [(error as Error).message]);
+    }
+  };
+
   const { data: stats = [] } = useWorkflowStats(workflow.id, {
     enabled: status === "ACTIVE",
     refetchInterval: 10000,
@@ -170,6 +196,14 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
         setSettingsErrors(null);
         setSettingsDraft(settings);
       }}
+      onOpenRuns={() => {
+        setOpenRunId(null);
+        setRunsOpen(true);
+      }}
+      onTestRun={() => {
+        setTestErrors(null);
+        setTestOpen(true);
+      }}
       summary={runStats && runStats.started > 0 ? runSummary(runStats, !!settings.goal) : undefined}
     >
       <AutomationBuilder
@@ -178,6 +212,21 @@ export function WorkflowEditorScreen({ workflow, nodes: savedNodes, edges: saved
         eventNames={eventNames}
         fieldSuggestions={fieldSuggestions}
         historyRetentionDays={retention?.days}
+      />
+      <WorkflowRunsDialog
+        isOpen={runsOpen}
+        onClose={() => setRunsOpen(false)}
+        workflowId={workflow.id}
+        projectId={workflow.projectId}
+        initialRunId={openRunId}
+      />
+      <TestRunDialog
+        isOpen={testOpen}
+        onClose={() => setTestOpen(false)}
+        eventName={typeof triggerEvent === "string" && triggerEvent !== "" ? triggerEvent : null}
+        onStart={(input) => void startTestRun(input)}
+        isStarting={save.isPending || testRun.isPending}
+        errors={testErrors}
       />
       <Dialog
         isOpen={settingsDraft !== null}

@@ -114,8 +114,8 @@ describe("guarded run transitions", () => {
     await executions.moveCursor(c.run.id, { from: "t", to: "a", wakeAt: new Date(now + 60_000) });
 
     expect(await executions.findDue(new Date(now - 2 * 60_000), 10)).toEqual([
-      { id: b.run.id, currentNodeId: "a" },
-      { id: a.run.id, currentNodeId: "a" },
+      { id: b.run.id, currentNodeId: "a", generation: 0 },
+      { id: a.run.id, currentNodeId: "a", generation: 0 },
     ]);
     expect(await executions.findDue(new Date(now), 1)).toHaveLength(1);
 
@@ -191,8 +191,8 @@ describe("guarded run transitions", () => {
 describe("db:upgrade-automations --before-push", () => {
   it("leaves one RUNNING run per contact and workflow and one row per step", async () => {
     // Rows as the old engine could leave them; the indexes are dropped to allow them.
-    await db.execute(sql`DROP INDEX workflow_executions_running_contact_unq`);
-    await db.execute(sql`ALTER TABLE workflow_step_executions DROP CONSTRAINT workflow_step_executions_execution_node_unq`);
+    await db.execute(sql`DROP INDEX workflow_executions_running_real_contact_unq`);
+    await db.execute(sql`ALTER TABLE workflow_step_executions DROP CONSTRAINT workflow_step_executions_execution_node_generation_unq`);
     const ids = await seedWorkflow();
     const values = { workflowId: ids.workflowId, contactId: ids.contactId, status: "RUNNING" };
     const [older] = await db.insert(schema.workflowExecutions).values(values).returning();

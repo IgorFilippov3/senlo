@@ -29,6 +29,27 @@ export function useLogRetention(projectId: number) {
   });
 }
 
+/** The workspace's automation limits (frequency cap). */
+export function useAutomationSettings(projectId: number) {
+  const actions = useSenloActions();
+  return useQuery({
+    queryKey: queryKeys.projects.automationSettings(projectId),
+    queryFn: async () => unwrap(await actions.workspaces.automationSettings(projectId)),
+    enabled: !!projectId,
+  });
+}
+
+/** Sets the frequency cap, or removes it with `frequencyCap: null`. */
+export function useUpdateAutomationSettings(projectId: number) {
+  const actions = useSenloActions();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (settings: { frequencyCap: { emails: number; days: number } | null }) =>
+      unwrap(await actions.workspaces.updateAutomationSettings(projectId, settings)),
+    onSuccess: (settings) => queryClient.setQueryData(queryKeys.projects.automationSettings(projectId), settings),
+  });
+}
+
 /** Rejects with the message to show when the form does not validate. */
 export function useCreateProject() {
   const actions = useSenloActions();

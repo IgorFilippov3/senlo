@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ActionResult, Workflow, WorkflowSettings } from "@senlo/core";
+import type { RunsFilter } from "./actions";
 import { useSenloActions } from "./provider";
 import { queryKeys } from "./query-keys";
 import { unwrap } from "./result";
@@ -86,6 +87,59 @@ export function useFieldSuggestions(projectId: number, eventName: string | null)
     queryFn: async () => unwrap(await actions.workflows.fieldSuggestions(projectId, eventName)),
     enabled: !!projectId,
     staleTime: 60_000,
+  });
+}
+
+/** A page of the workflow's runs (newest first); refreshes while open. */
+export function useWorkflowRuns(workflowId: number, filter: RunsFilter, options?: { refetchInterval?: number }) {
+  const actions = useSenloActions();
+  return useQuery({
+    queryKey: queryKeys.workflows.runs(workflowId, { ...filter }),
+    queryFn: async () => unwrap(await actions.workflows.runs(workflowId, filter)),
+    enabled: !!workflowId,
+    refetchInterval: options?.refetchInterval,
+  });
+}
+
+/** One run with its steps, context and graph; refreshes while it is in progress. */
+export function useWorkflowRun(runId: number | null) {
+  const actions = useSenloActions();
+  return useQuery({
+    queryKey: queryKeys.workflows.run(runId ?? 0),
+    queryFn: async () => unwrap(await actions.workflows.run(runId!)),
+    enabled: !!runId,
+    refetchInterval: (query) => (query.state.data?.run.status === "RUNNING" ? 5000 : false),
+  });
+}
+
+/** A contact's runs in every workflow of the project (automation history). */
+export function useContactRuns(projectId: number, email: string | null) {
+  const actions = useSenloActions();
+  return useQuery({
+    queryKey: queryKeys.workflows.contactRuns(projectId, email ?? ""),
+    queryFn: async () => unwrap(await actions.workflows.contactRuns(projectId, email!)),
+    enabled: !!projectId && !!email,
+  });
+}
+
+/** Cancels a run in progress; the runs lists and the run refetch. */
+export function useCancelRun() {
+  const actions = useSenloActions();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (runId: number) => unwrap(await actions.workflows.cancelRun(runId)),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.workflows.all }),
+  });
+}
+
+/** Starts a test run of the saved draft; rejects with `WorkflowNotReadyError` when the draft cannot run. */
+export function useStartTestRun(workflowId: number) {
+  const actions = useSenloActions();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { email: string; payload: Record<string, unknown> }) =>
+      unwrapWorkflow(await actions.workflows.testRun(workflowId, input)),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.workflows.allRuns() }),
   });
 }
 

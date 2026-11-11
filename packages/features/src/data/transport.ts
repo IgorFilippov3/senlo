@@ -15,7 +15,7 @@ export type ActionTransport = (name: string, args: unknown[]) => Promise<any>;
 
 /** Every method of `SenloActions`, by group: what `createClientActions` builds. */
 export const SENLO_ACTION_METHODS = {
-  workspaces: ["list", "create", "update", "delete", "logRetention"],
+  workspaces: ["list", "create", "update", "delete", "logRetention", "automationSettings", "updateAutomationSettings"],
   templates: ["list", "create", "delete"],
   campaigns: ["listForProject", "events", "linkStats", "timeSeries", "createTriggered", "updateTriggered", "delete"],
   emailProviders: ["list", "create", "update", "toggle", "delete"],
@@ -23,7 +23,7 @@ export const SENLO_ACTION_METHODS = {
   apiKeys: ["list", "create", "delete"],
   suppressions: ["listForProject", "delete"],
   dashboard: ["get"],
-  workflows: ["list", "create", "saveGraph", "setStatus", "delete", "stats", "updateSettings", "runStats", "eventNames", "fieldSuggestions"],
+  workflows: ["list", "create", "saveGraph", "setStatus", "delete", "stats", "updateSettings", "runStats", "eventNames", "fieldSuggestions", "runs", "run", "cancelRun", "testRun", "contactRuns"],
 } as const satisfies { [G in keyof SenloActions]: readonly (keyof SenloActions[G])[] };
 
 /** `"group.method"` for every method of an actions interface. */

@@ -13,6 +13,7 @@ export * from "./services/ai";
 export * from "./services/audienceService";
 export * from "./services/authService";
 export * from "./services/automationService";
+export * from "./services/automationRunsService";
 export * from "./services/campaignService";
 export * from "./services/dashboardService";
 export * from "./services/emailProviderService";

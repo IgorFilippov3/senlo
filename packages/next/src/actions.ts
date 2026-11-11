@@ -106,6 +106,12 @@ const handlers: HandlerTable<SenloServerActions> = {
   "workspaces.create": form((s, userId, values) => s.project.create(userId, values)),
   "workspaces.update": form((s, userId, projectId: number, values) => s.project.update(userId, projectId, values)),
   "workspaces.logRetention": read((s, userId, projectId: number) => s.project.getLogRetention(userId, projectId)),
+  "workspaces.automationSettings": read((s, userId, projectId: number) =>
+    s.project.getAutomationSettings(userId, projectId),
+  ),
+  "workspaces.updateAutomationSettings": write((s, userId, projectId: number, settings: unknown) =>
+    s.project.updateAutomationSettings(userId, projectId, settings),
+  ),
   "workspaces.delete": write(async (s, userId, projectId: number) => {
     await s.project.delete(userId, projectId);
   }),
@@ -208,6 +214,17 @@ const handlers: HandlerTable<SenloServerActions> = {
   "workflows.eventNames": read((s, userId, projectId: number) => s.workflow.recentEventNames(userId, projectId)),
   "workflows.fieldSuggestions": read((s, userId, projectId: number, eventName: string | null) =>
     s.workflow.fieldSuggestions(userId, projectId, eventName),
+  ),
+  "workflows.runs": read((s, userId, workflowId: number, filter: unknown) =>
+    s.automationRuns.listRuns(userId, workflowId, filter),
+  ),
+  "workflows.run": read((s, userId, runId: number) => s.automationRuns.getRun(userId, runId)),
+  // The runs list and the timeline refetch through their queries; no page refresh.
+  "workflows.cancelRun": write((s, userId, runId: number) => s.automationRuns.cancelRun(userId, runId), false),
+  "workflows.testRun": write((s, userId, workflowId: number, input: unknown) =>
+    s.automationRuns.startTestRun(userId, workflowId, input), false),
+  "workflows.contactRuns": read((s, userId, projectId: number, email: string) =>
+    s.automationRuns.contactRuns(userId, projectId, email),
   ),
 
   "editor.save": {

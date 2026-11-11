@@ -15,9 +15,12 @@ import type {
   PublicEmailProvider,
   Suppression,
   TimeSeriesData,
+  ProjectAutomationSettings,
   Workflow,
   WorkflowNodeStats,
+  WorkflowRunDetail,
   WorkflowRunStats,
+  WorkflowRunSummary,
   WorkflowSettings,
 } from "@senlo/core";
 import type { CreateWorkspaceValues } from "../workspaces/CreateWorkspaceDialog";
@@ -25,6 +28,15 @@ import type { WorkspaceFormValues } from "../workspaces/WorkspaceFields";
 import type { CreateTemplateValues } from "../templates/CreateTemplateDialog";
 import type { EmailProviderValues } from "../providers/EmailProviderDialog";
 import type { AiProviderValues } from "../providers/AiProviderDialog";
+
+/** Filters of the runs list. */
+export interface RunsFilter {
+  status?: WorkflowRunSummary["status"];
+  email?: string;
+  includeTests?: boolean;
+  beforeId?: number;
+  limit?: number;
+}
 
 /** Raw form values; the server validates them. */
 export type FormValues = Record<string, unknown>;
@@ -43,6 +55,13 @@ export interface SenloActions {
     delete(projectId: number): Promise<ActionResult<void>>;
     /** Days each email's details are kept; `null` is forever. */
     logRetention(projectId: number): Promise<ActionResult<{ days: number | null }>>;
+    /** The workspace's automation limits (frequency cap). */
+    automationSettings(projectId: number): Promise<ActionResult<ProjectAutomationSettings>>;
+    /** Sets the frequency cap, or removes it with `frequencyCap: null`. */
+    updateAutomationSettings(
+      projectId: number,
+      settings: { frequencyCap: { emails: number; days: number } | null },
+    ): Promise<ActionResult<ProjectAutomationSettings>>;
   };
   templates: {
     list(projectId: number): Promise<ActionResult<EmailTemplate[]>>;
@@ -116,5 +135,15 @@ export interface SenloActions {
       projectId: number,
       eventName: string | null,
     ): Promise<ActionResult<{ contact: string[]; event: string[] }>>;
+    /** The workflow's runs, newest first; pass `nextBeforeId` back as `beforeId` for the next page. */
+    runs(workflowId: number, filter: RunsFilter): Promise<ActionResult<{ runs: WorkflowRunSummary[]; nextBeforeId: number | null }>>;
+    /** One run with its steps, context and graph (the run timeline). */
+    run(runId: number): Promise<ActionResult<WorkflowRunDetail>>;
+    /** Cancels a run in progress. */
+    cancelRun(runId: number): Promise<ActionResult<{ cancelled: boolean }>>;
+    /** Starts a test run of the saved draft for a contact, with a sample event payload. */
+    testRun(workflowId: number, input: { email: string; payload: Record<string, unknown> }): Promise<ActionResult<{ runId: number }>>;
+    /** A contact's runs in every workflow of the project, by email (automation history). */
+    contactRuns(projectId: number, email: string): Promise<ActionResult<WorkflowRunSummary[]>>;
   };
 }

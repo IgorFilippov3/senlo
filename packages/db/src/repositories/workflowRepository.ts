@@ -1,4 +1,4 @@
-import { eq, desc, and, max } from "drizzle-orm";
+import { eq, desc, and, max, min } from "drizzle-orm";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import * as schema from "../schema";
 import {
@@ -9,7 +9,9 @@ import {
   WorkflowGraphSnapshot,
   WorkflowSettings,
   WorkflowVersion,
+  type SecretCipher,
 } from "@senlo/core";
+import type { Database } from "../client";
 
 /** The trigger node's event name in a graph, or null. */
 export function graphTriggerEvent(graph: WorkflowGraphSnapshot): string | null {
@@ -18,6 +20,14 @@ export function graphTriggerEvent(graph: WorkflowGraphSnapshot): string | null {
   return typeof event === "string" && event !== "" ? event : null;
 }
 
+/** For a repository built without a cipher: sealing refuses, nothing opens. */
+const noSecrets: SecretCipher = {
+  seal: async () => {
+    throw new Error("WorkflowRepository was built without a SecretCipher: pass `secrets`");
+  },
+  open: async () => null,
+};
+
 function mapVersion(row: typeof schema.workflowVersions.$inferSelect): WorkflowVersion {
   return {
     id: row.id,
@@ -25,6 +35,7 @@ function mapVersion(row: typeof schema.workflowVersions.$inferSelect): WorkflowV
     version: row.version,
     graph: row.graph as WorkflowGraphSnapshot,
     settings: (row.settings as WorkflowSettings | null) ?? {},
+    isTest: row.isTest,
     createdAt: row.createdAt,
   };
 }
@@ -38,6 +49,27 @@ export class WorkflowRepository
   implements IWorkflowRepository
 {
   protected table = schema.workflows;
+
+  /**
+   * `secrets` seals step secrets (HTTP request header values); see
+   * `sealSecret`. `createRepositories` passes the app's cipher; a script that
+   * only reads and publishes graphs may leave it out.
+   */
+  constructor(
+    db: Database,
+    private readonly secrets: SecretCipher = noSecrets,
+  ) {
+    super(db);
+  }
+
+  sealSecret(value: string): Promise<string> {
+    return this.secrets.seal(value);
+  }
+
+  async openSecret(token: string): Promise<string | null> {
+    const value = await this.secrets.open(token);
+    return typeof value === "string" ? value : null;
+  }
 
   protected mapToEntity(row: typeof schema.workflows.$inferSelect): Workflow {
     return {
@@ -161,7 +193,7 @@ export class WorkflowRepository
       const [{ last }] = await tx
         .select({ last: max(schema.workflowVersions.version) })
         .from(schema.workflowVersions)
-        .where(eq(schema.workflowVersions.workflowId, workflowId));
+        .where(and(eq(schema.workflowVersions.workflowId, workflowId), eq(schema.workflowVersions.isTest, false)));
       const [row] = await tx
         .insert(schema.workflowVersions)
         .values({
@@ -175,6 +207,36 @@ export class WorkflowRepository
         .update(schema.workflows)
         .set({ activeVersionId: row.id, triggerEvent: graphTriggerEvent(graph), updatedAt: new Date() })
         .where(eq(schema.workflows.id, workflowId));
+      return mapVersion(row);
+    });
+  }
+
+  async createTestVersion(
+    workflowId: number,
+    graph: WorkflowGraphSnapshot,
+    settings: WorkflowSettings = {},
+  ): Promise<WorkflowVersion> {
+    return this.db.transaction(async (tx) => {
+      // The same lock as a publish: two test runs take turns for the next number.
+      await tx
+        .select({ id: schema.workflows.id })
+        .from(schema.workflows)
+        .where(eq(schema.workflows.id, workflowId))
+        .for("update");
+      const [{ first }] = await tx
+        .select({ first: min(schema.workflowVersions.version) })
+        .from(schema.workflowVersions)
+        .where(and(eq(schema.workflowVersions.workflowId, workflowId), eq(schema.workflowVersions.isTest, true)));
+      const [row] = await tx
+        .insert(schema.workflowVersions)
+        .values({
+          workflowId,
+          version: Math.min(first ?? 0, 0) - 1,
+          graph: { nodes: graph.nodes, edges: graph.edges },
+          settings,
+          isTest: true,
+        })
+        .returning();
       return mapVersion(row);
     });
   }

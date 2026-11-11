@@ -33,6 +33,8 @@ export interface TriggeredEmailOptions {
    * log. Not part of the public API.
    */
   dedupeKey?: string;
+  /** The automation run sending it, recorded on the send log (frequency cap). Not part of the public API. */
+  workflowExecutionId?: number;
 }
 
 /** Body of `POST /api/triggered`. `id` wins over its older alias `campaignId`. */
@@ -167,6 +169,7 @@ export class TriggerService {
       status: "PENDING" as const,
       error: null,
       data: data,
+      workflowExecutionId: options.workflowExecutionId ?? null,
     };
     let log: TriggeredSendLog;
     let fresh = true;

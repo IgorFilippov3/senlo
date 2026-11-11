@@ -44,6 +44,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
       providerMessageId: row.providerMessageId,
       error: row.error,
       data: row.data as Record<string, any> | null,
+      workflowExecutionId: row.workflowExecutionId,
       sentAt: row.sentAt,
     };
   }
@@ -83,6 +84,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
           status: data.status,
           error: data.error,
           data: data.data,
+          workflowExecutionId: data.workflowExecutionId ?? null,
           sentAt: new Date(),
         })
         .returning();
@@ -106,6 +108,7 @@ export class TriggeredSendLogRepository extends BaseRepository<
           status: data.status,
           error: data.error,
           data: data.data,
+          workflowExecutionId: data.workflowExecutionId ?? null,
           dedupeKey,
           sentAt: new Date(),
         })
@@ -135,6 +138,20 @@ export class TriggeredSendLogRepository extends BaseRepository<
       ) AS engaged
     `)) as unknown as { rows: Array<{ engaged: boolean }> };
     return Boolean(result.rows[0]?.engaged);
+  }
+
+  async countAutomationSends(projectId: number, email: string, since: Date): Promise<number> {
+    // Through (email, sent_at) where workflow_execution_id is set, then the campaign's project.
+    const result = (await this.db.execute(sql`
+      SELECT count(*)::int AS n
+      FROM ${triggeredSendLogs} l
+      JOIN ${schema.campaigns} c ON c.id = l.campaign_id
+      WHERE l.email = ${email}
+        AND l.sent_at >= ${since.toISOString()}
+        AND l.workflow_execution_id IS NOT NULL
+        AND c.project_id = ${projectId}
+    `)) as unknown as { rows: Array<{ n: number }> };
+    return Number(result.rows[0]?.n ?? 0);
   }
 
   async findByDedupeKey(dedupeKey: string): Promise<TriggeredSendLog | null> {

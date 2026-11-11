@@ -1,6 +1,20 @@
 import { vi } from "vitest";
-import type { WorkflowExecution, WorkflowStepExecution } from "../../domain";
-import type { CompleteStep, IWorkflowExecutionRepository, NewWorkflowExecution } from "../../ports";
+import type { WorkflowExecution, WorkflowRunSummary, WorkflowStepExecution } from "../../domain";
+import type { CompleteStep, IWorkflowExecutionRepository, NewWorkflowExecution, WorkflowRunFilter } from "../../ports";
+
+const summary = (r: WorkflowExecution): WorkflowRunSummary => ({
+  id: r.id,
+  workflowId: r.workflowId,
+  contactId: r.contactId,
+  contactEmail: null,
+  status: r.status,
+  exitReason: r.exitReason ?? null,
+  currentNodeId: r.currentNodeId,
+  isTest: r.isTest ?? false,
+  versionId: r.versionId,
+  startedAt: r.startedAt,
+  completedAt: r.completedAt ?? null,
+});
 
 /**
  * An in-memory `IWorkflowExecutionRepository` with the same guards as the
@@ -29,11 +43,13 @@ export function fakeExecutions({ lifecycleVersions = [] as number[] } = {}) {
   const repo = {
     create: vi.fn(async (d: NewWorkflowExecution) => {
       const taken = [...runs.values()].some(
-        (r) => r.workflowId === d.workflowId && r.contactId === d.contactId && r.status === "RUNNING",
+        (r) => r.workflowId === d.workflowId && r.contactId === d.contactId && r.status === "RUNNING" && !r.isTest,
       );
-      if (taken) return null;
+      if (taken && !d.isTest) return null;
       const run: WorkflowExecution = {
         ...d,
+        isTest: d.isTest ?? false,
+        generation: 0,
         goalEvent: d.goalEvent ?? null,
         waitingEvent: null,
         id: runs.size + 1,
@@ -46,7 +62,9 @@ export function fakeExecutions({ lifecycleVersions = [] as number[] } = {}) {
     }),
     findById: async (id: number) => runs.get(id) ?? null,
     findRunningByContact: async (workflowId: number, contactId: number) =>
-      [...runs.values()].find((r) => r.workflowId === workflowId && r.contactId === contactId && r.status === "RUNNING") ?? null,
+      [...runs.values()].find(
+        (r) => r.workflowId === workflowId && r.contactId === contactId && r.status === "RUNNING" && !r.isTest,
+      ) ?? null,
     moveCursor: vi.fn(async (id: number, m: { from: string; to: string; wakeAt: Date; completeStep?: CompleteStep }) => {
       complete(m.completeStep);
       const run = runs.get(id);
@@ -66,11 +84,18 @@ export function fakeExecutions({ lifecycleVersions = [] as number[] } = {}) {
         return true;
       },
     ),
-    claimStep: vi.fn(async (executionId: number, nodeId: string) => {
-      const key = `${executionId}:${nodeId}`;
+    claimStep: vi.fn(async (executionId: number, nodeId: string, generation = 0) => {
+      const key = generation > 0 ? `${executionId}:${nodeId}:g${generation}` : `${executionId}:${nodeId}`;
       const existing = steps.get(key);
       if (existing) return existing;
-      const row: WorkflowStepExecution = { id: ++stepIds, executionId, nodeId, status: "PENDING", startedAt: new Date() };
+      const row: WorkflowStepExecution = {
+        id: ++stepIds,
+        executionId,
+        nodeId,
+        generation,
+        status: "PENDING",
+        startedAt: new Date(),
+      };
       steps.set(key, row);
       return row;
     }),
@@ -82,7 +107,7 @@ export function fakeExecutions({ lifecycleVersions = [] as number[] } = {}) {
         .filter((r) => r.status === "RUNNING" && r.currentNodeId && r.wakeAt && r.wakeAt < before)
         .sort((a, b) => a.wakeAt!.getTime() - b.wakeAt!.getTime())
         .slice(0, limit)
-        .map((r) => ({ id: r.id, currentNodeId: r.currentNodeId! })),
+        .map((r) => ({ id: r.id, currentNodeId: r.currentNodeId!, generation: r.generation ?? 0 })),
     ),
     findWaiting: vi.fn(async (contactId: number, eventName: string) =>
       [...runs.values()].filter((r) => r.contactId === contactId && r.status === "RUNNING" && r.waitingEvent === eventName),
@@ -102,6 +127,52 @@ export function fakeExecutions({ lifecycleVersions = [] as number[] } = {}) {
       runs.set(id, { ...run, waitingEvent: null });
       return true;
     }),
+    restart: vi.fn(
+      async (
+        id: number,
+        d: { versionId: number; context: WorkflowExecution["context"]; currentNodeId: string; goalEvent: string | null },
+      ) => {
+        const run = runs.get(id);
+        if (!run || run.status !== "RUNNING") return null;
+        const next: WorkflowExecution = {
+          ...run,
+          ...d,
+          generation: (run.generation ?? 0) + 1,
+          waitingEvent: null,
+          wakeAt: new Date(),
+          startedAt: new Date(),
+        };
+        runs.set(id, next);
+        return next;
+      },
+    ),
+    cancel: vi.fn(async (id: number, exitReason: string) => {
+      const run = runs.get(id);
+      if (!run || run.status !== "RUNNING") return false;
+      runs.set(id, { ...run, status: "CANCELLED", exitReason, completedAt: new Date(), wakeAt: null, waitingEvent: null });
+      return true;
+    }),
+    listRuns: vi.fn(async (workflowId: number, f: WorkflowRunFilter) =>
+      [...runs.values()]
+        .filter(
+          (r) =>
+            r.workflowId === workflowId &&
+            (f.includeTests || !r.isTest) &&
+            (f.status === undefined || r.status === f.status) &&
+            (f.contactId === undefined || r.contactId === f.contactId) &&
+            (f.beforeId === undefined || r.id < f.beforeId),
+        )
+        .sort((a, b) => b.id - a.id)
+        .slice(0, f.limit)
+        .map(summary),
+    ),
+    listContactRuns: vi.fn(async (contactId: number, limit: number) =>
+      [...runs.values()]
+        .filter((r) => r.contactId === contactId)
+        .sort((a, b) => b.id - a.id)
+        .slice(0, limit)
+        .map(summary),
+    ),
     setStepOutput: vi.fn(async (id: number, nodeId: string, output: unknown) => {
       const run = runs.get(id);
       if (run) runs.set(id, { ...run, context: { ...run.context, steps: { ...run.context.steps, [nodeId]: output } } });
@@ -117,10 +188,15 @@ export function fakeExecutions({ lifecycleVersions = [] as number[] } = {}) {
       }
       return ids;
     }),
-    getStepExecutions: async (executionId: number) => [...steps.values()].filter((s) => s.executionId === executionId),
+    getStepExecutions: async (executionId: number, generation?: number) =>
+      [...steps.values()].filter(
+        (s) => s.executionId === executionId && (generation === undefined || (s.generation ?? 0) === generation),
+      ),
     getNodeStats: async () => [],
     lastStartedAt: vi.fn(async (workflowId: number, contactId: number) => {
-      const starts = [...runs.values()].filter((r) => r.workflowId === workflowId && r.contactId === contactId).map((r) => r.startedAt.getTime());
+      const starts = [...runs.values()]
+        .filter((r) => r.workflowId === workflowId && r.contactId === contactId && !r.isTest)
+        .map((r) => r.startedAt.getTime());
       return starts.length > 0 ? new Date(Math.max(...starts)) : null;
     }),
     getRunStats: async () => ({ started: 0, running: 0, completed: 0, goal: 0, failed: 0, cancelled: 0 }),

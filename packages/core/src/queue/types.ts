@@ -35,4 +35,6 @@ export type EmailJobData = {
 export type AutomationJobData = {
   executionId: number;
   nodeId: string;
+  /** The run's generation when the job was queued; a job of an earlier pass (before a restart) is dropped. */
+  generation?: number;
 };

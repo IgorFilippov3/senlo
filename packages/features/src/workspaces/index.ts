@@ -10,3 +10,4 @@ export * from "./WorkspaceSettingsScreen";
 export * from "./LogRetentionCard";
 export * from "./WorkspaceRoute";
 export * from "./StartWorkspaceRedirect";
+export * from "./FrequencyCapCard";

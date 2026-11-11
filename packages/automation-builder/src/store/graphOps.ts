@@ -2,7 +2,7 @@ import { isBranchingType } from "@senlo/core";
 import type { Edge, Node } from "@xyflow/react";
 
 /** Step types that can go in the middle of a chain (an End would cut it off). */
-export const INSERTABLE_TYPES = ["action", "delay", "condition", "wait_event", "update_contact"] as const;
+export const INSERTABLE_TYPES = ["action", "delay", "condition", "wait_event", "update_contact", "http_request"] as const;
 
 function reachable(startIds: string[], edges: Edge[]): Set<string> {
   const seen = new Set(startIds);
