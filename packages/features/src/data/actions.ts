@@ -144,6 +144,8 @@ export interface SenloActions {
     cancelRun(runId: number): Promise<ActionResult<{ cancelled: boolean }>>;
     /** Starts a test run of the saved draft for a contact, with a sample event payload. */
     testRun(workflowId: number, input: { email: string; payload: Record<string, unknown> }): Promise<ActionResult<{ runId: number }>>;
+    /** A new draft from a gallery template (`WORKFLOW_TEMPLATES`). */
+    createFromTemplate(projectId: number, input: { templateId: string; name?: string }): Promise<ActionResult<Workflow>>;
     /** The automation as an export file (its saved draft and settings). */
     export(workflowId: number): Promise<ActionResult<WorkflowExport>>;
     /** A new draft from an export; `emails` maps each email's trigger name to a trigger here (null: leave it empty). */

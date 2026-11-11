@@ -6,3 +6,4 @@ export * from "./AutomationsScreen";
 export * from "./NewWorkflowScreen";
 export * from "./RunsPanel";
 export * from "./ImportWorkflowDialog";
+export * from "./TemplateGallery";

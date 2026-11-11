@@ -215,6 +215,9 @@ const handlers: HandlerTable<SenloServerActions> = {
   "workflows.fieldSuggestions": read((s, userId, projectId: number, eventName: string | null) =>
     s.workflow.fieldSuggestions(userId, projectId, eventName),
   ),
+  "workflows.createFromTemplate": write((s, userId, projectId: number, input: unknown) =>
+    s.workflow.createFromTemplate(userId, projectId, input),
+  ),
   "workflows.export": read((s, userId, workflowId: number) => s.workflow.exportWorkflow(userId, workflowId)),
   "workflows.import": write((s, userId, projectId: number, input: unknown) =>
     s.workflow.importWorkflow(userId, projectId, input),

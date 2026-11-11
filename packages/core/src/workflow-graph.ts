@@ -345,6 +345,13 @@ export function validateWorkflowGraph(
       }
     }
 
+    if (node.type === "action" && node.data !== undefined) {
+      const triggerId = node.data?.triggerId;
+      if (triggerId === undefined || triggerId === null || triggerId === "") {
+        reasons.push("Choose the email for every Send email step.");
+      }
+    }
+
     if (node.type === "http_request" && node.data !== undefined) {
       reasons.push(...validateHttpStep(node.data));
     }

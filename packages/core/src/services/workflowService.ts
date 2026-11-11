@@ -33,6 +33,7 @@ import {
   parseWorkflowExport,
   type WorkflowExport,
 } from "../workflow-export";
+import { findWorkflowTemplate } from "../workflow-templates";
 
 /**
  * A node as the builder holds it. No position: the builder lays the graph
@@ -88,6 +89,11 @@ export const ImportWorkflowSchema = z.object({
   workflow: z.unknown(),
   name: z.string().trim().min(1).max(255).optional(),
   emails: z.record(z.number().int().positive().nullable()).default({}),
+});
+
+export const FromTemplateSchema = z.object({
+  templateId: z.string().min(1),
+  name: z.string().trim().min(1).max(255).optional(),
 });
 
 export const CreateWorkflowSchema = z.object({
@@ -484,6 +490,21 @@ export class WorkflowService {
    */
   async importForProject(projectId: number, rawInput: unknown): Promise<Workflow> {
     return this.importInto(projectId, rawInput, true);
+  }
+
+  /**
+   * A new DRAFT from a gallery template (D10): its graph and settings, email
+   * steps matched to triggers of this workspace with the same name, the
+   * others left to choose.
+   */
+  async createFromTemplate(userId: string, projectId: number, rawInput: unknown): Promise<Workflow> {
+    await this.access.requireProject(userId, projectId, "write");
+    const input = parseInput(FromTemplateSchema, rawInput);
+    const template = findWorkflowTemplate(input.templateId);
+    if (!template) throw new NotFoundError("Template");
+    const workflow = await this.importInto(projectId, { workflow: template.workflow, name: input.name }, false);
+    await this.audit(userId, "created", workflow, { template: template.id });
+    return workflow;
   }
 
   /** `POST /api/workflows/{id}/publish`: going live, with the editor's checks. */

@@ -10,6 +10,7 @@ const projects = {
 const campaignRows = {
   100: { id: 100, projectId: 1, name: "Welcome email", type: "TRIGGERED" },
   101: { id: 101, projectId: 1, name: "Reminder", type: "TRIGGERED" },
+  102: { id: 102, projectId: 1, name: "welcome", type: "TRIGGERED" },
   200: { id: 200, projectId: 2, name: "Welcome email", type: "TRIGGERED" },
 } as Record<number, Partial<Campaign>>;
 const campaigns = {
@@ -458,5 +459,34 @@ describe("export and import", () => {
 
     const empty = fakes({ nodes: [] });
     await expect(empty.service.publishForProject(1, 10)).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("templates", () => {
+  it("creates a draft from a gallery template with its settings; unmatched emails stay empty", async () => {
+    const { service, workflows } = fakes();
+    const created = await service.createFromTemplate("alice", 1, { templateId: "dunning", name: "Dunning" });
+    expect(workflows.create).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: 1, name: "Dunning", status: "DRAFT", settings: expect.objectContaining({ goal: { event: "payment_succeeded" } }) }),
+    );
+    const [id, saved] = workflows.saveGraph.mock.calls[0] as unknown as [number, Array<{ type: string; data: Record<string, unknown> }>];
+    expect(id).toBe(created.id);
+    const emails = saved.filter((n) => n.type === "action");
+    expect(emails).toHaveLength(3);
+    expect(emails.every((n) => n.data.triggerId === undefined && typeof n.data.label === "string")).toBe(true);
+  });
+
+  it("matches an email step to a trigger with the same name", async () => {
+    const { service, workflows } = fakes();
+    // Project 1 has a trigger named "welcome"; the template's step is "Welcome" (case does not matter).
+    await service.createFromTemplate("alice", 1, { templateId: "welcome" });
+    const [, saved] = workflows.saveGraph.mock.calls[0] as unknown as [number, Array<{ type: string; data: Record<string, unknown> }>];
+    expect(saved.find((n) => n.type === "action")!.data).toEqual({ label: "Welcome", triggerId: "102" });
+  });
+
+  it("refuses an unknown template and other users' workspaces", async () => {
+    const { service } = fakes();
+    await expect(service.createFromTemplate("alice", 1, { templateId: "digest" })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.createFromTemplate("alice", 2, { templateId: "welcome" })).rejects.toBeInstanceOf(NotFoundError);
   });
 });

@@ -38,6 +38,7 @@ export * from "./workflow-settings";
 export * from "./workflow-step-data";
 export * from "./workflow-http";
 export * from "./workflow-export";
+export * from "./workflow-templates";
 export * from "./workflow-steps";
 export * from "./rate-limit";
 export * from "./merge-tags";

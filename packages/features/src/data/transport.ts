@@ -23,7 +23,7 @@ export const SENLO_ACTION_METHODS = {
   apiKeys: ["list", "create", "delete"],
   suppressions: ["listForProject", "delete"],
   dashboard: ["get"],
-  workflows: ["list", "create", "saveGraph", "setStatus", "delete", "stats", "updateSettings", "runStats", "eventNames", "fieldSuggestions", "runs", "run", "cancelRun", "testRun", "contactRuns", "export", "import"],
+  workflows: ["list", "create", "saveGraph", "setStatus", "delete", "stats", "updateSettings", "runStats", "eventNames", "fieldSuggestions", "runs", "run", "cancelRun", "testRun", "contactRuns", "export", "import", "createFromTemplate"],
 } as const satisfies { [G in keyof SenloActions]: readonly (keyof SenloActions[G])[] };
 
 /** `"group.method"` for every method of an actions interface. */

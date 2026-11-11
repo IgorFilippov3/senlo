@@ -160,6 +160,17 @@ export function useExportWorkflow(workflowId: number) {
   });
 }
 
+/** A new draft from a gallery template; resolves with the workflow to open. */
+export function useCreateFromTemplate(projectId: number) {
+  const actions = useSenloActions();
+  const invalidate = useInvalidateWorkflows();
+  return useMutation({
+    mutationFn: async (input: { templateId: string; name?: string }) =>
+      unwrapWorkflow(await actions.workflows.createFromTemplate(projectId, input)),
+    onSettled: invalidate,
+  });
+}
+
 /** A new draft from an export file; resolves with the workflow to open. */
 export function useImportWorkflow(projectId: number) {
   const actions = useSenloActions();

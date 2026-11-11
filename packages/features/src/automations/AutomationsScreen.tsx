@@ -6,10 +6,11 @@
 
 import React, { useState } from "react";
 import { Plus, Upload } from "lucide-react";
-import type { Workflow } from "@senlo/core";
+import { WORKFLOW_TEMPLATES, type Workflow, type WorkflowTemplate } from "@senlo/core";
 import { Button, PageHeader } from "@senlo/ui";
 import {
   WorkflowNotReadyError,
+  useCreateFromTemplate,
   useDeleteWorkflow,
   useProjectWorkflows,
   useSetWorkflowStatus,
@@ -20,12 +21,15 @@ import { useCurrentWorkspace } from "../workspaces/WorkspaceScope";
 import { DeleteWorkflowDialog, GoLiveErrorsDialog } from "./WorkflowDialogs";
 import { WorkflowList } from "./WorkflowList";
 import { ImportWorkflowDialog } from "./ImportWorkflowDialog";
+import { TemplateGallery, TemplatePreviewDialog } from "./TemplateGallery";
 
 /** The workspace's automations: list, go live or pause, delete, open the editor. */
 export function AutomationsScreen() {
   const workspace = useCurrentWorkspace();
   const { paths, renderLink, push } = useSenloNavigation();
   const [importOpen, setImportOpen] = useState(false);
+  const [preview, setPreview] = useState<WorkflowTemplate | null>(null);
+  const fromTemplate = useCreateFromTemplate(workspace.id);
   const { data: workflows = [], isLoading } = useProjectWorkflows(workspace.id);
   const setStatus = useSetWorkflowStatus();
   const remove = useDeleteWorkflow();
@@ -92,6 +96,37 @@ export function AutomationsScreen() {
           renderLink(paths.automation(workspace.id, workflow.id), children, "")
         }
         emptyAction={newAutomationLink("Create Automation")}
+      />
+
+      {!isLoading && workflows.length === 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Start from a template</h2>
+            {renderLink(paths.newAutomation(workspace.id), <span className="text-sm text-blue-600 hover:underline">See all templates</span>, "")}
+          </div>
+          <TemplateGallery
+            templates={WORKFLOW_TEMPLATES.filter((t) => t.popular).slice(0, 3)}
+            showFilter={false}
+            onOpen={(t) => {
+              fromTemplate.reset();
+              setPreview(t);
+            }}
+          />
+        </section>
+      )}
+
+      <TemplatePreviewDialog
+        template={preview}
+        onClose={() => setPreview(null)}
+        isCreating={fromTemplate.isPending}
+        error={fromTemplate.error?.message}
+        onUse={(name) =>
+          preview &&
+          fromTemplate.mutate(
+            { templateId: preview.id, name },
+            { onSuccess: (workflow) => push(paths.automation(workspace.id, workflow.id)) },
+          )
+        }
       />
 
       <DeleteWorkflowDialog
