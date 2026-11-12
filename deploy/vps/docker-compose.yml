@@ -1,8 +1,9 @@
 services:
   app:
-    build:
-      context: ../..
-      dockerfile: deploy/vps/Dockerfile
+    # Published by .github/workflows/image.yml. SENLO_TAG in .env pins a
+    # version (0.2.0) or follows main; docker-compose.build.yml builds from
+    # source instead.
+    image: ghcr.io/igorfilippov3/senlo:${SENLO_TAG:-latest}
     container_name: senlo-app
     restart: always
     # Localhost only by default: the app is meant to sit behind a reverse
@@ -45,9 +46,7 @@ services:
         condition: service_started
 
   worker:
-    build:
-      context: ../..
-      dockerfile: deploy/vps/Dockerfile
+    image: ghcr.io/igorfilippov3/senlo:${SENLO_TAG:-latest}
     container_name: senlo-worker
     restart: always
     command: pnpm worker

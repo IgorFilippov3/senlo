@@ -1,0 +1,19 @@
+# Build the image from this checkout instead of pulling it from GHCR: for
+# changes of your own or a fork. Needs about 4 GB of free memory.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# The result is tagged senlo:local, so a later plain `docker compose pull`
+# does not overwrite it, and `docker compose up -d` without this file goes
+# back to the published image.
+services:
+  app:
+    image: senlo:local
+    build:
+      context: ../..
+      dockerfile: deploy/vps/Dockerfile
+  worker:
+    image: senlo:local
+    build:
+      context: ../..
+      dockerfile: deploy/vps/Dockerfile

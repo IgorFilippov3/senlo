@@ -19,10 +19,10 @@ git clone https://github.com/IgorFilippov3/senlo.git
 cd senlo/deploy/vps
 cp env.example .env
 sed -i.bak "s|YOUR_AUTH_SECRET_HERE|$(openssl rand -base64 32)|" .env && rm .env.bak
-docker compose up -d --build
+docker compose up -d
 ```
 
-The first build compiles the app from source and takes a few minutes. When it finishes, open **http://localhost:3000** and create an account — you land in an example project with four ready-made templates you can open in the visual editor right away.
+Docker pulls the published image (about a minute). When it is up, open **http://localhost:3000** and create an account — you land in an example project with four ready-made templates you can open in the visual editor right away.
 
 To start sending, add your email provider credentials (Resend, Postmark, SendGrid, Mailjet, Cloudflare Email, or any SMTP server) on the **Providers** page. The interactive API reference lives at **`/api-docs`** on your own instance.
 

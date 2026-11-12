@@ -4,7 +4,7 @@ This guide provides step-by-step instructions to deploy Senlo on a virtual priva
 
 ## Prerequisites
 
-- Docker and Docker Compose. Everything else (Node.js, pnpm, dependencies) is installed inside the image during the build.
+- Docker and Docker Compose. Senlo runs from a ready-made image (`ghcr.io/igorfilippov3/senlo`, linux/amd64), so the server needs neither Node.js nor the memory to build it.
 - A domain (or subdomain) pointing at the server, for HTTPS.
 - A reverse proxy on the server: Caddy or nginx (step 5). It is required, not a nice-to-have, see [Why a reverse proxy](#why-a-reverse-proxy).
 
@@ -63,10 +63,10 @@ When `INITIAL_USERS` are created, they automatically receive a set of example pr
 
 ### 4. Start the application
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-The first build compiles the app from source and takes several minutes. The app listens on `127.0.0.1:3000`: reachable from the server itself (`curl -I http://127.0.0.1:3000`), not from outside. The proxy in the next step makes it public.
+The first start downloads the image, about a minute. The app listens on `127.0.0.1:3000`: reachable from the server itself (`curl -I http://127.0.0.1:3000`), not from outside. The proxy in the next step makes it public.
 
 ### 5. Put a reverse proxy in front
 
@@ -164,10 +164,28 @@ Wait a few seconds for the database to become "healthy". The `app` service is co
 `SECRETS_KEY` (or `AUTH_SECRET`, if `SECRETS_KEY` is empty) differs from the one the credentials were saved with. See [Encryption key](#encryption-key).
 
 ## Updates
-To update the application to the latest version:
+To update the application to the latest release:
 ```bash
 git pull
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
+
+`git pull` brings the Compose file and this guide in step with the image; read the release notes before a minor version change (0.2 → 0.3).
+
+### Choosing a version
+`SENLO_TAG` in `.env` picks the image:
+- unset or `latest`: the newest release;
+- `0.2.0`: exactly that release, until you change it; `0.2`: its patch releases only;
+- `main`: every commit to the main branch, before it is released. For trying out what is coming, not for an instance you rely on.
+
+To go back after a bad update, set the previous version (`SENLO_TAG=0.2.0`) and run `docker compose up -d`. A newer version may have changed the database on start, so restore the backup you took before updating if the older one fails.
+
+### Building from source
+For changes of your own or a fork, build the image on the server (about 4 GB of free memory):
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+Keep passing both files on every update. Without the second file, `docker compose up -d` returns to the published image.
 
 **Updating an install from before the reverse proxy requirement:** the app is now published on `127.0.0.1:3000` only, so `http://your-server-ip:3000` stops answering after the update. Set up the proxy (step 5) and point `APP_URL` at its address. Only if you cannot do that right away, add `APP_BIND=0.0.0.0:3000` to `.env` to keep the old behavior for now.

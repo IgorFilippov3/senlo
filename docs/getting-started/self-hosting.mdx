@@ -13,7 +13,7 @@ cd senlo/deploy/vps
 cp env.example .env
 sed -i.bak "s|YOUR_AUTH_SECRET_HERE|$(openssl rand -base64 32)|" .env && rm .env.bak
 sed -i.bak "s|^SECRETS_KEY=\"\"|SECRETS_KEY=\"$(openssl rand -base64 32)\"|" .env && rm .env.bak
-docker compose up -d --build
+docker compose up -d
 ```
 
 That starts four containers: `app` (the web app and API), `worker` (sends email and runs automations), `db` (Postgres 15) and `redis` (Redis 7). You need Docker with Docker Compose and, for production, a domain and a reverse proxy.
@@ -33,10 +33,10 @@ That starts four containers: `app` (the web app and API), `worker` (sends email 
 ## 2. Start it
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-The first build compiles the app from source and takes several minutes. On every start the app fixes rows the schema's unique indexes would refuse (`pnpm db:upgrade-automations --before-push`), applies the database schema (`pnpm db:push`), fills the daily statistics from existing history on the first start after an upgrade (`pnpm db:backfill-stats`, a no-op afterwards), brings automations to the current format (`pnpm db:upgrade-automations`, also a no-op afterwards), creates the users from `INITIAL_USERS`, then starts.
+The first start pulls the published image `ghcr.io/igorfilippov3/senlo` (linux/amd64), so the server needs no Node.js and no memory for a build. `SENLO_TAG` in `.env` picks the version, see [Upgrading](../self-hosting/upgrading.mdx#choosing-a-version). To build from source instead, add `-f docker-compose.yml -f docker-compose.build.yml` and `--build` (about 4 GB of free memory). On every start the app fixes rows the schema's unique indexes would refuse (`pnpm db:upgrade-automations --before-push`), applies the database schema (`pnpm db:push`), fills the daily statistics from existing history on the first start after an upgrade (`pnpm db:backfill-stats`, a no-op afterwards), brings automations to the current format (`pnpm db:upgrade-automations`, also a no-op afterwards), creates the users from `INITIAL_USERS`, then starts.
 
 The app listens on `127.0.0.1:3000` only. Check it from the server:
 

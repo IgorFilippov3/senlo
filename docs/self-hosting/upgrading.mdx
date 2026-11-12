@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: Pull, rebuild, restart. The database schema is updated on start.
+description: Pull the new image, restart. The database schema is updated on start.
 ---
 
 <Callout type="info" title="Self-hosted only">
@@ -11,7 +11,8 @@ description: Pull, rebuild, restart. The database schema is updated on start.
 cd senlo
 git pull
 cd deploy/vps
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 That is the whole upgrade. When the new `app` container starts it:
@@ -20,7 +21,20 @@ That is the whole upgrade. When the new `app` container starts it:
 2. creates any users from `INITIAL_USERS` that do not exist yet;
 3. starts the app.
 
-The `worker` container is rebuilt from the same image and restarted with it.
+The `worker` container runs the same image and is restarted with it.
+
+`git pull` keeps the Compose file in step with the image. If you build from source (`docker-compose.build.yml`), keep passing both files: `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
+
+## Choosing a version
+
+`SENLO_TAG` in `.env` picks the image:
+
+| Value | Runs |
+| --- | --- |
+| unset or `latest` | the newest release |
+| `0.2.0` | exactly that release, until you change it |
+| `0.2` | the patch releases of 0.2 only |
+| `main` | every commit to the main branch, before it is released; for trying out what is coming |
 
 ## Before you upgrade
 
@@ -38,18 +52,22 @@ If the app refuses to start with "Senlo is not configured correctly", the log li
 
 ## One-time steps from older versions
 
-- **From 0.1.0 to 0.2.0**: nothing to run by hand; `db:upgrade-automations` moves automations to versioned workflows on start. Automation runs in progress at the upgrade are cancelled (their contacts enter again on the next event), and event `metadata` no longer reaches automations: send event data in `payload`. Rebuild the app and the worker together.
+- **From 0.1.0 to 0.2.0**: nothing to run by hand; `db:upgrade-automations` moves automations to versioned workflows on start. Automation runs in progress at the upgrade are cancelled (their contacts enter again on the next event), and event `metadata` no longer reaches automations: send event data in `payload`. Restart the app and the worker together.
 - **Before API keys were hashed**: keys keep working; run `docker compose exec app pnpm db:hash-api-keys` to replace stored keys with their hashes.
 - **Before `SECRETS_KEY` existed**: provider credentials are encrypted with `AUTH_SECRET`. Give them their own key: add `SECRETS_KEY`, restart, then `docker compose exec -e OLD_SECRETS_KEY="<your AUTH_SECRET>" app pnpm db:reseal-secrets`.
 - **Before the reverse-proxy requirement**: the app now listens on `127.0.0.1:3000` only, so `http://your-server:3000` stops answering. Put a proxy in front, or set `APP_BIND=0.0.0.0:3000` for now.
 
 ## Rolling back
 
-Check out the previous version and rebuild:
+Set the previous version in `.env` and restart:
 
 ```bash
-git checkout <previous-tag-or-commit>
-docker compose up -d --build
+# .env
+SENLO_TAG=0.2.0
+```
+
+```bash
+docker compose up -d
 ```
 
 `db:push` does not undo schema changes. If the new version changed the schema, restore the backup taken before the upgrade.
