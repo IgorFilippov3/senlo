@@ -5,10 +5,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { sendingSetupOf } from "@senlo/core";
+import { useProviders } from "../data/providers";
 import { useProjects } from "../data/workspaces";
 import { useRememberedWorkspace } from "../workspaces/rememberedWorkspace";
 import { useSenloNavigation } from "./navigation-context";
 import type { NavItem } from "./navigation";
+import { SendingDisabledNotice } from "./SendingDisabledNotice";
 import { Sidebar } from "./Sidebar";
 
 export interface AppSidebarProps {
@@ -30,11 +33,24 @@ export interface AppSidebarProps {
 export function AppSidebar({ onSignOut, ...props }: AppSidebarProps) {
   const { pathname, paths, push, renderLink } = useSenloNavigation();
   const { data: projects = [] } = useProjects();
+  const { data: providers } = useProviders();
   const { setWorkspaceId } = useRememberedWorkspace();
+
+  // Shown only once both lists are in: a guess while loading would flash.
+  const workspaceId = paths.workspaceIdFrom(pathname);
+  const workspace = projects.find((p) => p.id === workspaceId);
+  const setup = workspace && providers ? sendingSetupOf(workspace, providers.length) : "ready";
+  const fixHref =
+    setup === "no-providers" ? paths.providers() : workspace ? paths.settings(workspace.id) : null;
+  const workspaceNotice =
+    setup !== "ready" && fixHref && pathname !== fixHref ? (
+      <SendingDisabledNotice setup={setup} href={fixHref} renderLink={renderLink} />
+    ) : null;
 
   return (
     <Sidebar
       {...props}
+      workspaceNotice={workspaceNotice}
       pathname={pathname}
       paths={paths}
       workspaces={projects}

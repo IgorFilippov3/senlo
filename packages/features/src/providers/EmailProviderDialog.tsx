@@ -40,6 +40,8 @@ export interface EmailProviderValues {
   encryption?: string;
   username?: string;
   password?: string;
+  /** "Use in workspaces": every ticked workspace; on edit, the whole set. */
+  workspaceIds?: number[];
 }
 
 const TEXT_FIELDS = [
@@ -59,6 +61,16 @@ const TEXT_FIELDS = [
   "password",
 ] as const;
 
+/** A workspace in "Use in workspaces". */
+export interface ProviderWorkspaceChoice {
+  id: number;
+  name: string;
+  /** The provider it uses now, or null for none. */
+  providerId: number | null;
+  /** That provider's name, shown as "currently: …" when it is another one. */
+  providerName?: string | null;
+}
+
 export interface EmailProviderDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -68,6 +80,26 @@ export interface EmailProviderDialogProps {
   isSubmitting?: boolean;
   /** A message from the server, shown above the buttons. */
   error?: string | null;
+  /**
+   * The user's workspaces, for "Use in workspaces". Absent (still loading):
+   * the block is hidden and the save sends no `workspaceIds`, so no
+   * workspace changes.
+   */
+  workspaces?: ProviderWorkspaceChoice[];
+}
+
+/**
+ * Ticked when the dialog opens: on create, every workspace without a
+ * provider (the first provider then just works); on edit, the ones that use
+ * this provider now.
+ */
+export function initialWorkspaceSelection(
+  workspaces: ProviderWorkspaceChoice[],
+  providerId: number | undefined,
+): number[] {
+  return workspaces
+    .filter((w) => (providerId === undefined ? w.providerId === null : w.providerId === providerId))
+    .map((w) => w.id);
 }
 
 /**
@@ -81,8 +113,14 @@ export function EmailProviderDialog({
   onSubmit,
   isSubmitting = false,
   error,
+  workspaces,
 }: EmailProviderDialogProps) {
   const isEdit = !!provider;
+  // Set once, from the first list that arrives: a refetch must not undo the user's ticks.
+  const [selected, setSelected] = useState<number[] | null>(null);
+  const ticked = selected ?? (workspaces ? initialWorkspaceSelection(workspaces, provider?.id) : []);
+  const toggleWorkspace = (id: number) =>
+    setSelected(ticked.includes(id) ? ticked.filter((w) => w !== id) : [...ticked, id]);
   // Nothing stored can be kept: every field is required, as for a new provider.
   const mustReenter = !!provider?.configUnreadable;
   const [type, setType] = useState<EmailProviderType>(provider?.type ?? "RESEND");
@@ -139,6 +177,7 @@ export function EmailProviderDialog({
       if (fields[key] !== undefined) values[key] = fields[key];
     }
     if (fields.clearWebhookSecret !== undefined) values.clearWebhookSecret = true;
+    if (workspaces) values.workspaceIds = ticked;
     onSubmit(values);
   };
 
@@ -358,6 +397,16 @@ export function EmailProviderDialog({
           </>
         )}
 
+        {workspaces && workspaces.length > 0 && (
+          <WorkspaceChoices
+            workspaces={workspaces}
+            providerId={provider?.id}
+            ticked={ticked}
+            onToggle={toggleWorkspace}
+            disabled={isSubmitting}
+          />
+        )}
+
         <FormErrorBanner error={error} />
 
         <div className="flex justify-end gap-3 mt-6">
@@ -370,5 +419,54 @@ export function EmailProviderDialog({
         </div>
       </form>
     </Dialog>
+  );
+}
+
+function WorkspaceChoices({
+  workspaces,
+  providerId,
+  ticked,
+  onToggle,
+  disabled,
+}: {
+  workspaces: ProviderWorkspaceChoice[];
+  providerId: number | undefined;
+  ticked: number[];
+  onToggle: (id: number) => void;
+  disabled: boolean;
+}) {
+  return (
+    <fieldset className="space-y-2 pt-2">
+      <legend className="text-sm font-medium text-zinc-900">Use in workspaces</legend>
+      <p className="text-xs text-zinc-500">
+        Ticked workspaces send through this provider. A workspace uses one provider at a time.
+      </p>
+      <div className="max-h-48 overflow-y-auto rounded-lg border border-zinc-200 divide-y divide-zinc-100">
+        {workspaces.map((w) => {
+          const other = w.providerId !== null && w.providerId !== providerId;
+          return (
+            <label key={w.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-zinc-50">
+              <input
+                type="checkbox"
+                className="rounded border-zinc-300"
+                checked={ticked.includes(w.id)}
+                onChange={() => onToggle(w.id)}
+                disabled={disabled}
+              />
+              <span className="flex-1 truncate text-zinc-800">{w.name}</span>
+              {other && (
+                <span className="text-xs text-zinc-400 truncate">
+                  {ticked.includes(w.id) ? "replaces " : "currently: "}
+                  {w.providerName ?? "another provider"}
+                </span>
+              )}
+              {w.providerId === null && !ticked.includes(w.id) && (
+                <span className="text-xs text-amber-600">sending disabled</span>
+              )}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }

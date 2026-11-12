@@ -128,7 +128,7 @@ export class ProjectService {
     const input = parseInput(AutomationSettingsSchema, rawInput);
     const settings: ProjectAutomationSettings = input.frequencyCap ? { frequencyCap: input.frequencyCap } : {};
     const updated = await this.repos.projects.update(projectId, { automationSettings: settings });
-    if (!updated) throw new NotFoundError("Project");
+    if (!updated) throw new NotFoundError("Workspace");
     await this.hooks.audit({
       actor: { userId },
       action: "project.automation_settings_updated",
@@ -140,7 +140,7 @@ export class ProjectService {
 
   async create(userId: string, rawInput: unknown): Promise<Project> {
     const input = parseInput(CreateWorkspaceSchema, rawInput);
-    const scope = await this.access.requireCreate(userId, "Project");
+    const scope = await this.access.requireCreate(userId, "Workspace");
     await this.hooks.requireQuota({ type: "project.create", scope });
     const project = await this.repos.projects.create({
       name: input.name,
@@ -190,7 +190,7 @@ export class ProjectService {
       }).filter(([, v]) => v !== undefined),
     );
     const updated = await this.repos.projects.update(projectId, changes);
-    if (!updated) throw new NotFoundError("Project");
+    if (!updated) throw new NotFoundError("Workspace");
     await this.hooks.audit({
       actor: { userId },
       action: "project.updated",

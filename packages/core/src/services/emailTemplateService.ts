@@ -238,7 +238,7 @@ export class TemplateService {
     }
     if (!project.providerId) {
       throw new ValidationError(
-        "No email provider configured for this project. Please set one in Project Settings.",
+        "No email provider is selected for this workspace. Choose one in Settings → Email Provider, or add one on the Providers page first.",
       );
     }
     // Through the policy, like every provider check: an organization's

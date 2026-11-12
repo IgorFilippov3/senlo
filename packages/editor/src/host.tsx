@@ -5,14 +5,18 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { EmailDesignDocument } from "@senlo/core";
+import type { EmailDesignDocument, SendingSetup } from "@senlo/core";
 
 /** Places the editor can ask its host to take the user to. */
 export type EditorNavigationTarget =
   /** Leave the editor (the host knows where the user came from). */
   | "back"
   /** Where an AI provider is connected to the workspace. */
-  | "ai-settings";
+  | "ai-settings"
+  /** Where the workspace's email provider is selected (its settings). */
+  | "email-settings"
+  /** Where email providers are added (the Providers page). */
+  | "providers";
 
 export interface AiGenerateRequest {
   prompt: string;
@@ -43,6 +47,11 @@ export interface EditorHost {
   baseUrl?: string;
   /** Whether the workspace has an AI provider connected. */
   hasAiProvider?: boolean;
+  /**
+   * Whether the workspace can send email; the test send dialog says what to
+   * fix instead of offering a send that would fail. Unset: assumed ready.
+   */
+  sendingSetup?: SendingSetup;
   /** Called after the editor has confirmed leaving with unsaved changes. */
   onNavigate?: (target: EditorNavigationTarget) => void;
   /** Stores an image and resolves to its public URL. Throws with a message. */

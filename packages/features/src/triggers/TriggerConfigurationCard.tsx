@@ -48,7 +48,7 @@ export function TriggerConfigurationCard({
 
       <div className="space-y-7">
         <div className="space-y-3">
-          <h4 className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Project</h4>
+          <h4 className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Workspace</h4>
           <div className="flex items-center gap-3 px-3 py-2.5 bg-zinc-50/50 border border-zinc-100 rounded-xl group hover:border-zinc-200 transition-colors">
             <div className="w-8 h-8 rounded-lg bg-white border border-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-blue-600 transition-colors">
               <FolderOpen size={16} />

@@ -70,7 +70,8 @@ export function EditorScreen({ projectId, campaignId, call, endpoints, ...props 
 
   const onNavigate = useCallback(
     (target: EditorNavigationTarget) => {
-      if (target === "ai-settings") push(paths.settings(projectId));
+      if (target === "ai-settings" || target === "email-settings") push(paths.settings(projectId));
+      else if (target === "providers") push(paths.providers());
       else if (campaignId) push(paths.trigger(projectId, campaignId));
       else push(paths.templates(projectId));
     },

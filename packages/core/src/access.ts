@@ -145,12 +145,12 @@ export class AccessGuard {
   /** The project, if the user may do `action` on it. */
   async requireProject(userId: string, projectId: number, action: AccessAction): Promise<Project> {
     if (!userId || !Number.isInteger(projectId) || projectId <= 0) {
-      throw new NotFoundError("Project");
+      throw new NotFoundError("Workspace");
     }
 
     const project = await this.projects.findById(projectId);
-    if (!project) throw new NotFoundError("Project");
-    await this.decide(userId, project, action, "Project");
+    if (!project) throw new NotFoundError("Workspace");
+    await this.decide(userId, project, action, "Workspace");
     return project;
   }
 

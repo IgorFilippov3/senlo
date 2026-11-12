@@ -110,7 +110,7 @@ paths:
                       formErrors: []
                 noProvider:
                   value:
-                    error: No email provider configured for this project
+                    error: "No email provider is selected for this workspace. Choose one in the Senlo app under workspace Settings → Email Provider."
         "401":
           $ref: "#/components/responses/Unauthorized"
         "402":

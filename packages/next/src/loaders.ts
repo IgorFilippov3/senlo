@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { notFound } from "next/navigation";
-import { ForbiddenError, NotFoundError, UnauthorizedError } from "@senlo/core";
+import { ForbiddenError, NotFoundError, UnauthorizedError, sendingSetupOf } from "@senlo/core";
 import type { TriggerDetailsScreenProps } from "@senlo/features";
 import type { WorkflowEditorScreenProps } from "@senlo/features/workflow-editor";
 import type { EditorScreenProps } from "./editor-screen";
@@ -65,9 +65,14 @@ export async function loadEditorPage(host: SenloHost, page: EditorPageProps): Pr
   const templateId = pageId(id);
   const campaignId = campaignParam ? pageId(campaignParam) : null;
 
-  const { template, project, design, mergeTags, baseUrl } = await orNotFound(async () =>
-    host.getServices().template.loadEditorData(await host.requireUserId(), templateId, campaignId),
-  );
+  const { template, project, design, mergeTags, baseUrl, providerCount } = await orNotFound(async () => {
+    const userId = await host.requireUserId();
+    const services = host.getServices();
+    const data = await services.template.loadEditorData(userId, templateId, campaignId);
+    // Only counted when it matters: which message the test send dialog shows.
+    const providerCount = data.project.providerId ? 0 : (await services.emailProvider.listForUser(userId)).length;
+    return { ...data, providerCount };
+  });
 
   return {
     initialDesign: design,
@@ -76,6 +81,7 @@ export async function loadEditorPage(host: SenloHost, page: EditorPageProps): Pr
     campaignId,
     baseUrl,
     hasAiProvider: !!project.aiProviderId,
+    sendingSetup: sendingSetupOf(project, providerCount),
     previewData: { workspaceName: project.name },
     templateName: template.name,
     templateSubject: template.subject,

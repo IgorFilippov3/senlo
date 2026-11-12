@@ -4,10 +4,10 @@
 
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
-import { useDeleteAiProvider, useDeleteProvider } from "../data";
-import { DeleteProviderDialog } from "../providers";
+import { useDeleteAiProvider, useDeleteProvider, useProjects, useProviders } from "../data";
+import { DeleteProviderDialog, type ProviderReplacementProps } from "../providers";
 import type { DialogControlProps } from "../shared/dialogs";
 import type { SenloDialogProps } from "./registry";
 
@@ -16,11 +16,17 @@ type Props = SenloDialogProps["DELETE_PROVIDER"] & DialogControlProps;
 function DeleteDialog({
   kind,
   mutation,
-  providerId,
   name,
   isOpen,
   onClose,
-}: Props & { kind: "email" | "ai"; mutation: UseMutationResult<number, Error, number> }) {
+  onConfirm,
+  replacement,
+}: Omit<Props, "providerId"> & {
+  kind: "email" | "ai";
+  mutation: Pick<UseMutationResult<number, Error, never>, "reset" | "isPending" | "error">;
+  onConfirm: (onSuccess: () => void) => void;
+  replacement?: ProviderReplacementProps;
+}) {
   // Clears a failed attempt, so the dialog does not reopen with an old error.
   const close = () => {
     mutation.reset();
@@ -35,15 +41,50 @@ function DeleteDialog({
       onClose={close}
       isDeleting={mutation.isPending}
       error={mutation.error ? "Failed to delete provider. Please try again." : null}
-      onConfirm={() => mutation.mutate(providerId, { onSuccess: close })}
+      onConfirm={() => onConfirm(close)}
+      replacement={replacement}
     />
   );
 }
 
+/**
+ * Names the workspaces that send through the provider and lets the user
+ * switch them to another one (the first other provider by default) or leave
+ * them without one.
+ */
 export function DeleteEmailProviderConfirmDialog(props: Props) {
-  return <DeleteDialog kind="email" mutation={useDeleteProvider()} {...props} />;
+  const mutation = useDeleteProvider();
+  const { data: projects = [] } = useProjects();
+  const { data: providers = [] } = useProviders();
+  const usedBy = projects.filter((w) => w.providerId === props.providerId).map((w) => w.name);
+  const options = providers.filter((p) => p.id !== props.providerId);
+  const [choice, setChoice] = useState<number | null | undefined>(undefined);
+  const value = choice === undefined ? options[0]?.id ?? null : choice;
+
+  return (
+    <DeleteDialog
+      kind="email"
+      mutation={mutation}
+      {...props}
+      replacement={{ usedBy, options, value, onChange: setChoice }}
+      onConfirm={(onSuccess) =>
+        mutation.mutate(
+          { providerId: props.providerId, replacementId: usedBy.length > 0 ? value : null },
+          { onSuccess },
+        )
+      }
+    />
+  );
 }
 
 export function DeleteAiProviderConfirmDialog(props: Props) {
-  return <DeleteDialog kind="ai" mutation={useDeleteAiProvider()} {...props} />;
+  const mutation = useDeleteAiProvider();
+  return (
+    <DeleteDialog
+      kind="ai"
+      mutation={mutation}
+      {...props}
+      onConfirm={(onSuccess) => mutation.mutate(props.providerId, { onSuccess })}
+    />
+  );
 }

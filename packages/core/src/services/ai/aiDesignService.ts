@@ -133,7 +133,7 @@ export class AiDesignService {
     const project = await this.access.requireProject(userId, request.projectId, "read");
 
     if (!project.aiProviderId) {
-      throw new ValidationError("No AI provider configured for this project");
+      throw new ValidationError("No AI provider is selected for this workspace. Choose one in Settings → AI Provider.");
     }
     const provider = await this.aiProviders.findById(project.aiProviderId);
     if (!provider) {

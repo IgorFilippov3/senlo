@@ -33,6 +33,8 @@ export interface SidebarProps {
   header?: React.ReactNode;
   /** Above "Sign out" (managed: plan and billing). */
   footer?: React.ReactNode;
+  /** Under the workspace switcher, inside a workspace (e.g. "Sending is disabled"). */
+  workspaceNotice?: React.ReactNode;
   /** The host's URLs; self-hosted's by default. */
   paths?: SenloPaths;
   /** Override the default items, e.g. to add managed-only pages. */
@@ -158,6 +160,7 @@ export function Sidebar({
   onSignOut,
   header,
   footer,
+  workspaceNotice,
   paths = defaultSenloPaths,
   workspaceItems = (id) => workspaceNavItems(id, paths),
   globalItems = globalNavItemsFor(paths),
@@ -187,6 +190,7 @@ export function Sidebar({
             </h1>
           </div>
         )}
+        {workspaceId !== null && workspaceNotice}
       </div>
 
       <div className="flex-1 flex flex-col gap-1">

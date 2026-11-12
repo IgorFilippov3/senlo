@@ -114,7 +114,7 @@ export class TriggerService {
     if (!template || template.projectId !== campaign.projectId) {
       throw new NotFoundError("Template");
     }
-    if (!project) throw new NotFoundError("Project");
+    if (!project) throw new NotFoundError("Workspace");
 
     // A repeat of a send already accepted: not checked against the plan
     // again (it was, the first time) and not counted again.
@@ -125,7 +125,9 @@ export class TriggerService {
     }
 
     if (!project.providerId) {
-      throw new ValidationError("No email provider configured for this project");
+      throw new ValidationError(
+        "No email provider is selected for this workspace. Choose one in the Senlo app under workspace Settings → Email Provider.",
+      );
     }
 
     const provider = await this.providerRepo.findById(project.providerId);

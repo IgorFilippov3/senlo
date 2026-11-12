@@ -95,7 +95,7 @@ export function WorkspacePicker({
                 <Plus size={24} />
               </div>
               <h3 className="font-bold text-zinc-900">Create Workspace</h3>
-              <p className="text-zinc-500 text-sm mt-1">Start a fresh project</p>
+              <p className="text-zinc-500 text-sm mt-1">Start a fresh workspace</p>
             </Card>
           </div>
         )}

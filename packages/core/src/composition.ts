@@ -203,7 +203,7 @@ export function createServices({
     auth: new AuthService(r.apiKeys),
     campaign: new CampaignService(r, guard),
     dashboard: new DashboardService(r.dashboard, r.projects, guard),
-    emailProvider: new EmailProviderService(r.providers, guard, hooks),
+    emailProvider: new EmailProviderService(r.providers, guard, hooks, r.projects),
     project: new ProjectService(r, guard, hooks),
     settings: new SettingsService(r.apiKeys, r.projects, guard, hooks),
     savedRow: new SavedRowService(r.savedRows, r.projects, guard),

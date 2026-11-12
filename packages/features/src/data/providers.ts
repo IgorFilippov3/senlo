@@ -47,7 +47,7 @@ function useInvalidate(queryKey: readonly unknown[]) {
 /** Rejects with the message to show when the form does not validate. */
 export function useCreateProvider() {
   const actions = useSenloActions();
-  const invalidate = useInvalidate(queryKeys.emailProviders.all);
+  const invalidate = useProviderAndWorkspaces();
   return useMutation({
     mutationFn: async (values: EmailProviderValues) =>
       unwrapForm(await actions.emailProviders.create(values), PROVIDER_FIELDS),
@@ -55,10 +55,20 @@ export function useCreateProvider() {
   });
 }
 
+/** A provider change can also change which workspaces use it ("Use in workspaces", delete with a replacement). */
+function useProviderAndWorkspaces() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.emailProviders.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+    ]);
+}
+
 /** Rejects with the message to show when the form does not validate. */
 export function useUpdateProvider() {
   const actions = useSenloActions();
-  const invalidate = useInvalidate(queryKeys.emailProviders.all);
+  const invalidate = useProviderAndWorkspaces();
   return useMutation({
     mutationFn: async ({ id, values }: { id: number; values: EmailProviderValues }) =>
       unwrapForm(await actions.emailProviders.update(id, values), PROVIDER_FIELDS),
@@ -68,10 +78,10 @@ export function useUpdateProvider() {
 
 export function useDeleteProvider() {
   const actions = useSenloActions();
-  const invalidate = useInvalidate(queryKeys.emailProviders.all);
+  const invalidate = useProviderAndWorkspaces();
   return useMutation({
-    mutationFn: async (providerId: number) => {
-      unwrap(await actions.emailProviders.delete(providerId));
+    mutationFn: async ({ providerId, replacementId }: { providerId: number; replacementId?: number | null }) => {
+      unwrap(await actions.emailProviders.delete(providerId, { replacementId }));
       return providerId;
     },
     onSettled: invalidate,

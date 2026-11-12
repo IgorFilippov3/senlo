@@ -62,6 +62,7 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   onDeleteSavedRow,
   baseUrl,
   hasAiProvider = false,
+  sendingSetup,
   onNavigate,
   uploadImage,
   generateWithAi,
@@ -155,8 +156,8 @@ export const EditorLayout: FC<EditorLayoutProps> = ({
   ]);
 
   const host = useMemo<EditorHost>(
-    () => ({ baseUrl, hasAiProvider, onNavigate, uploadImage, generateWithAi, previewData }),
-    [baseUrl, hasAiProvider, onNavigate, uploadImage, generateWithAi, previewData],
+    () => ({ baseUrl, hasAiProvider, sendingSetup, onNavigate, uploadImage, generateWithAi, previewData }),
+    [baseUrl, hasAiProvider, sendingSetup, onNavigate, uploadImage, generateWithAi, previewData],
   );
 
   return (

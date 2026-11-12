@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { Dialog, Button, Input, FormField } from "@senlo/ui";
-import { Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Send, Loader2, CheckCircle2, AlertCircle, MailX } from "lucide-react";
 import styles from "./test-send-modal.module.css";
 import { useEditorStore } from "../../state/editor.store";
+import { useEditorHost } from "../../host";
+import { useLeaveEditor } from "../../hooks/use-leave-editor";
 
 interface TestSendModalProps {
   isOpen: boolean;
@@ -26,6 +28,8 @@ export const TestSendModal = ({ isOpen, onClose }: TestSendModalProps) => {
   const templateId = useEditorStore((s) => s.templateId);
   const subject = useEditorStore((s) => s.templateSubject);
   const onSendTest = useEditorStore((s) => s.onSendTest);
+  const { sendingSetup } = useEditorHost();
+  const leave = useLeaveEditor();
 
   useEffect(() => {
     if (isOpen) {
@@ -85,7 +89,16 @@ export const TestSendModal = ({ isOpen, onClose }: TestSendModalProps) => {
       description="See how your email looks in a real inbox."
     >
       <div className={styles.container}>
-        {status === "success" ? (
+        {sendingSetup === "no-providers" || sendingSetup === "not-selected" ? (
+          <SendingSetupNotice
+            setup={sendingSetup}
+            onClose={onClose}
+            onFix={
+              leave &&
+              (() => leave(sendingSetup === "no-providers" ? "providers" : "email-settings"))
+            }
+          />
+        ) : status === "success" ? (
           <div className={styles.successState}>
             <CheckCircle2 size={48} className={styles.successIcon} />
             <h3>Email Sent!</h3>
@@ -162,3 +175,37 @@ export const TestSendModal = ({ isOpen, onClose }: TestSendModalProps) => {
     </Dialog>
   );
 };
+
+/** Instead of the form while the workspace cannot send: what to fix, and a way there. */
+function SendingSetupNotice({
+  setup,
+  onClose,
+  onFix,
+}: {
+  setup: "no-providers" | "not-selected";
+  onClose: () => void;
+  onFix: (() => void) | null;
+}) {
+  const noProviders = setup === "no-providers";
+  return (
+    <div className={styles.setupState} role="status">
+      <MailX size={40} className={styles.setupIcon} />
+      <h3>{noProviders ? "Add an email provider first" : "Choose an email provider"}</h3>
+      <p>
+        {noProviders
+          ? "This workspace can't send email yet: your account has no email provider. Add one (Resend, Postmark, SES, SMTP and others), then select it in the workspace settings."
+          : "This workspace can't send email yet: no email provider is selected for it. Choose one in the workspace settings."}
+      </p>
+      <div className={styles.actions}>
+        <Button type="button" variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        {onFix && (
+          <Button type="button" onClick={onFix}>
+            {noProviders ? "Add a provider" : "Open workspace settings"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}

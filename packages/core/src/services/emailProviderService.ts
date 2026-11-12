@@ -6,10 +6,10 @@ import { z } from "zod";
 import { AccessGuard, listInScope, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
 import type { EmailProvider, EmailProviderType, PublicEmailProvider } from "../domain";
-import { FormValidationError, NotFoundError } from "../errors";
+import { FormValidationError, NotFoundError, ValidationError } from "../errors";
 import { parseInput } from "../validation";
 import { CLOUDFLARE_ACCOUNT_ID } from "./mail/cloudflareMailer";
-import type { IEmailProviderRepository } from "../ports";
+import type { IEmailProviderRepository, IProjectRepository } from "../ports";
 
 export const EMAIL_PROVIDER_TYPES = [
   "RESEND",
@@ -58,6 +58,21 @@ export const EmailProviderUpdateSchema = EmailProviderInputSchema.partial().exte
     (v) => v === true || v === "on" || v === "true",
     z.boolean(),
   ).optional(),
+});
+
+/**
+ * The workspaces a provider form ticked under "Use in workspaces". Absent:
+ * no workspace is touched (API callers, older forms). On edit the list is
+ * the whole set: a workspace that used the provider and is not in it stops
+ * using it.
+ */
+export const ProviderWorkspacesSchema = z.object({
+  workspaceIds: z.array(z.coerce.number().int().positive()).optional(),
+});
+
+/** Deleting a provider: what the workspaces that use it switch to; null or absent leaves them without one. */
+export const DeleteProviderSchema = z.object({
+  replacementId: z.coerce.number().int().positive().nullish(),
 });
 
 export type EmailProviderInput = z.infer<typeof EmailProviderInputSchema>;
@@ -337,8 +352,16 @@ function replaceUnreadableConfig(provider: EmailProvider, input: EmailProviderUp
 export class EmailProviderService {
   constructor(
     private readonly providers: IEmailProviderRepository,
-    private readonly access: Pick<AccessGuard, "requireOwned" | "requireCreate" | "scopeFor"> = AccessGuard.forOwnedRecords(),
+    private readonly access: Pick<
+      AccessGuard,
+      "requireOwned" | "requireCreate" | "scopeFor" | "requireProject"
+    > = AccessGuard.forOwnedRecords(),
     private readonly hooks: ServiceHooks = ServiceHooks.none,
+    /** Workspaces a provider is selected for; without it no workspace can be touched. */
+    private readonly projects: Pick<
+      IProjectRepository,
+      "update" | "listForUser" | "listForOrganization"
+    > | null = null,
   ) {}
 
   /** The providers in the user's scope (their own, or their organization's). */
@@ -359,6 +382,10 @@ export class EmailProviderService {
       throw new FormValidationError(outcome.fieldErrors);
     }
     const scope = await this.access.requireCreate(userId, "Provider");
+    // Checked before anything is stored: a workspace the user cannot change
+    // must not leave a new provider behind with the request refused.
+    const { workspaceIds } = parseInput(ProviderWorkspacesSchema, rawInput);
+    await this.requireWorkspaces(userId, workspaceIds ?? []);
     const created = await this.providers.create({
       name: input.name,
       type: input.type,
@@ -368,12 +395,15 @@ export class EmailProviderService {
       organizationId: scope.organizationId,
     });
     await this.audit(userId, "created", created.id, { type: created.type });
+    if (workspaceIds?.length) await this.useInWorkspaces(userId, created.id, workspaceIds);
     return toPublicEmailProvider(created);
   }
 
   async update(userId: string, id: number, rawInput: unknown): Promise<PublicEmailProvider> {
     const provider = await this.requireOwned(userId, id, "write");
     const input = parseInput(EmailProviderUpdateSchema, rawInput);
+    const { workspaceIds } = parseInput(ProviderWorkspacesSchema, rawInput);
+    await this.requireWorkspaces(userId, workspaceIds ?? []);
     const updated = await this.providers.update(id, {
       name: input.name || provider.name,
       type: input.type || provider.type,
@@ -383,6 +413,12 @@ export class EmailProviderService {
     });
     if (!updated) throw new NotFoundError("Provider");
     await this.audit(userId, "updated", id);
+    if (workspaceIds) {
+      // Only what changed: a workspace already on it is not written again.
+      const current = await this.workspacesUsing(userId, id);
+      await this.useInWorkspaces(userId, id, workspaceIds.filter((w) => !current.includes(w)));
+      await this.switchWorkspaces(userId, current.filter((w) => !workspaceIds.includes(w)), null);
+    }
     return toPublicEmailProvider(updated);
   }
 
@@ -394,10 +430,61 @@ export class EmailProviderService {
     return toPublicEmailProvider(updated);
   }
 
-  async delete(userId: string, id: number): Promise<void> {
+  /**
+   * The workspaces that use it switch to `replacementId` first, if given;
+   * otherwise they are left without a provider (the foreign key's `set null`).
+   */
+  async delete(userId: string, id: number, rawOptions: unknown = {}): Promise<void> {
     await this.requireOwned(userId, id, "write");
+    const { replacementId } = parseInput(DeleteProviderSchema, rawOptions);
+    if (replacementId) {
+      if (replacementId === id) throw new ValidationError("Choose another provider to replace it with");
+      await this.requireOwned(userId, replacementId, "read");
+      await this.switchWorkspaces(userId, await this.workspacesUsing(userId, id), replacementId);
+    }
     await this.providers.delete(id);
-    await this.audit(userId, "deleted", id);
+    await this.audit(userId, "deleted", id, replacementId ? { replacementId } : undefined);
+  }
+
+  /** Selects the provider for each workspace (the user must be able to change it). */
+  private async useInWorkspaces(userId: string, providerId: number, workspaceIds: number[]): Promise<void> {
+    await this.switchWorkspaces(userId, [...new Set(workspaceIds)], providerId);
+  }
+
+  /** Ids of the workspaces in the user's scope that use the provider. */
+  private async workspacesUsing(userId: string, providerId: number): Promise<number[]> {
+    const workspaces = await listInScope(await this.access.scopeFor(userId), this.requireProjects());
+    return workspaces.filter((w) => w.providerId === providerId).map((w) => w.id);
+  }
+
+  /**
+   * Linking needs write on the workspace and only read on the provider, as
+   * in workspace settings. One update per workspace, not one transaction: a
+   * failure halfway leaves some switched, which the next save repeats.
+   */
+  private async switchWorkspaces(userId: string, workspaceIds: number[], providerId: number | null): Promise<void> {
+    const projects = this.requireProjects();
+    await this.requireWorkspaces(userId, workspaceIds);
+    for (const workspaceId of workspaceIds) {
+      await projects.update(workspaceId, { providerId });
+      await this.hooks.audit({
+        actor: { userId },
+        action: "project.updated",
+        target: { type: "project", id: workspaceId, projectId: workspaceId },
+        details: { providerId },
+      });
+    }
+  }
+
+  private async requireWorkspaces(userId: string, workspaceIds: number[]): Promise<void> {
+    for (const workspaceId of workspaceIds) {
+      await this.access.requireProject(userId, workspaceId, "write");
+    }
+  }
+
+  private requireProjects() {
+    if (!this.projects) throw new Error("EmailProviderService was built without the projects repository");
+    return this.projects;
   }
 
   private audit(userId: string, verb: string, id: number, details?: Record<string, unknown>) {

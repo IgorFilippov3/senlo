@@ -4,10 +4,10 @@
 
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import type { PublicEmailProvider } from "@senlo/core";
-import { useCreateProvider, useUpdateProvider } from "../data";
-import { EmailProviderDialog, type EmailProviderValues } from "../providers";
+import { useCreateProvider, useProjects, useProviders, useUpdateProvider } from "../data";
+import { EmailProviderDialog, type EmailProviderValues, type ProviderWorkspaceChoice } from "../providers";
 import type { DialogControlProps } from "../shared/dialogs";
 
 /** Both ADD_PROVIDER and EDIT_PROVIDER: edits `provider`, creates one without it. */
@@ -19,6 +19,19 @@ export default function EmailProviderFormDialog({
   const create = useCreateProvider();
   const update = useUpdateProvider();
   const mutation = provider ? update : create;
+  const { data: projects } = useProjects();
+  const { data: providers } = useProviders();
+
+  const workspaces = useMemo<ProviderWorkspaceChoice[] | undefined>(() => {
+    if (!projects || !providers) return undefined;
+    const names = new Map(providers.map((p) => [p.id, p.name]));
+    return projects.map((w) => ({
+      id: w.id,
+      name: w.name,
+      providerId: w.providerId ?? null,
+      providerName: w.providerId ? names.get(w.providerId) ?? null : null,
+    }));
+  }, [projects, providers]);
 
   const handleSubmit = (values: EmailProviderValues) => {
     const options = { onSuccess: onClose };
@@ -34,6 +47,7 @@ export default function EmailProviderFormDialog({
       onSubmit={handleSubmit}
       isSubmitting={mutation.isPending}
       error={mutation.error?.message}
+      workspaces={workspaces}
     />
   );
 }

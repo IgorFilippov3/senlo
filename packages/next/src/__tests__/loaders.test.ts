@@ -28,7 +28,7 @@ function fakeHost(services: Record<string, unknown>, overrides: Partial<SenloHos
 
 const editorData = {
   template: { projectId: 7, name: "Welcome", subject: "Hi", locale: "en", preheader: "p" },
-  project: { id: 7, name: "Shop", aiProviderId: 3 },
+  project: { id: 7, name: "Shop", aiProviderId: 3, providerId: 2 },
   campaign: null,
   design: { rows: [] },
   mergeTags: [{ value: "{{name}}" }],
@@ -51,6 +51,7 @@ describe("loadEditorPage", () => {
       campaignId: 5,
       baseUrl: "https://mail.example",
       hasAiProvider: true,
+      sendingSetup: "ready",
       previewData: { workspaceName: "Shop" },
       templateName: "Welcome",
       templateSubject: "Hi",
@@ -58,6 +59,33 @@ describe("loadEditorPage", () => {
       templatePreheader: "p",
       mergeTags: editorData.mergeTags,
     });
+  });
+
+  it("tells the test send dialog what to fix when the workspace has no email provider", async () => {
+    const noProvider = { ...editorData, project: { ...editorData.project, providerId: null } };
+    const loadEditorData = vi.fn(async () => noProvider);
+
+    const none = vi.fn(async () => []);
+    const withNone = await loadEditorPage(
+      fakeHost({ template: { loadEditorData }, emailProvider: { listForUser: none } }),
+      editorPage("12"),
+    );
+    expect(none).toHaveBeenCalledWith("u1");
+    expect(withNone.sendingSetup).toBe("no-providers");
+
+    const some = vi.fn(async () => [{ id: 4 }]);
+    const withSome = await loadEditorPage(
+      fakeHost({ template: { loadEditorData }, emailProvider: { listForUser: some } }),
+      editorPage("12"),
+    );
+    expect(withSome.sendingSetup).toBe("not-selected");
+  });
+
+  it("does not list providers when the workspace has one", async () => {
+    const listForUser = vi.fn();
+    const loadEditorData = vi.fn(async () => editorData);
+    await loadEditorPage(fakeHost({ template: { loadEditorData }, emailProvider: { listForUser } }), editorPage("12"));
+    expect(listForUser).not.toHaveBeenCalled();
   });
 
   it("passes no campaign when the query has none", async () => {

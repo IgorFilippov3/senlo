@@ -54,7 +54,7 @@ const NONE = "none";
 const toSelect = (id: number | null) => (id === null ? NONE : String(id));
 const fromSelect = (value: string) => (value === NONE ? null : Number(value));
 
-function ProviderSelect({
+export function ProviderSelect({
   value,
   onChange,
   noneLabel,

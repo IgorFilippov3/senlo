@@ -150,8 +150,8 @@ const handlers: HandlerTable<SenloServerActions> = {
   "emailProviders.toggle": write((s, userId, providerId: number, isActive: boolean) =>
     s.emailProvider.setActive(userId, providerId, isActive),
   ),
-  "emailProviders.delete": write(async (s, userId, providerId: number) => {
-    await s.emailProvider.delete(userId, providerId);
+  "emailProviders.delete": write(async (s, userId, providerId: number, options?: { replacementId?: number | null }) => {
+    await s.emailProvider.delete(userId, providerId, options ?? {});
   }),
 
   "aiProviders.list": read((s, userId) => s.aiProvider.listForUser(userId)),
