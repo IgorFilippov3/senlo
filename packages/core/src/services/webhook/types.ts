@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /** Providers that call back with delivery events. */
-export type WebhookProviderType = "RESEND" | "POSTMARK" | "SENDGRID" | "MAILJET";
+export type WebhookProviderType = "RESEND" | "POSTMARK" | "SENDGRID" | "MAILJET" | "SES";
 
 export type DeliveryEventType =
   | "DELIVERED"
@@ -50,8 +50,25 @@ export interface WebhookAdapter {
    * Reads the project id from the body (from one event of a batch) before
    * verification. It picks the
    * provider whose secret the event is checked against, nothing more.
+   *
+   * For provider-bound adapters (`providerIdFrom`) it is called on the
+   * verified payload instead, after the handshake.
    */
   readProjectId(body: unknown): number | null;
+  /**
+   * For providers whose callbacks cannot name a project before they are
+   * verified (SNS: the subscription handshake carries none). The provider is
+   * then taken from the callback URL's query, its secret checks the body,
+   * and the project read from the verified payload must use that provider.
+   */
+  providerIdFrom?(query: Record<string, string>): number | null;
+  /**
+   * Answers a subscription handshake carried in a verified payload. True
+   * when the payload was one (nothing more to do), false for an ordinary
+   * event. Throws when the handshake could not be completed, so the
+   * provider retries it.
+   */
+  handshake?(payload: unknown): Promise<boolean>;
   /**
    * Checks the event against the provider's configured secret. Returns the
    * authenticated payload, or null when the check fails. May be async (Web

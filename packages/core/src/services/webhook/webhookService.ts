@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Campaign, TriggeredSendLog } from "../../domain";
+import type { Campaign, EmailProvider, TriggeredSendLog } from "../../domain";
 import type { ContactBlockedListener } from "../../ports";
 import { consoleLogger, type Logger } from "../../logger";
 import type {
@@ -17,6 +17,7 @@ import { postmarkWebhookAdapter } from "./postmark";
 import { resendWebhookAdapter } from "./resend";
 import { sendGridWebhookAdapter } from "./sendgrid";
 import { mailjetWebhookAdapter } from "./mailjet";
+import { sesWebhookAdapter } from "./ses";
 import type {
   DeliveryEvent,
   WebhookAdapter,
@@ -59,6 +60,7 @@ export class WebhookService {
       postmarkWebhookAdapter,
       sendGridWebhookAdapter,
       mailjetWebhookAdapter,
+      sesWebhookAdapter,
     ],
     /** Told after a bounce or spam report suppresses an address (automations end lifecycle runs). */
     private readonly onContactBlocked?: ContactBlockedListener,
@@ -70,6 +72,8 @@ export class WebhookService {
     providerType: WebhookProviderType,
     rawBody: string,
     headers: Record<string, string>,
+    /** The callback URL's query, for adapters that bind the provider there (SES). */
+    query: Record<string, string> = {},
   ): Promise<WebhookResult> {
     const adapter = this.adapters.get(providerType);
     if (!adapter) throw new Error(`No webhook adapter for ${providerType}`);
@@ -83,6 +87,7 @@ export class WebhookService {
     }
 
     const lowered = lowerCaseKeys(headers);
+    if (adapter.providerIdFrom) return this.handleProviderBound(adapter, rawBody, lowered, query);
     if (adapter.split) return this.handleBatch(adapter, body, rawBody, lowered);
 
     // The project tag picks whose secret the event is checked against. Until
@@ -102,6 +107,67 @@ export class WebhookService {
         provider: providerType,
         projectId,
       });
+      return { status: "ignored", reason: "untracked_event" };
+    }
+
+    await this.apply(projectId, event);
+    return { status: "processed", event };
+  }
+
+  /**
+   * A provider named in the callback URL (SES via SNS). The body is checked
+   * against that provider's secret before anything in it is read; then a
+   * handshake is answered, or the event's project (from the verified body)
+   * must be one that sends through this provider.
+   */
+  private async handleProviderBound(
+    adapter: WebhookAdapter,
+    rawBody: string,
+    headers: Record<string, string>,
+    query: Record<string, string>,
+  ): Promise<WebhookResult> {
+    const providerType = adapter.type;
+    const providerId = adapter.providerIdFrom!(query);
+    if (!providerId) {
+      this.logger.warn("Webhook without a provider id in the URL", { provider: providerType });
+      return { status: "ignored", reason: "no_provider" };
+    }
+
+    const provider = await this.repos.providers.findById(providerId);
+    if (!provider || provider.type !== providerType) {
+      this.logger.warn("Webhook for an unknown provider or one of another type", {
+        provider: providerType,
+        providerId,
+      });
+      return { status: "ignored", reason: "unknown_provider" };
+    }
+
+    const auth = await this.verifyWith(adapter, provider, rawBody, headers);
+    if (auth.status !== "verified") return auth;
+
+    if (adapter.handshake && (await adapter.handshake(auth.payload))) {
+      this.logger.info("Webhook subscription handshake answered", { provider: providerType, providerId });
+      return { status: "ignored", reason: "subscription_confirmed" };
+    }
+
+    const projectId = adapter.readProjectId(auth.payload);
+    if (!projectId) {
+      this.logger.warn("Webhook without a project tag", { provider: providerType, providerId });
+      return { status: "ignored", reason: "no_project" };
+    }
+    const project = await this.repos.projects.findById(projectId);
+    if (!project || project.providerId !== provider.id) {
+      this.logger.warn("Webhook event for a project that does not use this provider", {
+        provider: providerType,
+        providerId,
+        projectId,
+      });
+      return { status: "ignored", reason: "provider_mismatch" };
+    }
+
+    const event = adapter.normalize(auth.payload);
+    if (!event) {
+      this.logger.debug("Webhook event not tracked or incomplete", { provider: providerType, projectId });
       return { status: "ignored", reason: "untracked_event" };
     }
 
@@ -203,6 +269,20 @@ export class WebhookService {
       return { status: "ignored", reason: "provider_mismatch" };
     }
 
+    return this.verifyWith(adapter, provider, rawBody, headers);
+  }
+
+  /** Checks the body against the provider's secret. `headers` are lower-cased. */
+  private async verifyWith(
+    adapter: WebhookAdapter,
+    provider: EmailProvider,
+    rawBody: string,
+    headers: Record<string, string>,
+  ): Promise<
+    | { status: "verified"; payload: unknown }
+    | Extract<WebhookResult, { status: "rejected" }>
+  > {
+    const providerType = adapter.type;
     // Without a secret anyone could post bounces and fill the suppression
     // list, so an unconfigured secret refuses every event rather than
     // accepting them all.

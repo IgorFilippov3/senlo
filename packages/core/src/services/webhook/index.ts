@@ -29,3 +29,4 @@ export {
   type SnsMessageType,
   type SnsVerifier,
 } from "./sns";
+export { createSesWebhookAdapter, sesWebhookAdapter, type SesWebhookOptions } from "./ses";
