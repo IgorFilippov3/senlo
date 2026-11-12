@@ -214,7 +214,6 @@ describe("services call the ports once per action", () => {
       p.hooks,
     );
     await providers.create("alice", { name: "R", type: "RESEND", apiKey: "secret" });
-    await providers.setActive("alice", 4, false);
     await providers.delete("alice", 4);
 
     const workflow = { id: 10, projectId: 1, name: "w", status: "DRAFT", createdAt: at, updatedAt: at } as Workflow;
@@ -233,11 +232,10 @@ describe("services call the ports once per action", () => {
 
     expect(p.audit.map((e) => e.action)).toEqual([
       "email_provider.created",
-      "email_provider.deactivated",
       "email_provider.deleted",
       "workflow.status_changed",
     ]);
-    expect(p.audit[3]).toMatchObject({ target: { type: "workflow", id: 10, projectId: 1 }, details: { from: "DRAFT", to: "PAUSED" } });
+    expect(p.audit[2]).toMatchObject({ target: { type: "workflow", id: 10, projectId: 1 }, details: { from: "DRAFT", to: "PAUSED" } });
     expect(JSON.stringify(p.audit)).not.toContain("secret");
   });
 });

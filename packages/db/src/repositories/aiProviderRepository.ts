@@ -89,20 +89,6 @@ export class AiProviderRepository extends BaseRepositoryWithTimestamps<
   }
 
   /**
-   * Find the active AI provider.
-   * @returns The active AI provider or null if not found
-   */
-  async findActive(): Promise<AiProvider | null> {
-    const [row] = await this.db
-      .select()
-      .from(aiProviders)
-      .where(eq(aiProviders.isActive, true))
-      .limit(1);
-
-    return row ? this.toEntity(row) : null;
-  }
-
-  /**
    * Create a new AI provider.
    * @param data - Provider data including name, type, userId and config
    * @returns The created provider

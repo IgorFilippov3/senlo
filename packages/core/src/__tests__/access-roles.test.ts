@@ -60,14 +60,13 @@ describe("AccessGuard with read and write", () => {
 });
 
 describe("services under a viewer role", () => {
-  it("a viewer reads a shared provider but cannot edit, toggle or delete it", async () => {
+  it("a viewer reads a shared provider but cannot edit or delete it", async () => {
     const providers = new EmailProviderService(
       { findById: async (id: number) => (id === 20 ? orgProvider : null) } as never,
       guard,
     );
     await expect(providers.requireOwned("vic", 20, "read")).resolves.toBe(orgProvider);
     await expect(providers.update("vic", 20, { name: "x" })).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(providers.setActive("vic", 20, false)).rejects.toBeInstanceOf(ForbiddenError);
     await expect(providers.delete("vic", 20)).rejects.toBeInstanceOf(ForbiddenError);
   });
 

@@ -219,9 +219,8 @@ describe("EmailProviderService", () => {
     expect(errors).toEqual({ apiKey: ["Resend API key is required"] });
   });
 
-  it("refuses another user's provider on update, toggle and delete, like a missing one", async () => {
+  it("refuses another user's provider on update and delete, like a missing one", async () => {
     await expect(service.update("alice", 2, { name: "x" })).rejects.toBeInstanceOf(NotFoundError);
-    await expect(service.setActive("alice", 2, false)).rejects.toBeInstanceOf(NotFoundError);
     await expect(service.delete("alice", 2)).rejects.toBeInstanceOf(NotFoundError);
     await expect(service.delete("alice", 999)).rejects.toBeInstanceOf(NotFoundError);
     await expect(service.requireOwned("", 1, "read")).rejects.toBeInstanceOf(NotFoundError);
@@ -235,8 +234,7 @@ describe("EmailProviderService", () => {
     expect(repo.rows.get(1)!.config).toEqual({ apiKey: "re_1", webhook_secret: "w2" });
   });
 
-  it("toggles and deletes the user's own provider", async () => {
-    expect((await service.setActive("alice", 1, false)).isActive).toBe(false);
+  it("deletes the user's own provider", async () => {
     await service.delete("alice", 1);
     expect(repo.rows.has(1)).toBe(false);
   });

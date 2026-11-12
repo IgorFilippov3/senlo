@@ -422,14 +422,6 @@ export class EmailProviderService {
     return toPublicEmailProvider(updated);
   }
 
-  async setActive(userId: string, id: number, isActive: boolean): Promise<PublicEmailProvider> {
-    await this.requireOwned(userId, id, "write");
-    const updated = await this.providers.update(id, { isActive });
-    if (!updated) throw new NotFoundError("Provider");
-    await this.audit(userId, isActive ? "activated" : "deactivated", id);
-    return toPublicEmailProvider(updated);
-  }
-
   /**
    * The workspaces that use it switch to `replacementId` first, if given;
    * otherwise they are left without a provider (the foreign key's `set null`).

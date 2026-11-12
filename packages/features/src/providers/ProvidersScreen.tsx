@@ -5,7 +5,7 @@
 "use client";
 
 import React from "react";
-import { useAiProviders, useProviders, useToggleAiProvider, useToggleProvider } from "../data/providers";
+import { useAiProviders, useProviders } from "../data/providers";
 import { useSenloDialogs } from "../dialogs/registry";
 import { ProvidersView } from "./ProvidersView";
 
@@ -13,16 +13,7 @@ import { ProvidersView } from "./ProvidersView";
 export function ProvidersScreen() {
   const email = useProviders();
   const ai = useAiProviders();
-  const toggleEmail = useToggleProvider();
-  const toggleAi = useToggleAiProvider();
   const { open: openDialog } = useSenloDialogs();
-
-  // Each toggle replaces its mutation's state, so a later success clears the message.
-  const actionError = toggleEmail.error
-    ? "Failed to update provider status. Please try again."
-    : toggleAi.error
-      ? "Failed to update AI provider status. Please try again."
-      : null;
 
   return (
     <ProvidersView
@@ -34,20 +25,11 @@ export function ProvidersScreen() {
         email.refetch();
         ai.refetch();
       }}
-      actionError={actionError}
       onAddEmailProvider={() => openDialog("ADD_PROVIDER", {})}
       onEditEmailProvider={(provider) => openDialog("EDIT_PROVIDER", { provider })}
       onDeleteEmailProvider={(p) => openDialog("DELETE_PROVIDER", { providerId: p.id, name: p.name })}
-      onToggleEmailProvider={(p, isActive) => {
-        toggleAi.reset();
-        toggleEmail.mutate({ providerId: p.id, isActive });
-      }}
       onAddAiProvider={() => openDialog("ADD_AI_PROVIDER", {})}
       onDeleteAiProvider={(p) => openDialog("DELETE_AI_PROVIDER", { providerId: p.id, name: p.name })}
-      onToggleAiProvider={(p, isActive) => {
-        toggleEmail.reset();
-        toggleAi.mutate({ providerId: p.id, isActive });
-      }}
     />
   );
 }

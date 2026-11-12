@@ -2,21 +2,18 @@
 
 import React from "react";
 import type { PublicAiProvider, PublicEmailProvider } from "@senlo/core";
-import { Card, Badge, Button, Tabs, TabsList, TabsTrigger, TabsContent } from "@senlo/ui";
-import { Cloud, Trash2, CheckCircle2, Circle, Bot, Plus, Pencil, AlertTriangle } from "lucide-react";
+import { Card, Button, Tabs, TabsList, TabsTrigger, TabsContent } from "@senlo/ui";
+import { Cloud, Trash2, Bot, Plus, Pencil, AlertTriangle } from "lucide-react";
 import { ErrorScreen } from "../shared/ErrorScreen";
 import { PageSkeleton } from "../shared/Skeletons";
-import { FormErrorBanner } from "../shared/FormErrorBanner";
 
 interface ProviderCardProps {
   icon: React.ReactNode;
   name: string;
-  isActive: boolean;
   createdAt: Date;
   details: React.ReactNode;
   /** Shown under the details, e.g. when the stored credentials cannot be read. */
   warning?: string;
-  onToggle: () => void;
   onDelete: () => void;
   onEdit?: () => void;
 }
@@ -24,11 +21,9 @@ interface ProviderCardProps {
 function ProviderCard({
   icon,
   name,
-  isActive,
   createdAt,
   details,
   warning,
-  onToggle,
   onDelete,
   onEdit,
 }: ProviderCardProps) {
@@ -37,7 +32,6 @@ function ProviderCard({
       <div className="flex items-start justify-between mb-4">
         <div className="p-2.5 bg-zinc-100 rounded-lg text-zinc-900">{icon}</div>
         <div className="flex items-center gap-2">
-          <Badge variant={isActive ? "success" : "outline"}>{isActive ? "Active" : "Inactive"}</Badge>
           {onEdit && (
             <button
               onClick={onEdit}
@@ -66,26 +60,10 @@ function ProviderCard({
         </p>
       )}
 
-      <div className="mt-auto pt-4 border-t border-zinc-100 flex items-center justify-between">
+      <div className="mt-auto pt-4 border-t border-zinc-100">
         <div className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">
           Added {new Date(createdAt).toLocaleDateString("en-GB")}
         </div>
-        <button
-          onClick={onToggle}
-          className={`flex items-center gap-1.5 text-xs font-semibold ${
-            isActive ? "text-zinc-400" : "text-blue-600"
-          } hover:underline`}
-        >
-          {isActive ? (
-            <>
-              <Circle size={14} /> Deactivate
-            </>
-          ) : (
-            <>
-              <CheckCircle2 size={14} /> Set as active
-            </>
-          )}
-        </button>
       </div>
     </Card>
   );
@@ -114,15 +92,11 @@ export interface ProvidersViewProps {
   /** Set when loading failed; replaces the lists. */
   error?: string | null;
   onRetry?: () => void;
-  /** Why the last change on the page (a toggle) failed; shown above the lists. */
-  actionError?: string | null;
   onAddEmailProvider: () => void;
   onEditEmailProvider: (provider: PublicEmailProvider) => void;
   onDeleteEmailProvider: (provider: PublicEmailProvider) => void;
-  onToggleEmailProvider: (provider: PublicEmailProvider, isActive: boolean) => void;
   onAddAiProvider: () => void;
   onDeleteAiProvider: (provider: PublicAiProvider) => void;
-  onToggleAiProvider: (provider: PublicAiProvider, isActive: boolean) => void;
 }
 
 /** The providers page: sending providers and AI model providers, one tab each. */
@@ -132,14 +106,11 @@ export function ProvidersView({
   isLoading,
   error,
   onRetry,
-  actionError,
   onAddEmailProvider,
   onEditEmailProvider,
   onDeleteEmailProvider,
-  onToggleEmailProvider,
   onAddAiProvider,
   onDeleteAiProvider,
-  onToggleAiProvider,
 }: ProvidersViewProps) {
   if (isLoading) {
     return <PageSkeleton variant="cards" />;
@@ -162,11 +133,6 @@ export function ProvidersView({
             <TabsTrigger value="ai">AI Models</TabsTrigger>
           </TabsList>
         </div>
-        {actionError && (
-          <div className="mb-6">
-            <FormErrorBanner error={actionError} />
-          </div>
-        )}
 
         <TabsContent value="email">
           <div className="flex justify-between items-center mb-6">
@@ -189,7 +155,6 @@ export function ProvidersView({
                   key={provider.id}
                   icon={<Cloud size={24} />}
                   name={provider.name}
-                  isActive={provider.isActive}
                   createdAt={provider.createdAt}
                   details={<Field label="Type" value={provider.type} />}
                   warning={
@@ -199,7 +164,6 @@ export function ProvidersView({
                   }
                   onEdit={() => onEditEmailProvider(provider)}
                   onDelete={() => onDeleteEmailProvider(provider)}
-                  onToggle={() => onToggleEmailProvider(provider, !provider.isActive)}
                 />
               ))
             )}
@@ -227,7 +191,6 @@ export function ProvidersView({
                   key={provider.id}
                   icon={<Bot size={24} />}
                   name={provider.name}
-                  isActive={provider.isActive}
                   createdAt={provider.createdAt}
                   details={
                     <>
@@ -242,7 +205,6 @@ export function ProvidersView({
                       : undefined
                   }
                   onDelete={() => onDeleteAiProvider(provider)}
-                  onToggle={() => onToggleAiProvider(provider, !provider.isActive)}
                 />
               ))
             )}

@@ -49,7 +49,7 @@ describe("AiProviderService", () => {
     expect(listed.secretsSet).toEqual(["apiKey"]);
     const created = await s.create("alice", { name: "x", type: "OPENAI", apiKey: "k" });
     expect(JSON.stringify(created)).not.toContain('"k"');
-    expect(JSON.stringify(await s.setActive("alice", 10, false))).not.toContain("sk");
+    expect(JSON.stringify(await s.listForUser("alice"))).not.toContain("sk");
     expect((await s.requireOwned("alice", 10, "read")).config.apiKey).toBe("sk");
   });
 
@@ -62,7 +62,6 @@ describe("AiProviderService", () => {
 
   it("refuses another user's provider like a missing one", async () => {
     const s = new AiProviderService(aiRepo([openai]));
-    await expect(s.setActive("bob", 10, false)).rejects.toBeInstanceOf(NotFoundError);
     await expect(s.delete("bob", 10)).rejects.toBeInstanceOf(NotFoundError);
     await expect(s.delete("alice", 5)).rejects.toBeInstanceOf(NotFoundError);
   });

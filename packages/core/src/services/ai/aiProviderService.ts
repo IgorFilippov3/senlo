@@ -71,14 +71,6 @@ export class AiProviderService {
     return toPublicAiProvider(created);
   }
 
-  async setActive(userId: string, id: number, isActive: boolean): Promise<PublicAiProvider> {
-    await this.requireOwned(userId, id, "write");
-    const updated = await this.providers.update(id, { isActive });
-    if (!updated) throw new NotFoundError("AI provider");
-    await this.audit(userId, isActive ? "activated" : "deactivated", id);
-    return toPublicAiProvider(updated);
-  }
-
   async delete(userId: string, id: number): Promise<void> {
     await this.requireOwned(userId, id, "write");
     await this.providers.delete(id);

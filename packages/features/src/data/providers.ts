@@ -88,22 +88,6 @@ export function useDeleteProvider() {
   });
 }
 
-export function useToggleProvider() {
-  const actions = useSenloActions();
-  const queryClient = useQueryClient();
-  const invalidate = useInvalidate(queryKeys.emailProviders.all);
-  return useMutation({
-    mutationFn: async ({ providerId, isActive }: { providerId: number; isActive: boolean }) =>
-      unwrap(await actions.emailProviders.toggle(providerId, isActive)),
-    onSuccess: (provider) => {
-      queryClient.setQueryData<PublicEmailProvider[]>(queryKeys.emailProviders.list(), (old) =>
-        old?.map((p) => (p.id === provider.id ? provider : p)),
-      );
-    },
-    onSettled: invalidate,
-  });
-}
-
 // AI providers
 
 export function useAiProviders() {
@@ -137,18 +121,3 @@ export function useDeleteAiProvider() {
   });
 }
 
-export function useToggleAiProvider() {
-  const actions = useSenloActions();
-  const queryClient = useQueryClient();
-  const invalidate = useInvalidate(queryKeys.aiProviders.all);
-  return useMutation({
-    mutationFn: async ({ providerId, isActive }: { providerId: number; isActive: boolean }) =>
-      unwrap(await actions.aiProviders.toggle(providerId, isActive)),
-    onSuccess: (provider) => {
-      queryClient.setQueryData<PublicAiProvider[]>(queryKeys.aiProviders.list(), (old) =>
-        old?.map((p) => (p.id === provider.id ? provider : p)),
-      );
-    },
-    onSettled: invalidate,
-  });
-}

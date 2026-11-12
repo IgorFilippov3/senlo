@@ -88,14 +88,12 @@ export interface SenloActions {
     list(): Promise<ActionResult<PublicEmailProvider[]>>;
     create(values: EmailProviderValues): Promise<FormActionResult<PublicEmailProvider>>;
     update(providerId: number, values: EmailProviderValues): Promise<FormActionResult<PublicEmailProvider>>;
-    toggle(providerId: number, isActive: boolean): Promise<ActionResult<PublicEmailProvider>>;
     /** `replacementId`: what the workspaces using it switch to; absent leaves them without one. */
     delete(providerId: number, options?: { replacementId?: number | null }): Promise<ActionResult<void>>;
   };
   aiProviders: {
     list(): Promise<ActionResult<PublicAiProvider[]>>;
     create(values: AiProviderValues): Promise<FormActionResult<PublicAiProvider>>;
-    toggle(providerId: number, isActive: boolean): Promise<ActionResult<PublicAiProvider>>;
     delete(providerId: number): Promise<ActionResult<void>>;
   };
   apiKeys: {

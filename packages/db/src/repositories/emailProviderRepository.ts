@@ -27,7 +27,6 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
     super(db);
   }
 
-
   /**
    * Map a database row to an EmailProvider entity.
    * @param row - The raw database row
@@ -86,20 +85,6 @@ export class EmailProviderRepository extends BaseRepositoryWithTimestamps<
       .orderBy(desc(emailProviders.createdAt));
 
     return Promise.all(rows.map((row) => this.toEntity(row)));
-  }
-
-  /**
-   * @deprecated Use project.providerId instead. Providers are now selected at the project level.
-   * This method will be removed in a future version.
-   */
-  async findActive(): Promise<EmailProvider | null> {
-    const [row] = await this.db
-      .select()
-      .from(emailProviders)
-      .where(eq(emailProviders.isActive, true))
-      .limit(1);
-
-    return row ? this.toEntity(row) : null;
   }
 
   /**

@@ -147,18 +147,12 @@ const handlers: HandlerTable<SenloServerActions> = {
   "emailProviders.update": form((s, userId, providerId: number, values) =>
     s.emailProvider.update(userId, providerId, values),
   ),
-  "emailProviders.toggle": write((s, userId, providerId: number, isActive: boolean) =>
-    s.emailProvider.setActive(userId, providerId, isActive),
-  ),
   "emailProviders.delete": write(async (s, userId, providerId: number, options?: { replacementId?: number | null }) => {
     await s.emailProvider.delete(userId, providerId, options ?? {});
   }),
 
   "aiProviders.list": read((s, userId) => s.aiProvider.listForUser(userId)),
   "aiProviders.create": form((s, userId, values) => s.aiProvider.create(userId, values)),
-  "aiProviders.toggle": write((s, userId, providerId: number, isActive: boolean) =>
-    s.aiProvider.setActive(userId, providerId, isActive),
-  ),
   "aiProviders.delete": write(async (s, userId, providerId: number) => {
     await s.aiProvider.delete(userId, providerId);
   }),
