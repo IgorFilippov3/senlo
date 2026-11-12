@@ -1,7 +1,8 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
-import { IMailer, SendMailOptions, SendMailResult } from "../../ports";
-import { allowAllOutbound, assertOutbound, type OutboundPolicy } from "../../outbound";
+import { IMailer, KeyCheck, SendMailOptions, SendMailResult } from "../../ports";
+import { OutboundRefusedError, allowAllOutbound, assertOutbound, type OutboundPolicy } from "../../outbound";
+import { KEY_CHECK_TIMEOUT_MS, KEY_VALID, keyInvalid, keyUnknown } from "./keyCheck";
 
 export type SmtpEncryption = "ssl" | "starttls" | "none";
 
@@ -46,11 +47,20 @@ function transporterFor(config: SmtpConfig): Transporter {
     return existing;
   }
 
-  const encryption = config.encryption ?? "starttls";
-
   const transporter = nodemailer.createTransport({
     pool: true,
     maxConnections: 5,
+    ...connectionOptions(config),
+  });
+
+  transporters.set(key, transporter);
+  return transporter;
+}
+
+/** How to reach and log in to the server; shared by the pooled sender and the one-off check. */
+function connectionOptions(config: SmtpConfig) {
+  const encryption = config.encryption ?? "starttls";
+  return {
     host: config.host,
     port: config.port,
     // Implicit TLS from the first byte — the classic port 465 setup.
@@ -65,10 +75,18 @@ function transporterFor(config: SmtpConfig): Transporter {
     auth: config.username
       ? { user: config.username, pass: config.password ?? "" }
       : undefined,
-  });
+  };
+}
 
-  transporters.set(key, transporter);
-  return transporter;
+/**
+ * SMTP replies a retry cannot change: a refused login (`EAUTH`) or a 5xx
+ * reply (5.x.x is permanent by the protocol).
+ */
+function isPermanentSmtpError(e: any): boolean {
+  if (e instanceof OutboundRefusedError) return true;
+  if (e?.code === "EAUTH") return true;
+  const code = Number(e?.responseCode);
+  return code >= 500 && code < 600;
 }
 
 export class SmtpMailer implements IMailer {
@@ -77,6 +95,33 @@ export class SmtpMailer implements IMailer {
     /** Where the user's SMTP host may be; a shared instance refuses internal addresses. */
     private readonly outbound: OutboundPolicy = allowAllOutbound,
   ) {}
+
+  /**
+   * Connects, upgrades to TLS and logs in, without sending: a refused login
+   * or a refused host is invalid; a server that cannot be reached is
+   * "could not check" (it may be down for a moment). A fresh connection, not
+   * the pool: a check must not keep connections open.
+   */
+  async verify(): Promise<KeyCheck> {
+    let transporter: Transporter | undefined;
+    try {
+      await assertOutbound(this.outbound, { host: this.config.host, port: this.config.port });
+      transporter = nodemailer.createTransport({
+        ...connectionOptions(this.config),
+        connectionTimeout: KEY_CHECK_TIMEOUT_MS,
+        greetingTimeout: KEY_CHECK_TIMEOUT_MS,
+        socketTimeout: KEY_CHECK_TIMEOUT_MS,
+      });
+      await transporter.verify();
+      return KEY_VALID;
+    } catch (e: any) {
+      if (e instanceof OutboundRefusedError) return keyInvalid(e.message);
+      if (e?.code === "EAUTH") return keyInvalid("The SMTP server refused the username or password");
+      return keyUnknown(`Could not check the SMTP server: ${e?.message || "connection failed"}`);
+    } finally {
+      transporter?.close();
+    }
+  }
 
   async send(options: SendMailOptions): Promise<SendMailResult> {
     try {
@@ -110,6 +155,7 @@ export class SmtpMailer implements IMailer {
       return {
         success: false,
         error: e.message || "Unknown error sending over SMTP",
+        permanent: isPermanentSmtpError(e),
       };
     }
   }

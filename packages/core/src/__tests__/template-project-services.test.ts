@@ -1,12 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
-import { TemplateService, mergeTagsFromVariables } from "../services/emailTemplateService";
+import { TemplateService, TEST_SEND_TIMEOUT_MS, mergeTagsFromVariables } from "../services/emailTemplateService";
 import { SavedRowService } from "../services/savedRowService";
 import { ProjectService } from "../services/projectService";
 import { SettingsService } from "../services/settingsService";
 import { EMPTY_EMAIL_DESIGN } from "../constants";
-import { FormValidationError, NotFoundError, ValidationError } from "../errors";
+import { FormValidationError, NotFoundError, ProviderError, ValidationError } from "../errors";
 import type { ApiKey, Campaign, EmailProvider, Project, SavedRow } from "../domain";
 import type { EmailTemplate } from "../emailTemplate";
+import type { SendMailResult } from "../ports";
 
 const p1 = { id: 1, userId: "alice", name: "Alpha", providerId: 5, aiProviderId: null, createdAt: new Date(), updatedAt: new Date() } as Project;
 const p2 = { id: 2, userId: "bob", name: "Beta", providerId: 6, aiProviderId: null, createdAt: new Date(), updatedAt: new Date() } as Project;
@@ -47,10 +48,8 @@ function templateFakes() {
     { id: 5, userId: "alice", type: "RESEND", name: "r", config: {}, isActive: true, createdAt: new Date(), updatedAt: new Date() },
     { id: 6, userId: "bob", type: "RESEND", name: "r", config: {}, isActive: true, createdAt: new Date(), updatedAt: new Date() },
   ];
-  const queue = {
-    add: vi.fn(async () => ({ id: "job-1" }) as never),
-    getWorkers: vi.fn(async () => [{}] as never),
-  };
+  const mailer = { send: vi.fn(async (): Promise<SendMailResult> => ({ success: true, messageId: "m-1" })) };
+  const mailerFor = vi.fn((_provider: EmailProvider) => mailer);
   const repos = {
     templates: {
       findById: async (id: number) => templates.get(id) ?? null,
@@ -66,8 +65,8 @@ function templateFakes() {
     },
     providers: { findById: async (id: number) => providers.find((p) => p.id === id) ?? null },
   };
-  const service = new TemplateService(repos, queue, { appUrl: "https://app.test", defaultFromEmail: "hello@app.test" });
-  return { service, repos, queue, templates };
+  const service = new TemplateService(repos, mailerFor, { appUrl: "https://app.test", defaultFromEmail: "hello@app.test" });
+  return { service, repos, mailer, mailerFor, templates };
 }
 
 describe("TemplateService", () => {
@@ -114,23 +113,52 @@ describe("TemplateService", () => {
     expect(repos.templates.update).toHaveBeenCalledWith({ id: 10, designJson: EMPTY_EMAIL_DESIGN, html: "<p/>", name: "N", subject: "S", locale: undefined, preheader: "P" });
   });
 
-  it("sendTest checks addresses, provider presence and ownership, then queues the rendered mail", async () => {
-    const { service, queue } = templateFakes();
+  it("sendTest checks addresses, provider presence and ownership, then sends the rendered mail now", async () => {
+    const { service, mailer, mailerFor } = templateFakes();
     const design = EMPTY_EMAIL_DESIGN;
     await expect(service.sendTest("alice", 10, { to: "a@b, c@d", design })).rejects.toBeInstanceOf(ValidationError);
     await expect(service.sendTest("alice", 10, { to: "a@b.co", from: "Me <x@y.co>", design })).rejects.toBeInstanceOf(ValidationError);
     // Project 3 has no provider.
-    const { service: s3 } = templateFakes();
+    const { service: s3, mailer: m3 } = templateFakes();
     s3["repos"].templates.findById = async () => tpl(30, 3);
     await expect(s3.sendTest("alice", 30, { to: "a@b.co", design })).rejects.toThrow(/No email provider/);
-    expect(queue.add).not.toHaveBeenCalled();
+    expect(m3.send).not.toHaveBeenCalled();
 
     const r = await service.sendTest("alice", 10, { to: "a@b.co", from: "", design, subject: "" });
-    expect(r).toEqual({ jobId: "job-1", activeWorkers: 1 });
-    const job = (queue.add.mock.calls[0] as any)[1];
-    expect(job).toMatchObject({ projectId: 1, campaignId: 0, contactId: 0, email: "a@b.co", from: "hello@app.test", subject: "[TEST] s10", providerId: 5 });
-    expect(job.html).toContain("<");
+    expect(r).toEqual({ messageId: "m-1" });
+    expect(mailerFor.mock.calls[0][0]).toMatchObject({ id: 5 });
+    const sent = (mailer.send.mock.calls[0] as any)[0];
+    expect(sent).toMatchObject({ to: "a@b.co", from: "hello@app.test", subject: "[TEST] s10" });
+    expect(sent.html).toContain("<");
+    expect(typeof sent.text).toBe("string");
   });
+
+  it("sendTest returns the provider's refusal as a ProviderError", async () => {
+    const { service, mailer } = templateFakes();
+    mailer.send.mockResolvedValueOnce({ success: false, error: "API key is invalid", permanent: true });
+    const e = await service.sendTest("alice", 10, { to: "a@b.co", design: EMPTY_EMAIL_DESIGN }).catch((x) => x);
+    expect(e).toBeInstanceOf(ProviderError);
+    expect(e.message).toContain("API key is invalid");
+  });
+
+  it("sendTest gives up waiting after the timeout and says the email may still arrive", async () => {
+    vi.useFakeTimers();
+    try {
+      const { service, mailer } = templateFakes();
+      mailer.send.mockReturnValueOnce(new Promise(() => {}));
+      const pending = service.sendTest("alice", 10, { to: "a@b.co", design: EMPTY_EMAIL_DESIGN }).catch((x) => x);
+      // The timer starts in the same tick as the send: wait for the send, then run the clock.
+      for (let i = 0; i < 100 && mailer.send.mock.calls.length === 0; i++) await Promise.resolve();
+      expect(mailer.send).toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(TEST_SEND_TIMEOUT_MS + 1);
+      const e = await pending;
+      expect(e).toBeInstanceOf(ProviderError);
+      expect(e.message).toMatch(/may still arrive/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
 });
 
 describe("SavedRowService", () => {

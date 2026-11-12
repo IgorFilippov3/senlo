@@ -35,7 +35,8 @@ import { AutomationRunsService } from "./services/automationRunsService";
 import { AutomationService } from "./services/automationService";
 import { CampaignService } from "./services/campaignService";
 import { DashboardService } from "./services/dashboardService";
-import { EmailProviderService } from "./services/emailProviderService";
+import { EmailProviderService, type CheckProviderKey } from "./services/emailProviderService";
+import { MailerFactory } from "./services/mail";
 import { TemplateService } from "./services/emailTemplateService";
 import { EventIngestionService } from "./services/eventIngestionService";
 import { ProjectService } from "./services/projectService";
@@ -203,16 +204,27 @@ export function createServices({
     auth: new AuthService(r.apiKeys),
     campaign: new CampaignService(r, guard),
     dashboard: new DashboardService(r.dashboard, r.projects, guard),
-    emailProvider: new EmailProviderService(r.providers, guard, hooks, r.projects),
+    emailProvider: new EmailProviderService(r.providers, guard, hooks, r.projects, checkProviderKey(outbound)),
     project: new ProjectService(r, guard, hooks),
     settings: new SettingsService(r.apiKeys, r.projects, guard, hooks),
     savedRow: new SavedRowService(r.savedRows, r.projects, guard),
-    template: new TemplateService(r, queues.email, settings, guard, hooks, resolveBaseUrl),
+    template: new TemplateService(r, (provider) => MailerFactory.create(provider, outbound), settings, guard, hooks, resolveBaseUrl),
     tracking: new TrackingService(r, settings),
     unsubscribe: new UnsubscribeService(r, settings, automation.onContactBlocked, logger),
     upload: new UploadService(storage ?? noStorage),
     user: new UserService(r.users, undefined, { onUserCreated, logger }),
     webhook: new WebhookService(r, logger, undefined, automation.onContactBlocked),
     workflow: new WorkflowService(r, guard, hooks),
+  };
+}
+
+/** Asks the provider itself, through the same adapter (and outbound policy) that sends. */
+function checkProviderKey(outbound: OutboundPolicy): CheckProviderKey {
+  return async ({ type, config }) => {
+    const mailer = MailerFactory.create(
+      { id: 0, name: "", type, config, isActive: true, createdAt: new Date(), updatedAt: new Date() },
+      outbound,
+    );
+    return mailer.verify ? mailer.verify() : { status: "valid" };
   };
 }

@@ -306,7 +306,8 @@ describe("SendGridMailer.send", () => {
       Response.json({ errors: [{ message: "The from address does not match a verified Sender Identity." }] }, { status: 403 }),
     );
     const r = await new SendGridMailer({ apiKey: "SG.k" }).send(options);
-    expect(r).toEqual({ success: false, error: "The from address does not match a verified Sender Identity." });
+    // A 403: an unverified sender stays unverified, so the queue does not retry it.
+    expect(r).toEqual({ success: false, error: "The from address does not match a verified Sender Identity.", permanent: true });
   });
 
   it("reports a network failure", async () => {

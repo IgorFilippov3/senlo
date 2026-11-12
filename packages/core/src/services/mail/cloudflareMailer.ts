@@ -1,4 +1,5 @@
-import { IMailer, SendMailOptions, SendMailResult } from "../../ports";
+import { IMailer, KeyCheck, SendMailOptions, SendMailResult } from "../../ports";
+import { KEY_VALID, checkKeyOverHttp, isPermanentHttpStatus, keyInvalid } from "./keyCheck";
 
 export interface CloudflareConfig {
   accountId: string;
@@ -48,6 +49,30 @@ export class CloudflareMailer implements IMailer {
     this.url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/email/sending/send`;
   }
 
+  /**
+   * Cloudflare's token check: `/user/tokens/verify` for a user token, then
+   * `/accounts/{id}/tokens/verify` for an account-owned one. Refused by both:
+   * the token is wrong.
+   */
+  async verify(): Promise<KeyCheck> {
+    const headers = { Authorization: `Bearer ${this.config.apiToken}` };
+    const read = (status: number, body: any) => {
+      if (status >= 200 && status < 300) {
+        const state = body?.result?.status;
+        return state && state !== "active" ? keyInvalid(`This Cloudflare API token is ${state}`) : KEY_VALID;
+      }
+      return status === 401 || status === 403 ? keyInvalid("Cloudflare rejected the API token") : null;
+    };
+    const asUser = await checkKeyOverHttp("Cloudflare", "https://api.cloudflare.com/client/v4/user/tokens/verify", headers, read);
+    if (asUser.status !== "invalid") return asUser;
+    return checkKeyOverHttp(
+      "Cloudflare",
+      `https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/tokens/verify`,
+      headers,
+      read,
+    );
+  }
+
   async send(options: SendMailOptions): Promise<SendMailResult> {
     try {
       const res = await fetch(this.url, {
@@ -85,6 +110,7 @@ export class CloudflareMailer implements IMailer {
         return {
           success: false,
           error: messages.length ? messages.join("; ") : `Cloudflare API error (status ${res.status})`,
+          permanent: !res.ok && isPermanentHttpStatus(res.status),
         };
       }
 

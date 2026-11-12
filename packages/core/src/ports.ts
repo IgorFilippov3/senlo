@@ -70,10 +70,31 @@ export interface SendMailResult {
    * would.
    */
   permanentBounce?: boolean;
+  /**
+   * Retrying cannot succeed: the provider refused the credentials or the
+   * request itself (a bad key, an unverified sender domain). The queue
+   * fails the job at once instead of retrying it.
+   */
+  permanent?: boolean;
 }
+
+/**
+ * What a provider said about saved credentials:
+ * - `valid`: they work;
+ * - `limited`: they work for sending but may not do the check itself
+ *   (a sending-only key); saved as they are;
+ * - `invalid`: the provider refused them; not saved;
+ * - `unknown`: no clear answer (network, timeout, 5xx, an ambiguous refusal);
+ *   saved, with a warning.
+ */
+export type KeyCheck =
+  | { status: "valid" }
+  | { status: "limited" | "invalid" | "unknown"; message: string };
 
 export interface IMailer {
   send(options: SendMailOptions): Promise<SendMailResult>;
+  /** One cheap call that tells whether the credentials work; never throws. */
+  verify?(): Promise<KeyCheck>;
 }
 
 export interface ISuppressionRepository {

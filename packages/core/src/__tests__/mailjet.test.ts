@@ -232,11 +232,11 @@ describe("MailjetMailer.send", () => {
       ),
     );
     expect(await new MailjetMailer({ apiKey: "k", apiSecret: "s" }).send(options)).toEqual({
-      success: false, error: "\"bob\" is an invalid email address.",
+      success: false, error: "\"bob\" is an invalid email address.", permanent: true,
     });
     fetchMock.mockResolvedValue(Response.json({ ErrorMessage: "API key authentication/authorization failure.", StatusCode: 401 }, { status: 401 }));
     expect(await new MailjetMailer({ apiKey: "k", apiSecret: "s" }).send(options)).toEqual({
-      success: false, error: "API key authentication/authorization failure.",
+      success: false, error: "API key authentication/authorization failure.", permanent: true,
     });
   });
 

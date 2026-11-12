@@ -86,6 +86,12 @@ export interface EmailProviderDialogProps {
    * workspace changes.
    */
   workspaces?: ProviderWorkspaceChoice[];
+  /**
+   * Set after a save the provider could not confirm (no answer, a timeout,
+   * an ambiguous refusal): the provider is saved; the dialog says so instead
+   * of closing, and offers only Done.
+   */
+  savedWarning?: string | null;
 }
 
 /**
@@ -114,6 +120,7 @@ export function EmailProviderDialog({
   isSubmitting = false,
   error,
   workspaces,
+  savedWarning,
 }: EmailProviderDialogProps) {
   const isEdit = !!provider;
   // Set once, from the first list that arrives: a refetch must not undo the user's ticks.
@@ -171,6 +178,8 @@ export function EmailProviderDialog({
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Already saved: Enter in a field must not save (or create) it again.
+    if (savedWarning) return;
     const fields = readForm(e.currentTarget);
     const values: EmailProviderValues = { name: fields.name ?? "", type };
     for (const key of TEXT_FIELDS) {
@@ -409,14 +418,29 @@ export function EmailProviderDialog({
 
         <FormErrorBanner error={error} />
 
-        <div className="flex justify-end gap-3 mt-6">
-          <Button variant="secondary" type="button" onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : isEdit ? "Save Changes" : "Create Provider"}
-          </Button>
-        </div>
+        {savedWarning ? (
+          <>
+            <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="font-semibold">Saved, but the credentials could not be confirmed</p>
+              <p className="mt-1 text-amber-800">{savedWarning}</p>
+              <p className="mt-1 text-amber-800">Send a test email from the editor to be sure they work.</p>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <Button type="button" onClick={onClose}>
+                Done
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-end gap-3 mt-6">
+            <Button variant="secondary" type="button" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Checking and saving..." : isEdit ? "Save Changes" : "Create Provider"}
+            </Button>
+          </div>
+        )}
       </form>
     </Dialog>
   );

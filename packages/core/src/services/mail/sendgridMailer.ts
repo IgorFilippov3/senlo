@@ -1,4 +1,5 @@
-import { IMailer, SendMailOptions, SendMailResult } from "../../ports";
+import { IMailer, KeyCheck, SendMailOptions, SendMailResult } from "../../ports";
+import { KEY_VALID, authStatus, checkKeyOverHttp, isPermanentHttpStatus, keyInvalid } from "./keyCheck";
 
 export interface SendGridConfig {
   apiKey: string;
@@ -30,9 +31,32 @@ export function parseSendGridAddress(value: string): SendGridAddress {
 export class SendGridMailer implements IMailer {
   private readonly url: string;
 
+  private readonly host: string;
+
   constructor(private readonly config: SendGridConfig) {
-    const host = config.region === "EU" ? "api.eu.sendgrid.com" : "api.sendgrid.com";
-    this.url = `https://${host}/v3/mail/send`;
+    this.host = config.region === "EU" ? "api.eu.sendgrid.com" : "api.sendgrid.com";
+    this.url = `https://${this.host}/v3/mail/send`;
+  }
+
+  /**
+   * `GET /v3/scopes`: every key may list its own permissions. A key that
+   * works but lacks `mail.send` cannot send, so it is refused too.
+   */
+  verify(): Promise<KeyCheck> {
+    return checkKeyOverHttp(
+      "SendGrid",
+      `https://${this.host}/v3/scopes`,
+      { Authorization: `Bearer ${this.config.apiKey}` },
+      (status, body) => {
+        if (status >= 200 && status < 300) {
+          const scopes: unknown = body?.scopes;
+          return Array.isArray(scopes) && !scopes.includes("mail.send")
+            ? keyInvalid("This SendGrid API key has no Mail Send permission")
+            : KEY_VALID;
+        }
+        return authStatus("SendGrid", status, body?.errors?.[0]?.message);
+      },
+    );
   }
 
   async send(options: SendMailOptions): Promise<SendMailResult> {
@@ -80,7 +104,7 @@ export class SendGridMailer implements IMailer {
         } catch {
           // ignore parse error
         }
-        return { success: false, error };
+        return { success: false, error, permanent: isPermanentHttpStatus(res.status) };
       }
 
       // 202 with an empty body; the id is in a header.

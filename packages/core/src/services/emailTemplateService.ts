@@ -2,25 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Queue } from "bullmq";
 import { z } from "zod";
 import { AccessGuard, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
 import { fixedBaseUrl, resolveProjectBaseUrl, type ResolveBaseUrl } from "../base-url";
 import type { MailSettings } from "../config";
 import { EMPTY_EMAIL_DESIGN } from "../constants";
-import type { Campaign, Project } from "../domain";
+import type { Campaign, EmailProvider, Project } from "../domain";
 import type { EmailDesignDocument } from "../emailDesign";
 import type { EmailTemplate } from "../emailTemplate";
-import { NotFoundError, ValidationError } from "../errors";
+import { NotFoundError, ProviderError, ValidationError } from "../errors";
 import type { MergeTag } from "../merge-tags";
 import type {
   ICampaignRepository,
   IEmailProviderRepository,
   IEmailTemplateRepository,
+  IMailer,
   IProjectRepository,
 } from "../ports";
-import type { EmailJobData } from "../queue/types";
+import { htmlToPlainText } from "../renderer/htmlToText";
 import { renderEmailDesign } from "../renderer/renderEmailDesign";
 import { parseInput } from "../validation";
 
@@ -106,7 +106,8 @@ export class TemplateService {
 
   constructor(
     private readonly repos: TemplateServiceRepositories,
-    private readonly emailQueue: Pick<Queue<EmailJobData>, "add" | "getWorkers">,
+    /** The adapter that sends through a provider (`MailerFactory.create`). */
+    private readonly mailerFor: (provider: EmailProvider) => IMailer,
     private readonly settings: Pick<MailSettings, "appUrl" | "defaultFromEmail">,
     access?: AccessGuard,
     private readonly hooks: ServiceHooks = ServiceHooks.none,
@@ -220,14 +221,18 @@ export class TemplateService {
   }
 
   /**
-   * Renders the design for a stand-in recipient and queues it through the
-   * project's provider. Nothing is logged against a campaign.
+   * Sends the editor's test email now, through the workspace's provider, and
+   * answers with what the provider said: no queue, no retries. A refusal
+   * comes back with the provider's reason; no answer within
+   * `TEST_SEND_TIMEOUT_MS` is an error that says the email may still arrive.
+   * Counted like any send (quota, usage) and written to the audit log; not to
+   * a trigger's send log, which a test does not belong to.
    */
   async sendTest(
     userId: string,
     templateId: number,
     input: TestSendInput,
-  ): Promise<{ jobId: string | undefined; activeWorkers: number }> {
+  ): Promise<{ messageId?: string }> {
     const { template, project } = await this.requireTemplate(userId, templateId, "write");
 
     if (!SINGLE_ADDRESS.test(input.to)) {
@@ -244,12 +249,13 @@ export class TemplateService {
     // Through the policy, like every provider check: an organization's
     // provider is usable by its members. Sending through it changes nothing
     // about the provider, so reading it is enough (the template needed write).
-    await this.access.requireOwned(
+    const provider = await this.access.requireOwned(
       userId,
       await this.repos.providers.findById(project.providerId),
       "Email provider",
       "read",
     );
+    await this.hooks.requireQuota({ type: "email.send", projectId: project.id });
 
     const html = renderEmailDesign(input.design, {
       baseUrl: await resolveProjectBaseUrl(this.resolveBaseUrl, project.id),
@@ -265,18 +271,55 @@ export class TemplateService {
       },
     });
 
-    const job = await this.emailQueue.add(`test-email-${templateId}-${Date.now()}`, {
-      projectId: project.id,
-      campaignId: 0, // 0: a test, not a campaign
-      contactId: 0,
-      email: input.to,
-      from: input.from || this.settings.defaultFromEmail,
-      subject: `[TEST] ${input.subject || template.subject || "No Subject"}`,
-      html,
-      providerId: project.providerId,
+    const result = await withTimeout(
+      this.mailerFor(provider).send({
+        from: input.from || this.settings.defaultFromEmail,
+        to: input.to,
+        subject: `[TEST] ${input.subject || template.subject || "No Subject"}`,
+        html,
+        text: htmlToPlainText(html),
+        tags: { project_id: String(project.id), campaign_id: "0", contact_id: "0" },
+      }),
+      TEST_SEND_TIMEOUT_MS,
+    );
+
+    const outcome = !result
+      ? { success: false, error: `No answer from ${provider.type} within ${TEST_SEND_TIMEOUT_MS / 1000} seconds` }
+      : result;
+    await this.hooks.audit({
+      actor: { userId },
+      action: "template.test_sent",
+      target: { type: "template", id: templateId, projectId: project.id },
+      details: outcome.success
+        ? { provider: provider.type, success: true }
+        : { provider: provider.type, success: false, error: outcome.error },
     });
 
-    const workers = await this.emailQueue.getWorkers();
-    return { jobId: job.id, activeWorkers: workers.length };
+    if (!result) {
+      throw new ProviderError(
+        `The provider did not answer within ${TEST_SEND_TIMEOUT_MS / 1000} seconds. The email may still arrive; check the provider's logs.`,
+      );
+    }
+    if (!result.success) {
+      throw new ProviderError(`The provider refused the test email: ${result.error || "no reason given"}`);
+    }
+    await this.hooks.recordUsage({ type: "email.sent", projectId: project.id, campaignId: null, provider: provider.type });
+    return { messageId: result.messageId };
+  }
+}
+
+/** How long the editor waits for the provider to accept a test email. */
+export const TEST_SEND_TIMEOUT_MS = 15_000;
+
+/** The promise's value, or null when it takes longer than `ms`. */
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
   }
 }

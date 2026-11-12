@@ -89,6 +89,17 @@ export class FormValidationError extends ValidationError {
   }
 }
 
+/**
+ * The email provider refused a send or did not answer. The message is meant
+ * for the user: it carries the provider's own reason.
+ */
+export class ProviderError extends AppError {
+  constructor(message: string, details?: Record<string, any>) {
+    super("EXTERNAL_SERVICE_ERROR", message, details, 502);
+    this.name = "ProviderError";
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(resource: string, identifier?: string | number) {
     const message = identifier

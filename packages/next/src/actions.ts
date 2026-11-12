@@ -248,15 +248,13 @@ const handlers: HandlerTable<SenloServerActions> = {
     run: async (host, templateId, targetEmail, fromEmail, design, subject) => {
       try {
         const userId = await host.requireUserId();
-        const { activeWorkers } = await host.getServices().template.sendTest(userId, templateId, {
+        // Sent now, not queued: the dialog shows what the provider answered.
+        await host.getServices().template.sendTest(userId, templateId, {
           to: targetEmail,
           from: fromEmail,
           design,
           subject,
         });
-        if (activeWorkers === 0) {
-          host.logger.warn("Test email queued but no active workers found. Is the worker running?");
-        }
         return { success: true };
       } catch (error) {
         logError(host.logger, "Failed to send test email from editor", error, { templateId });

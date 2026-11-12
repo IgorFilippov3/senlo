@@ -4,7 +4,7 @@
 
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import type { PublicEmailProvider } from "@senlo/core";
 import { useCreateProvider, useProjects, useProviders, useUpdateProvider } from "../data";
 import { EmailProviderDialog, type EmailProviderValues, type ProviderWorkspaceChoice } from "../providers";
@@ -33,8 +33,15 @@ export default function EmailProviderFormDialog({
     }));
   }, [projects, providers]);
 
+  const [savedWarning, setSavedWarning] = useState<string | null>(null);
+
   const handleSubmit = (values: EmailProviderValues) => {
-    const options = { onSuccess: onClose };
+    const options = {
+      onSuccess: (saved: { keyCheck?: { status: string; message?: string } }) => {
+        if (saved.keyCheck?.status === "unknown") setSavedWarning(saved.keyCheck.message ?? null);
+        else onClose();
+      },
+    };
     if (provider) update.mutate({ id: provider.id, values }, options);
     else create.mutate(values, options);
   };
@@ -48,6 +55,7 @@ export default function EmailProviderFormDialog({
       isSubmitting={mutation.isPending}
       error={mutation.error?.message}
       workspaces={workspaces}
+      savedWarning={savedWarning}
     />
   );
 }

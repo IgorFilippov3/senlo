@@ -71,11 +71,13 @@ describe("CloudflareMailer.send", () => {
     expect(await new CloudflareMailer({ accountId: ACCOUNT, apiToken: "t" }).send(options)).toEqual({
       success: false,
       error: "email.sending.error.email.sending_disabled (10203)",
+      permanent: true,
     });
     fetchMock.mockResolvedValue(new Response("bad gateway", { status: 502 }));
     expect(await new CloudflareMailer({ accountId: ACCOUNT, apiToken: "t" }).send(options)).toEqual({
       success: false,
       error: "Cloudflare API error (status 502)",
+      permanent: false,
     });
   });
 

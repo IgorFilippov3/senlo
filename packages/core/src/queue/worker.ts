@@ -1,4 +1,4 @@
-import { Worker, Job } from "bullmq";
+import { Worker, Job, UnrecoverableError } from "bullmq";
 import type { EmailJobData, AutomationJobData } from "./types";
 import type { ContactBlockedListener } from "../ports";
 import {
@@ -317,7 +317,10 @@ export class EmailWorkerProcessor {
       });
 
       if (!result.success) {
-        throw new Error(result.error || "Failed to send email");
+        const reason = result.error || "Failed to send email";
+        // A bad key or a refused request fails the same way on every retry:
+        // BullMQ stops at once instead of three attempts with backoff.
+        throw result.permanent ? new UnrecoverableError(reason) : new Error(reason);
       }
 
       // Never throws: a failing meter must not make the queue retry a send that went out.
@@ -371,13 +374,35 @@ export class EmailWorkerProcessor {
         }
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // The last try: no retry follows, so the outcome is written now.
+      const final =
+        error instanceof UnrecoverableError || (job.attemptsMade ?? 0) + 1 >= (job.opts?.attempts ?? 1);
       this.logger.error("Failed to process email job", {
         jobId: job.id,
         campaignId,
-        error: error instanceof Error ? error.message : String(error),
+        final,
+        error: message,
       });
 
-      if (campaignId !== 0) {
+      // Without this a triggered send whose every attempt failed stayed
+      // PENDING in the send log, and the error was only in the worker's output.
+      if (final && logId && this.logRepo) {
+        try {
+          const current = await this.logRepo.findById(logId);
+          if (!current || current.status === "PENDING") {
+            await this.logRepo.update(logId, { status: "FAILED", error: message });
+          }
+        } catch (logError) {
+          this.logger.error("Failed to mark a send log as failed", {
+            jobId: job.id,
+            logId,
+            error: logError instanceof Error ? logError.message : String(logError),
+          });
+        }
+      }
+
+      if (final && campaignId !== 0) {
         await this.campaignRepo.logEvent({
           campaignId,
           contactId: contactId && contactId !== 0 ? contactId : null,

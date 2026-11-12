@@ -1,4 +1,5 @@
-import { IMailer, SendMailOptions, SendMailResult } from "../../ports";
+import { IMailer, SendMailOptions, SendMailResult, KeyCheck } from "../../ports";
+import { authStatus, checkKeyOverHttp, isPermanentHttpStatus } from "./keyCheck";
 
 export interface MailjetConfig {
   apiKey: string;
@@ -54,10 +55,21 @@ function readError(data: any, status: number): string {
  */
 export class MailjetMailer implements IMailer {
   private readonly url: string;
+  private readonly host: string;
 
   constructor(private readonly config: MailjetConfig) {
-    const host = config.region === "US" ? "api.us.mailjet.com" : "api.mailjet.com";
-    this.url = `https://${host}/v3.1/send`;
+    this.host = config.region === "US" ? "api.us.mailjet.com" : "api.mailjet.com";
+    this.url = `https://${this.host}/v3.1/send`;
+  }
+
+  /** `GET /v3/REST/apikey`: any key pair may read itself. */
+  verify(): Promise<KeyCheck> {
+    return checkKeyOverHttp(
+      "Mailjet",
+      `https://${this.host}/v3/REST/apikey?Limit=1`,
+      { Authorization: "Basic " + btoa(`${this.config.apiKey}:${this.config.apiSecret}`) },
+      (status, body) => authStatus("Mailjet", status, body?.ErrorMessage),
+    );
   }
 
   async send(options: SendMailOptions): Promise<SendMailResult> {
@@ -97,7 +109,12 @@ export class MailjetMailer implements IMailer {
       // A 200 can still carry a per-message error.
       const status = data?.Messages?.[0]?.Status;
       if (!res.ok || (status && status !== "success")) {
-        return { success: false, error: readError(data, res.status) };
+        // A per-message error in a 200 (a refused address) is final too.
+        return {
+          success: false,
+          error: readError(data, res.status),
+          permanent: res.ok || isPermanentHttpStatus(res.status),
+        };
       }
 
       return { success: true, messageId: readMessageId(data) };

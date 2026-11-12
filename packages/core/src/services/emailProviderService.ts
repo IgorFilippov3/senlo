@@ -9,7 +9,7 @@ import type { EmailProvider, EmailProviderType, PublicEmailProvider } from "../d
 import { FormValidationError, NotFoundError, ValidationError } from "../errors";
 import { parseInput } from "../validation";
 import { CLOUDFLARE_ACCOUNT_ID } from "./mail/cloudflareMailer";
-import type { IEmailProviderRepository, IProjectRepository } from "../ports";
+import type { IEmailProviderRepository, IProjectRepository, KeyCheck } from "../ports";
 
 export const EMAIL_PROVIDER_TYPES = [
   "RESEND",
@@ -343,6 +343,12 @@ function replaceUnreadableConfig(provider: EmailProvider, input: EmailProviderUp
   return outcome.config;
 }
 
+/** Asks the provider whether credentials work (`IMailer.verify`). */
+export type CheckProviderKey = (provider: Pick<EmailProvider, "type" | "config">) => Promise<KeyCheck>;
+
+/** A saved provider, with what the provider said about its credentials when they were checked. */
+export type SavedEmailProvider = PublicEmailProvider & { keyCheck?: KeyCheck };
+
 /**
  * A user's sending providers: create and edit with per-type rules, and the
  * ownership check every other feature needs before it uses a provider.
@@ -362,6 +368,11 @@ export class EmailProviderService {
       IProjectRepository,
       "update" | "listForUser" | "listForOrganization"
     > | null = null,
+    /**
+     * Checks credentials before they are stored: refused ones are not saved.
+     * Without it nothing is checked (tests, tools).
+     */
+    private readonly checkKey: CheckProviderKey | null = null,
   ) {}
 
   /** The providers in the user's scope (their own, or their organization's). */
@@ -375,7 +386,7 @@ export class EmailProviderService {
   }
 
   /** Raw form fields in; the schema and the per-type rules decide. */
-  async create(userId: string, rawInput: unknown): Promise<PublicEmailProvider> {
+  async create(userId: string, rawInput: unknown): Promise<SavedEmailProvider> {
     const input = parseInput(EmailProviderInputSchema, rawInput);
     const outcome = buildProviderConfig(input);
     if ("fieldErrors" in outcome) {
@@ -386,6 +397,7 @@ export class EmailProviderService {
     // must not leave a new provider behind with the request refused.
     const { workspaceIds } = parseInput(ProviderWorkspacesSchema, rawInput);
     await this.requireWorkspaces(userId, workspaceIds ?? []);
+    const keyCheck = await this.checkCredentials(input.type, outcome.config);
     const created = await this.providers.create({
       name: input.name,
       type: input.type,
@@ -396,20 +408,25 @@ export class EmailProviderService {
     });
     await this.audit(userId, "created", created.id, { type: created.type });
     if (workspaceIds?.length) await this.useInWorkspaces(userId, created.id, workspaceIds);
-    return toPublicEmailProvider(created);
+    return { ...toPublicEmailProvider(created), keyCheck };
   }
 
-  async update(userId: string, id: number, rawInput: unknown): Promise<PublicEmailProvider> {
+  async update(userId: string, id: number, rawInput: unknown): Promise<SavedEmailProvider> {
     const provider = await this.requireOwned(userId, id, "write");
     const input = parseInput(EmailProviderUpdateSchema, rawInput);
     const { workspaceIds } = parseInput(ProviderWorkspacesSchema, rawInput);
     await this.requireWorkspaces(userId, workspaceIds ?? []);
+    const type = input.type || provider.type;
+    const config = provider.configUnreadable
+      ? replaceUnreadableConfig(provider, input)
+      : mergeProviderConfig(provider, input);
+    // Only new credentials are checked: renaming a provider asks nobody.
+    const changed = provider.configUnreadable || type !== provider.type || !sameConfig(config, provider.config);
+    const keyCheck = changed ? await this.checkCredentials(type, config) : undefined;
     const updated = await this.providers.update(id, {
       name: input.name || provider.name,
-      type: input.type || provider.type,
-      config: provider.configUnreadable
-        ? replaceUnreadableConfig(provider, input)
-        : mergeProviderConfig(provider, input),
+      type,
+      config,
     });
     if (!updated) throw new NotFoundError("Provider");
     await this.audit(userId, "updated", id);
@@ -419,7 +436,7 @@ export class EmailProviderService {
       await this.useInWorkspaces(userId, id, workspaceIds.filter((w) => !current.includes(w)));
       await this.switchWorkspaces(userId, current.filter((w) => !workspaceIds.includes(w)), null);
     }
-    return toPublicEmailProvider(updated);
+    return { ...toPublicEmailProvider(updated), keyCheck };
   }
 
   /**
@@ -474,6 +491,20 @@ export class EmailProviderService {
     }
   }
 
+  /**
+   * Refused credentials are a form error, so nothing is stored. Anything
+   * else is saved: `limited` works for sending, `unknown` goes back to the
+   * form as a warning.
+   */
+  private async checkCredentials(type: EmailProviderType, config: ProviderConfig): Promise<KeyCheck | undefined> {
+    if (!this.checkKey) return undefined;
+    const check = await this.checkKey({ type, config });
+    if (check.status === "invalid") {
+      throw new FormValidationError({ general: [check.message] });
+    }
+    return check;
+  }
+
   private requireProjects() {
     if (!this.projects) throw new Error("EmailProviderService was built without the projects repository");
     return this.projects;
@@ -487,4 +518,14 @@ export class EmailProviderService {
       details,
     });
   }
+}
+
+/** The same stored values, key by key (the order of keys does not matter). */
+function sameConfig(a: Record<string, unknown>, b: Record<string, unknown> | null | undefined): boolean {
+  const other = b ?? {};
+  const keys = new Set([...Object.keys(a), ...Object.keys(other)]);
+  for (const key of keys) {
+    if ((a[key] ?? "") !== (other[key] ?? "")) return false;
+  }
+  return true;
 }

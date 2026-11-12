@@ -13,6 +13,7 @@ import type {
   Project,
   PublicAiProvider,
   PublicEmailProvider,
+  KeyCheck,
   Suppression,
   TimeSeriesData,
   ProjectAutomationSettings,
@@ -86,8 +87,12 @@ export interface SenloActions {
   };
   emailProviders: {
     list(): Promise<ActionResult<PublicEmailProvider[]>>;
-    create(values: EmailProviderValues): Promise<FormActionResult<PublicEmailProvider>>;
-    update(providerId: number, values: EmailProviderValues): Promise<FormActionResult<PublicEmailProvider>>;
+    /** `keyCheck`: what the provider said about the credentials, when they were checked. */
+    create(values: EmailProviderValues): Promise<FormActionResult<PublicEmailProvider & { keyCheck?: KeyCheck }>>;
+    update(
+      providerId: number,
+      values: EmailProviderValues,
+    ): Promise<FormActionResult<PublicEmailProvider & { keyCheck?: KeyCheck }>>;
     /** `replacementId`: what the workspaces using it switch to; absent leaves them without one. */
     delete(providerId: number, options?: { replacementId?: number | null }): Promise<ActionResult<void>>;
   };
