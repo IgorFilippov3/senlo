@@ -37,13 +37,13 @@ export class MailerFactory {
       }
 
       case "SES": {
-        const { region, accessKeyId, secretAccessKey } = provider.config || {};
+        const { region, accessKeyId, secretAccessKey, configurationSet } = provider.config || {};
         if (!region || !accessKeyId || !secretAccessKey) {
           throw new Error(
             "SES region, accessKeyId, and secretAccessKey are required in provider config",
           );
         }
-        return new SesMailer({ region, accessKeyId, secretAccessKey });
+        return new SesMailer({ region, accessKeyId, secretAccessKey, configurationSet });
       }
 
       case "POSTMARK": {

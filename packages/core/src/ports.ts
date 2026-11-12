@@ -53,8 +53,7 @@ export interface SendMailOptions {
   tags?: Record<string, string>;
   /**
    * Extra RFC 5322 headers, currently List-Unsubscribe and
-   * List-Unsubscribe-Post. Not every provider API can carry them - the SES
-   * adapter drops them, since SendEmail has no field for custom headers.
+   * List-Unsubscribe-Post. Adapters drop the ones their provider reserves.
    */
   headers?: Record<string, string>;
 }
