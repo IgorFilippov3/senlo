@@ -39,6 +39,8 @@ export const EmailProviderInputSchema = z.object({
   region: z.string().trim().optional(),
   accessKeyId: z.string().trim().optional(),
   secretAccessKey: z.string().trim().optional(),
+  /** SES configuration set; not a secret. Empty on edit clears it. */
+  configurationSet: z.string().trim().optional(),
   serverToken: z.string().trim().optional(),
   host: z.string().trim().optional(),
   // An empty field (a form for another type, or a cleared input) is "not set".
@@ -134,6 +136,31 @@ const MAILJET_REGIONS: readonly string[] = ["GLOBAL", "US"];
 const URL_SAFE_SECRET = /^[A-Za-z0-9_-]+$/;
 const MAILJET_SECRET_ERROR = "Use letters, digits, - and _ only: the secret goes into the webhook URL";
 
+/** An AWS region code, e.g. `eu-west-1`, `us-gov-west-1`. */
+const AWS_REGION = /^[a-z]{2}(-[a-z]+)+-\d+$/;
+/** SES configuration set names: letters, digits, `_` and `-`, at most 64 characters. */
+const SES_CONFIGURATION_SET = /^[A-Za-z0-9_-]{1,64}$/;
+/**
+ * A standard SNS topic ARN. SES's "secret" is the topic its configuration
+ * set publishes events to; the webhook accepts messages from that topic only.
+ */
+export const SNS_TOPIC_ARN = /^arn:aws(-cn|-us-gov)?:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]{1,256}$/;
+
+/** Format problems in the SES fields that were given. */
+function sesFieldErrors(input: EmailProviderUpdate): Partial<Record<EmailProviderField, string>> {
+  const errors: Partial<Record<EmailProviderField, string>> = {};
+  if (input.region && !AWS_REGION.test(input.region)) {
+    errors.region = "Use the AWS region code, e.g. eu-west-1";
+  }
+  if (input.configurationSet && !SES_CONFIGURATION_SET.test(input.configurationSet)) {
+    errors.configurationSet = "Configuration set names use letters, digits, - and _ only (up to 64)";
+  }
+  if (input.webhookSecret && !input.clearWebhookSecret && !SNS_TOPIC_ARN.test(input.webhookSecret)) {
+    errors.webhookSecret = "Enter the SNS topic ARN: arn:aws:sns:<region>:<account id>:<topic name>";
+  }
+  return errors;
+}
+
 const CLOUDFLARE_ACCOUNT_ID_ERROR =
   "Account ID is 32 hex characters (Cloudflare dashboard → Account home → Account ID)";
 
@@ -163,11 +190,17 @@ export function buildProviderConfig(input: EmailProviderInput): ConfigOutcome {
           region: input.region ? undefined : "Region is required",
         });
       }
+      {
+        const invalid = sesFieldErrors(input);
+        if (Object.keys(invalid).length) return missing(invalid);
+      }
       return {
         config: {
           accessKeyId: input.accessKeyId,
           secretAccessKey: input.secretAccessKey,
           region: input.region,
+          configurationSet: input.configurationSet || "",
+          webhook_secret: input.webhookSecret || "",
         },
       };
 
@@ -281,11 +314,21 @@ export function mergeProviderConfig(
       if (input.domain) config.domain = input.domain;
       if (input.region) config.region = input.region;
       break;
-    case "SES":
+    case "SES": {
+      const invalid = sesFieldErrors(input);
+      if (Object.keys(invalid).length) {
+        throw new FormValidationError(
+          Object.fromEntries(Object.entries(invalid).map(([field, message]) => [field, [message!]])),
+        );
+      }
       if (input.accessKeyId) config.accessKeyId = input.accessKeyId;
       if (input.secretAccessKey) config.secretAccessKey = input.secretAccessKey;
       if (input.region) config.region = input.region;
+      // Not a secret, so the form shows it: an empty field clears it.
+      if (input.configurationSet !== undefined) config.configurationSet = input.configurationSet;
+      applyWebhookSecret(config, input);
       break;
+    }
     case "POSTMARK":
       if (input.serverToken) config.serverToken = input.serverToken;
       applyWebhookSecret(config, input);

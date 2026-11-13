@@ -190,6 +190,81 @@ describe("toPublicEmailProvider", () => {
   });
 });
 
+describe("SES config", () => {
+  const TOPIC = "arn:aws:sns:eu-west-1:123456789012:senlo-events";
+  const base = { name: "ses", type: "SES" as const, accessKeyId: "AKIA", secretAccessKey: "s", region: "eu-west-1" };
+  const ses = (config: Record<string, string>) =>
+    provider({ type: "SES", config: { accessKeyId: "AKIA", secretAccessKey: "s", region: "eu-west-1", ...config } });
+
+  it("stores the configuration set and the topic ARN as the webhook secret", () => {
+    expect(buildProviderConfig({ ...base, configurationSet: "senlo-events", webhookSecret: TOPIC })).toEqual({
+      config: {
+        accessKeyId: "AKIA",
+        secretAccessKey: "s",
+        region: "eu-west-1",
+        configurationSet: "senlo-events",
+        webhook_secret: TOPIC,
+      },
+    });
+    expect(buildProviderConfig(base)).toEqual({
+      config: { accessKeyId: "AKIA", secretAccessKey: "s", region: "eu-west-1", configurationSet: "", webhook_secret: "" },
+    });
+  });
+
+  it("accepts topic ARNs of the China and GovCloud partitions", () => {
+    for (const arn of ["arn:aws-cn:sns:cn-north-1:123456789012:t", "arn:aws-us-gov:sns:us-gov-west-1:123456789012:t"]) {
+      expect(buildProviderConfig({ ...base, webhookSecret: arn })).toHaveProperty("config");
+    }
+  });
+
+  it("refuses a malformed region, configuration set or topic ARN", () => {
+    expect(
+      buildProviderConfig({ ...base, region: "Ireland", configurationSet: "my set", webhookSecret: "senlo-events" }),
+    ).toEqual({
+      fieldErrors: {
+        region: ["Use the AWS region code, e.g. eu-west-1"],
+        configurationSet: ["Configuration set names use letters, digits, - and _ only (up to 64)"],
+        webhookSecret: ["Enter the SNS topic ARN: arn:aws:sns:<region>:<account id>:<topic name>"],
+      },
+    });
+    for (const arn of ["arn:aws:sqs:eu-west-1:123456789012:q", "arn:aws:sns:eu-west-1:1234:t", "arn:aws:sns:eu-west-1:123456789012:t.fifo"]) {
+      expect(buildProviderConfig({ ...base, webhookSecret: arn })).toHaveProperty("fieldErrors.webhookSecret");
+    }
+  });
+
+  it("on edit: keeps secrets left empty, clears the configuration set when emptied, sets and clears the topic", () => {
+    const stored = ses({ configurationSet: "old", webhook_secret: TOPIC });
+    expect(mergeProviderConfig(stored, { accessKeyId: "", secretAccessKey: "" })).toMatchObject({
+      accessKeyId: "AKIA",
+      secretAccessKey: "s",
+      configurationSet: "old",
+      webhook_secret: TOPIC,
+    });
+    expect(mergeProviderConfig(stored, { configurationSet: "" }).configurationSet).toBe("");
+    const other = "arn:aws:sns:eu-west-1:123456789012:other";
+    expect(mergeProviderConfig(stored, { webhookSecret: other }).webhook_secret).toBe(other);
+    expect(mergeProviderConfig(stored, { clearWebhookSecret: true, webhookSecret: "ignored" }).webhook_secret).toBe("");
+  });
+
+  it("on edit: refuses a malformed topic ARN", () => {
+    const e = (() => {
+      try {
+        mergeProviderConfig(ses({}), { webhookSecret: "not-an-arn" });
+      } catch (err) {
+        return err;
+      }
+    })();
+    expect(e).toBeInstanceOf(FormValidationError);
+    expect((e as FormValidationError).fieldErrors).toHaveProperty("webhookSecret");
+  });
+
+  it("keeps the topic ARN out of what the browser sees, like other secrets", () => {
+    const pub = toPublicEmailProvider(ses({ configurationSet: "set", webhook_secret: TOPIC }));
+    expect(pub.config).toEqual({ accessKeyId: "AKIA", region: "eu-west-1", configurationSet: "set" });
+    expect(pub.secretsSet).toContain("webhook_secret");
+  });
+});
+
 describe("EmailProviderService", () => {
   let repo: ReturnType<typeof fakeRepo>;
   let service: EmailProviderService;

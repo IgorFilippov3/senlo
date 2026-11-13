@@ -20,6 +20,7 @@ const PROVIDER_FIELDS = [
   "region",
   "accessKeyId",
   "secretAccessKey",
+  "configurationSet",
   "serverToken",
   "host",
   "port",

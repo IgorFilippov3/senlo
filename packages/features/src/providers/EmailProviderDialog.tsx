@@ -34,6 +34,8 @@ export interface EmailProviderValues {
   region?: string;
   accessKeyId?: string;
   secretAccessKey?: string;
+  /** SES configuration set. */
+  configurationSet?: string;
   serverToken?: string;
   host?: string;
   port?: string;
@@ -53,6 +55,7 @@ const TEXT_FIELDS = [
   "region",
   "accessKeyId",
   "secretAccessKey",
+  "configurationSet",
   "serverToken",
   "host",
   "port",
@@ -92,6 +95,15 @@ export interface EmailProviderDialogProps {
    * of closing, and offers only Done.
    */
   savedWarning?: string | null;
+}
+
+/**
+ * Where SNS posts SES events for a provider. The dialog runs in the browser,
+ * on the app's own origin, which is where the webhook route lives too.
+ */
+export function sesSubscriptionUrl(providerId: number, origin?: string): string {
+  const base = origin ?? (typeof window !== "undefined" ? window.location.origin : "");
+  return `${base}/api/webhooks/ses?provider=${providerId}`;
 }
 
 /**
@@ -145,6 +157,8 @@ export function EmailProviderDialog({
     hint: string,
     placeholder: string,
     optional = false,
+    /** Shown as typed: for a value stored like a secret that is not one (an SNS topic ARN). */
+    plain = false,
   ) => {
     const saved = isSet(configKey);
     return (
@@ -155,8 +169,8 @@ export function EmailProviderDialog({
       >
         <Input
           name={name}
-          type="password"
-          placeholder={saved ? "••••••••" : placeholder}
+          type={plain ? "text" : "password"}
+          placeholder={saved ? (plain ? "Saved. Enter a new one to replace it." : "••••••••") : placeholder}
           required={!optional && !saved}
           autoComplete="new-password"
         />
@@ -164,9 +178,9 @@ export function EmailProviderDialog({
     );
   };
 
-  const webhookSecret = (hint: string, placeholder: string, label = "Webhook Secret") => (
+  const webhookSecret = (hint: string, placeholder: string, label = "Webhook Secret", plain = false) => (
     <>
-      {secret("webhookSecret", "webhook_secret", label, hint, placeholder, true)}
+      {secret("webhookSecret", "webhook_secret", label, hint, placeholder, true, plain)}
       {isSet("webhook_secret") && (
         <label className="flex items-center gap-2 text-sm text-zinc-600 -mt-2">
           <input type="checkbox" name="clearWebhookSecret" className="rounded border-zinc-300" />
@@ -223,7 +237,7 @@ export function EmailProviderDialog({
             <SelectContent>
               <SelectItem value="RESEND">Resend</SelectItem>
               {/* <SelectItem value="MAILGUN">Mailgun</SelectItem> */}
-              {/* <SelectItem value="SES">Amazon SES</SelectItem> */}
+              <SelectItem value="SES">Amazon SES</SelectItem>
               <SelectItem value="POSTMARK">Postmark</SelectItem>
               <SelectItem value="SENDGRID">SendGrid</SelectItem>
               <SelectItem value="MAILJET">Mailjet</SelectItem>
@@ -277,8 +291,35 @@ export function EmailProviderDialog({
               "AWS IAM User Secret Access Key",
               "xxxxxxxx",
             )}
-            <FormField label="Region" required hint="AWS Region where SES is configured">
-              <Input name="region" defaultValue={text("region")} placeholder="us-east-1" required />
+            <FormField label="Region" required hint="AWS region where SES is configured">
+              <Input name="region" defaultValue={text("region")} placeholder="eu-west-1" required />
+            </FormField>
+            <FormField
+              label="Configuration Set"
+              hint="Needed for delivery, bounce and complaint events: Senlo sends every email with this configuration set, and its event destination (an SNS topic) reports back."
+            >
+              <Input name="configurationSet" defaultValue={text("configurationSet")} placeholder="senlo-events" />
+            </FormField>
+            {webhookSecret(
+              "The SNS topic the configuration set publishes events to. Senlo accepts events from this topic only and refuses SES webhooks without it.",
+              "arn:aws:sns:eu-west-1:123456789012:senlo-events",
+              "SNS Topic ARN",
+              true,
+            )}
+            <FormField
+              label="SNS Subscription URL"
+              hint={
+                provider
+                  ? "Subscribe it to the topic (protocol HTTPS, raw message delivery off). Senlo confirms the subscription by itself."
+                  : "Available after saving: it contains this provider's id."
+              }
+            >
+              <Input
+                readOnly
+                value={provider ? sesSubscriptionUrl(provider.id) : ""}
+                placeholder="Save the provider first"
+                onFocus={(e) => e.currentTarget.select()}
+              />
             </FormField>
           </>
         )}
