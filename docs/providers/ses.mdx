@@ -1,0 +1,97 @@
+---
+title: Amazon SES
+description: Connect Amazon SES to Senlo, and its delivery, bounce and complaint events through Amazon SNS.
+---
+
+```text
+Provider type:          Amazon SES
+Access Key ID:          AKIA...
+Secret Access Key:      the IAM user's secret key
+Region:                 the SES region, e.g. eu-west-1
+Configuration Set:      senlo-events
+SNS Topic ARN:          arn:aws:sns:eu-west-1:123456789012:senlo-events
+SNS Subscription URL:   https://senlo.io/api/webhooks/ses?provider=<id>  (shown after saving)
+```
+
+SES does not call a webhook directly. Events go from a **configuration set** to an **SNS topic**, and SNS posts them to Senlo. Everything below happens in one AWS region: the one you send from.
+
+## 1. Verify your domain in SES
+
+In the SES console, open **Configuration** → **Identities** → **Create identity**, choose **Domain** and add the DNS records SES shows (DKIM). Senlo sends from the From email you set on each trigger; SES refuses it until its domain (or the address itself) is verified.
+
+<Callout type="info" title="SES sandbox">
+  A new SES account is in the sandbox: it can send only to verified addresses, up to 200 emails a day. Request production access in **Account dashboard**. Senlo warns about the sandbox when you save the provider. The [mailbox simulator](#testing) addresses work in the sandbox too.
+</Callout>
+
+## 2. Create an IAM user for Senlo
+
+In IAM, create a user with an access key (**Security credentials** → **Create access key**, use case "Application running outside AWS") and attach this policy:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["ses:SendEmail", "ses:GetAccount"],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+`ses:GetAccount` only lets Senlo check the key and the sandbox status when you save the provider. Without it the provider is saved with a note, and sending works. To limit sending to your domain, set `Resource` for `ses:SendEmail` to the identity and configuration set ARNs.
+
+## 3. Create the SNS topic
+
+In the SNS console (same region), open **Topics** → **Create topic**, type **Standard** (SES cannot publish to FIFO topics), name it, e.g. `senlo-events`. Copy its **ARN**.
+
+Optional but recommended: switch the topic to SHA-256 signatures, which Senlo verifies like the default SHA-1 ones:
+
+```bash
+aws sns set-topic-attributes --topic-arn <topic ARN> \
+  --attribute-name SignatureVersion --attribute-value 2
+```
+
+## 4. Create the configuration set and its event destination
+
+1. In SES, open **Configuration** → **Configuration sets** → **Create set**, name it, e.g. `senlo-events`.
+2. Open the set → **Event destinations** → **Add destination**.
+3. Event types: **Deliveries**, **Hard bounces** and **Complaints**. Others are acknowledged and ignored; leave **Opens** and **Clicks** off, Senlo tracks those itself.
+4. Destination: **Amazon SNS**, the topic from step 3.
+
+If SES says it cannot publish to the topic, add a statement to the topic's **Access policy** allowing the service principal `ses.amazonaws.com` to `sns:Publish` to it.
+
+## 5. Add the provider in Senlo
+
+1. Open **Providers** → **Add Provider**, **Provider Type**: Amazon SES.
+2. **Access Key ID**, **Secret Access Key** from step 2, **Region** as a code (`eu-west-1`).
+3. **Configuration Set**: the name from step 4. Senlo sends every email with it; without it SES sends but reports nothing back.
+4. **SNS Topic ARN**: the ARN from step 3.
+5. Click **Create Provider**, then select it in your workspace's **Settings**.
+6. Edit the provider and copy the **SNS Subscription URL**. It contains the provider's id, so it appears only after saving.
+
+## 6. Subscribe Senlo to the topic
+
+1. In SNS, open the topic → **Create subscription**.
+2. **Protocol**: HTTPS. **Endpoint**: the SNS Subscription URL from Senlo.
+3. Leave **Enable raw message delivery** off: Senlo needs SNS's signed envelope.
+4. Create it. Senlo confirms the subscription by itself; after a few seconds its status is **Confirmed**.
+
+Still **Pending confirmation**? Check that the endpoint is reachable from the internet (self-hosted: your `APP_URL`, not `localhost`), that the provider id in the URL is this provider's, and that the topic ARN saved in Senlo is this topic's. Then **Request confirmation** on the subscription.
+
+Senlo accepts a message only if SNS signed it and it comes from the topic saved on the provider. Without a topic ARN saved, every SES event is refused with `401`. Details: [Provider webhooks](../api/webhooks.mdx).
+
+One provider needs one subscription, however many workspaces use it: each event carries its workspace in a message tag.
+
+## Testing
+
+Send a triggered email from the [Quickstart](../getting-started/quickstart.mdx) to the SES mailbox simulator:
+
+| To | Delivery log | Suppression list |
+| --- | --- | --- |
+| `success@simulator.amazonses.com` | `DELIVERED` | — |
+| `bounce@simulator.amazonses.com` | `BOUNCE` | added |
+| `complaint@simulator.amazonses.com` | `SPAM_REPORT` | added |
+
+Transient bounces (a full mailbox, an out-of-office reply) are ignored: they do not suppress the address.

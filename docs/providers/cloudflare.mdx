@@ -11,7 +11,7 @@ Webhook:         none (Cloudflare has no delivery webhook)
 ```
 
 <Callout type="warn" title="No delivery tracking">
-  Cloudflare publishes delivery events to Cloudflare Queues, not to a webhook, and its REST API returns no message id Senlo could match them with. Emails sent through Cloudflare stay at **Sent** in the delivery log: no **Delivered** status, and bounces and spam complaints that happen after sending are not recorded or suppressed. If you need those, use [Resend](./resend.mdx), [Postmark](./postmark.mdx), [SendGrid](./sendgrid.mdx) or [Mailjet](./mailjet.mdx).
+  Cloudflare publishes delivery events to Cloudflare Queues, not to a webhook, and its REST API returns no message id Senlo could match them with. Emails sent through Cloudflare stay at **Sent** in the delivery log: no **Delivered** status, and bounces and spam complaints that happen after sending are not recorded or suppressed. If you need those, use [Resend](./resend.mdx), [Postmark](./postmark.mdx), [SendGrid](./sendgrid.mdx), [Mailjet](./mailjet.mdx) or [Amazon SES](./ses.mdx).
 </Callout>
 
 ## 1. Set up sending in Cloudflare

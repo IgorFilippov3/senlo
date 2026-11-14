@@ -40,7 +40,7 @@ The From email on your triggers must be allowed by the server; most providers re
 
 SMTP has no standard way to report deliveries, bounces or complaints back. With an SMTP provider the delivery log shows `SENT` or `FAILED`, but not `DELIVERED`, `BOUNCE` or `SPAM_REPORT`, and bounced addresses are not suppressed automatically. Senlo's own open and click tracking still works.
 
-If your provider has its own webhooks (SES, Mailgun), Senlo does not read them yet. Use [Resend](./resend.mdx) or [Postmark](./postmark.mdx) for automatic bounce handling.
+For automatic bounce handling with SES, connect it as [Amazon SES](./ses.mdx) instead of SMTP. Mailgun's webhooks are not read yet; [Resend](./resend.mdx), [Postmark](./postmark.mdx), [SendGrid](./sendgrid.mdx) and [Mailjet](./mailjet.mdx) are.
 
 <Callout type="info" title="Cloud only">
   On senlo.io the SMTP host must be on the public internet: hosts like `localhost`, `*.internal`, `*.local` and private IP ranges are refused.

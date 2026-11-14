@@ -627,6 +627,45 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/webhooks/ses:
+    post:
+      operationId: ses-webhook
+      summary: Amazon SES webhook (via SNS)
+      description: |
+        Subscribe this URL (HTTPS, raw message delivery off) to the SNS topic
+        your SES configuration set publishes events to; Senlo shows the exact
+        URL on the provider. The message must be signed by SNS and come from
+        the topic ARN saved on the provider. A `SubscriptionConfirmation` is
+        confirmed by Senlo after those checks. Senlo applies `Delivery`,
+        permanent `Bounce` and `Complaint` events; other event types are
+        acknowledged and ignored.
+      tags: [Provider webhooks]
+      security: []
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          description: Id of the SES provider in Senlo.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        description: An SNS message envelope exactly as SNS sends it (`Content-Type` is `text/plain`).
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAccepted"
+        "400":
+          $ref: "#/components/responses/WebhookInvalidPayload"
+        "401":
+          $ref: "#/components/responses/WebhookUnauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     bearerAuth:
