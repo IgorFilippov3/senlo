@@ -25,9 +25,11 @@ export async function handleProviderWebhook(
   const rawBody = await req.text();
   // Not logged anywhere: the headers carry the signature or the shared secret.
   const headers = Object.fromEntries(req.headers.entries());
+  // SES names its provider here (`?provider=<id>`): SNS's handshake carries no project.
+  const query = Object.fromEntries(new URL(req.url).searchParams.entries());
 
   try {
-    const result = await host.getServices().webhook.handle(providerType, rawBody, headers);
+    const result = await host.getServices().webhook.handle(providerType, rawBody, headers, query);
     if (result.status === "rejected") {
       return NextResponse.json({ error: result.reason }, { status: REJECTION_STATUS[result.reason] });
     }

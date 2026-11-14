@@ -204,7 +204,23 @@ describe("webhooks", () => {
     const response = await routes.webhookPostmark.POST(post("/api/webhooks/postmark", { RecordType: "Delivery" }));
 
     expect(response.status).toBe(200);
-    expect(handle).toHaveBeenCalledWith("POSTMARK", '{"RecordType":"Delivery"}', expect.any(Object));
+    expect(handle).toHaveBeenCalledWith("POSTMARK", '{"RecordType":"Delivery"}', expect.any(Object), {});
+  });
+
+  it("passes SNS's text/plain body and the URL query to the SES handler", async () => {
+    const handle = vi.fn(async () => ({ status: "ignored", reason: "subscription_confirmed" }));
+    const { routes } = fakeHost({ webhook: { handle } });
+    const body = JSON.stringify({ Type: "SubscriptionConfirmation" });
+    const req = new NextRequest("http://localhost/api/webhooks/ses?provider=12", {
+      method: "POST",
+      headers: { "content-type": "text/plain; charset=UTF-8", "x-amz-sns-message-type": "SubscriptionConfirmation" },
+      body,
+    });
+
+    const response = await routes.webhookSes.POST(req);
+
+    expect(response.status).toBe(200);
+    expect(handle).toHaveBeenCalledWith("SES", body, expect.any(Object), { provider: "12" });
   });
 
   it("answers a failing service with a 500 and logs the fault", async () => {

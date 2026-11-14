@@ -340,6 +340,14 @@ export function createSenloRoutes(host: SenloHost) {
     },
 
     /**
+     * `POST /api/webhooks/ses?provider=<id>`: SES events delivered by SNS,
+     * and SNS's subscription handshake. SNS posts `text/plain`.
+     */
+    webhookSes: {
+      POST: ((req) => handleProviderWebhook(host, req, "SES")) satisfies Handler,
+    },
+
+    /**
      * `POST /api/debug/check`: test target for automation "API Check" nodes.
      * 200 (YES) when the email contains "pass", `metadata.test_check` is true
      * or `metadata.tags` has "test-pass"; 400 (NO) otherwise. Public on
