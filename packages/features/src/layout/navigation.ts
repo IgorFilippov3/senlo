@@ -25,6 +25,21 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
   return item.isActive ? item.isActive(pathname) : pathname.startsWith(item.href);
 }
 
+/**
+ * Whether a click on a link starts a navigation in this tab: a plain left
+ * click. With a modifier or another button the browser opens a new tab or
+ * window and this page stays where it is.
+ */
+export function startsNavigation(click: {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}): boolean {
+  return click.button === 0 && !click.metaKey && !click.ctrlKey && !click.shiftKey && !click.altKey;
+}
+
 /** A workspace's home page at self-hosted's URLs; `paths.dashboard` in a host-aware screen. */
 export const workspaceHomePath = (workspaceId: number) => defaultSenloPaths.dashboard(workspaceId);
 

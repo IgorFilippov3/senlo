@@ -249,3 +249,25 @@
   --senlo-text-secondary: var(--sl-color-text-secondary);
   --senlo-error-color: var(--sl-color-destructive);
 }
+
+/* ============================================
+ * Delayed appearance, for loading placeholders
+ *
+ * A skeleton or spinner that shows for 80 ms and is replaced by the content
+ * reads as a flicker. With `.sl-delayed` the placeholder keeps its place in
+ * the layout but stays invisible for the first 200 ms, so a fast load never
+ * shows it and a slow one still does. Put it on a wrapper: an element that
+ * already animates (`animate-pulse`) cannot carry a second animation.
+ * ============================================ */
+@keyframes sl-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sl-delayed {
+  animation: sl-appear 0.15s ease-out 0.2s both;
+}

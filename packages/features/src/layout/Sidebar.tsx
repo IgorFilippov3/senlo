@@ -8,6 +8,7 @@ import {
   globalNavItemsFor,
   isNavItemActive,
   mainNavItemsFor,
+  startsNavigation,
   workspaceNavItems,
 } from "./navigation";
 import { defaultSenloPaths, type SenloPaths } from "./paths";
@@ -50,11 +51,14 @@ function NavSection({
   items,
   pathname,
   renderLink,
+  onNavigate,
 }: {
   title: string;
   items: NavItem[];
   pathname: string;
   renderLink: RenderLink;
+  /** Called with an item's href when a click on it starts a navigation. */
+  onNavigate: (href: string) => void;
 }) {
   return (
     <div>
@@ -69,7 +73,12 @@ function NavSection({
             : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
         }`;
         return (
-          <React.Fragment key={item.href}>
+          <div
+            key={item.href}
+            onClick={(event) => {
+              if (startsNavigation(event)) onNavigate(item.href);
+            }}
+          >
             {renderLink(
               item.href,
               <>
@@ -78,7 +87,7 @@ function NavSection({
               </>,
               className,
             )}
-          </React.Fragment>
+          </div>
         );
       })}
     </div>
@@ -171,6 +180,13 @@ export function Sidebar({
 }: SidebarProps) {
   const workspaceId = paths.workspaceIdFrom(pathname);
 
+  // The clicked item is marked current at once. The page it leads to arrives a
+  // moment later (there is no route-level loading screen to cover the wait),
+  // and without this the click would look ignored until then.
+  const [pendingPath, setPendingPath] = React.useState<string | null>(null);
+  React.useEffect(() => setPendingPath(null), [pathname]);
+  const shownPath = pendingPath ?? pathname;
+
   return (
     <aside className="w-64 border-r border-zinc-200 h-screen bg-zinc-50/50 flex flex-col p-4 fixed left-0 top-0">
       {header && <div className="mb-4">{header}</div>}
@@ -206,15 +222,16 @@ export function Sidebar({
             <NavSection
               title="Workspace"
               items={workspaceItems(workspaceId)}
-              pathname={pathname}
+              pathname={shownPath}
               renderLink={renderLink}
+              onNavigate={setPendingPath}
             />
             <div className="mt-6">
-              <NavSection title="Global" items={globalItems} pathname={pathname} renderLink={renderLink} />
+              <NavSection title="Global" items={globalItems} pathname={shownPath} renderLink={renderLink} onNavigate={setPendingPath} />
             </div>
           </>
         ) : (
-          <NavSection title="Main Menu" items={mainItems} pathname={pathname} renderLink={renderLink} />
+          <NavSection title="Main Menu" items={mainItems} pathname={shownPath} renderLink={renderLink} onNavigate={setPendingPath} />
         )}
       </div>
 

@@ -84,11 +84,13 @@ export type PageSkeletonVariant = "cards" | "rows" | "details";
 /**
  * Placeholder for a standard page (`max-w-7xl` main with a header): a card grid
  * (templates, providers), a list of rows (API keys, triggers) or a details page
- * (stats + activity). Used both by route `loading.tsx` and by pages still
+ * (stats + activity). Used by screens while their data loads, and by pages still
  * fetching on the client, so the two look the same and nothing jumps.
  */
 export function PageSkeleton({ variant = "cards" }: { variant?: PageSkeletonVariant }) {
+  // The wrapper delays the appearance (see `.sl-delayed` in @senlo/ui): a fast load shows no skeleton.
   return (
+    <div className="sl-delayed">
     <main role="status" aria-label="Loading" className="max-w-7xl mx-auto py-10 px-8 animate-pulse">
       <HeaderSkeleton />
       {variant === "cards" && (
@@ -107,6 +109,7 @@ export function PageSkeleton({ variant = "cards" }: { variant?: PageSkeletonVari
       )}
       {variant === "details" && <DetailsSkeleton />}
     </main>
+    </div>
   );
 }
 
