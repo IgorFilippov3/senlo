@@ -23,6 +23,7 @@ export * from "./components/corner-radius-control/corner-radius-control";
 export * from "./components/border-control/border-control";
 export * from "./components/dialog/dialog";
 export * from "./components/badge/badge";
+export * from "./components/provider-icon/provider-icon";
 export * from "./components/page-header/page-header";
 export * from "./components/empty-state/empty-state";
 export * from "./components/json-editor/json-editor";

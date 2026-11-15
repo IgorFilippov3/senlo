@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { PublicAiProvider, PublicEmailProvider } from "@senlo/core";
-import { Card, Button, Tabs, TabsList, TabsTrigger, TabsContent } from "@senlo/ui";
+import { Card, Button, ProviderIcon, Tabs, TabsList, TabsTrigger, TabsContent } from "@senlo/ui";
 import { Cloud, Trash2, Bot, Plus, Pencil, AlertTriangle } from "lucide-react";
 import { ErrorScreen } from "../shared/ErrorScreen";
 import { PageSkeleton } from "../shared/Skeletons";
@@ -153,7 +153,7 @@ export function ProvidersView({
               emailProviders.map((provider) => (
                 <ProviderCard
                   key={provider.id}
-                  icon={<Cloud size={24} />}
+                  icon={<ProviderIcon type={provider.type} size={24} />}
                   name={provider.name}
                   createdAt={provider.createdAt}
                   details={<Field label="Type" value={provider.type} />}

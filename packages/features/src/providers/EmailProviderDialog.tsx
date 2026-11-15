@@ -6,6 +6,7 @@ import {
   Dialog,
   FormField,
   Input,
+  ProviderIcon,
   Select,
   SelectContent,
   SelectItem,
@@ -45,6 +46,17 @@ export interface EmailProviderValues {
   /** "Use in workspaces": every ticked workspace; on edit, the whole set. */
   workspaceIds?: number[];
 }
+
+/** The providers offered in the form, in the order shown. Mailgun exists in core but is not offered yet. */
+export const EMAIL_PROVIDER_OPTIONS: { type: EmailProviderType; name: string }[] = [
+  { type: "RESEND", name: "Resend" },
+  { type: "SES", name: "Amazon SES" },
+  { type: "POSTMARK", name: "Postmark" },
+  { type: "SENDGRID", name: "SendGrid" },
+  { type: "MAILJET", name: "Mailjet" },
+  { type: "CLOUDFLARE", name: "Cloudflare Email" },
+  { type: "SMTP", name: "SMTP server" },
+];
 
 const TEXT_FIELDS = [
   "apiKey",
@@ -235,14 +247,14 @@ export function EmailProviderDialog({
               <SelectValue placeholder="Select provider" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="RESEND">Resend</SelectItem>
-              {/* <SelectItem value="MAILGUN">Mailgun</SelectItem> */}
-              <SelectItem value="SES">Amazon SES</SelectItem>
-              <SelectItem value="POSTMARK">Postmark</SelectItem>
-              <SelectItem value="SENDGRID">SendGrid</SelectItem>
-              <SelectItem value="MAILJET">Mailjet</SelectItem>
-              <SelectItem value="CLOUDFLARE">Cloudflare Email</SelectItem>
-              <SelectItem value="SMTP">SMTP server</SelectItem>
+              {EMAIL_PROVIDER_OPTIONS.map((option) => (
+                <SelectItem key={option.type} value={option.type}>
+                  <span className="inline-flex items-center gap-2.5">
+                    <ProviderIcon type={option.type} tile size={22} />
+                    {option.name}
+                  </span>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </FormField>

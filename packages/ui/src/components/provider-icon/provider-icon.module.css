@@ -1,0 +1,32 @@
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  color: inherit;
+}
+
+.icon > svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* A box of its own, for places that give the icon no ground (a select option, a list row). */
+.tile {
+  border: 1px solid var(--sl-color-border);
+  border-radius: var(--sl-radius-sm);
+  background-color: var(--sl-color-bg-muted);
+  color: var(--sl-color-text-primary);
+}
+
+.tile > svg {
+  width: 62%;
+  height: 62%;
+}
+
+.monogram {
+  font-family: var(--sl-font-mono, ui-monospace, monospace);
+  font-weight: var(--sl-font-weight-semibold);
+  letter-spacing: -0.02em;
+}
