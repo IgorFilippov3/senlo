@@ -111,13 +111,17 @@ export function EditorScreen({ projectId, campaignId, call, endpoints, ...props 
     [aiGenerate, projectId],
   );
 
+  // `.sl-theme-classic` keeps the editor in the look it was built in until its
+  // own redesign (@senlo/ui's styles.css); `contents` keeps the wrapper out of the layout.
   return (
-    <EditorLayout
-      {...props}
-      {...serverActions}
-      onNavigate={onNavigate}
-      uploadImage={uploadImage}
-      generateWithAi={generateWithAi}
-    />
+    <div className="sl-theme-classic" style={{ display: "contents" }}>
+      <EditorLayout
+        {...props}
+        {...serverActions}
+        onNavigate={onNavigate}
+        uploadImage={uploadImage}
+        generateWithAi={generateWithAi}
+      />
+    </div>
   );
 }

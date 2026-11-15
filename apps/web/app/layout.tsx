@@ -3,20 +3,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import "@senlo/ui/styles.css";
 import Script from "next/script";
 import { getConfig } from "../lib/config";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// @senlo/ui's `--sl-font-sans` / `--sl-font-mono` read these two variables on <html>.
+const hanken = Hanken_Grotesk({
+  variable: "--font-hanken",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 /**
@@ -101,10 +103,8 @@ export default function RootLayout({
   const { demoMode, umamiWebsiteId } = getConfig();
 
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="en" className={`${hanken.variable} ${plexMono.variable}`}>
+      <body className="antialiased">
         {demoMode && umamiWebsiteId && (
           <Script
             src="https://cloud.umami.is/script.js"

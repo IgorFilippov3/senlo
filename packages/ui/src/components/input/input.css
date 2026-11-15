@@ -17,13 +17,13 @@
 }
 
 .sl-input::placeholder {
-  color: var(--sl-color-text-muted);
+  color: var(--sl-color-text-placeholder);
 }
 
 .sl-input:focus-visible {
   outline: none;
-  border-color: var(--sl-color-primary);
-  box-shadow: 0 0 0 1px rgb(37 99 235 / 0.2);
+  border-color: var(--sl-color-border-focus);
+  box-shadow: 0 0 0 1px var(--sl-color-focus-ring);
 }
 
 .sl-input:disabled {

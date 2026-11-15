@@ -38,7 +38,7 @@
 }
 
 .sl-btn:focus-visible {
-  outline: 2px solid var(--sl-color-primary);
+  outline: 2px solid var(--sl-color-border-focus);
   outline-offset: 2px;
 }
 
@@ -55,7 +55,7 @@
 }
 
 .sl-btn--default:hover:not(:disabled) {
-  background-color: #27272f;
+  background-color: var(--sl-color-ink-hover);
 }
 
 .sl-btn--primary {

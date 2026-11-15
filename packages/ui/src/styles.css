@@ -3,66 +3,98 @@
  * 
  * CSS Custom Properties for theming and consistency.
  * Override these variables in your app to customize the look and feel.
+ *
+ * The theme is warm: an almost white page, warm borders, graphite ink and
+ * buttons. Terracotta (`--sl-color-accent`) is not an action colour: it marks
+ * focus and the brand, never a button or a status. Errors are crimson, far
+ * enough from the accent to tell apart at a glance.
+ *
+ * Screens written in Tailwind's `zinc-*`, `gray-*`, `red-*`, `rose-*` and
+ * `amber-*` follow the same palette: those scales are repointed below, on `:root`,
+ * which wins over Tailwind's own values (they sit in `@layer theme`).
+ *
+ * The template editor keeps the previous look until its own redesign: see
+ * `.sl-theme-classic` at the end of this file.
  */
 
 :root {
   /* ============================================
    * Colors - Primary
    * ============================================ */
-  --sl-color-primary: #2563eb;
-  --sl-color-primary-hover: #1d4ed8;
-  --sl-color-primary-light: #3b82f6;
-  --sl-color-primary-foreground: #ffffff;
+  --sl-color-primary: #3a3630;
+  --sl-color-primary-hover: #000000;
+  --sl-color-primary-light: #1c1b19;
+  --sl-color-primary-foreground: #fbf9f5;
+  /* The default (dark) button on hover. */
+  --sl-color-ink-hover: #3a3630;
+
+  /* ============================================
+   * Colors - Accent (focus and brand only)
+   * ============================================ */
+  --sl-color-accent: #a9441f;
+  --sl-color-accent-hover: #8f3a1a;
+  --sl-color-accent-tint: #f3e4dc;
+  --sl-color-accent-foreground: #ffffff;
+  --sl-color-focus-ring: rgb(169 68 31 / 0.2);
 
   /* ============================================
    * Colors - Backgrounds
    * ============================================ */
+  /* The page behind cards and panels; `--sl-color-bg` is the surface on it. */
+  --sl-color-bg-page: #fdfcfa;
   --sl-color-bg: #ffffff;
-  --sl-color-bg-subtle: #fafafa;
-  --sl-color-bg-muted: #f9fafb;
-  --sl-color-bg-accent: #f4f4f5;
-  --sl-color-bg-hover: #f3f4f6;
+  --sl-color-bg-subtle: #fbf9f5;
+  --sl-color-bg-muted: #f7f4ee;
+  --sl-color-bg-accent: #f1ece3;
+  --sl-color-bg-hover: #f4f0e8;
 
   /* ============================================
    * Colors - Text
    * ============================================ */
-  --sl-color-text: #09090b;
-  --sl-color-text-primary: #18181b;
-  --sl-color-text-secondary: #71717a;
-  --sl-color-text-muted: #a1a1aa;
-  --sl-color-text-placeholder: #9ca3af;
+  --sl-color-text: #1c1b19;
+  --sl-color-text-primary: #1c1b19;
+  --sl-color-text-secondary: #58534a;
+  --sl-color-text-muted: #6b655b;
+  --sl-color-text-placeholder: #8c8578;
 
   /* ============================================
    * Colors - Border
    * ============================================ */
-  --sl-color-border: #e4e4e7;
-  --sl-color-border-light: #e5e7eb;
-  --sl-color-border-focus: var(--sl-color-primary);
+  --sl-color-border: #e6e0d4;
+  --sl-color-border-light: #eee9dd;
+  --sl-color-border-focus: var(--sl-color-accent);
 
   /* ============================================
    * Colors - Semantic: Destructive
    * ============================================ */
-  --sl-color-destructive: #ef4444;
-  --sl-color-destructive-hover: #dc2626;
-  --sl-color-destructive-foreground: #fef2f2;
-  --sl-color-destructive-bg: #fee2e2;
-  --sl-color-destructive-text: #991b1b;
+  --sl-color-destructive: #a3233f;
+  --sl-color-destructive-hover: #8a1c34;
+  --sl-color-destructive-foreground: #ffffff;
+  --sl-color-destructive-bg: #f9e4e9;
+  --sl-color-destructive-text: #8a1c34;
 
   /* ============================================
    * Colors - Semantic: Success
    * ============================================ */
-  --sl-color-success-bg: #dcfce7;
-  --sl-color-success-text: #166534;
+  --sl-color-success-bg: #e4f0e8;
+  --sl-color-success-text: #2a6b45;
 
   /* ============================================
    * Colors - Semantic: Warning
    * ============================================ */
-  --sl-color-warning-bg: #fef9c3;
-  --sl-color-warning-text: #854d0e;
+  --sl-color-warning-bg: #fdf3d0;
+  --sl-color-warning-text: #764b00;
 
   /* ============================================
    * Typography
    * ============================================ */
+  /*
+   * The host loads the two families (next/font) and puts `--font-hanken` and
+   * `--font-plex-mono` on <html>: a variable set on <body> is not visible here.
+   */
+  --sl-font-sans: var(--font-hanken, "Hanken Grotesk"), ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: var(--font-plex-mono, "IBM Plex Mono"), ui-monospace, SFMono-Regular, Menlo, monospace;
+
   --sl-font-size-xs: 0.75rem;
   --sl-font-size-sm: 0.875rem;
   --sl-font-size-base: 1rem;
@@ -99,10 +131,10 @@
   /* ============================================
    * Shadows
    * ============================================ */
-  --sl-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --sl-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --sl-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --sl-shadow-focus: 0 0 0 2px var(--sl-color-primary);
+  --sl-shadow-sm: 0 1px 2px 0 rgb(60 45 20 / 0.06);
+  --sl-shadow-md: 0 4px 6px -1px rgb(60 45 20 / 0.1), 0 2px 4px -2px rgb(60 45 20 / 0.08);
+  --sl-shadow-lg: 0 10px 15px -3px rgb(60 45 20 / 0.12), 0 4px 6px -4px rgb(60 45 20 / 0.08);
+  --sl-shadow-focus: 0 0 0 2px var(--sl-color-border-focus);
 
   /* ============================================
    * Transitions
@@ -120,6 +152,72 @@
   --sl-z-tooltip: 1100;
 
   /* ============================================
+   * Tailwind scales used by the screens
+   * Neutrals (zinc, gray) are the warm ones above; red and rose are the
+   * crimson of `--sl-color-destructive`.
+   * ============================================ */
+  --color-zinc-50: #f7f4ee;
+  --color-zinc-100: #f1ece3;
+  --color-zinc-200: #e6e0d4;
+  --color-zinc-300: #d8d0c0;
+  --color-zinc-400: #8c8578;
+  --color-zinc-500: #6b655b;
+  --color-zinc-600: #58534a;
+  --color-zinc-700: #3a3630;
+  --color-zinc-800: #2a2825;
+  --color-zinc-900: #1c1b19;
+  --color-zinc-950: #141312;
+
+  --color-gray-50: #f7f4ee;
+  --color-gray-100: #f1ece3;
+  --color-gray-200: #e6e0d4;
+  --color-gray-300: #d8d0c0;
+  --color-gray-400: #8c8578;
+  --color-gray-500: #6b655b;
+  --color-gray-600: #58534a;
+  --color-gray-700: #3a3630;
+  --color-gray-800: #2a2825;
+  --color-gray-900: #1c1b19;
+  --color-gray-950: #141312;
+
+  --color-red-50: #fcf1f3;
+  --color-red-100: #f9e4e9;
+  --color-red-200: #f1c5cf;
+  --color-red-300: #e59aab;
+  --color-red-400: #d0607a;
+  --color-red-500: #b93a57;
+  --color-red-600: #a3233f;
+  --color-red-700: #8a1c34;
+  --color-red-800: #6f182b;
+  --color-red-900: #5a1524;
+  --color-red-950: #3a0c17;
+
+  --color-rose-50: #fcf1f3;
+  --color-rose-100: #f9e4e9;
+  --color-rose-200: #f1c5cf;
+  --color-rose-300: #e59aab;
+  --color-rose-400: #d0607a;
+  --color-rose-500: #b93a57;
+  --color-rose-600: #a3233f;
+  --color-rose-700: #8a1c34;
+  --color-rose-800: #6f182b;
+  --color-rose-900: #5a1524;
+  --color-rose-950: #3a0c17;
+
+  /* Warnings: a fuller yellow than Tailwind's amber, which fades into the warm page. */
+  --color-amber-50: #fdf3d0;
+  --color-amber-100: #fae7a8;
+  --color-amber-200: #efc85a;
+  --color-amber-300: #e3b23c;
+  --color-amber-400: #c9911a;
+  --color-amber-500: #a8730a;
+  --color-amber-600: #8f5d00;
+  --color-amber-700: #764b00;
+  --color-amber-800: #5f3c00;
+  --color-amber-900: #472d00;
+  --color-amber-950: #2e1d00;
+
+  /* ============================================
    * Legacy variable aliases (for backward compatibility)
    * These map old --senlo-* variables to new --sl-* system
    * ============================================ */
@@ -130,12 +228,117 @@
   --senlo-error-color: var(--sl-color-destructive);
 }
 
+/* ============================================
+ * Classic theme: the look before the warm palette
+ *
+ * The template editor is redesigned last. Until then `EditorScreen`
+ * (@senlo/next) wraps it in `.sl-theme-classic`, and while that element is on
+ * the page every colour, shadow and font above goes back to its old value.
+ * It is set on `:root`, not on the wrapper, because dialogs, menus and
+ * tooltips are portalled to <body> and would otherwise come out warm.
+ * Every colour, shadow and font token of the first block is restated here
+ * (a test in @senlo/next checks it). Delete this block and the wrapper when
+ * the editor moves to the warm theme.
+ * ============================================ */
+:root:has(.sl-theme-classic) {
+  --sl-color-primary: #2563eb;
+  --sl-color-primary-hover: #1d4ed8;
+  --sl-color-primary-light: #3b82f6;
+  --sl-color-primary-foreground: #ffffff;
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-subtle: #fafafa;
+  --sl-color-bg-muted: #f9fafb;
+  --sl-color-bg-accent: #f4f4f5;
+  --sl-color-bg-hover: #f3f4f6;
+  --sl-color-text: #09090b;
+  --sl-color-text-primary: #18181b;
+  --sl-color-text-secondary: #71717a;
+  --sl-color-text-muted: #a1a1aa;
+  --sl-color-text-placeholder: #9ca3af;
+  --sl-color-border: #e4e4e7;
+  --sl-color-border-light: #e5e7eb;
+  --sl-color-border-focus: var(--sl-color-primary);
+  --sl-color-destructive: #ef4444;
+  --sl-color-destructive-hover: #dc2626;
+  --sl-color-destructive-foreground: #fef2f2;
+  --sl-color-destructive-bg: #fee2e2;
+  --sl-color-destructive-text: #991b1b;
+  --sl-color-success-bg: #dcfce7;
+  --sl-color-success-text: #166534;
+  --sl-color-warning-bg: #fef9c3;
+  --sl-color-warning-text: #854d0e;
+  --sl-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --sl-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --sl-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --sl-shadow-focus: 0 0 0 2px var(--sl-color-primary);
+  --sl-color-ink-hover: #27272f;
+  --sl-color-bg-page: #ffffff;
+  --sl-color-accent: #2563eb;
+  --sl-color-accent-hover: #1d4ed8;
+  --sl-color-accent-tint: #eff6ff;
+  --sl-color-accent-foreground: #ffffff;
+  --sl-color-focus-ring: rgb(37 99 235 / 0.2);
+  --sl-font-sans: Arial, Helvetica, sans-serif;
+  --sl-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* The hosts' globals.css derive these two from the tokens; the editor reads them. */
+  --background: #ffffff;
+  --foreground: #171717;
 
-
-
-
-
-
-
-
+  /* Tailwind's own values. */
+  --color-red-50: oklch(97.1% 0.013 17.38);
+  --color-red-100: oklch(93.6% 0.032 17.717);
+  --color-red-200: oklch(88.5% 0.062 18.334);
+  --color-red-300: oklch(80.8% 0.114 19.571);
+  --color-red-400: oklch(70.4% 0.191 22.216);
+  --color-red-500: oklch(63.7% 0.237 25.331);
+  --color-red-600: oklch(57.7% 0.245 27.325);
+  --color-red-700: oklch(50.5% 0.213 27.518);
+  --color-red-800: oklch(44.4% 0.177 26.899);
+  --color-red-900: oklch(39.6% 0.141 25.723);
+  --color-red-950: oklch(25.8% 0.092 26.042);
+  --color-rose-50: oklch(96.9% 0.015 12.422);
+  --color-rose-100: oklch(94.1% 0.03 12.58);
+  --color-rose-200: oklch(89.2% 0.058 10.001);
+  --color-rose-300: oklch(81% 0.117 11.638);
+  --color-rose-400: oklch(71.2% 0.194 13.428);
+  --color-rose-500: oklch(64.5% 0.246 16.439);
+  --color-rose-600: oklch(58.6% 0.253 17.585);
+  --color-rose-700: oklch(51.4% 0.222 16.935);
+  --color-rose-800: oklch(45.5% 0.188 13.697);
+  --color-rose-900: oklch(41% 0.159 10.272);
+  --color-rose-950: oklch(27.1% 0.105 12.094);
+  --color-gray-50: oklch(98.5% 0.002 247.839);
+  --color-gray-100: oklch(96.7% 0.003 264.542);
+  --color-gray-200: oklch(92.8% 0.006 264.531);
+  --color-gray-300: oklch(87.2% 0.01 258.338);
+  --color-gray-400: oklch(70.7% 0.022 261.325);
+  --color-gray-500: oklch(55.1% 0.027 264.364);
+  --color-gray-600: oklch(44.6% 0.03 256.802);
+  --color-gray-700: oklch(37.3% 0.034 259.733);
+  --color-gray-800: oklch(27.8% 0.033 256.848);
+  --color-gray-900: oklch(21% 0.034 264.665);
+  --color-gray-950: oklch(13% 0.028 261.692);
+  --color-zinc-50: oklch(98.5% 0 0);
+  --color-zinc-100: oklch(96.7% 0.001 286.375);
+  --color-zinc-200: oklch(92% 0.004 286.32);
+  --color-zinc-300: oklch(87.1% 0.006 286.286);
+  --color-zinc-400: oklch(70.5% 0.015 286.067);
+  --color-zinc-500: oklch(55.2% 0.016 285.938);
+  --color-zinc-600: oklch(44.2% 0.017 285.786);
+  --color-zinc-700: oklch(37% 0.013 285.805);
+  --color-zinc-800: oklch(27.4% 0.006 286.033);
+  --color-zinc-900: oklch(21% 0.006 285.885);
+  --color-zinc-950: oklch(14.1% 0.005 285.823);
+  --color-amber-50: oklch(98.7% 0.022 95.277);
+  --color-amber-100: oklch(96.2% 0.059 95.617);
+  --color-amber-200: oklch(92.4% 0.12 95.746);
+  --color-amber-300: oklch(87.9% 0.169 91.605);
+  --color-amber-400: oklch(82.8% 0.189 84.429);
+  --color-amber-500: oklch(76.9% 0.188 70.08);
+  --color-amber-600: oklch(66.6% 0.179 58.318);
+  --color-amber-700: oklch(55.5% 0.163 48.998);
+  --color-amber-800: oklch(47.3% 0.137 46.201);
+  --color-amber-900: oklch(41.4% 0.112 45.904);
+  --color-amber-950: oklch(27.9% 0.077 45.635);
+}

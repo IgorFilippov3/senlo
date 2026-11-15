@@ -16,8 +16,8 @@
 }
 
 .trigger:focus {
-  border-color: var(--sl-color-primary);
-  box-shadow: 0 0 0 1px rgb(37 99 235 / 0.1);
+  border-color: var(--sl-color-border-focus);
+  box-shadow: 0 0 0 1px var(--sl-color-focus-ring);
 }
 
 .trigger:disabled {
