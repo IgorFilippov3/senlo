@@ -30,7 +30,7 @@ export const DragOverlayItem = ({
       <div
         style={{
           height: "50px",
-          backgroundColor: "#fafafa",
+          backgroundColor: "var(--sl-color-bg-subtle)",
           borderRadius: "10px",
           display: "flex",
           alignItems: "center",
@@ -55,7 +55,7 @@ export const DragOverlayItem = ({
       <div
         style={{
           height: "60px",
-          backgroundColor: "#fafafa",
+          backgroundColor: "var(--sl-color-bg-subtle)",
           borderRadius: "10px",
           display: "flex",
           alignItems: "center",
@@ -64,7 +64,7 @@ export const DragOverlayItem = ({
           fontSize: "14px",
           fontWeight: "600",
           boxShadow: "0 2px 12px rgba(0, 0, 0, 0.2)",
-          border: "2px solid var(--sl-color-primary)",
+          border: "2px solid var(--sl-color-accent)",
           gap: "8px",
           padding: "0 20px",
           width: "100%",

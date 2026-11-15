@@ -5,7 +5,19 @@
   overflow: hidden;
 }
 
+/*
+ * In the workspace (palette, canvas, inspector) the interaction colour is the
+ * accent: what is selected, where a block will drop, which option is on. The
+ * components here and @senlo/ui's controls read it as `--sl-color-primary`,
+ * so it is repointed for this subtree. The header above stays graphite, and
+ * so do dialogs, which are portalled out of it.
+ */
 .senlo-editor-root {
+  --sl-color-primary: var(--sl-color-accent);
+  --sl-color-primary-hover: var(--sl-color-accent-hover);
+  --sl-color-primary-light: var(--sl-color-accent);
+  --sl-color-primary-foreground: var(--sl-color-accent-foreground);
+
   display: grid;
   grid-template-columns: 20% minmax(0, 1fr) 20%;
   flex: 1;

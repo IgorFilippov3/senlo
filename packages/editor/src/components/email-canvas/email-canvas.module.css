@@ -10,7 +10,7 @@
 }
 
 .canvas.dragOver {
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: color-mix(in srgb, var(--sl-color-primary) 5%, transparent);
 }
 
 .email {

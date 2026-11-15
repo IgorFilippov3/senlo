@@ -21,7 +21,7 @@
 .block.selected {
   outline: 2px solid var(--sl-color-primary);
   outline-offset: -2px;
-  background-color: rgba(59, 130, 246, 0.08);
+  background-color: color-mix(in srgb, var(--sl-color-primary) 8%, transparent);
 }
 
 .block.dragging {
@@ -38,7 +38,7 @@
   justify-content: center;
   padding: 4px;
   border-radius: 999px;
-  background-color: var(--sl-color-primary);
+  background-color: var(--sl-color-text-primary);
   color: #ffffff;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
 }

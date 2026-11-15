@@ -16,7 +16,7 @@
 .rowContainer:hover {
   outline: 2px solid var(--sl-color-primary);
   outline-offset: -2px;
-  background-color: rgb(59, 130, 246, 0.1);
+  background-color: color-mix(in srgb, var(--sl-color-primary) 10%, transparent);
 }
 
 .rowContainer.selected {
@@ -84,10 +84,10 @@
 
 .badgeCondition {
   right: 16px;
-  background-color: #2563eb;
+  background-color: var(--sl-color-text-primary);
 }
 
 .badgeLoop {
   right: 40px;
-  background-color: #9333ea;
+  background-color: var(--sl-color-text-secondary);
 }

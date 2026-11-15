@@ -21,7 +21,7 @@
 .column.selected {
   outline: 2px solid var(--sl-color-primary);
   outline-offset: -2px;
-  background-color: rgba(59, 130, 246, 0.08);
+  background-color: color-mix(in srgb, var(--sl-color-primary) 8%, transparent);
   border-color: color-mix(in srgb, var(--sl-color-primary) 30%, transparent);
   z-index: 1;
 }
@@ -43,7 +43,7 @@
   gap: 8px;
   color: var(--sl-color-primary);
   pointer-events: none;
-  border: 1px dashed rgb(59, 130, 246);
+  border: 1px dashed var(--sl-color-primary);
   background-color: color-mix(in srgb, var(--sl-color-primary) 20%, transparent);
 }
 

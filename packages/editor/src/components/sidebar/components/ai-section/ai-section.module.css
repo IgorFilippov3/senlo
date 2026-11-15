@@ -27,16 +27,17 @@
 
 .textarea:focus {
   outline: none;
-  border-color: var(--sl-color-primary);
-  box-shadow: 0 0 0 2px var(--sl-color-primary-light);
+  border-color: var(--sl-color-border-focus);
+  box-shadow: 0 0 0 1px var(--sl-color-focus-ring);
 }
 
 .button {
   width: 100%;
   padding: 10px;
   border-radius: var(--sl-radius-md);
-  background-color: var(--sl-color-primary);
-  color: var(--sl-color-primary-foreground);
+  /* An action, not a selection: graphite like every other button. */
+  background-color: var(--sl-color-text-primary);
+  color: var(--sl-color-bg-subtle);
   font-weight: var(--sl-font-weight-medium);
   cursor: pointer;
   border: none;
@@ -49,7 +50,7 @@
 }
 
 .button:hover:not(:disabled) {
-  background-color: var(--sl-color-primary-hover);
+  background-color: var(--sl-color-ink-hover);
 }
 
 .error {

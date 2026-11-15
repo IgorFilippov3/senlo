@@ -7,10 +7,7 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import { CHART_COLORS } from "@senlo/features";
 
-/*
- * @senlo/ui's tokens, read as text: the warm theme on `:root` and the classic
- * one that `EditorScreen` switches on for the template editor.
- */
+/* @senlo/ui's tokens, read as text: the warm theme on `:root`. */
 const css = readFileSync(createRequire(import.meta.url).resolve("@senlo/ui/styles.css"), "utf8");
 
 /** The declarations of the first rule with this selector (the file has no nested rules). */
@@ -24,10 +21,6 @@ function declarations(selector: string): Map<string, string> {
 }
 
 const warm = declarations(":root");
-const classic = declarations(":root:has(.sl-theme-classic)");
-
-/** Tokens that carry the look; sizes, spacing, radii and z-indexes are the same in both themes. */
-const isLook = (name: string) => /^--(sl-color|sl-shadow|color)-/.test(name) || /^--sl-font-(sans|mono)$/.test(name);
 
 function luminance(hex: string): number {
   const channels = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -47,21 +40,12 @@ function hex(token: string): string {
 }
 
 describe("@senlo/ui theme tokens", () => {
-  it("the classic theme restates every colour, shadow and font of the warm one", () => {
-    const missing = [...warm.keys()].filter((name) => isLook(name) && !classic.has(name));
-    expect(missing).toEqual([]);
+  it("there is one theme: the classic one, kept for the editor until its redesign, is gone", () => {
+    expect(css).not.toContain("sl-theme-classic");
   });
 
-  it("the classic theme sets nothing the warm one does not know, except the hosts' two variables", () => {
-    const extra = [...classic.keys()].filter((name) => !warm.has(name));
-    expect(extra.sort()).toEqual(["--background", "--foreground"]);
-  });
-
-  it("the classic theme is the old look: blue primary, Tailwind's own neutrals", () => {
-    expect(classic.get("--sl-color-primary")).toBe("#2563eb");
-    expect(classic.get("--sl-color-bg-page")).toBe("#ffffff");
-    expect(classic.get("--color-zinc-500")).toMatch(/^oklch\(/);
-    expect(classic.get("--sl-font-sans")).toContain("Arial");
+  it("the success colour the editor reads is defined", () => {
+    expect(hex("--sl-color-success")).toBe(hex("--sl-color-success-text"));
   });
 
   it.each([

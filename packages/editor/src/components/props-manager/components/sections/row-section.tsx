@@ -419,7 +419,7 @@ export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
             size="icon-sm"
             className={`transition-all ${
               isLinked
-                ? "bg-zinc-100 text-blue-600 border border-zinc-200"
+                ? "bg-zinc-100 text-[color:var(--sl-color-accent)] border border-zinc-200"
                 : "bg-transparent text-zinc-500 hover:bg-zinc-100"
             }`}
             onClick={() => setIsLinked(!isLinked)}
