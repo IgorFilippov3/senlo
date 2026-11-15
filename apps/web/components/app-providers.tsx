@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AppShell, AppSidebar } from "@senlo/features";
 import { SenloAppProvider } from "@senlo/next/client";
+import { SenloLogo } from "@senlo/ui";
 import { logoutAction } from "@/app/(auth)/actions";
 import { clientActions } from "@/lib/client-actions";
 
@@ -15,7 +16,7 @@ import { clientActions } from "@/lib/client-actions";
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <SenloAppProvider actions={clientActions}>
-      <AppShell sidebar={<AppSidebar brandName="Senlo Email" brandIcon="S" onSignOut={logoutAction} />}>
+      <AppShell sidebar={<AppSidebar brandName="Senlo Email" brandIcon="S" brandLogo={<SenloLogo />} onSignOut={logoutAction} />}>
         {children}
       </AppShell>
       {process.env.NODE_ENV === "development" && <ReactQueryDevtools initialIsOpen={false} />}

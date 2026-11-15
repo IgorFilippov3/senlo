@@ -17,6 +17,8 @@ import { Sidebar } from "./Sidebar";
 export interface AppSidebarProps {
   brandName: string;
   brandIcon: React.ReactNode;
+  /** A wordmark shown outside a workspace instead of the icon and name. */
+  brandLogo?: React.ReactNode;
   /** Signs the user out (a host action); the remembered workspace is forgotten first. */
   onSignOut?: () => void | Promise<void>;
   /** Above the workspace switcher (managed: an organization switcher). */

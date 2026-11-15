@@ -39,12 +39,12 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 flex items-center justify-center">
+              <div className="flex items-center">
                 <Image
                   src="/core/senlo-logo.svg"
-                  alt="Senlo Logo"
-                  width={140}
-                  height={60}
+                  alt="Senlo"
+                  width={110}
+                  height={32}
                   style={{ maxWidth: "none" }}
                 />
               </div>
@@ -341,9 +341,9 @@ export default function HomePage() {
               <div className="flex items-center gap-3 mb-6">
                 <Image
                   src="/core/senlo-logo.svg"
-                  alt="Senlo Logo"
-                  width={140}
-                  height={60}
+                  alt="Senlo"
+                  width={110}
+                  height={32}
                   style={{ maxWidth: "none" }}
                 />
               </div>

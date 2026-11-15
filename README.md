@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/be7f4f59-3180-4a03-b016-b85311a22b19" alt="Senlo logo" width="280" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/senlo-logo-light.svg" />
+    <img src="./assets/senlo-logo.svg" alt="Senlo" width="240" />
+  </picture>
 </p>
 
 # Senlo — Infrastructure for Transactional & Lifecycle Emails

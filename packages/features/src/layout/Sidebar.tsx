@@ -21,6 +21,8 @@ export type RenderLink = (
 export interface SidebarProps {
   brandName: string;
   brandIcon: React.ReactNode;
+  /** A wordmark shown outside a workspace instead of the icon and name (e.g. `<SenloLogo />`). */
+  brandLogo?: React.ReactNode;
   pathname: string;
   /** The user's workspaces, for the switcher. */
   workspaces: Project[];
@@ -153,6 +155,7 @@ function WorkspaceSwitcher({
 export function Sidebar({
   brandName,
   brandIcon,
+  brandLogo,
   pathname,
   workspaces,
   onShowAllWorkspaces,
@@ -182,12 +185,16 @@ export function Sidebar({
           />
         ) : (
           <div className="p-2">
+            {brandLogo ? (
+              <h1 className="flex items-center text-[22px] leading-none text-zinc-900">{brandLogo}</h1>
+            ) : (
             <h1 className="text-sm font-bold flex items-center gap-2">
               <div className="w-6 h-6 bg-zinc-900 rounded flex items-center justify-center text-white text-[10px]">
                 {brandIcon}
               </div>
               {brandName}
             </h1>
+            )}
           </div>
         )}
         {workspaceId !== null && workspaceNotice}

@@ -12,9 +12,9 @@ export default function PrivacyPage() {
             <Link href="/" className="flex items-center gap-3 group">
               <Image
                 src="/core/senlo-logo.svg"
-                alt="Senlo Logo"
-                width={140}
-                height={60}
+                alt="Senlo"
+                width={110}
+                height={32}
                 style={{ maxWidth: "none" }}
               />
             </Link>

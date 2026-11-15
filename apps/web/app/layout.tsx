@@ -64,7 +64,7 @@ const baseMetadata: Metadata = {
     siteName: "Senlo",
     images: [
       {
-        url: "/logo-preview.png",
+        url: "/core/logo-preview.png",
         width: 1200,
         height: 630,
         alt: "Senlo — Email Trigger Infrastructure",
@@ -76,7 +76,7 @@ const baseMetadata: Metadata = {
     title: "Senlo — Open-Source Email Trigger Infrastructure",
     description:
       "A modern, self-hosted alternative to Postmark and Resend. Open-source email trigger infrastructure with a visual MJML editor.",
-    images: ["/logo-preview.png"],
+    images: ["/core/logo-preview.png"],
   },
   robots: {
     index: true,
