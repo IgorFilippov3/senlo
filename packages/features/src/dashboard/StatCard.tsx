@@ -21,12 +21,13 @@ export function StatCard({
   trend,
   color = "blue",
 }: StatCardProps) {
+  // Only a problem gets its own colour; every other tile is the brand's warm tint.
   const colorClasses = {
-    blue: "bg-blue-50 text-blue-600 border-blue-100",
-    green: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    purple: "bg-purple-50 text-purple-600 border-purple-100",
-    amber: "bg-amber-50 text-amber-600 border-amber-100",
-    rose: "bg-rose-50 text-rose-600 border-rose-100",
+    blue: "bg-[color:var(--sl-color-accent-tint)] text-[color:var(--sl-color-accent-hover)] border-[color:var(--sl-color-accent-tint)]",
+    green: "bg-[color:var(--sl-color-accent-tint)] text-[color:var(--sl-color-accent-hover)] border-[color:var(--sl-color-accent-tint)]",
+    purple: "bg-[color:var(--sl-color-accent-tint)] text-[color:var(--sl-color-accent-hover)] border-[color:var(--sl-color-accent-tint)]",
+    amber: "bg-[color:var(--sl-color-accent-tint)] text-[color:var(--sl-color-accent-hover)] border-[color:var(--sl-color-accent-tint)]",
+    rose: "bg-rose-200 text-rose-800 border-rose-300",
   };
 
   return (

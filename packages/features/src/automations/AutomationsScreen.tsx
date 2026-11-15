@@ -102,7 +102,7 @@ export function AutomationsScreen() {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Start from a template</h2>
-            {renderLink(paths.newAutomation(workspace.id), <span className="text-sm text-blue-600 hover:underline">See all templates</span>, "")}
+            {renderLink(paths.newAutomation(workspace.id), <span className="text-sm font-medium text-zinc-900 underline underline-offset-4">See all templates</span>, "")}
           </div>
           <TemplateGallery
             templates={WORKFLOW_TEMPLATES.filter((t) => t.popular).slice(0, 3)}

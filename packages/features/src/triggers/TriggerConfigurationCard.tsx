@@ -17,7 +17,7 @@ export interface TriggerConfigurationCardProps {
 }
 
 const rowClass =
-  "flex items-center justify-between px-3 py-2 bg-zinc-50/50 border border-zinc-100 rounded-lg hover:border-blue-200 hover:bg-blue-50/30 transition-all group";
+  "flex items-center justify-between px-3 py-2 bg-zinc-50/50 border border-zinc-100 rounded-lg hover:border-zinc-300 hover:bg-zinc-100 transition-all group";
 
 export function TriggerConfigurationCard({
   campaign,
@@ -38,7 +38,7 @@ export function TriggerConfigurationCard({
           <Button
             variant="ghost"
             size="sm"
-            className="h-10 w-10 p-0 text-zinc-400 hover:text-blue-600"
+            className="h-10 w-10 p-0 text-zinc-400 hover:text-zinc-900"
             onClick={onEdit}
           >
             <Pencil size={18} />
@@ -50,7 +50,7 @@ export function TriggerConfigurationCard({
         <div className="space-y-3">
           <h4 className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Workspace</h4>
           <div className="flex items-center gap-3 px-3 py-2.5 bg-zinc-50/50 border border-zinc-100 rounded-xl group hover:border-zinc-200 transition-colors">
-            <div className="w-8 h-8 rounded-lg bg-white border border-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-blue-600 transition-colors">
+            <div className="w-8 h-8 rounded-lg bg-white border border-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 transition-colors">
               <FolderOpen size={16} />
             </div>
             <span className="text-sm font-medium text-zinc-700">{project.name}</span>
@@ -90,11 +90,11 @@ export function TriggerConfigurationCard({
                 <div className="flex items-center gap-3">
                   <Badge
                     variant="outline"
-                    className="bg-white text-[10px] font-bold uppercase tracking-wider text-blue-600 border-blue-100"
+                    className="bg-white text-[10px] font-bold uppercase tracking-wider text-zinc-700 border-zinc-200"
                   >
                     {template.locale}
                   </Badge>
-                  <span className="text-sm font-medium text-zinc-700 group-hover:text-blue-700">
+                  <span className="text-sm font-medium text-zinc-700 group-hover:text-zinc-900">
                     {template.name}
                   </span>
                   <Badge
@@ -106,7 +106,7 @@ export function TriggerConfigurationCard({
                 </div>
                 <ArrowRight
                   size={14}
-                  className="text-zinc-300 group-hover:text-blue-400 transition-colors"
+                  className="text-zinc-300 group-hover:text-zinc-600 transition-colors"
                 />
               </div>,
             )}
@@ -119,19 +119,19 @@ export function TriggerConfigurationCard({
                     <div className="flex items-center gap-3">
                       <Badge
                         variant="outline"
-                        className="bg-white text-[10px] font-bold uppercase tracking-wider text-zinc-500 group-hover:text-blue-600 group-hover:border-blue-100"
+                        className="bg-white text-[10px] font-bold uppercase tracking-wider text-zinc-500 group-hover:text-zinc-900 group-hover:border-zinc-300"
                       >
                         {locale}
                       </Badge>
-                      <span className="text-sm text-zinc-600 group-hover:text-blue-700">
+                      <span className="text-sm text-zinc-600 group-hover:text-zinc-900">
                         Template ID: {templateId}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Languages size={14} className="text-zinc-300 group-hover:text-blue-300" />
+                      <Languages size={14} className="text-zinc-300 group-hover:text-zinc-500" />
                       <ArrowRight
                         size={14}
-                        className="text-zinc-200 group-hover:text-blue-400 transition-colors"
+                        className="text-zinc-200 group-hover:text-zinc-600 transition-colors"
                       />
                     </div>
                   </div>,

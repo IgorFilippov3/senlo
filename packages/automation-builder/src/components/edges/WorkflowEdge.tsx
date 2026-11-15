@@ -7,7 +7,8 @@ import { INSERTABLE_TYPES } from "../../store/graphOps";
 import { AddStepMenu } from "../AddStepMenu";
 import { useBuilderContext } from "../BuilderContext";
 
-const STROKE = "#d4d4d8";
+// zinc-300 of the warm theme (@senlo/ui); an SVG marker cannot read a CSS variable.
+const STROKE = "#d8d0c0";
 
 /**
  * A line between steps: straight down, or for a branch, down to a split just
@@ -65,7 +66,7 @@ export const WorkflowEdge = ({
             <AddStepMenu types={INSERTABLE_TYPES} onSelect={(type) => insertNode(id, type)}>
               <button
                 type="button"
-                className="flex size-[18px] items-center justify-center rounded-full border border-gray-300 bg-white text-gray-400 opacity-80 transition-all hover:scale-110 hover:border-blue-500 hover:text-blue-600 hover:opacity-100"
+                className="flex size-[18px] items-center justify-center rounded-full border border-gray-300 bg-white text-gray-400 opacity-80 transition-all hover:scale-110 hover:border-gray-900 hover:text-gray-900 hover:opacity-100"
                 title="Insert a step here"
               >
                 <Plus size={11} strokeWidth={2.5} />

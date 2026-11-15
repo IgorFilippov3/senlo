@@ -150,7 +150,7 @@ export function WorkflowEditorShell({
               )}
             </Button>
             <Button
-              className="font-semibold text-xs uppercase tracking-wider h-9 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/10 min-w-[140px]"
+              className="font-semibold text-xs uppercase tracking-wider h-9 min-w-[140px]"
               onClick={onSave}
               disabled={isSaving}
             >

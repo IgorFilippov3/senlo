@@ -83,7 +83,7 @@ export function TriggerWizard({
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
                   isActive
-                    ? "border-blue-600 bg-blue-50 text-blue-600 shadow-md"
+                    ? "border-zinc-900 bg-zinc-100 text-zinc-900 shadow-md"
                     : isCompleted
                       ? "border-green-500 bg-green-50 text-green-500"
                       : "border-zinc-200 bg-white text-zinc-400"
@@ -91,7 +91,7 @@ export function TriggerWizard({
               >
                 {isCompleted ? <Check size={20} /> : s.icon}
               </div>
-              <span className={`text-xs font-medium ${isActive ? "text-blue-600" : "text-zinc-500"}`}>
+              <span className={`text-xs font-medium ${isActive ? "text-zinc-900" : "text-zinc-500"}`}>
                 {s.label}
               </span>
             </div>
@@ -165,7 +165,7 @@ export function TriggerWizard({
                       onClick={() => update("templateId", t.id)}
                       className={`p-4 border rounded-xl cursor-pointer transition-all ${
                         form.templateId === t.id
-                          ? "border-blue-600 bg-blue-50 shadow-sm"
+                          ? "border-zinc-900 bg-zinc-50 shadow-sm"
                           : "border-zinc-200 hover:border-zinc-300 bg-white"
                       }`}
                     >
@@ -234,11 +234,11 @@ export function TriggerWizard({
               </div>
             </div>
 
-            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
-              <div className="mt-0.5 text-blue-600">
+            <div className="p-4 bg-zinc-50 rounded-xl border border-zinc-200 flex items-start gap-3">
+              <div className="mt-0.5 text-zinc-500">
                 <Settings size={18} />
               </div>
-              <p className="text-sm text-blue-800">
+              <p className="text-sm text-zinc-700">
                 Ready to go! Once you create this email trigger, you will receive a{" "}
                 <strong>Webhook URL</strong> to start sending from your backend.
               </p>

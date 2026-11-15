@@ -79,7 +79,7 @@ export const STEP_META: Record<string, StepMeta> = {
   action: {
     kind: "Send email",
     icon: Mail,
-    tone: "text-blue-600",
+    tone: "text-zinc-800",
     summary: (data, { triggers }) => {
       if (data.label) return { text: data.label };
       // An export or a template names the email by its trigger's name.

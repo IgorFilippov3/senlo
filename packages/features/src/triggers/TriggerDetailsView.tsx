@@ -128,7 +128,7 @@ export function TriggerDetailsView({
         )}
 
         <Badge className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 text-white border-none font-bold tracking-tight shadow-md hover:bg-zinc-800 transition-colors">
-          <Zap size={15} className="text-blue-400 fill-blue-400" />
+          <Zap size={15} className="text-zinc-400 fill-zinc-400" />
           Email Trigger
         </Badge>
       </div>

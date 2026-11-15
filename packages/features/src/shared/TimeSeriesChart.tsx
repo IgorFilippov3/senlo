@@ -12,6 +12,7 @@ import {
   Legend,
 } from "recharts";
 import { format, parseISO } from "date-fns";
+import { CHART_COLORS } from "./chartColors";
 
 export type TimeSeriesInterval = "hour" | "day";
 
@@ -90,7 +91,7 @@ export function TimeSeriesChart<T extends { timestamp: string }>({
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_COLORS.grid} />
         <XAxis
           dataKey="timestamp"
           tickFormatter={(t: string) =>
@@ -98,13 +99,13 @@ export function TimeSeriesChart<T extends { timestamp: string }>({
           }
           axisLine={false}
           tickLine={false}
-          tick={{ fill: "#a1a1aa", fontSize: 10 }}
+          tick={{ fill: CHART_COLORS.tick, fontSize: 10 }}
           minTickGap={30}
         />
         <YAxis
           axisLine={false}
           tickLine={false}
-          tick={{ fill: "#a1a1aa", fontSize: 10 }}
+          tick={{ fill: CHART_COLORS.tick, fontSize: 10 }}
         />
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <Tooltip content={renderTooltip as any} />

@@ -5,6 +5,7 @@ import type { LinkStat, TimeSeriesData } from "@senlo/core";
 import { Card } from "@senlo/ui";
 import { BarChart3, ExternalLink, Loader2, MousePointer2 } from "lucide-react";
 import {
+  CHART_COLORS,
   TimeSeriesChart,
   type TimeSeriesInterval,
   type TimeSeriesLine,
@@ -30,8 +31,8 @@ const INTERVALS: { label: string; value: TimeSeriesInterval }[] = [
 ];
 
 const LINES: TimeSeriesLine<TimeSeriesData>[] = [
-  { key: "opens", label: "Opens", color: "#3b82f6" },
-  { key: "clicks", label: "Clicks", color: "#a855f7" },
+  { key: "opens", label: "Opens", color: CHART_COLORS.primary },
+  { key: "clicks", label: "Clicks", color: CHART_COLORS.secondary },
 ];
 
 export interface AnalyticsFiltersProps {
@@ -140,7 +141,7 @@ export function LinkPerformance({ data, isLoading, totalDelivered }: LinkPerform
                   {stat.uniqueClicks}
                 </td>
                 <td className="py-3 px-4 text-right">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200">
                     {ctr}%
                   </span>
                 </td>

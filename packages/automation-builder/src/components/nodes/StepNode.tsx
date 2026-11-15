@@ -23,7 +23,7 @@ export const StepNode = ({ id, type, data, selected }: NodeProps) => {
         "w-[280px] rounded-xl border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow]",
         !readOnly && "cursor-pointer",
         selected
-          ? "border-blue-500 ring-4 ring-blue-500/10"
+          ? "border-[color:var(--sl-color-accent)] ring-4 ring-[color:var(--sl-color-focus-ring)]"
           : readOnly
             ? "border-gray-200"
             : "border-gray-200 hover:border-gray-300 hover:shadow-[0_2px_6px_rgba(16,24,40,0.08)]",

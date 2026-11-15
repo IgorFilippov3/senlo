@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
+import { CHART_COLORS } from "@senlo/features";
 
 /*
  * @senlo/ui's tokens, read as text: the warm theme on `:root` and the classic
@@ -84,6 +85,8 @@ describe("@senlo/ui theme tokens", () => {
     ["--color-amber-600", "--color-amber-50"],
     ["--color-amber-800", "--color-amber-50"],
     ["--color-amber-700", "--color-amber-100"],
+    ["--color-green-600", "--color-green-50"],
+    ["--color-emerald-700", "--color-emerald-100"],
   ])("%s on %s is readable (4.5:1)", (foreground, background) => {
     expect(contrast(hex(foreground), hex(background))).toBeGreaterThanOrEqual(4.5);
   });
@@ -98,6 +101,20 @@ describe("@senlo/ui theme tokens", () => {
     // Tailwind's amber-50 (#fffbeb) against the warm page is about 1.01:1, i.e. invisible.
     expect(contrast(hex("--color-amber-200"), hex("--sl-color-bg-page"))).toBeGreaterThanOrEqual(1.5);
     expect(hex("--sl-color-warning-bg")).toBe(hex("--color-amber-50"));
+  });
+
+  it("chart colours in @senlo/features repeat the tokens", () => {
+    expect(CHART_COLORS.primary).toBe(hex("--sl-color-accent"));
+    expect(CHART_COLORS.secondary).toBe(hex("--sl-color-text"));
+    expect(CHART_COLORS.warning).toBe(hex("--color-amber-500"));
+    expect(CHART_COLORS.grid).toBe(hex("--color-zinc-100"));
+    expect(CHART_COLORS.tick).toBe(hex("--color-zinc-500"));
+  });
+
+  it("success is one green: the badge and Tailwind's green and emerald", () => {
+    expect(hex("--color-green-600")).toBe(hex("--sl-color-success-text"));
+    expect(hex("--color-emerald-600")).toBe(hex("--color-green-600"));
+    expect(hex("--color-green-100")).toBe(hex("--sl-color-success-bg"));
   });
 
   it("the screens' neutral scales are one warm scale", () => {

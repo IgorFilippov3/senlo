@@ -49,7 +49,7 @@ export function FrequencyCapCard({ projectId }: FrequencyCapCardProps) {
   return (
     <Card className="p-6 border-zinc-200 shadow-sm">
       <div className="flex items-start gap-4">
-        <div className="p-2 bg-zinc-100 rounded-lg text-zinc-500 shrink-0">
+        <div className="p-2 bg-[color:var(--sl-color-accent-tint)] rounded-lg text-[color:var(--sl-color-accent-hover)] shrink-0">
           <Gauge size={20} />
         </div>
         <div className="space-y-3 text-sm text-zinc-600 w-full">

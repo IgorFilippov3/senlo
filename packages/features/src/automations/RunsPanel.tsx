@@ -359,7 +359,7 @@ export function WorkflowRunsDialog({
             type="button"
             onClick={() => setTab(t)}
             className={`px-3 py-2 text-sm -mb-px border-b-2 ${
-              tab === t ? "border-blue-600 text-gray-900 font-medium" : "border-transparent text-gray-500"
+              tab === t ? "border-gray-900 text-gray-900 font-medium" : "border-transparent text-gray-500"
             }`}
           >
             {t === "runs" ? "This automation" : "Contact history"}

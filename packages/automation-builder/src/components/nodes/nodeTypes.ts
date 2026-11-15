@@ -15,5 +15,5 @@ export const STEP_NODE_TYPES = {
 };
 
 export const defaultEdgeOptions = {
-  markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#d4d4d8" },
+  markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#d8d0c0" },
 };

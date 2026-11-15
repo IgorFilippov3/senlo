@@ -44,7 +44,7 @@ export function WorkflowPreview({ nodes, edges, triggers = [], nodeStats, classN
     <BuilderProvider
       value={{ triggers, eventNames: [], fieldSuggestions: { contact: [], event: [] }, readOnly: true, nodeStats }}
     >
-      <div className={cn("relative h-[420px] w-full overflow-hidden rounded-lg bg-[#fafafa]", className)}>
+      <div className={cn("relative h-[420px] w-full overflow-hidden rounded-lg bg-zinc-50", className)}>
         <ReactFlowProvider key={key}>
           <ReactFlow
             nodes={graph.nodes}
@@ -70,7 +70,7 @@ export function WorkflowPreview({ nodes, edges, triggers = [], nodeStats, classN
             deleteKeyCode={null}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={2} color="#b4b4bc" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={2} color="#c9c0ae" />
           </ReactFlow>
         </ReactFlowProvider>
       </div>

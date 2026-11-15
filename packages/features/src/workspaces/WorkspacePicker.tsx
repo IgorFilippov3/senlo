@@ -62,18 +62,18 @@ export function WorkspacePicker({
             {workspaces.map((workspace) => (
               <Card
                 key={workspace.id}
-                className="group p-6 border-zinc-200 hover:border-blue-500 hover:shadow-xl transition-all cursor-pointer bg-white"
+                className="group p-6 border-zinc-200 hover:border-zinc-400 hover:shadow-xl transition-all cursor-pointer bg-white"
                 onClick={() => onSelect(workspace)}
               >
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-bold text-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <div className="w-12 h-12 bg-[color:var(--sl-color-accent-tint)] rounded-xl flex items-center justify-center text-[color:var(--sl-color-accent-hover)] font-bold text-xl group-hover:bg-[color:var(--sl-color-accent)] group-hover:text-white transition-colors">
                     {workspace.name[0]?.toUpperCase()}
                   </div>
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ArrowRight size={20} className="text-blue-600" />
+                    <ArrowRight size={20} className="text-zinc-900" />
                   </div>
                 </div>
-                <h3 className="text-lg font-bold text-zinc-900 mb-1 group-hover:text-blue-600 transition-colors">
+                <h3 className="text-lg font-bold text-zinc-900 mb-1 group-hover:underline underline-offset-4">
                   {workspace.name}
                 </h3>
                 <p className="text-zinc-500 text-sm line-clamp-2 mb-4">
@@ -88,7 +88,7 @@ export function WorkspacePicker({
             ))}
 
             <Card
-              className="p-6 border-dashed border-zinc-300 hover:border-blue-500 hover:bg-blue-50/30 transition-all cursor-pointer flex flex-col items-center justify-center min-h-[200px] text-center"
+              className="p-6 border-dashed border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50 transition-all cursor-pointer flex flex-col items-center justify-center min-h-[200px] text-center"
               onClick={onCreate}
             >
               <div className="w-12 h-12 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-400 mb-4">

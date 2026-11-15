@@ -94,7 +94,7 @@ export function ApiKeysList({
               value={newKeyName}
               onChange={(e) => setNewKeyName(e.target.value)}
               placeholder="e.g. Production Backend"
-              className="w-full p-2 border border-zinc-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="w-full p-2 border border-zinc-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--sl-color-focus-ring)] focus:border-[color:var(--sl-color-border-focus)] transition-all"
             />
           </div>
           <div className="flex items-end">
@@ -128,7 +128,7 @@ export function ApiKeysList({
                 className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-zinc-200 shadow-sm hover:border-zinc-300 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-500 flex-shrink-0">
+                  <div className="w-10 h-10 bg-[color:var(--sl-color-accent-tint)] rounded-full flex items-center justify-center text-[color:var(--sl-color-accent-hover)] flex-shrink-0">
                     <Key size={20} />
                   </div>
                   <div className="min-w-0 flex-1">

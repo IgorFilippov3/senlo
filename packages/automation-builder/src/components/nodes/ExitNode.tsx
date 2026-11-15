@@ -13,7 +13,7 @@ export const ExitNode = ({ id, selected }: NodeProps) => {
       className={cn(
         !readOnly && "cursor-pointer",
         "flex h-9 w-24 items-center justify-center gap-1.5 rounded-full border bg-white text-[14px] font-medium text-gray-800 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow]",
-        selected ? "border-blue-500 ring-4 ring-blue-500/10" : readOnly ? "border-gray-200" : "border-gray-200 hover:border-gray-300",
+        selected ? "border-[color:var(--sl-color-accent)] ring-4 ring-[color:var(--sl-color-focus-ring)]" : readOnly ? "border-gray-200" : "border-gray-200 hover:border-gray-300",
       )}
     >
       <Handle type="target" position={Position.Top} isConnectable={false} />

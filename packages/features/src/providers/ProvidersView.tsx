@@ -30,7 +30,7 @@ function ProviderCard({
   return (
     <Card className="p-6 flex flex-col h-full group">
       <div className="flex items-start justify-between mb-4">
-        <div className="p-2.5 bg-zinc-100 rounded-lg text-zinc-900">{icon}</div>
+        <div className="p-2.5 bg-[color:var(--sl-color-accent-tint)] rounded-lg text-[color:var(--sl-color-accent-hover)]">{icon}</div>
         <div className="flex items-center gap-2">
           {onEdit && (
             <button

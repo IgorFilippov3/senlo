@@ -10,7 +10,7 @@ export type RenderAuthLink = (
   className: string,
 ) => React.ReactNode;
 
-export const authLinkClassName = "text-blue-600 font-semibold hover:underline";
+export const authLinkClassName = "text-zinc-900 font-semibold underline underline-offset-4 decoration-zinc-300 hover:decoration-zinc-900";
 
 /** The centred card both auth pages sit in. */
 export function AuthCard({

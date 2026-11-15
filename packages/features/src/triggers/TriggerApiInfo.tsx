@@ -40,28 +40,28 @@ export function TriggerApiInfo({
   };
 
   return (
-    <Card className="p-6 border-blue-100 bg-blue-50/30 space-y-4">
+    <Card className="p-6 border-zinc-200 bg-zinc-50 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold flex items-center gap-2 text-blue-900">
-          <Webhook size={18} className="text-blue-600" />
+        <h3 className="font-semibold flex items-center gap-2 text-zinc-900">
+          <Webhook size={18} className="text-zinc-500" />
           API Integration
         </h3>
-        <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+        <Badge variant="secondary" className="bg-zinc-100 text-zinc-700 border-zinc-200">
           Webhook
         </Badge>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-xs font-bold uppercase text-blue-800/60 tracking-wider">
+          <label className="text-xs font-bold uppercase text-zinc-500 tracking-wider">
             Webhook URL
           </label>
-          <div className="flex items-center gap-2 p-2.5 bg-white border border-blue-100 rounded-lg shadow-sm">
-            <code className="text-sm text-blue-900 flex-1 truncate">{endpointUrl}</code>
+          <div className="flex items-center gap-2 p-2.5 bg-white border border-zinc-200 rounded-lg shadow-sm">
+            <code className="text-sm text-zinc-900 flex-1 truncate">{endpointUrl}</code>
             <Button
               size="sm"
               variant="ghost"
-              className="h-9 w-9 p-0 hover:bg-blue-50 text-blue-600"
+              className="h-9 w-9 p-0 hover:bg-zinc-100 text-zinc-600"
               onClick={() => copyToClipboard(endpointUrl)}
             >
               {copied ? <Check size={20} strokeWidth={2.5} /> : <Copy size={20} strokeWidth={2.5} />}
@@ -70,7 +70,7 @@ export function TriggerApiInfo({
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-bold uppercase text-blue-800/60 tracking-wider">
+          <label className="text-xs font-bold uppercase text-zinc-500 tracking-wider">
             Sample Payload (POST)
           </label>
           <div className="relative group">
@@ -89,9 +89,9 @@ export function TriggerApiInfo({
           </div>
         </div>
 
-        <div className="flex items-start gap-2.5 p-3 bg-white/50 border border-blue-100 rounded-lg">
-          <Info size={16} className="text-blue-600 mt-0.5" />
-          <div className="text-xs text-blue-800 leading-relaxed space-y-1">
+        <div className="flex items-start gap-2.5 p-3 bg-white/50 border border-zinc-200 rounded-lg">
+          <Info size={16} className="text-zinc-500 mt-0.5" />
+          <div className="text-xs text-zinc-600 leading-relaxed space-y-1">
             <p>
               Include your API Key in the <code>Authorization: Bearer YOUR_KEY</code> header.
             </p>

@@ -14,7 +14,7 @@
 }
 
 .sl-flow-controls {
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--sl-color-border, #e4e4e7);
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
@@ -23,12 +23,12 @@
 .sl-flow-controls .react-flow__controls-button {
   width: 32px;
   height: 32px;
-  border-bottom-color: #f4f4f5;
+  border-bottom-color: var(--sl-color-bg-accent, #f4f4f5);
   background: white;
 }
 
 .sl-flow-controls .react-flow__controls-button svg {
   max-width: 12px;
   max-height: 12px;
-  fill: #52525b;
+  fill: var(--sl-color-text-secondary, #52525b);
 }

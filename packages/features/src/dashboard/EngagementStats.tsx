@@ -20,7 +20,7 @@ export function EngagementStats({ stats }: EngagementStatsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Card className="p-4 border-zinc-200 flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+        <div className="w-12 h-12 rounded-full bg-[color:var(--sl-color-accent-tint)] flex items-center justify-center text-[color:var(--sl-color-accent-hover)] shrink-0">
           <Eye size={24} />
         </div>
         <div>
@@ -36,7 +36,7 @@ export function EngagementStats({ stats }: EngagementStatsProps) {
         </div>
       </Card>
       <Card className="p-4 border-zinc-200 flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+        <div className="w-12 h-12 rounded-full bg-[color:var(--sl-color-accent-tint)] flex items-center justify-center text-[color:var(--sl-color-accent-hover)] shrink-0">
           <MousePointer2 size={24} />
         </div>
         <div>

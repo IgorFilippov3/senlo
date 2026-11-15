@@ -59,7 +59,7 @@ export function WorkflowList({
             )}
             <div>
               <div className="flex justify-between items-start mb-4">
-                <div className="p-2.5 bg-gray-50 border border-gray-100 rounded-lg inline-block text-gray-600">
+                <div className="p-2.5 bg-[color:var(--sl-color-accent-tint)] rounded-lg inline-block text-[color:var(--sl-color-accent-hover)]">
                   <GitBranch className="w-5 h-5" />
                 </div>
                 <Badge

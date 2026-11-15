@@ -29,8 +29,8 @@ export function TemplateCard({
     <Card className="h-full p-5 transition-shadow hover:shadow-md border-zinc-200 group-hover:border-zinc-300">
       <div className="flex flex-col h-full gap-4">
         <div className="flex items-start justify-between">
-          <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
-            <FileText size={20} className="text-blue-600" />
+          <div className="p-2 bg-[color:var(--sl-color-accent-tint)] rounded-lg">
+            <FileText size={20} className="text-[color:var(--sl-color-accent-hover)]" />
           </div>
           <div className="flex items-center gap-2">
             {template.locale && (
@@ -61,7 +61,7 @@ export function TemplateCard({
         </div>
 
         <div className="space-y-1">
-          <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors line-clamp-1">
+          <h3 className="font-semibold text-lg group-hover:underline underline-offset-4 line-clamp-1">
             {template.name}
           </h3>
           <p className="text-sm text-zinc-500 line-clamp-2">
@@ -69,7 +69,7 @@ export function TemplateCard({
           </p>
         </div>
 
-        <div className="mt-auto pt-4 flex items-center text-sm font-medium text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="mt-auto pt-4 flex items-center text-sm font-medium text-zinc-900 underline underline-offset-4 opacity-0 group-hover:opacity-100 transition-opacity">
           Open in editor
           <ArrowRight size={14} className="ml-1" />
         </div>

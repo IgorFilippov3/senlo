@@ -23,7 +23,7 @@ function TemplateCard({ template, onOpen }: { template: WorkflowTemplate; onOpen
   const emails = emailCount(template);
   return (
     <button type="button" onClick={onOpen} className="text-left h-full">
-      <Card className="p-5 h-full border-gray-200 hover:border-blue-300 hover:shadow-md transition-all flex flex-col gap-3">
+      <Card className="p-5 h-full border-gray-200 hover:border-gray-400 hover:shadow-md transition-all flex flex-col gap-3">
         <div>
           <h3 className="font-semibold text-gray-900">{template.name}</h3>
           <p className="text-sm text-gray-500 mt-1">{template.summary}</p>
@@ -191,7 +191,7 @@ export function TemplatePreviewDialog({
                 <button
                   type="button"
                   onClick={() => void copy(e.name, e.payload)}
-                  className="mt-1 inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline"
+                  className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-900 underline underline-offset-2"
                 >
                   {copied === e.name ? <Check size={11} /> : <Copy size={11} />}
                   {copied === e.name ? "Copied" : "Copy example request"}

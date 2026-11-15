@@ -39,7 +39,7 @@ export function EventFeed({ events }: EventFeedProps) {
                 ) : event.type === "BOUNCE" ||
                   event.type === "SPAM" ||
                   event.type === "FAILED" ? (
-                  <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 border border-rose-100">
+                  <div className="w-8 h-8 rounded-full bg-rose-200 flex items-center justify-center text-rose-800 border border-rose-300">
                     <AlertCircle size={14} />
                   </div>
                 ) : event.type === "CAMPAIGN_COMPLETED" ? (
@@ -47,7 +47,7 @@ export function EventFeed({ events }: EventFeedProps) {
                     <CheckCircle2 size={14} />
                   </div>
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
+                  <div className="w-8 h-8 rounded-full bg-[color:var(--sl-color-accent-tint)] flex items-center justify-center text-[color:var(--sl-color-accent-hover)] border border-[color:var(--sl-color-accent-tint)]">
                     <Zap size={14} />
                   </div>
                 )}

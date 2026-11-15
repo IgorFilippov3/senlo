@@ -224,7 +224,7 @@ export function EditTriggerDialog({
                           Template
                         </label>
                         <select
-                          className="w-full h-9 px-3 rounded-md border border-zinc-200 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full h-9 px-3 rounded-md border border-zinc-200 text-sm focus:outline-none focus:ring-1 focus:ring-[color:var(--sl-color-border-focus)]"
                           value={templateId}
                           onChange={(e) => {
                             const newId = parseInt(e.target.value);

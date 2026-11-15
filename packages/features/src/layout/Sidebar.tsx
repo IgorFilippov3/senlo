@@ -105,7 +105,7 @@ function WorkspaceSwitcher({
         className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-zinc-100 transition-colors"
       >
         <div className="flex items-center gap-2 overflow-hidden">
-          <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+          <div className="w-6 h-6 bg-zinc-900 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0">
             {current?.name?.[0]?.toUpperCase() || "W"}
           </div>
           <span className="text-sm font-semibold truncate">{current?.name || "Workspace"}</span>
@@ -138,7 +138,7 @@ function WorkspaceSwitcher({
                 setIsOpen(false);
                 onShowAllWorkspaces();
               }}
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-blue-600 hover:bg-zinc-50"
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
             >
               <Globe size={14} />
               All workspaces

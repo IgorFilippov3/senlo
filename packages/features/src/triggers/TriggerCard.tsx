@@ -44,17 +44,10 @@ export const TriggerCard = memo(function TriggerCard({
     <Card className="h-full p-5 transition-shadow hover:shadow-md border-zinc-200 group-hover:border-zinc-300">
       <div className="flex flex-col h-full gap-4">
         <div className="flex items-start justify-between">
-          <div
-            className={`p-2 rounded-lg transition-colors ${
-              campaign.status === "COMPLETED"
-                ? "bg-green-50 text-green-600"
-                : isTriggered
-                  ? "bg-blue-50 text-blue-600"
-                  : "bg-zinc-100 text-zinc-600"
-            }`}
-          >
+          {/* The tile says what the card is and is always the brand tint; the state is the badge's job. */}
+          <div className="p-2 rounded-lg bg-[color:var(--sl-color-accent-tint)] text-[color:var(--sl-color-accent-hover)]">
             {isTriggered ? (
-              <Zap size={20} className="fill-blue-600/20" />
+              <Zap size={20} className="fill-[color:var(--sl-color-accent)]/20" />
             ) : (
               <Send size={20} />
             )}
@@ -81,7 +74,7 @@ export const TriggerCard = memo(function TriggerCard({
 
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
+            <h3 className="font-semibold text-lg group-hover:underline underline-offset-4">
               {campaign.name}
             </h3>
           </div>
@@ -96,7 +89,7 @@ export const TriggerCard = memo(function TriggerCard({
               </span>
             </div>
             {isTriggered ? (
-              <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
+              <div className="flex items-center gap-2 text-sm text-zinc-700 font-medium">
                 <Zap size={14} />
                 <span>API-Triggered</span>
               </div>
@@ -120,7 +113,7 @@ export const TriggerCard = memo(function TriggerCard({
           <span className="text-zinc-400 font-normal">
             Project ID: {campaign.projectId}
           </span>
-          <div className="flex items-center text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center text-zinc-900 underline underline-offset-4 opacity-0 group-hover:opacity-100 transition-opacity">
             View Analytics
             <BarChart2 size={14} className="ml-1" />
           </div>

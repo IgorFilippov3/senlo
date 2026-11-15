@@ -9,8 +9,8 @@
  * focus and the brand, never a button or a status. Errors are crimson, far
  * enough from the accent to tell apart at a glance.
  *
- * Screens written in Tailwind's `zinc-*`, `gray-*`, `red-*`, `rose-*` and
- * `amber-*` follow the same palette: those scales are repointed below, on `:root`,
+ * Screens written in Tailwind's `zinc-*`, `gray-*`, `red-*`, `rose-*`,
+ * `amber-*`, `green-*` and `emerald-*` follow the same palette: those scales are repointed below, on `:root`,
  * which wins over Tailwind's own values (they sit in `@layer theme`).
  *
  * The template editor keeps the previous look until its own redesign: see
@@ -217,6 +217,30 @@
   --color-amber-900: #472d00;
   --color-amber-950: #2e1d00;
 
+  /* Success: the muted green of `--sl-color-success-*`. */
+  --color-green-50: #eef6f0;
+  --color-green-100: #e4f0e8;
+  --color-green-200: #c5dfce;
+  --color-green-300: #9cc7ab;
+  --color-green-400: #5fa07a;
+  --color-green-500: #3d8259;
+  --color-green-600: #2a6b45;
+  --color-green-700: #225739;
+  --color-green-800: #1c462e;
+  --color-green-900: #163824;
+  --color-green-950: #0c2216;
+  --color-emerald-50: #eef6f0;
+  --color-emerald-100: #e4f0e8;
+  --color-emerald-200: #c5dfce;
+  --color-emerald-300: #9cc7ab;
+  --color-emerald-400: #5fa07a;
+  --color-emerald-500: #3d8259;
+  --color-emerald-600: #2a6b45;
+  --color-emerald-700: #225739;
+  --color-emerald-800: #1c462e;
+  --color-emerald-900: #163824;
+  --color-emerald-950: #0c2216;
+
   /* ============================================
    * Legacy variable aliases (for backward compatibility)
    * These map old --senlo-* variables to new --sl-* system
@@ -341,4 +365,26 @@
   --color-amber-800: oklch(47.3% 0.137 46.201);
   --color-amber-900: oklch(41.4% 0.112 45.904);
   --color-amber-950: oklch(27.9% 0.077 45.635);
+  --color-green-50: oklch(98.2% 0.018 155.826);
+  --color-green-100: oklch(96.2% 0.044 156.743);
+  --color-green-200: oklch(92.5% 0.084 155.995);
+  --color-green-300: oklch(87.1% 0.15 154.449);
+  --color-green-400: oklch(79.2% 0.209 151.711);
+  --color-green-500: oklch(72.3% 0.219 149.579);
+  --color-green-600: oklch(62.7% 0.194 149.214);
+  --color-green-700: oklch(52.7% 0.154 150.069);
+  --color-green-800: oklch(44.8% 0.119 151.328);
+  --color-green-900: oklch(39.3% 0.095 152.535);
+  --color-green-950: oklch(26.6% 0.065 152.934);
+  --color-emerald-50: oklch(97.9% 0.021 166.113);
+  --color-emerald-100: oklch(95% 0.052 163.051);
+  --color-emerald-200: oklch(90.5% 0.093 164.15);
+  --color-emerald-300: oklch(84.5% 0.143 164.978);
+  --color-emerald-400: oklch(76.5% 0.177 163.223);
+  --color-emerald-500: oklch(69.6% 0.17 162.48);
+  --color-emerald-600: oklch(59.6% 0.145 163.225);
+  --color-emerald-700: oklch(50.8% 0.118 165.612);
+  --color-emerald-800: oklch(43.2% 0.095 166.913);
+  --color-emerald-900: oklch(37.8% 0.077 168.94);
+  --color-emerald-950: oklch(26.2% 0.051 172.552);
 }

@@ -43,7 +43,7 @@ export function TemplatesList({
             onClick={() => setViewMode("grid")}
             className={`p-1.5 rounded-md transition-all ${
               viewMode === "grid"
-                ? "bg-white shadow-sm text-blue-600"
+                ? "bg-white shadow-sm text-zinc-900"
                 : "text-zinc-500 hover:text-zinc-800"
             }`}
             title="Grid view"
@@ -54,7 +54,7 @@ export function TemplatesList({
             onClick={() => setViewMode("table")}
             className={`p-1.5 rounded-md transition-all ${
               viewMode === "table"
-                ? "bg-white shadow-sm text-blue-600"
+                ? "bg-white shadow-sm text-zinc-900"
                 : "text-zinc-500 hover:text-zinc-800"
             }`}
             title="Table view"
@@ -107,10 +107,10 @@ export function TemplatesList({
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-1.5 bg-blue-50 rounded-md text-blue-600">
+                      <div className="p-1.5 bg-[color:var(--sl-color-accent-tint)] rounded-md text-[color:var(--sl-color-accent-hover)]">
                         <FileText size={16} />
                       </div>
-                      <span className="font-medium text-zinc-900 group-hover:text-blue-600 transition-colors">
+                      <span className="font-medium text-zinc-900 group-hover:underline underline-offset-4">
                         {renderLink
                           ? renderLink(template.id, template.name)
                           : template.name}
@@ -131,7 +131,7 @@ export function TemplatesList({
                         renderLink(
                           template.id,
                           <div
-                            className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                            className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-colors cursor-pointer"
                             title="Edit in editor"
                           >
                             <ExternalLink size={16} />

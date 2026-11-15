@@ -46,7 +46,7 @@ export function NewWorkflowForm({
                 placeholder="e.g. Welcome Series"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="border-gray-200 h-11 text-base focus:ring-2 focus:ring-blue-500/20"
+                className="border-gray-200 h-11 text-base focus:ring-2 focus:ring-[color:var(--sl-color-focus-ring)]"
                 autoFocus
                 required
               />
@@ -66,7 +66,7 @@ export function NewWorkflowForm({
               </Button>
               <Button
                 type="submit"
-                className="flex-1 h-11 font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20"
+                className="flex-1 h-11 font-semibold"
                 disabled={isSubmitting || !name.trim()}
               >
                 {isSubmitting ? "Creating..." : "Create Automation"}

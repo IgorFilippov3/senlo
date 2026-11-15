@@ -34,10 +34,10 @@ export const DELIVERY_LOG_FILTERS: DeliveryLogFilter[] = [
 const eventIcons: Partial<Record<CampaignEventType, React.ReactNode>> = {
   SENT: <Send size={16} className="text-zinc-500" />,
   DELIVERED: <CheckCircle2 size={16} className="text-green-500" />,
-  OPEN: <Eye size={16} className="text-blue-500" />,
-  CLICK: <MousePointer2 size={16} className="text-purple-500" />,
+  OPEN: <Eye size={16} className="text-zinc-500" />,
+  CLICK: <MousePointer2 size={16} className="text-zinc-700" />,
   BOUNCE: <AlertCircle size={16} className="text-red-500" />,
-  SPAM_REPORT: <AlertCircle size={16} className="text-orange-500" />,
+  SPAM_REPORT: <AlertCircle size={16} className="text-amber-600" />,
   UNSUBSCRIBE: <UserMinus size={16} className="text-zinc-400" />,
   FAILED: <AlertCircle size={16} className="text-red-500" />,
 };
@@ -119,7 +119,7 @@ export function DeliveryLogs({
             <select
               value={filter}
               onChange={(e) => onFilterChange(e.target.value as DeliveryLogFilter)}
-              className="px-3 py-2 border border-zinc-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-3 py-2 border border-zinc-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[color:var(--sl-color-focus-ring)] focus:border-[color:var(--sl-color-border-focus)]"
             >
               {DELIVERY_LOG_FILTERS.map((type) => (
                 <option key={type} value={type}>
@@ -142,7 +142,7 @@ export function DeliveryLogs({
       <div className="relative">
         {isLoading && (
           <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-lg">
-            <Loader2 size={24} className="animate-spin text-blue-500" />
+            <Loader2 size={24} className="animate-spin text-zinc-400" />
           </div>
         )}
 
@@ -186,7 +186,7 @@ export function DeliveryLogs({
                         {event.linkUrl && (
                           <Badge
                             variant="secondary"
-                            className="text-[10px] py-0 px-1 font-normal bg-blue-50 text-blue-700 border-blue-100"
+                            className="text-[10px] py-0 px-1 font-normal bg-zinc-50 text-zinc-600 border-zinc-200"
                           >
                             Link: {event.linkUrl}
                           </Badge>

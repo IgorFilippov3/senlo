@@ -4,7 +4,7 @@ import Image from "next/image";
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-white text-zinc-900 selection:bg-blue-100">
+    <div className="min-h-screen bg-background text-zinc-900 selection:bg-[color:var(--sl-color-accent-tint)]">
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

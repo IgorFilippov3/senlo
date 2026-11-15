@@ -45,7 +45,7 @@ export function UnsubscribeView({ state, onConfirmEmail, onRetry, footer }: Unsu
               if (value) onConfirmEmail(value);
             }}
           >
-            <MailQuestion className="w-12 h-12 text-blue-500 mx-auto" />
+            <MailQuestion className="w-12 h-12 text-zinc-400 mx-auto" />
             <h1 className="text-2xl font-bold text-zinc-900">Confirm your address</h1>
             <p className="text-zinc-600">
               Enter the email address this message was sent to, and we will unsubscribe it.

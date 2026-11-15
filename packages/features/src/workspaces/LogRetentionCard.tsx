@@ -20,7 +20,7 @@ export function LogRetentionCard({ days, note }: LogRetentionCardProps) {
   return (
     <Card className="p-6 border-zinc-200 shadow-sm">
       <div className="flex items-start gap-4">
-        <div className="p-2 bg-zinc-100 rounded-lg text-zinc-500 shrink-0">
+        <div className="p-2 bg-[color:var(--sl-color-accent-tint)] rounded-lg text-[color:var(--sl-color-accent-hover)] shrink-0">
           <Archive size={20} />
         </div>
         <div className="space-y-2 text-sm text-zinc-600">

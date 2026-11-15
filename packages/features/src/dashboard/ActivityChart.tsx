@@ -4,15 +4,15 @@ import React from "react";
 import { TrendingUp } from "lucide-react";
 import { Card } from "@senlo/ui";
 import type { DashboardActivity } from "@senlo/core";
-import { TimeSeriesChart, type TimeSeriesLine } from "../shared";
+import { CHART_COLORS, TimeSeriesChart, type TimeSeriesLine } from "../shared";
 
 export interface ActivityChartProps {
   data: DashboardActivity[];
 }
 
 const LINES: TimeSeriesLine<DashboardActivity>[] = [
-  { key: "success", label: "Sent", color: "#3b82f6" },
-  { key: "suppressed", label: "Suppressed", color: "#f43f5e" },
+  { key: "success", label: "Sent", color: CHART_COLORS.primary },
+  { key: "suppressed", label: "Suppressed", color: CHART_COLORS.warning },
 ];
 
 export function ActivityChart({ data }: ActivityChartProps) {
@@ -20,7 +20,7 @@ export function ActivityChart({ data }: ActivityChartProps) {
     <Card className="p-6 border-zinc-200">
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-bold text-zinc-900 flex items-center gap-2">
-          <TrendingUp size={18} className="text-blue-500" />
+          <TrendingUp size={18} className="text-zinc-400" />
           Email Activity
         </h3>
         <div className="flex items-center gap-4 text-xs">

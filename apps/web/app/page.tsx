@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Button, Card, Badge } from "@senlo/ui";
+// Imported, not a /public URL: the file name then carries a content hash, so a replaced image is never served stale.
+import heroImage from "../public/welcome-to-senlo-hero.png";
 import {
   Zap,
   ArrowRight,
@@ -31,7 +33,7 @@ export default function HomePage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900 selection:bg-blue-100">
+    <div className="min-h-screen bg-background text-zinc-900 selection:bg-[color:var(--sl-color-accent-tint)]">
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -94,13 +96,13 @@ export default function HomePage() {
         {/* Hero Section */}
         <section className="relative pt-24 pb-32 overflow-hidden">
           {/* Background decoration */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-blue-500/5 blur-[120px] rounded-full -z-10" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-[color:var(--sl-color-accent)]/5 blur-[120px] rounded-full -z-10" />
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="inline-flex items-center gap-2 bg-zinc-50 border border-zinc-200 px-4 py-1.5 rounded-full text-xs font-semibold text-zinc-600 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
               <Badge
                 variant="secondary"
-                className="bg-blue-500/10 text-blue-600 border-blue-500/20 h-5 px-2"
+                className="bg-zinc-100 text-zinc-700 border-zinc-200 h-5 px-2"
               >
                 MVP
               </Badge>
@@ -191,8 +193,8 @@ export default function HomePage() {
                       key={item}
                       className="flex items-center gap-3 text-zinc-600"
                     >
-                      <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                        <CheckCircle className="w-3 h-3 text-blue-600" />
+                      <div className="w-5 h-5 rounded-full bg-zinc-100 flex items-center justify-center border border-zinc-200">
+                        <CheckCircle className="w-3 h-3 text-zinc-700" />
                       </div>
                       {item}
                     </li>
@@ -200,10 +202,10 @@ export default function HomePage() {
                 </ul>
               </div>
               <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
+                <div className="absolute -inset-1 bg-[color:var(--sl-color-accent)] rounded-2xl blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
                 <div className="relative aspect-video bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-xl">
                   <Image
-                    src="/welcome-to-senlo-hero.png"
+                    src={heroImage}
                     alt="Senlo Editor"
                     fill
                   />
@@ -228,12 +230,12 @@ export default function HomePage() {
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <Card className="bg-white border-zinc-200 p-8 hover:border-blue-200 hover:shadow-lg transition-all group overflow-hidden relative">
+            <Card className="bg-white border-zinc-200 p-8 hover:border-zinc-300 hover:shadow-lg transition-all group overflow-hidden relative">
               <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
                 <Send size={120} />
               </div>
-              <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20 mb-6 group-hover:scale-110 transition-transform">
-                <Send className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-zinc-100 rounded-xl flex items-center justify-center border border-zinc-200 mb-6 group-hover:scale-110 transition-transform">
+                <Send className="w-6 h-6 text-zinc-700" />
               </div>
               <h3 className="text-xl font-bold text-zinc-900 mb-4">
                 Trigger Logs
@@ -283,13 +285,13 @@ export default function HomePage() {
 
         {/* CTA Bottom Section */}
         <section className="pt-0 pb-24 relative overflow-hidden">
-          <div className="absolute inset-x-0 top-12 bottom-0 bg-blue-500/5 blur-[100px] -z-10" />
+          <div className="absolute inset-x-0 top-12 bottom-0 bg-[color:var(--sl-color-accent)]/5 blur-[100px] -z-10" />
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <Card
               className="bg-white border-zinc-200 p-12 md:p-20 shadow-2xl relative overflow-hidden"
               style={{ padding: "2rem 1rem" }}
             >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500"></div>
+              <div className="absolute top-0 left-0 w-full h-1 bg-zinc-900"></div>
               <h2 className="text-4xl md:text-5xl font-bold text-zinc-900 mb-6 tracking-tight">
                 Ready to own your <br /> email infrastructure?
               </h2>

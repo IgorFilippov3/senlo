@@ -105,7 +105,7 @@ export const AutomationCanvas = ({
 
   return (
     <BuilderProvider value={{ triggers, eventNames, fieldSuggestions, historyRetentionDays }}>
-      <div className="flex h-full w-full overflow-hidden bg-[#fafafa]" onKeyDown={onKeyDown}>
+      <div className="flex h-full w-full overflow-hidden bg-zinc-50" onKeyDown={onKeyDown}>
         <div className="relative flex-1">
           <ReactFlow
             nodes={flowNodes}
@@ -128,8 +128,8 @@ export const AutomationCanvas = ({
             deleteKeyCode={null}
             proOptions={{ hideAttribution: true }}
           >
-            {/* Dots scale with zoom: a lighter or smaller dot vanishes on the #fafafa canvas once fitView zooms out. */}
-            <Background variant={BackgroundVariant.Dots} gap={22} size={2} color="#b4b4bc" />
+            {/* Dots scale with zoom: a lighter or smaller dot vanishes on the canvas once fitView zooms out. */}
+            <Background variant={BackgroundVariant.Dots} gap={22} size={2} color="#c9c0ae" />
             <Controls position="bottom-left" showInteractive={false} className="sl-flow-controls" />
           </ReactFlow>
         </div>
