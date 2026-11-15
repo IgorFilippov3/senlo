@@ -176,7 +176,7 @@ docker compose up -d
 ### Choosing a version
 `SENLO_TAG` in `.env` picks the image:
 - unset or `latest`: the newest release;
-- `0.2.0`: exactly that release, until you change it; `0.2`: its patch releases only;
+- `0.3.0`: exactly that release, until you change it; `0.3`: its patch releases only;
 - `main`: every commit to the main branch, before it is released. For trying out what is coming, not for an instance you rely on.
 
 To go back after a bad update, set the previous version (`SENLO_TAG=0.2.0`) and run `docker compose up -d`. A newer version may have changed the database on start, so restore the backup you took before updating if the older one fails.
