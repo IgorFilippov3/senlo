@@ -3,6 +3,8 @@ import { Webhook } from "svix";
 import { WebhookService } from "../services/webhook/webhookService";
 import { readResendTags } from "../services/webhook/resend";
 import { POSTMARK_SECRET_HEADER } from "../services/webhook/postmark";
+import { GROUNDMAIL_SIGNATURE_HEADER } from "../services/webhook/groundmail";
+import { createHmac } from "node:crypto";
 import type { Logger } from "../logger";
 import type {
   Campaign,
@@ -154,6 +156,23 @@ describe("WebhookService.handle - authentication", () => {
     expect((await f.service.handle("POSTMARK", body, {})).status).toBe("rejected");
     expect((await f.service.handle("POSTMARK", body, { [POSTMARK_SECRET_HEADER]: "wrong" })).status).toBe("rejected");
     expect((await f.service.handle("POSTMARK", body, { [POSTMARK_SECRET_HEADER]: "s3cret" })).status).toBe("processed");
+  });
+
+  it("checks the Groundmail signature and applies a bounce", async () => {
+    f.projects.set(3, project(3, 30));
+    f.providers.set(30, provider(30, "GROUNDMAIL", "whsec_gm"));
+    const body = JSON.stringify({
+      type: "email.bounced",
+      data: { email_id: "msg_1", to: ["bob@example.com"], bounce_type: "hard", tags: { project_id: "3" } },
+    });
+    const t = Math.floor(Date.now() / 1000);
+    const sig = (secret: string) => ({
+      [GROUNDMAIL_SIGNATURE_HEADER]: `t=${t},v1=${createHmac("sha256", secret).update(`${t}.${body}`).digest("hex")}`,
+    });
+    expect((await f.service.handle("GROUNDMAIL", body, {})).status).toBe("rejected");
+    expect((await f.service.handle("GROUNDMAIL", body, sig("whsec_wrong"))).status).toBe("rejected");
+    expect((await f.service.handle("GROUNDMAIL", body, sig("whsec_gm"))).status).toBe("processed");
+    expect(f.suppressions).toMatchObject([{ projectId: 3, email: "bob@example.com", reason: "BOUNCE" }]);
   });
 });
 

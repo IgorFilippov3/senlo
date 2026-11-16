@@ -539,6 +539,46 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/webhooks/groundmail:
+    post:
+      operationId: groundmail-webhook
+      summary: Groundmail webhook
+      description: |
+        Paste this URL into a Groundmail webhook endpoint and save the endpoint's
+        `whsec_` secret as the webhook secret on the provider in Senlo. Senlo
+        checks the `Groundmail-Signature` header (HMAC-SHA256 of
+        `<timestamp>.<raw body>`, timestamp within 5 minutes) and applies
+        `email.delivered`, `email.bounced`, `email.complained` and hard
+        `email.failed` events. A `block` bounce (the receiving server refused
+        the sender, not the address) and other events are acknowledged and
+        ignored.
+      tags: [Provider webhooks]
+      security: []
+      parameters:
+        - name: Groundmail-Signature
+          in: header
+          required: true
+          description: "`t=<unix seconds>,v1=<hex HMAC-SHA256>`, keyed with the webhook secret saved on the Groundmail provider in Senlo."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: The event exactly as Groundmail sends it.
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAccepted"
+        "400":
+          $ref: "#/components/responses/WebhookInvalidPayload"
+        "401":
+          $ref: "#/components/responses/WebhookUnauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /api/webhooks/sendgrid:
     post:
       operationId: sendgrid-webhook

@@ -329,6 +329,11 @@ export function createSenloRoutes(host: SenloHost) {
       POST: ((req) => handleProviderWebhook(host, req, "POSTMARK")) satisfies Handler,
     },
 
+    /** `POST /api/webhooks/groundmail`. */
+    webhookGroundmail: {
+      POST: ((req) => handleProviderWebhook(host, req, "GROUNDMAIL")) satisfies Handler,
+    },
+
     /** `POST /api/webhooks/sendgrid`. */
     webhookSendgrid: {
       POST: ((req) => handleProviderWebhook(host, req, "SENDGRID")) satisfies Handler,

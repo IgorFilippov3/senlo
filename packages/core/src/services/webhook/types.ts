@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /** Providers that call back with delivery events. */
-export type WebhookProviderType = "RESEND" | "POSTMARK" | "SENDGRID" | "MAILJET" | "SES";
+export type WebhookProviderType = "RESEND" | "POSTMARK" | "SENDGRID" | "MAILJET" | "SES" | "GROUNDMAIL";
 
 export type DeliveryEventType =
   | "DELIVERED"

@@ -19,6 +19,7 @@ export const EMAIL_PROVIDER_TYPES = [
   "SENDGRID",
   "MAILJET",
   "CLOUDFLARE",
+  "GROUNDMAIL",
   "SMTP",
 ] as const satisfies readonly EmailProviderType[];
 
@@ -259,6 +260,10 @@ export function buildProviderConfig(input: EmailProviderInput): ConfigOutcome {
       // No webhook secret: Cloudflare has no delivery webhook.
       return { config: { accountId: input.accountId, apiKey: input.apiKey } };
 
+    case "GROUNDMAIL":
+      if (!input.apiKey) return missing({ apiKey: "Groundmail API key is required" });
+      return { config: { apiKey: input.apiKey, webhook_secret: input.webhookSecret || "" } };
+
     case "SMTP": {
       if (!input.host || !input.port) {
         return missing({
@@ -360,6 +365,10 @@ export function mergeProviderConfig(
         config.accountId = input.accountId;
       }
       if (input.apiKey) config.apiKey = input.apiKey;
+      break;
+    case "GROUNDMAIL":
+      if (input.apiKey) config.apiKey = input.apiKey;
+      applyWebhookSecret(config, input);
       break;
     case "SMTP":
       if (input.host) config.host = input.host;

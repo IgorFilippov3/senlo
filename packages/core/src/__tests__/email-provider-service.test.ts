@@ -64,6 +64,9 @@ describe("buildProviderConfig", () => {
     expect(buildProviderConfig({ name: "x", type: "POSTMARK" })).toEqual({
       fieldErrors: { serverToken: ["Postmark server token is required"] },
     });
+    expect(buildProviderConfig({ name: "x", type: "GROUNDMAIL" })).toEqual({
+      fieldErrors: { apiKey: ["Groundmail API key is required"] },
+    });
     expect(buildProviderConfig({ name: "x", type: "SMTP", host: "h" })).toEqual({
       fieldErrors: { port: ["SMTP port is required"] },
     });
@@ -75,6 +78,9 @@ describe("buildProviderConfig", () => {
     });
     expect(buildProviderConfig({ name: "x", type: "RESEND", apiKey: "k" })).toEqual({
       config: { apiKey: "k", webhook_secret: "" },
+    });
+    expect(buildProviderConfig({ name: "x", type: "GROUNDMAIL", apiKey: "gm_k" })).toEqual({
+      config: { apiKey: "gm_k", webhook_secret: "" },
     });
     expect(buildProviderConfig({ name: "x", type: "SMTP", host: "h", port: 25 })).toEqual({
       config: { host: "h", port: 25, encryption: "starttls", username: "", password: "" },

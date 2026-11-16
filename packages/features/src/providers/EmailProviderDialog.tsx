@@ -55,6 +55,7 @@ export const EMAIL_PROVIDER_OPTIONS: { type: EmailProviderType; name: string }[]
   { type: "SENDGRID", name: "SendGrid" },
   { type: "MAILJET", name: "Mailjet" },
   { type: "CLOUDFLARE", name: "Cloudflare Email" },
+  { type: "GROUNDMAIL", name: "Groundmail" },
   { type: "SMTP", name: "SMTP server" },
 ];
 
@@ -336,6 +337,19 @@ export function EmailProviderDialog({
           </>
         )}
 
+        {type === "GROUNDMAIL" && (
+          <>
+            {secret("apiKey", "apiKey", "API Key", "A Groundmail API key that can send email (it starts with gm_)", "gm_xxxxxxxx")}
+            {webhookSecret(
+              "Needed for delivery, bounce and complaint events: Senlo ignores Groundmail webhooks without it. It is the whsec_ secret Groundmail shows once when you create the webhook.",
+              "whsec_xxxxxxxx",
+            )}
+            <p className="text-sm text-zinc-600">
+              Campaigns go out as product email and every other send as transactional, each on its own
+              IPs. Senlo's own unsubscribe link and List-Unsubscribe header are kept.
+            </p>
+          </>
+        )}
         {type === "POSTMARK" && (
           <>
             {secret(

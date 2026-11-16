@@ -18,6 +18,7 @@ import { resendWebhookAdapter } from "./resend";
 import { sendGridWebhookAdapter } from "./sendgrid";
 import { mailjetWebhookAdapter } from "./mailjet";
 import { sesWebhookAdapter } from "./ses";
+import { groundmailWebhookAdapter } from "./groundmail";
 import type {
   DeliveryEvent,
   WebhookAdapter,
@@ -61,6 +62,7 @@ export class WebhookService {
       sendGridWebhookAdapter,
       mailjetWebhookAdapter,
       sesWebhookAdapter,
+      groundmailWebhookAdapter,
     ],
     /** Told after a bounce or spam report suppresses an address (automations end lifecycle runs). */
     private readonly onContactBlocked?: ContactBlockedListener,

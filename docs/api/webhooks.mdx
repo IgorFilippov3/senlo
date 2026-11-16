@@ -8,6 +8,7 @@ https://senlo.io/api/webhooks/resend
 https://senlo.io/api/webhooks/postmark
 https://senlo.io/api/webhooks/sendgrid
 https://senlo.io/api/webhooks/mailjet
+https://senlo.io/api/webhooks/groundmail
 https://senlo.io/api/webhooks/ses?provider=<id>
 ```
 
@@ -25,7 +26,7 @@ Your provider calls these URLs when an email is delivered, bounces or is marked 
 
 Amazon SES works differently: events go from a configuration set to an SNS topic, you save the topic's ARN in Senlo, and subscribe the URL Senlo shows on the provider (it carries the provider's id). Senlo confirms the SNS subscription by itself.
 
-Step-by-step per provider: [Resend](../providers/resend.mdx), [Postmark](../providers/postmark.mdx), [SendGrid](../providers/sendgrid.mdx), [Mailjet](../providers/mailjet.mdx), [Amazon SES](../providers/ses.mdx).
+Step-by-step per provider: [Resend](../providers/resend.mdx), [Postmark](../providers/postmark.mdx), [SendGrid](../providers/sendgrid.mdx), [Mailjet](../providers/mailjet.mdx), [Amazon SES](../providers/ses.mdx), [Groundmail](../providers/groundmail.mdx).
 
 A provider with no webhook secret saved refuses every event with `401`: an unauthenticated endpoint would let anyone fill your suppression list.
 
@@ -33,12 +34,12 @@ A provider with no webhook secret saved refuses every event with `401`: an unaut
 
 ## Events Senlo uses
 
-| Senlo | Resend | Postmark | SendGrid | Mailjet | Amazon SES | What Senlo does |
-| --- | --- | --- | --- | --- | --- | --- |
-| Delivered | `email.delivered` | Delivery | `delivered` | `sent` | `Delivery` | Delivery log: `DELIVERED`. |
-| Bounce | `email.bounced` | Bounce | `bounce`, `dropped`* | `bounce`, `blocked`** | `Bounce` (Permanent) | Delivery log: `BOUNCE`; address added to the suppression list. |
-| Spam complaint | `email.complained` | SpamComplaint | `spamreport`, `dropped`* | `spam`, `blocked`** | `Complaint` | Delivery log: `SPAM_REPORT`; address added to the suppression list. |
-| Open, click | not used | Open, Click | not used | not used | not used | Logged on the trigger. |
+| Senlo | Resend | Postmark | SendGrid | Mailjet | Amazon SES | Groundmail | What Senlo does |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Delivered | `email.delivered` | Delivery | `delivered` | `sent` | `Delivery` | `email.delivered` | Delivery log: `DELIVERED`. |
+| Bounce | `email.bounced` | Bounce | `bounce`, `dropped`* | `bounce`, `blocked`** | `Bounce` (Permanent) | `email.bounced`, `email.failed`*** | Delivery log: `BOUNCE`; address added to the suppression list. |
+| Spam complaint | `email.complained` | SpamComplaint | `spamreport`, `dropped`* | `spam`, `blocked`** | `Complaint` | `email.complained` | Delivery log: `SPAM_REPORT`; address added to the suppression list. |
+| Open, click | not used | Open, Click | not used | not used | not used | not used | Logged on the trigger. |
 
 Senlo counts opens and clicks with its own tracking links, so Resend's open and click events are ignored to avoid counting twice, and SendGrid's and Mailjet's tracking is switched off at send time. An SES `Bounce` that is `Transient` or `Undetermined`, and a `Complaint` with feedback type `not-spam`, are ignored. A SendGrid `bounce` of type `blocked` (a temporary refusal by the receiving server) does not suppress the address.
 
@@ -46,9 +47,11 @@ Senlo counts opens and clicks with its own tracking links, so Resend's open and 
 
 \*\* A Mailjet `bounce` counts only when `hard_bounce` is true, and a `bounce` or `blocked` only when the error is about the address: `user unknown`, `mailbox inactive`, `blacklisted`, `invalid domain`, `no mail host`, `typofix` and `preblocked` as a bounce, `spam reporter` as a complaint. A full mailbox, greylisting, a refused relay, content and spam filters and `duplicate in campaign` are ignored. Other event types are answered `200` and ignored, so the provider does not retry them.
 
+\*\*\* A Groundmail `email.bounced` with `bounce_type: "block"` (the receiving server refused the sender, not the address) is ignored, and an `email.failed` counts only when its `bounce_type` is `hard`. Groundmail's open and click events are ignored, as with Resend.
+
 ## How an event is matched
 
-Senlo tags every email it sends with the workspace, the trigger and the contact (Resend tags, Postmark metadata, SendGrid custom args, Mailjet event payload, SES message tags). The webhook reads the workspace from those tags, checks the signature against **that workspace's** provider, and only then trusts the rest. An event for a workspace whose provider is a different type, or one without tags, is ignored.
+Senlo tags every email it sends with the workspace, the trigger and the contact (Resend tags, Postmark metadata, SendGrid custom args, Mailjet event payload, SES message tags, Groundmail tags). The webhook reads the workspace from those tags, checks the signature against **that workspace's** provider, and only then trusts the rest. An event for a workspace whose provider is a different type, or one without tags, is ignored.
 
 For SES the provider comes from the URL (`?provider=<id>`) instead, because SNS's subscription handshake names no workspace: Senlo verifies the message against that provider's topic, then reads the workspace from the verified tags and ignores the event unless that workspace sends through this provider.
 
@@ -57,6 +60,7 @@ For SES the provider comes from the URL (`?provider=<id>`) instead, because SNS'
 - **Resend** signs webhooks with Svix. Senlo verifies the `svix-*` headers with the signing secret (`whsec_...`).
 - **Postmark** does not sign webhooks. Add a custom header `X-Postmark-Secret` to the webhook, with the same value you saved as the webhook secret in Senlo.
 - **SendGrid** signs its Event Webhook with ECDSA. Senlo verifies the `X-Twilio-Email-Event-Webhook-Signature` and `-Timestamp` headers with the Verification Key, and refuses a batch signed more than 25 hours ago (SendGrid retries for up to 24) or more than 5 minutes in the future. SendGrid posts events in batches; if some workspaces in a batch verify and others do not, the verified ones are applied and the batch is answered `200`, so SendGrid does not resend events already applied.
+- **Groundmail** signs every event with HMAC-SHA256. Senlo checks the `Groundmail-Signature` header (`t=<timestamp>,v1=<signature>`) against the endpoint's secret (`whsec_...`), and refuses a signature more than 5 minutes from its clock.
 - **Mailjet** does not sign webhooks. Put the webhook secret in the callback URL as the basic auth password (`https://senlo:<secret>@...`); Senlo compares it with the secret saved on the provider. Single and grouped events are both accepted.
 - **Amazon SES** events arrive through SNS, which signs every message with RSA (SHA-1 or SHA-256). Senlo fetches the signing certificate only from `https://sns.<region>.amazonaws.com`, checks the signature, and accepts the message only from the SNS topic saved on the provider: a valid SNS signature alone does not show whose topic sent it. A subscription confirmation is answered only after the same checks. Turn **raw message delivery** off on the subscription.
 

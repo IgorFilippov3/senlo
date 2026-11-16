@@ -207,6 +207,16 @@ describe("webhooks", () => {
     expect(handle).toHaveBeenCalledWith("POSTMARK", '{"RecordType":"Delivery"}', expect.any(Object), {});
   });
 
+  it("passes Groundmail's raw body to the webhook service", async () => {
+    const handle = vi.fn(async () => ({ status: "processed" }));
+    const { routes } = fakeHost({ webhook: { handle } });
+
+    const response = await routes.webhookGroundmail.POST(post("/api/webhooks/groundmail", { type: "email.delivered" }));
+
+    expect(response.status).toBe(200);
+    expect(handle).toHaveBeenCalledWith("GROUNDMAIL", '{"type":"email.delivered"}', expect.any(Object), {});
+  });
+
   it("passes SNS's text/plain body and the URL query to the SES handler", async () => {
     const handle = vi.fn(async () => ({ status: "ignored", reason: "subscription_confirmed" }));
     const { routes } = fakeHost({ webhook: { handle } });
