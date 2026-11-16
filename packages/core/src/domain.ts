@@ -321,6 +321,7 @@ export type EmailProviderType =
   | "SENDGRID"
   | "MAILJET"
   | "CLOUDFLARE"
+  | "GROUNDMAIL"
   | "SMTP";
 
 export interface EmailProvider {

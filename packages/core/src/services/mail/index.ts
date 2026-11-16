@@ -8,6 +8,7 @@ import { PostmarkMailer } from "./postmarkMailer";
 import { SendGridMailer } from "./sendgridMailer";
 import { MailjetMailer } from "./mailjetMailer";
 import { CloudflareMailer } from "./cloudflareMailer";
+import { GroundmailMailer } from "./groundmailMailer";
 import { SmtpMailer } from "./smtpMailer";
 import { allowAllOutbound, type OutboundPolicy } from "../../outbound";
 
@@ -80,6 +81,14 @@ export class MailerFactory {
         return new CloudflareMailer({ accountId, apiToken: apiKey });
       }
 
+      case "GROUNDMAIL": {
+        const apiKey = provider.config?.apiKey;
+        if (!apiKey) {
+          throw new Error("Groundmail API key is missing in provider config");
+        }
+        return new GroundmailMailer(apiKey);
+      }
+
       case "SMTP": {
         const { host, port, encryption, username, password } =
           provider.config || {};
@@ -113,6 +122,7 @@ export { PostmarkMailer } from "./postmarkMailer";
 export { SendGridMailer, parseSendGridAddress } from "./sendgridMailer";
 export { MailjetMailer, parseMailjetAddress } from "./mailjetMailer";
 export { CloudflareMailer, parseCloudflareAddress, CLOUDFLARE_ACCOUNT_ID } from "./cloudflareMailer";
+export { GroundmailMailer, groundmailCategory } from "./groundmailMailer";
 export { SmtpMailer } from "./smtpMailer";
 export type { MailgunConfig } from "./mailgunMailer";
 export type { SesConfig } from "./sesMailer";
