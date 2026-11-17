@@ -232,6 +232,7 @@ export class EmailWorkerProcessor {
       providerId,
       replyTo,
       unsubscribeOneClickUrl,
+      stream,
     } = job.data;
 
     try {
@@ -309,6 +310,7 @@ export class EmailWorkerProcessor {
         text: htmlToPlainText(html),
         replyTo,
         headers: buildUnsubscribeHeaders(unsubscribeOneClickUrl),
+        stream,
         tags: {
           project_id: String(projectId),
           campaign_id: String(campaignId),

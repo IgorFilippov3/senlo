@@ -279,6 +279,7 @@ export class TemplateService {
         html,
         text: htmlToPlainText(html),
         tags: { project_id: String(project.id), campaign_id: "0", contact_id: "0" },
+        stream: "transactional",
       }),
       TEST_SEND_TIMEOUT_MS,
     );

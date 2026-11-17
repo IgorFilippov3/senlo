@@ -83,3 +83,12 @@ describe("deduplicated triggered sends", () => {
     expect(queue.add).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("send stream", () => {
+  it("a send through the API is transactional, an automation step is lifecycle", async () => {
+    const { trigger, queue } = setup();
+    await trigger.sendTriggeredEmail(send);
+    await trigger.sendTriggeredEmail({ ...send, workflowExecutionId: 3, dedupeKey: "wf-3-mail" });
+    expect(queue.add.mock.calls.map((c) => (c[1] as { stream?: string }).stream)).toEqual(["transactional", "lifecycle"]);
+  });
+});

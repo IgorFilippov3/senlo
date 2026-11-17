@@ -12,7 +12,7 @@ Webhook URL:     https://senlo.io/api/webhooks/groundmail
 
 ## 1. Verify your domain in Groundmail
 
-Senlo sends from the From email you set on each trigger or campaign. [Groundmail](https://groundmail.dev/?utm_source=github&utm_medium=readme&utm_campaign=igorfilippov3-senlo) only accepts it from a domain verified in your Groundmail account (**Domains** in the dashboard, see [Domains](https://docs.groundmail.dev/domains?utm_source=github&utm_medium=readme&utm_campaign=igorfilippov3-senlo)). Until then, sends fail at Groundmail and show `FAILED` in the delivery log with Groundmail's error.
+Senlo sends from the From email you set on each trigger or campaign. [Groundmail](https://groundmail.dev/) only accepts it from a domain verified in your Groundmail account (**Domains** in the dashboard, see [Domains](https://docs.groundmail.dev/domains)). Until then, sends fail at Groundmail and show `FAILED` in the delivery log with Groundmail's error.
 
 ## 2. Create an API key
 
@@ -37,12 +37,12 @@ Send a test from the [Quickstart](../getting-started/quickstart.mdx) to check it
 3. Copy the endpoint's **secret** (`whsec_...`). Groundmail shows it once.
 4. In Senlo, edit the provider and paste it into **Webhook Secret**.
 
-From now on bounces and complaints suppress the address, and the delivery log shows `DELIVERED`. A `block` bounce (the receiving server refused the sender, not the address) does not suppress the address. Details: [Provider webhooks](../api/webhooks.mdx) and Groundmail's [webhook docs](https://docs.groundmail.dev/webhooks?utm_source=github&utm_medium=readme&utm_campaign=igorfilippov3-senlo).
+From now on bounces and complaints suppress the address, and the delivery log shows `DELIVERED`. A `block` bounce (the receiving server refused the sender, not the address) does not suppress the address. Details: [Provider webhooks](../api/webhooks.mdx) and Groundmail's [webhook docs](https://docs.groundmail.dev/webhooks).
 
-## Transactional and campaign email
+## Transactional and product email
 
-Groundmail sends transactional and product email from separate IPs. Senlo sends campaigns as product email, and triggered and test sends as transactional. Campaigns keep Senlo's own unsubscribe link and `List-Unsubscribe` header, so unsubscribes are recorded in Senlo as with any provider.
+Groundmail sends transactional and product email from separate IPs. Senlo sends automation emails as product email, and sends through the API ([`POST /api/triggered`](../api/triggered.mdx)) and test sends as transactional. Automation emails keep Senlo's own unsubscribe link and `List-Unsubscribe` header, so unsubscribes are recorded in Senlo as with any provider.
 
 ## Testing
 
-Groundmail's simulator addresses let you try delivery outcomes without a real inbox: `delivered@simulator.groundmail.dev`, `bounce@simulator.groundmail.dev` and `complaint@simulator.groundmail.dev`, with real webhooks. They work on any Groundmail plan. Send to one of them with [`POST /api/triggered`](../api/triggered.mdx) and watch the delivery log. See [Testing](https://docs.groundmail.dev/testing?utm_source=github&utm_medium=readme&utm_campaign=igorfilippov3-senlo#simulator-addresses).
+Groundmail's simulator addresses let you try delivery outcomes without a real inbox: `delivered@simulator.groundmail.dev`, `bounce@simulator.groundmail.dev` and `complaint@simulator.groundmail.dev`, with real webhooks. They work on any Groundmail plan. Send to one of them with [`POST /api/triggered`](../api/triggered.mdx) and watch the delivery log. See [Testing](https://docs.groundmail.dev/testing#simulator-addresses).

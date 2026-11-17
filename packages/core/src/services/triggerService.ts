@@ -214,6 +214,9 @@ export class TriggerService {
         },
         unsubscribePageUrl: unsubscribe.page,
         unsubscribeOneClickUrl: unsubscribe.oneClick,
+        // An automation step is lifecycle mail; a call to the API is transactional,
+        // even though both carry a campaign id (the trigger's).
+        stream: options.workflowExecutionId !== undefined ? "lifecycle" : "transactional",
       },
       // One job per log row: a repeat of a deduplicated send cannot queue a second.
       { jobId: `triggered-log-${log.id}` },

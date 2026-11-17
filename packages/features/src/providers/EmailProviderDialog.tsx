@@ -345,8 +345,9 @@ export function EmailProviderDialog({
               "whsec_xxxxxxxx",
             )}
             <p className="text-sm text-zinc-600">
-              Campaigns go out as product email and every other send as transactional, each on its own
-              IPs. Senlo's own unsubscribe link and List-Unsubscribe header are kept.
+              Automation emails go out as product email; sends through the API and test sends as
+              transactional, each on its own IPs. Senlo's own unsubscribe link and List-Unsubscribe header
+              are kept.
             </p>
           </>
         )}

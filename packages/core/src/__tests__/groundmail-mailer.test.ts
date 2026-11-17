@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GroundmailMailer, groundmailCategory } from "../services/mail/groundmailMailer";
 import type { SendMailOptions } from "../ports";
@@ -15,7 +19,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const campaign: SendMailOptions = {
+const automation: SendMailOptions = {
   from: "Senlo <hi@senlo.io>",
   to: "bob@example.com",
   subject: "Hello",
@@ -23,6 +27,7 @@ const campaign: SendMailOptions = {
   text: "Hi",
   replyTo: "help@senlo.io",
   tags: { project_id: "1", campaign_id: "100", contact_id: "7" },
+  stream: "lifecycle",
   headers: {
     "List-Unsubscribe": "<https://senlo.io/api/unsubscribe/t>",
     "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -34,16 +39,18 @@ const triggered: SendMailOptions = {
   to: "bob@example.com",
   subject: "Your code",
   html: "<p>123456</p>",
-  tags: { project_id: "1", campaign_id: "0", contact_id: "0" },
+  // A send through the API carries its trigger's campaign id: it must not make it product mail.
+  tags: { project_id: "1", campaign_id: "42", contact_id: "0" },
+  stream: "transactional",
 };
 
 const sentBody = () => JSON.parse(fetchMock.mock.calls[0][1].body);
 
 describe("GroundmailMailer.send", () => {
-  it("posts a campaign as product email and keeps Senlo's unsubscribe headers", async () => {
+  it("posts an automation email as product email and keeps Senlo's unsubscribe headers", async () => {
     answer(200, { id: "msg_123", status: "queued" });
 
-    expect(await new GroundmailMailer("gm_key").send(campaign)).toEqual({ success: true, messageId: "msg_123" });
+    expect(await new GroundmailMailer("gm_key").send(automation)).toEqual({ success: true, messageId: "msg_123" });
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.groundmail.dev/emails");
@@ -56,7 +63,7 @@ describe("GroundmailMailer.send", () => {
       html: "<p>Hi</p>",
       text: "Hi",
       reply_to: "help@senlo.io",
-      headers: campaign.headers,
+      headers: automation.headers,
       tags: { project_id: "1", campaign_id: "100", contact_id: "7" },
       category: "product",
       unsubscribe: false,
@@ -71,10 +78,10 @@ describe("GroundmailMailer.send", () => {
     expect(sentBody()).not.toHaveProperty("unsubscribe");
   });
 
-  it("a campaign without a List-Unsubscribe header leaves unsubscribe to Groundmail", async () => {
+  it("an automation email without a List-Unsubscribe header leaves unsubscribe to Groundmail", async () => {
     answer(200, { id: "msg_789", status: "queued" });
 
-    await new GroundmailMailer("gm_key").send({ ...campaign, headers: undefined });
+    await new GroundmailMailer("gm_key").send({ ...automation, headers: undefined });
     expect(sentBody()).toMatchObject({ category: "product" });
     expect(sentBody()).not.toHaveProperty("unsubscribe");
   });
@@ -129,9 +136,10 @@ describe("GroundmailMailer.verify", () => {
 });
 
 describe("groundmailCategory", () => {
-  it("a campaign is product email, everything else transactional", () => {
-    expect(groundmailCategory(campaign)).toBe("product");
+  it("an automation email is product email, everything else transactional", () => {
+    expect(groundmailCategory(automation)).toBe("product");
     expect(groundmailCategory(triggered)).toBe("transactional");
-    expect(groundmailCategory({ ...triggered, tags: undefined })).toBe("transactional");
+    // No stream (a job queued before the field existed): transactional, whatever the tags say.
+    expect(groundmailCategory({ ...automation, stream: undefined })).toBe("transactional");
   });
 });

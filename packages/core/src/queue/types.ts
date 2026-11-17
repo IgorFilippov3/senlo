@@ -1,3 +1,5 @@
+import type { SendStream } from "../ports";
+
 export type EmailJobData = {
   projectId: number;
   campaignId: number;
@@ -30,6 +32,11 @@ export type EmailJobData = {
    * headers are built at send time rather than here, so the job stays small.
    */
   unsubscribeOneClickUrl?: string;
+  /**
+   * Passed to the mailer. A job queued before the field existed has none and
+   * is sent as transactional.
+   */
+  stream?: SendStream;
 };
 
 export type AutomationJobData = {

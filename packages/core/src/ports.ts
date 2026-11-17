@@ -39,6 +39,14 @@ import type {
 // Mailer Interface
 // ============================================================
 
+/**
+ * What kind of send a message is. A send through the API (a sign-in code, a
+ * receipt) and a test send are `transactional`; an automation step
+ * (onboarding, lifecycle) is `lifecycle`. Providers that route by it use it,
+ * Groundmail picks its IP pool; the others ignore it.
+ */
+export type SendStream = "transactional" | "lifecycle";
+
 export interface SendMailOptions {
   from: string;
   to: string;
@@ -56,6 +64,8 @@ export interface SendMailOptions {
    * List-Unsubscribe-Post. Adapters drop the ones their provider reserves.
    */
   headers?: Record<string, string>;
+  /** Missing means transactional. */
+  stream?: SendStream;
 }
 
 export interface SendMailResult {

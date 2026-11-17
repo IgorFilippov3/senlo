@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Igor Filippov <https://github.com/IgorFilippov3>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { IMailer, KeyCheck, SendMailOptions, SendMailResult } from "../../ports";
 import { authStatus, checkKeyOverHttp, isPermanentHttpStatus, keyLimited } from "./keyCheck";
 
@@ -5,12 +9,12 @@ export const GROUNDMAIL_API_URL = "https://api.groundmail.dev";
 
 /**
  * Groundmail sends transactional mail and product mail (lifecycle, announcements)
- * from separate IP pools. A campaign goes out as `product`; anything else (a
- * triggered send, a test send) as `transactional`.
+ * from separate IP pools. An automation email goes out as `product`; a send
+ * through the API and a test send as `transactional`. Read from `stream`, not
+ * from the tags: a send through the API carries its trigger's campaign id too.
  */
 export function groundmailCategory(options: SendMailOptions): "transactional" | "product" {
-  const campaignId = options.tags?.campaign_id;
-  return campaignId && campaignId !== "0" ? "product" : "transactional";
+  return options.stream === "lifecycle" ? "product" : "transactional";
 }
 
 function hasHeader(headers: Record<string, string> | undefined, name: string): boolean {
