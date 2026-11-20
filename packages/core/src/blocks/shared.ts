@@ -143,7 +143,9 @@ export type LinearGradient = z.infer<typeof linearGradientSchema>;
  */
 export const rowBorderSchema = z.object({
   top: z.number().int().nonnegative().optional(),
+  right: z.number().int().nonnegative().optional(),
   bottom: z.number().int().nonnegative().optional(),
+  left: z.number().int().nonnegative().optional(),
   style: z.enum(["solid", "dashed", "dotted"]).optional(),
   color: cssColorSchema.optional(),
 });

@@ -377,7 +377,7 @@ export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
           </FormField>
         </FormGrid>
 
-        <FormField hint="Rules on two rows that touch add up: 1 below this row and 1 above the next one draw a 2px line.">
+        <FormField hint="Set all four sides to frame the row as a card. Rules on two rows that touch add up: 1 below this row and 1 above the next one draw a 2px line.">
           <FormGrid cols={2}>
             <Controller
               name="border.top"
@@ -399,6 +399,34 @@ export const RowSection = ({ row, focusedColumnId }: RowSectionProps) => {
               render={({ field }) => (
                 <Slider
                   label="Bottom"
+                  unit="px"
+                  min={0}
+                  max={12}
+                  value={field.value ?? 0}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <Controller
+              name="border.left"
+              control={control}
+              render={({ field }) => (
+                <Slider
+                  label="Left"
+                  unit="px"
+                  min={0}
+                  max={12}
+                  value={field.value ?? 0}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <Controller
+              name="border.right"
+              control={control}
+              render={({ field }) => (
+                <Slider
+                  label="Right"
                   unit="px"
                   min={0}
                   max={12}

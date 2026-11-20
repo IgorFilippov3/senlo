@@ -43,7 +43,7 @@ Row:
   "settings": { "backgroundColor": "#ffffff", "padding": { "top": 24, "right": 24, "bottom": 24, "left": 24 } },
   "columns": [ Column, ... ]
 }
-Optional row settings: "fullWidth" (boolean, background spans the whole viewport), "align" ("left" | "center"), "margin" (padding object), "borderRadius" ({ "top", "bottom" }), "width" (px, at most contentWidth), "stackOnMobile" (boolean, default true).
+Optional row settings: "fullWidth" (boolean, background spans the whole viewport), "align" ("left" | "center"), "margin" (padding object), "borderRadius" ({ "top", "bottom" }), "border" ({ "top", "right", "bottom", "left" } in px, "style", "color"; all four sides make the row a card), "width" (px, at most contentWidth), "stackOnMobile" (boolean, default true).
 
 Column:
 { "id": "col-1", "width": 100, "blocks": [ Block, ... ] }

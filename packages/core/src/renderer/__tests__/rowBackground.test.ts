@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { cssColorSchema } from "../../blocks/shared";
+import { cssColorSchema, rowBorderSchema } from "../../blocks/shared";
 import type { RowBlock } from "../../emailDesign";
 import { renderEmailDesign } from "../renderEmailDesign";
 import { renderEmailDesignMJML } from "../renderMJML";
@@ -322,6 +322,13 @@ describe("a looped row", () => {
 });
 
 describe("a row's rule", () => {
+  it("takes widths for all four sides in the schema", () => {
+    const parsed = rowBorderSchema.safeParse({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(parsed.success).toBe(true);
+    expect(rowBorderSchema.safeParse({ left: -1 }).success).toBe(false);
+    expect(rowBorderSchema.safeParse({ right: 1.5 }).success).toBe(false);
+  });
+
   it("draws only the edges that were asked for", () => {
     expect(rowBorder({ border: { bottom: 2 } })).toEqual({
       borderBottom: "2px solid #e5e7eb",
@@ -335,9 +342,31 @@ describe("a row's rule", () => {
     });
   });
 
+  it("draws the side edges too, so a row can be a card", () => {
+    expect(rowBorder({ border: { left: 1 } })).toEqual({
+      borderLeft: "1px solid #e5e7eb",
+    });
+    expect(rowBorder({ border: { right: 2 } })).toEqual({
+      borderRight: "2px solid #e5e7eb",
+    });
+    expect(
+      rowBorder({
+        border: { top: 1, right: 1, bottom: 1, left: 1, color: "#4a7c2f" },
+      }),
+    ).toEqual({
+      borderTop: "1px solid #4a7c2f",
+      borderRight: "1px solid #4a7c2f",
+      borderBottom: "1px solid #4a7c2f",
+      borderLeft: "1px solid #4a7c2f",
+    });
+  });
+
   it("draws nothing for an edge of zero", () => {
     // Not `0px solid`, which some clients round up into a line nobody asked for.
     expect(rowBorder({ border: { top: 0, bottom: 0 } })).toEqual({});
+    expect(
+      rowBorder({ border: { top: 0, right: 0, bottom: 0, left: 0 } }),
+    ).toEqual({});
     expect(rowBorder({ border: {} })).toEqual({});
     expect(rowBorder({})).toEqual({});
     expect(rowBorder(undefined)).toEqual({});
@@ -369,6 +398,14 @@ describe("a row's rule", () => {
     expect(rowBorderDeclarations({ border: { top: 1, bottom: 2 } })).toEqual([
       "border-top: 1px solid #e5e7eb",
       "border-bottom: 2px solid #e5e7eb",
+    ]);
+    expect(
+      rowBorderDeclarations({ border: { top: 1, right: 2, bottom: 3, left: 4 } }),
+    ).toEqual([
+      "border-top: 1px solid #e5e7eb",
+      "border-right: 2px solid #e5e7eb",
+      "border-bottom: 3px solid #e5e7eb",
+      "border-left: 4px solid #e5e7eb",
     ]);
     expect(rowBorderDeclarations({})).toEqual([]);
   });
@@ -420,11 +457,41 @@ describe("a row with a rule, rendered", () => {
     expect(rule).toBeGreaterThan(gap);
   });
 
+  it("frames a contained row on all four sides, on the row's own cell", () => {
+    const html = withBorder({
+      backgroundColor: "#ffffff",
+      padding: { top: 10, right: 20, bottom: 10, left: 20 },
+      border: { top: 1, right: 1, bottom: 1, left: 1, color: "#4a7c2f" },
+    });
+
+    const cell = html.match(/<td[^>]*border-left: 1px solid #4a7c2f[^>]*>/);
+    expect(cell).not.toBeNull();
+    expect(cell![0]).toContain("border-top: 1px solid #4a7c2f");
+    expect(cell![0]).toContain("border-right: 1px solid #4a7c2f");
+    expect(cell![0]).toContain("border-bottom: 1px solid #4a7c2f");
+    expect(cell![0]).toContain("padding: 10px 20px 10px 20px");
+  });
+
+  it("puts the side rules of a full-width row on its band", () => {
+    const html = withBorder({
+      fullWidth: true,
+      backgroundColor: "#eef0fb",
+      border: { left: 2, right: 2, color: "#4a7c2f" },
+    });
+
+    const carrying = html.match(/<td[^>]*border-left: 2px solid #4a7c2f[^>]*>/g);
+    expect(carrying).toHaveLength(1);
+    expect(carrying![0]).toContain("background-color: #eef0fb");
+    expect(carrying![0]).toContain("border-right: 2px solid #4a7c2f");
+  });
+
   it("leaves a row without one exactly as it was", () => {
     const html = withBorder({ backgroundColor: "#ffffff" });
 
     expect(html).not.toContain("border-top:");
+    expect(html).not.toContain("border-right:");
     expect(html).not.toContain("border-bottom:");
+    expect(html).not.toContain("border-left:");
   });
 });
 
@@ -461,11 +528,23 @@ describe("the MJML export", () => {
     expect(mjml).toContain('border-bottom="2px solid #4a7c2f"');
   });
 
+  it("carries the side rules as section attributes", () => {
+    const mjml = renderEmailDesignMJML(
+      doc({ border: { left: 1, right: 3, color: "#4a7c2f" } }) as any,
+    );
+
+    expect(mjml).toContain('border-left="1px solid #4a7c2f"');
+    expect(mjml).toContain('border-right="3px solid #4a7c2f"');
+    expect(mjml).not.toContain("border-top=");
+  });
+
   it("adds no border attributes to a row without a rule", () => {
     const mjml = renderEmailDesignMJML(doc({ backgroundColor: "#eef0fb" }) as any);
 
     expect(mjml).not.toContain("border-top=");
+    expect(mjml).not.toContain("border-right=");
     expect(mjml).not.toContain("border-bottom=");
+    expect(mjml).not.toContain("border-left=");
   });
 
   it("adds nothing to a document without gradients", () => {

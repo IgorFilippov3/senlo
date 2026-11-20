@@ -109,10 +109,12 @@ export function rowBackgroundDeclarations(
   return declarations;
 }
 
-/** The rule above and below a row, as CSS, or nothing where nothing was set. */
+/** The row's rule on each edge, as CSS, or nothing where nothing was set. */
 export interface RowBorders {
   borderTop?: string;
+  borderRight?: string;
   borderBottom?: string;
+  borderLeft?: string;
 }
 
 /** What a rule is drawn in when the author named neither. */
@@ -120,7 +122,12 @@ const DEFAULT_BORDER_STYLE = "solid";
 const DEFAULT_BORDER_COLOR = "#e5e7eb";
 
 /**
- * The row's rule, on the two edges it has.
+ * The row's rule, on each of its four edges.
+ *
+ * Top and bottom came first - a hairline between sections. Left and right make
+ * a contained row a card: an order summary in a box. On a full-width row the
+ * side rules go on the band, at the edges of the viewport, for the same reason
+ * the top and bottom do (see `renderRow`).
  *
  * Assembled from checked parts, like the gradient beside it: a colour that
  * would not pass the schema falls back to the default rather than being written
@@ -148,8 +155,14 @@ export function rowBorder(settings?: RowBlock["settings"]): RowBorders {
   const top = edge(border.top);
   if (top) borders.borderTop = top;
 
+  const right = edge(border.right);
+  if (right) borders.borderRight = right;
+
   const bottom = edge(border.bottom);
   if (bottom) borders.borderBottom = bottom;
+
+  const left = edge(border.left);
+  if (left) borders.borderLeft = left;
 
   return borders;
 }
@@ -158,11 +171,14 @@ export function rowBorder(settings?: RowBlock["settings"]): RowBorders {
 export function rowBorderDeclarations(
   settings?: RowBlock["settings"],
 ): string[] {
-  const { borderTop, borderBottom } = rowBorder(settings);
+  const { borderTop, borderRight, borderBottom, borderLeft } = rowBorder(settings);
 
+  // Clockwise from the top, the order CSS shorthands use.
   const declarations: string[] = [];
   if (borderTop) declarations.push(`border-top: ${borderTop}`);
+  if (borderRight) declarations.push(`border-right: ${borderRight}`);
   if (borderBottom) declarations.push(`border-bottom: ${borderBottom}`);
+  if (borderLeft) declarations.push(`border-left: ${borderLeft}`);
 
   return declarations;
 }

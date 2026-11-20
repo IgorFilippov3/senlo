@@ -52,6 +52,9 @@
    with the setting. */
 .band {
   width: 100%;
+  /* A full-width row's side rules sit on the band; they have to stay inside
+     the 100% rather than push it wider than the message. */
+  box-sizing: border-box;
 }
 
 .row {

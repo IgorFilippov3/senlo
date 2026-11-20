@@ -140,10 +140,12 @@ function renderMJMLSection(row: RowBlock, context: RenderContext): string {
   // `mj-section` takes these directly, so the rule needs no wrapper here. Only
   // the edges that were set are emitted, which keeps the export of a document
   // without a rule byte for byte what it was.
-  const { borderTop, borderBottom } = rowBorder(settings);
+  const { borderTop, borderRight, borderBottom, borderLeft } = rowBorder(settings);
   const borderAttrs = [
     borderTop ? `\n      border-top="${escapeAttr(borderTop)}"` : "",
+    borderRight ? `\n      border-right="${escapeAttr(borderRight)}"` : "",
     borderBottom ? `\n      border-bottom="${escapeAttr(borderBottom)}"` : "",
+    borderLeft ? `\n      border-left="${escapeAttr(borderLeft)}"` : "",
   ].join("");
 
   const section = `
