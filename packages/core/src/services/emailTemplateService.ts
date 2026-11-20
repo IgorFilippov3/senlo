@@ -304,7 +304,7 @@ export class TemplateService {
     if (!result.success) {
       throw new ProviderError(`The provider refused the test email: ${result.error || "no reason given"}`);
     }
-    await this.hooks.recordUsage({ type: "email.sent", projectId: project.id, campaignId: null, provider: provider.type });
+    await this.hooks.recordUsage({ type: "email.sent", projectId: project.id, campaignId: null, provider: provider.type, test: true });
     return { messageId: result.messageId };
   }
 }

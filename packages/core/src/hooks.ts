@@ -26,6 +26,12 @@ export type UsageEvent =
       /** `null` for a send that belongs to no campaign. */
       campaignId: number | null;
       provider: EmailProviderType;
+      /**
+       * A test send from the template editor: counted like any other send,
+       * but not a sign that the workspace sends real mail (a host's
+       * onboarding waits for the first send that is not a test).
+       */
+      test?: boolean;
     }
   | { type: "contact.created"; projectId: number; contactId: number }
   | { type: "project.created"; projectId: number; scope: OwnerScope }

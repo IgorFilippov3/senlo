@@ -4,6 +4,7 @@ import { SavedRowService } from "../services/savedRowService";
 import { ProjectService } from "../services/projectService";
 import { SettingsService } from "../services/settingsService";
 import { EMPTY_EMAIL_DESIGN } from "../constants";
+import { ServiceHooks } from "../hooks";
 import { FormValidationError, NotFoundError, ProviderError, ValidationError } from "../errors";
 import type { ApiKey, Campaign, EmailProvider, Project, SavedRow } from "../domain";
 import type { EmailTemplate } from "../emailTemplate";
@@ -131,6 +132,21 @@ describe("TemplateService", () => {
     expect(sent).toMatchObject({ to: "a@b.co", from: "hello@app.test", subject: "[TEST] s10" });
     expect(sent.html).toContain("<");
     expect(typeof sent.text).toBe("string");
+  });
+
+  it("sendTest records the send as a test", async () => {
+    const { repos } = templateFakes();
+    const record = vi.fn(async () => {});
+    const mailer = { send: vi.fn(async (): Promise<SendMailResult> => ({ success: true, messageId: "m-1" })) };
+    const service = new TemplateService(
+      repos,
+      () => mailer,
+      { appUrl: "https://app.test", defaultFromEmail: "hello@app.test" },
+      undefined,
+      new ServiceHooks({ usage: { record } }),
+    );
+    await service.sendTest("alice", 10, { to: "a@b.co", design: EMPTY_EMAIL_DESIGN });
+    expect(record).toHaveBeenCalledWith({ type: "email.sent", projectId: 1, campaignId: null, provider: "RESEND", test: true });
   });
 
   it("sendTest returns the provider's refusal as a ProviderError", async () => {
