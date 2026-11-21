@@ -10,7 +10,7 @@ import {
   JsonEditor,
 } from "@senlo/ui";
 import { Save, X, Plus, Trash2 } from "lucide-react";
-import type { Campaign, Project, EmailTemplate } from "@senlo/core";
+import { jsonObjectError, type Campaign, type Project, type EmailTemplate } from "@senlo/core";
 import { FormErrorBanner } from "../shared/FormErrorBanner";
 
 /** "de", "pt-br", "zh-hant": a language, optionally a region or script. */
@@ -67,7 +67,11 @@ export function EditTriggerDialog({
     setLocaleError(null);
   };
 
+  const sampleError =
+    campaign.type === "TRIGGERED" ? jsonObjectError(formData.variablesSchema) : null;
+
   const handleSaveClick = async () => {
+    if (sampleError) return;
     const data = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
       if (key === "localeTemplates") {
@@ -92,7 +96,7 @@ export function EditTriggerDialog({
             <X size={16} className="mr-2" />
             Cancel
           </Button>
-          <Button onClick={handleSaveClick} disabled={isSaving}>
+          <Button onClick={handleSaveClick} disabled={isSaving || !!sampleError}>
             {isSaving ? "Saving..." : "Save Changes"}
             <Save size={16} className="ml-2" />
           </Button>
@@ -151,6 +155,7 @@ export function EditTriggerDialog({
             <FormField
               label="Sample JSON Data (Variables)"
               hint="Defines variables available in the editor"
+              error={sampleError ?? undefined}
             >
               <JsonEditor
                 value={formData.variablesSchema}

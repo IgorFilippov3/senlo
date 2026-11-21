@@ -22,6 +22,7 @@ export * from "./constants";
 export * from "./errors";
 export * from "./action-result";
 export * from "./validation";
+export * from "./json-object";
 export * from "./routes";
 export * from "./api-auth";
 export * from "./config";

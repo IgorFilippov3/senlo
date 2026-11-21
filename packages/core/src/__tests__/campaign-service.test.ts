@@ -105,6 +105,15 @@ describe("CampaignService.createTriggered", () => {
     expect(Object.keys(e.fieldErrors).sort()).toEqual(["fromEmail", "name", "projectId", "templateId"]);
   });
 
+  it("rejects invalid sample JSON instead of saving it as empty", async () => {
+    const { service } = fakes([]);
+    const e = await service
+      .createTriggered("alice", { name: "x", projectId: 1, templateId: 10, variablesSchema: '{name: "Spike"}' })
+      .catch((x) => x);
+    expect(e).toBeInstanceOf(FormValidationError);
+    expect(e.fieldErrors.variablesSchema?.[0]).toMatch(/Invalid JSON/);
+  });
+
   it("refuses another user's project and a template from another project", async () => {
     const { service } = fakes([]);
     await expect(service.createTriggered("alice", { name: "x", projectId: 2, templateId: 20 })).rejects.toBeInstanceOf(NotFoundError);
@@ -128,12 +137,23 @@ describe("CampaignService.updateTriggered", () => {
     expect(c.fromEmail).toBeNull();
   });
 
-  it("treats unparsable JSON fields as unset", async () => {
+  it("treats blank JSON fields as unset", async () => {
     const { service } = fakes([campaign({ id: 100 })]);
-    const c = await service.updateTriggered("alice", 100, { name: "n", variablesSchema: "{bad", localeTemplates: "" });
+    const c = await service.updateTriggered("alice", 100, { name: "n", variablesSchema: "  ", localeTemplates: "" });
     expect(c.variablesSchema).toBeNull();
     expect(c.localeTemplates).toBeNull();
   });
+
+  it.each(["{name: \"Spike\"}", "{bad", "[1]", '"x"', "null", "42"])(
+    "rejects sample data that is not a JSON object: %s",
+    async (variablesSchema) => {
+      const { service, updates } = fakes([campaign({ id: 100 })]);
+      const e = await service.updateTriggered("alice", 100, { name: "n", variablesSchema }).catch((x) => x);
+      expect(e).toBeInstanceOf(FormValidationError);
+      expect(Object.keys(e.fieldErrors)).toEqual(["variablesSchema"]);
+      expect(updates).toEqual([]);
+    },
+  );
 });
 
 describe("CampaignService.delete", () => {

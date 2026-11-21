@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button, Card, FormField, Input, Textarea, JsonEditor, PageHeader, Badge } from "@senlo/ui";
-import type { EmailTemplate } from "@senlo/core";
+import { jsonObjectError, type EmailTemplate } from "@senlo/core";
 import { FormErrorBanner } from "../shared";
 import { ChevronRight, ChevronLeft, Check, Settings, Layout, Send } from "lucide-react";
 
@@ -60,11 +60,12 @@ export function TriggerWizard({
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
   const currentTemplate = templates.find((t) => t.id === form.templateId);
+  const sampleError = jsonObjectError(form.variablesSchema);
   const canContinue =
-    (step === "setup" && !!form.name) || (step === "content" && form.templateId !== null);
+    (step === "setup" && !!form.name && !sampleError) || (step === "content" && form.templateId !== null);
 
   const handleSubmit = () => {
-    if (form.templateId === null) return;
+    if (form.templateId === null || sampleError) return;
     onSubmit({ ...form, templateId: form.templateId });
   };
 
@@ -113,6 +114,7 @@ export function TriggerWizard({
             <FormField
               label="Sample JSON Data"
               hint="Provide a sample JSON object to define variables for the editor"
+              error={sampleError ?? undefined}
             >
               <JsonEditor
                 value={form.variablesSchema}
@@ -263,7 +265,7 @@ export function TriggerWizard({
           </Button>
 
           {step === "review" ? (
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button onClick={handleSubmit} disabled={isSubmitting || !!sampleError}>
               {isSubmitting ? "Creating..." : "Create Trigger"}
               <Check size={16} />
             </Button>

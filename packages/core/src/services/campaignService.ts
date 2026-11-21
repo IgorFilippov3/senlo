@@ -21,6 +21,7 @@ import type {
   ITriggeredSendLogRepository,
 } from "../ports";
 import { boundedInt, parseInput } from "../validation";
+import { jsonObjectError } from "../json-object";
 
 const optionalId = z.preprocess(
   (val) => (val === "" ? undefined : val),
@@ -33,18 +34,21 @@ const optionalEmail = z.preprocess(
   z.string().trim().email().nullable().optional(),
 );
 
-/** A JSON string from a form field; anything unparsable becomes null. */
+/**
+ * A JSON object from a form field. A blank field means none; anything that
+ * is not a JSON object is a field error rather than silently dropped.
+ */
 const jsonField = z
   .string()
   .optional()
-  .transform((val): Record<string, unknown> | null => {
-    if (!val) return null;
-    try {
-      const parsed: unknown = JSON.parse(val);
-      return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : null;
-    } catch {
-      return null;
+  .transform((val, ctx): Record<string, unknown> | null => {
+    if (!val || val.trim() === "") return null;
+    const error = jsonObjectError(val);
+    if (error) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: error });
+      return z.NEVER;
     }
+    return JSON.parse(val) as Record<string, unknown>;
   });
 
 export const CreateTriggeredCampaignSchema = z.object({
