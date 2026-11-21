@@ -80,14 +80,14 @@ export function TriggerWizard({
           const isCompleted = stepIndex > idx;
 
           return (
-            <div key={s.id} className="flex flex-col items-center gap-2 bg-white px-4">
+            <div key={s.id} className="flex flex-col items-center gap-2 bg-[var(--sl-color-bg-page)] px-4">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
                   isActive
                     ? "border-zinc-900 bg-zinc-100 text-zinc-900 shadow-md"
                     : isCompleted
                       ? "border-green-500 bg-green-50 text-green-500"
-                      : "border-zinc-200 bg-white text-zinc-400"
+                      : "border-zinc-200 bg-[var(--sl-color-bg-page)] text-zinc-400"
                 }`}
               >
                 {isCompleted ? <Check size={20} /> : s.icon}
