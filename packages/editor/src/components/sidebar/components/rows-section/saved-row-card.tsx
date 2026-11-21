@@ -36,6 +36,9 @@ export const SavedRowCard = ({ row, onDelete, onClick }: SavedRowCardProps) => {
       {...attributes}
     >
       <RowThumbnail row={row.data as RowBlock} />
+      <div className={styles.savedRowName} title={row.name}>
+        {row.name}
+      </div>
       <button
         className={styles.deleteButton}
         onClick={(e) => {

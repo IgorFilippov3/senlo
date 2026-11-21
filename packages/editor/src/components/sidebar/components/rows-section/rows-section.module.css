@@ -60,6 +60,17 @@
   background: var(--sl-color-bg-hover);
 }
 
+.savedRowName {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--sl-color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .deleteButton {
   position: absolute;
   top: 8px;
@@ -68,7 +79,7 @@
   color: #6b7280;
   padding: 6px;
   border-radius: 6px;
-  background-color: white;
+  background-color: var(--sl-color-bg);
   border: 1px solid rgb(0 0 0 / 0.1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.2s;
