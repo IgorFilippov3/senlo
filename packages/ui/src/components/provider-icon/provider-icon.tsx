@@ -14,6 +14,7 @@ const MONOGRAMS: Record<string, string> = {
   MAILGUN: "MG",
   CLOUDFLARE: "CF",
   GROUNDMAIL: "GM",
+  SPARKPOST: "SP",
 };
 
 /** The letters for a provider type: its own, or the first two of an unknown type. */

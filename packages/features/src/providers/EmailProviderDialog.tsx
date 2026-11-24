@@ -56,6 +56,7 @@ export const EMAIL_PROVIDER_OPTIONS: { type: EmailProviderType; name: string }[]
   { type: "MAILJET", name: "Mailjet" },
   { type: "CLOUDFLARE", name: "Cloudflare Email" },
   { type: "GROUNDMAIL", name: "Groundmail" },
+  { type: "SPARKPOST", name: "SparkPost" },
   { type: "SMTP", name: "SMTP server" },
 ];
 
@@ -426,6 +427,27 @@ export function EmailProviderDialog({
               Cloudflare has no delivery webhook, so emails stay at Sent: no Delivered status, and
               bounces and spam complaints after sending are not tracked. Addresses Cloudflare refuses
               outright are still marked Bounced and suppressed.
+            </p>
+          </>
+        )}
+
+        {type === "SPARKPOST" && (
+          <>
+            {secret("apiKey", "apiKey", "API Key", "A SparkPost API key with Transmissions: Read/Write permission", "xxxxxxxx")}
+            <FormField label="Region" hint="Choose based on your SparkPost account region">
+              <Select name="region" defaultValue={text("region", "US")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="US">US (api.sparkpost.com)</SelectItem>
+                  <SelectItem value="EU">EU (api.eu.sparkpost.com)</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <p className="text-sm text-zinc-600">
+              SparkPost sends through the Transmissions API. Delivery webhooks are not supported yet,
+              so emails stay at Sent without Delivered, Bounce, or Spam events.
             </p>
           </>
         )}

@@ -322,6 +322,7 @@ export type EmailProviderType =
   | "MAILJET"
   | "CLOUDFLARE"
   | "GROUNDMAIL"
+  | "SPARKPOST"
   | "SMTP";
 
 export interface EmailProvider {
