@@ -20,6 +20,7 @@ export const EMAIL_PROVIDER_TYPES = [
   "MAILJET",
   "CLOUDFLARE",
   "GROUNDMAIL",
+  "SPARKPOST",
   "SMTP",
 ] as const satisfies readonly EmailProviderType[];
 
@@ -223,6 +224,15 @@ export function buildProviderConfig(input: EmailProviderInput): ConfigOutcome {
         },
       };
 
+    case "SPARKPOST":
+      if (!input.apiKey) return missing({ apiKey: "SparkPost API key is required" });
+      return {
+        config: {
+          apiKey: input.apiKey,
+          region: input.region === "EU" ? "EU" : "US",
+        },
+      };
+
     case "MAILJET": {
       if (!input.apiKey || !input.apiSecret) {
         return missing({
@@ -369,6 +379,10 @@ export function mergeProviderConfig(
     case "GROUNDMAIL":
       if (input.apiKey) config.apiKey = input.apiKey;
       applyWebhookSecret(config, input);
+      break;
+    case "SPARKPOST":
+      if (input.apiKey) config.apiKey = input.apiKey;
+      if (input.region) config.region = input.region === "EU" ? "EU" : "US";
       break;
     case "SMTP":
       if (input.host) config.host = input.host;

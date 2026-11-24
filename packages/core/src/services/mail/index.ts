@@ -9,6 +9,7 @@ import { SendGridMailer } from "./sendgridMailer";
 import { MailjetMailer } from "./mailjetMailer";
 import { CloudflareMailer } from "./cloudflareMailer";
 import { GroundmailMailer } from "./groundmailMailer";
+import { SparkPostMailer } from "./sparkpostMailer";
 import { SmtpMailer } from "./smtpMailer";
 import { allowAllOutbound, type OutboundPolicy } from "../../outbound";
 
@@ -89,6 +90,14 @@ export class MailerFactory {
         return new GroundmailMailer(apiKey);
       }
 
+      case "SPARKPOST": {
+        const { apiKey, region } = provider.config || {};
+        if (!apiKey) {
+          throw new Error("SparkPost API key is missing in provider config");
+        }
+        return new SparkPostMailer({ apiKey, region: region === "EU" ? "EU" : "US" });
+      }
+
       case "SMTP": {
         const { host, port, encryption, username, password } =
           provider.config || {};
@@ -123,10 +132,12 @@ export { SendGridMailer, parseSendGridAddress } from "./sendgridMailer";
 export { MailjetMailer, parseMailjetAddress } from "./mailjetMailer";
 export { CloudflareMailer, parseCloudflareAddress, CLOUDFLARE_ACCOUNT_ID } from "./cloudflareMailer";
 export { GroundmailMailer, groundmailCategory } from "./groundmailMailer";
+export { SparkPostMailer } from "./sparkpostMailer";
 export { SmtpMailer } from "./smtpMailer";
 export type { MailgunConfig } from "./mailgunMailer";
 export type { SesConfig } from "./sesMailer";
 export type { SendGridConfig } from "./sendgridMailer";
 export type { MailjetConfig } from "./mailjetMailer";
 export type { CloudflareConfig } from "./cloudflareMailer";
+export type { SparkPostConfig } from "./sparkpostMailer";
 export type { SmtpConfig, SmtpEncryption } from "./smtpMailer";

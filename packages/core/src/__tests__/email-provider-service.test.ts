@@ -103,6 +103,24 @@ describe("buildProviderConfig", () => {
     });
   });
 
+  it("builds and merges a SparkPost config", () => {
+    expect(buildProviderConfig({ name: "x", type: "SPARKPOST" })).toEqual({
+      fieldErrors: { apiKey: ["SparkPost API key is required"] },
+    });
+    expect(buildProviderConfig({ name: "x", type: "SPARKPOST", apiKey: "sp_k" })).toEqual({
+      config: { apiKey: "sp_k", region: "US" },
+    });
+    expect(buildProviderConfig({ name: "x", type: "SPARKPOST", apiKey: "sp_k", region: "EU" })).toEqual({
+      config: { apiKey: "sp_k", region: "EU" },
+    });
+    const sp = provider({ type: "SPARKPOST", config: { apiKey: "sp_k", region: "US" } });
+    expect(mergeProviderConfig(sp, { apiKey: "", region: "EU" })).toEqual({
+      apiKey: "sp_k",
+      region: "EU",
+    });
+    expect(toPublicEmailProvider(sp).secretsSet).toEqual(["apiKey"]);
+  });
+
   it("builds and merges a Mailjet config, refusing an unknown region", () => {
     expect(buildProviderConfig({ name: "x", type: "MAILJET", apiKey: "k" })).toEqual({
       fieldErrors: { apiSecret: ["Mailjet secret key is required"] },

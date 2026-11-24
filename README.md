@@ -9,7 +9,7 @@
 
 <p align="center">
   Templates, triggers and automations on top of the email provider you already use.<br />
-  Resend, Postmark, SendGrid, Mailjet, Amazon SES, Cloudflare Email, Groundmail or any SMTP server. Open source: self-host it or use the hosted version.
+  Resend, Postmark, SendGrid, Mailjet, Amazon SES, Cloudflare Email, Groundmail, SparkPost or any SMTP server. Open source: self-host it or use the hosted version.
 </p>
 
 <p align="center">
@@ -42,7 +42,7 @@ docker compose up -d
 
 Docker pulls the published image (about a minute). When it is up, open **http://localhost:3000** and create an account — you land in an example project with four ready-made templates you can open in the visual editor right away.
 
-To start sending, add your email provider credentials (Resend, Postmark, SendGrid, Mailjet, Amazon SES, Cloudflare Email, Groundmail, or any SMTP server) on the **Providers** page. The interactive API reference lives at **`/api-docs`** on your own instance.
+To start sending, add your email provider credentials (Resend, Postmark, SendGrid, Mailjet, Amazon SES, Cloudflare Email, Groundmail, SparkPost, or any SMTP server) on the **Providers** page. The interactive API reference lives at **`/api-docs`** on your own instance.
 
 For a production setup on a server, see the [VPS Deployment Guide](./deploy/vps/README.md).
 
@@ -51,7 +51,7 @@ For a production setup on a server, see the [VPS Deployment Guide](./deploy/vps/
 Most email platforms are built for marketing teams, bundling editing, sending, and analytics into closed ecosystems. Senlo is built for **developers and product teams** who need:
 
 - **Full Control**: Self-host your email infrastructure and keep your data on your own servers.
-- **Provider Agnostic**: Send through Resend, Postmark, SendGrid, Mailjet, Amazon SES, Cloudflare Email, Groundmail, or any SMTP server — including Mailgun or a mail server you run yourself — without changing your code.
+- **Provider Agnostic**: Send through Resend, Postmark, SendGrid, Mailjet, Amazon SES, Cloudflare Email, Groundmail, SparkPost, or any SMTP server — including Mailgun or a mail server you run yourself — without changing your code.
 - **Visual & Code**: A powerful drag-and-drop builder for designers, with a clean API for developers.
 - **Lifecycle Management**: Manage everything from password resets to complex automated onboarding sequences.
 
