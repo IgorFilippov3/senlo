@@ -116,6 +116,7 @@ export const emailProviderTypeEnum = pgEnum("email_provider_type", [
   "MAILJET",
   "CLOUDFLARE",
   "GROUNDMAIL",
+  "MAILTRAP",
 ]);
 
 export const aiProviderTypeEnum = pgEnum("ai_provider_type", [

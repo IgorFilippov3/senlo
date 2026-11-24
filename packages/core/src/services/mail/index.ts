@@ -9,6 +9,7 @@ import { SendGridMailer } from "./sendgridMailer";
 import { MailjetMailer } from "./mailjetMailer";
 import { CloudflareMailer } from "./cloudflareMailer";
 import { GroundmailMailer } from "./groundmailMailer";
+import { MailtrapMailer } from "./mailtrapMailer";
 import { SmtpMailer } from "./smtpMailer";
 import { allowAllOutbound, type OutboundPolicy } from "../../outbound";
 
@@ -89,6 +90,14 @@ export class MailerFactory {
         return new GroundmailMailer(apiKey);
       }
 
+      case "MAILTRAP": {
+        const apiKey = provider.config?.apiKey;
+        if (!apiKey) {
+          throw new Error("Mailtrap API token is missing in provider config");
+        }
+        return new MailtrapMailer(apiKey);
+      }
+
       case "SMTP": {
         const { host, port, encryption, username, password } =
           provider.config || {};
@@ -123,6 +132,7 @@ export { SendGridMailer, parseSendGridAddress } from "./sendgridMailer";
 export { MailjetMailer, parseMailjetAddress } from "./mailjetMailer";
 export { CloudflareMailer, parseCloudflareAddress, CLOUDFLARE_ACCOUNT_ID } from "./cloudflareMailer";
 export { GroundmailMailer, groundmailCategory } from "./groundmailMailer";
+export { MailtrapMailer, parseMailtrapAddress } from "./mailtrapMailer";
 export { SmtpMailer } from "./smtpMailer";
 export type { MailgunConfig } from "./mailgunMailer";
 export type { SesConfig } from "./sesMailer";

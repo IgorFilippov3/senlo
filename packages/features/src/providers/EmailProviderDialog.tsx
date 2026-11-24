@@ -56,6 +56,7 @@ export const EMAIL_PROVIDER_OPTIONS: { type: EmailProviderType; name: string }[]
   { type: "MAILJET", name: "Mailjet" },
   { type: "CLOUDFLARE", name: "Cloudflare Email" },
   { type: "GROUNDMAIL", name: "Groundmail" },
+  { type: "MAILTRAP", name: "Mailtrap" },
   { type: "SMTP", name: "SMTP server" },
 ];
 
@@ -348,6 +349,22 @@ export function EmailProviderDialog({
               Automation emails go out as product email; sends through the API and test sends as
               transactional, each on its own IPs. Senlo's own unsubscribe link and List-Unsubscribe header
               are kept.
+            </p>
+          </>
+        )}
+        {type === "MAILTRAP" && (
+          <>
+            {secret(
+              "apiKey",
+              "apiKey",
+              "API Token",
+              "A Mailtrap API token with access to your sending domain (Settings → API Tokens)",
+              "xxxxxxxxxxxxxxxx",
+            )}
+            <p className="text-sm text-zinc-600">
+              Turn off Mailtrap's open and click tracking for your sending domain (Domains → your domain →
+              Tracking Settings): Senlo adds its own, and Mailtrap's would count opens twice and rewrite links
+              a second time.
             </p>
           </>
         )}

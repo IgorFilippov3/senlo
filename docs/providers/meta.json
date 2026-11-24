@@ -8,6 +8,7 @@
     "ses",
     "cloudflare",
     "groundmail",
+    "mailtrap",
     "smtp"
   ]
 }

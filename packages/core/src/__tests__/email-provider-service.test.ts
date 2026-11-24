@@ -67,6 +67,9 @@ describe("buildProviderConfig", () => {
     expect(buildProviderConfig({ name: "x", type: "GROUNDMAIL" })).toEqual({
       fieldErrors: { apiKey: ["Groundmail API key is required"] },
     });
+    expect(buildProviderConfig({ name: "x", type: "MAILTRAP" })).toEqual({
+      fieldErrors: { apiKey: ["Mailtrap API token is required"] },
+    });
     expect(buildProviderConfig({ name: "x", type: "SMTP", host: "h" })).toEqual({
       fieldErrors: { port: ["SMTP port is required"] },
     });
@@ -81,6 +84,9 @@ describe("buildProviderConfig", () => {
     });
     expect(buildProviderConfig({ name: "x", type: "GROUNDMAIL", apiKey: "gm_k" })).toEqual({
       config: { apiKey: "gm_k", webhook_secret: "" },
+    });
+    expect(buildProviderConfig({ name: "x", type: "MAILTRAP", apiKey: "mt_k" })).toEqual({
+      config: { apiKey: "mt_k" },
     });
     expect(buildProviderConfig({ name: "x", type: "SMTP", host: "h", port: 25 })).toEqual({
       config: { host: "h", port: 25, encryption: "starttls", username: "", password: "" },
@@ -164,6 +170,9 @@ describe("mergeProviderConfig", () => {
     });
     const r = provider();
     expect(mergeProviderConfig(r, { apiKey: "" })).toEqual({ apiKey: "re_1", webhook_secret: "w" });
+    const mt = provider({ type: "MAILTRAP", config: { apiKey: "mt_old" } });
+    expect(mergeProviderConfig(mt, { name: "renamed", apiKey: "" })).toEqual({ apiKey: "mt_old" });
+    expect(mergeProviderConfig(mt, { apiKey: "mt_new" })).toEqual({ apiKey: "mt_new" });
   });
 
   it("keeps the webhook secret on an empty field and clears it only on request", () => {

@@ -1,0 +1,33 @@
+---
+title: Mailtrap
+description: Connect Mailtrap Email Sending to Senlo.
+---
+
+```text
+Provider type:   Mailtrap
+API Token:       a Mailtrap API token with access to your sending domain
+```
+
+## 1. Verify your sending domain in Mailtrap
+
+Senlo sends from the From email you set on each trigger or campaign. [Mailtrap](https://mailtrap.io/) only sends from a domain verified in your account (**Sending Domains** → **Add Domain**), with the DNS records it gives you (SPF, DKIM, DMARC) in place. Until the domain is verified, sends fail at Mailtrap and show `FAILED` in the delivery log.
+
+## 2. Turn off Mailtrap's open and click tracking
+
+Senlo adds its own open pixel and tracked links. Mailtrap cannot switch its tracking off per message, so with both on, links are rewritten twice and opens are counted twice.
+
+In Mailtrap, open **Sending Domains** → your domain → **Tracking Settings** and turn off **Track Opened Emails** and **Track Clicks**. Opens are tracked by default, so this step is needed even on a new domain.
+
+## 3. Create an API token
+
+Open **Settings** → **API Tokens** → **Add Token** and give it access to your sending domain. Copy the token; Senlo stores it encrypted.
+
+## 4. Add the provider in Senlo
+
+1. Open **Providers** → **Add Provider**.
+2. **Provider Type**: Mailtrap. **Display Name**: anything, e.g. `Mailtrap acme.com`.
+3. **API Token**: the token from step 3. Click **Create Provider**, then select it in your workspace's **Settings**.
+
+Senlo sends through the transactional stream (`send.api.mailtrap.io`). Each email carries Senlo's own `List-Unsubscribe` header, and the workspace, trigger and contact ids as custom variables, which you can see on the message in Mailtrap's **Email Logs**.
+
+Delivery events (bounces, spam complaints) from Mailtrap are not read yet. Until they are, a bounced address is not suppressed automatically.
