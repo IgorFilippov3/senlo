@@ -15,6 +15,14 @@
       "created_at": "2026-11-24T12:17:37Z",
       "repoId": 1129499150,
       "pullRequestNo": 20
+    },
+    {
+      "name": "mazu-rok",
+      "id": 20247079,
+      "comment_id": 7157647046,
+      "created_at": "2026-11-25T08:55:39Z",
+      "repoId": 1129499150,
+      "pullRequestNo": 22
     }
   ]
 }
