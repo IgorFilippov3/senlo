@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Button,
   Dialog,
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@senlo/ui";
 import type { EmailProviderType, PublicEmailProvider } from "@senlo/core";
+import { Check, Copy } from "lucide-react";
 import { FormErrorBanner } from "../shared";
 import { readForm } from "../shared/readForm";
 
@@ -120,6 +121,23 @@ export function sesSubscriptionUrl(providerId: number, origin?: string): string 
   return `${base}/api/webhooks/ses?provider=${providerId}`;
 }
 
+/** Webhook URL shown to users when configuring a provider. */
+export function providerWebhookUrl(
+  type: "RESEND" | "POSTMARK" | "SENDGRID" | "MAILJET",
+  origin: string,
+  mailjetSecret?: string,
+): string {
+  const url = new URL(`/api/webhooks/${type.toLowerCase()}`, origin);
+  if (type === "MAILJET") {
+    if (!mailjetSecret) {
+      return `${url.protocol}//senlo:<your secret>@${url.host}${url.pathname}`;
+    }
+    url.username = "senlo";
+    url.password = mailjetSecret;
+  }
+  return url.toString();
+}
+
 /**
  * Ticked when the dialog opens: on create, every workspace without a
  * provider (the first provider then just works); on edit, the ones that use
@@ -149,20 +167,43 @@ export function EmailProviderDialog({
   savedWarning,
 }: EmailProviderDialogProps) {
   const isEdit = !!provider;
+  const [type, setType] = useState<EmailProviderType>(provider?.type ?? "RESEND");
   // Set once, from the first list that arrives: a refetch must not undo the user's ticks.
   const [selected, setSelected] = useState<number[] | null>(null);
+  const [mailjetSecret, setMailjetSecret] = useState("");
+  const [webhookCopied, setWebhookCopied] = useState(false);
+  useEffect(() => {
+    setMailjetSecret("");
+  }, [isOpen, provider?.id, type]);
+  useEffect(() => {
+    setType(provider?.type ?? "RESEND");
+  }, [isOpen, provider?.id, provider?.type]);
   const ticked = selected ?? (workspaces ? initialWorkspaceSelection(workspaces, provider?.id) : []);
   const toggleWorkspace = (id: number) =>
     setSelected(ticked.includes(id) ? ticked.filter((w) => w !== id) : [...ticked, id]);
   // Nothing stored can be kept: every field is required, as for a new provider.
   const mustReenter = !!provider?.configUnreadable;
-  const [type, setType] = useState<EmailProviderType>(provider?.type ?? "RESEND");
   const config = provider?.config ?? {};
   const text = (key: string, fallback = "") =>
     config[key] !== undefined ? String(config[key]) : fallback;
 
   /** Saved for this provider: optional on edit, the stored value stays. */
   const isSet = (key: string) => !!provider?.secretsSet.includes(key);
+
+  const webhookOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const webhookProviders = ["RESEND", "POSTMARK", "SENDGRID", "MAILJET"] as const;
+  const webhookUrl = webhookOrigin && webhookProviders.includes(type as (typeof webhookProviders)[number])
+    ? providerWebhookUrl(
+        type as (typeof webhookProviders)[number],
+        webhookOrigin,
+        type === "MAILJET" ? mailjetSecret : undefined,
+      )
+    : "";
+  const copyWebhookUrl = async () => {
+    await navigator.clipboard.writeText(webhookUrl);
+    setWebhookCopied(true);
+    window.setTimeout(() => setWebhookCopied(false), 2000);
+  };
 
   const secret = (
     name: string,
@@ -187,6 +228,9 @@ export function EmailProviderDialog({
           placeholder={saved ? (plain ? "Saved. Enter a new one to replace it." : "••••••••") : placeholder}
           required={!optional && !saved}
           autoComplete="new-password"
+          onChange={name === "apiSecret" && type === "MAILJET"
+            ? (event) => setMailjetSecret(event.currentTarget.value)
+            : undefined}
         />
       </FormField>
     );
@@ -244,7 +288,14 @@ export function EmailProviderDialog({
         </FormField>
 
         <FormField label="Provider Type" required>
-          <Select name="type" value={type} onValueChange={(val) => setType(val as EmailProviderType)}>
+          <Select
+            name="type"
+            value={type}
+            onValueChange={(val) => {
+              setMailjetSecret("");
+              setType(val as EmailProviderType);
+            }}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select provider" />
             </SelectTrigger>
@@ -422,10 +473,34 @@ export function EmailProviderDialog({
               </Select>
             </FormField>
             {webhookSecret(
-              "Needed for delivery, bounce and spam events: Senlo refuses Mailjet webhooks without it. Letters, digits, - and _ only (e.g. openssl rand -hex 32): it goes into the callback URL as the basic auth password, https://senlo:<secret>@your-host/api/webhooks/mailjet.",
+              "Needed for delivery, bounce and spam events: Senlo refuses Mailjet webhooks without it. Use letters, digits, - and _ only (e.g. openssl rand -hex 32); it is the callback URL's basic auth password.",
               "a long random string",
             )}
           </>
+        )}
+
+        {webhookUrl && (
+          <FormField
+            label="Webhook URL"
+            hint={type === "MAILJET" && !mailjetSecret
+              ? "Enter the webhook secret above to build a complete URL. A saved secret cannot be displayed; enter a replacement to copy a URL with a secret."
+              : undefined}
+          >
+            <div className="flex items-center gap-2">
+              <Input readOnly value={webhookUrl} onFocus={(e) => e.currentTarget.select()} />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={webhookCopied ? "Webhook URL copied" : "Copy webhook URL"}
+                onClick={copyWebhookUrl}
+                disabled={type === "MAILJET" && !mailjetSecret}
+              >
+                {webhookCopied ? <Check size={16} /> : <Copy size={16} />}
+                <span>{webhookCopied ? "Copied" : "Copy"}</span>
+              </Button>
+            </div>
+          </FormField>
         )}
 
         {type === "CLOUDFLARE" && (
