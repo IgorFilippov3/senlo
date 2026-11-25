@@ -3,8 +3,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { NextResponse, type NextRequest } from "next/server";
-import { logError } from "@senlo/core";
+import {
+  RateLimitedError,
+  UnauthorizedError,
+  bearerToken,
+  clientLabel,
+  logError,
+  requirePermission,
+  type ApiPermission,
+  type ApiPrincipal,
+} from "@senlo/core";
+import { apiV1OpenApiDocument } from "@senlo/core/server";
+import type { ApiMe } from "@senlo/core/server";
 import { validateApiKey } from "./api-auth";
+import { REQUEST_ID_HEADER, newRequestId, v1ErrorResponse, v1Json } from "./api-v1";
 import { errorResponse } from "./errors";
 import type { SenloHost } from "./host";
 import { confirmLeavingResponse, pixelResponse, requestMetadata } from "./tracking";
@@ -80,6 +92,69 @@ export function createSenloRoutes(host: SenloHost) {
       return apiRoute(label, success, (projectId, body) => run(projectId, id, body))(req);
     };
 
+  /** A 429 from the rate limiter, in the v1 error shape. */
+  const v1Limited = (limited: Response, requestId: string) =>
+    v1ErrorResponse(new RateLimitedError(Number(limited.headers.get("Retry-After") ?? 60)), requestId);
+
+  /** The rate-limit caller of a principal: its key, or its user and project. */
+  const principalCaller = (principal: ApiPrincipal) =>
+    "apiKeyId" in principal.actor
+      ? `key:${principal.actor.apiKeyId}`
+      : `user:${principal.actor.userId}:${principal.projectId}`;
+
+  /**
+   * An API v1 route: request id, principal from the bearer token, a limit per
+   * principal (failed authentication is limited per IP instead), the
+   * permission, then `run`. Answers `{ data }` or the v1 error shape, always
+   * with `X-Request-Id`.
+   */
+  const v1Route =
+    <P = Record<string, never>>(
+      operation: string,
+      permission: ApiPermission,
+      run: (ctx: {
+        principal: ApiPrincipal;
+        req: NextRequest;
+        requestId: string;
+        params: P;
+      }) => Promise<{ data: unknown; status?: number }>,
+    ) =>
+    async (req: NextRequest, context?: RouteContext<P>): Promise<Response> => {
+      const requestId = newRequestId();
+      let principal: ApiPrincipal | null = null;
+      try {
+        const token = bearerToken(req.headers.get("Authorization"));
+        principal = token
+          ? await services().auth.resolvePrincipal(token, clientLabel(req.headers.get("Senlo-Client")))
+          : null;
+        if (!principal) {
+          const limited = await host.rateLimit.limitRequest(req, "apiAuthFailure");
+          if (limited) return v1Limited(limited, requestId);
+          throw new UnauthorizedError(token ? "Invalid API key." : "Missing or malformed Authorization header.");
+        }
+
+        const limited = await host.rateLimit.limitRequest(req, "apiV1", principalCaller(principal));
+        if (limited) return v1Limited(limited, requestId);
+
+        requirePermission(principal, permission);
+
+        const params = context ? await context.params : ({} as P);
+        const { data, status } = await run({ principal, req, requestId, params });
+        host.logger.info(`API v1 ${operation}`, {
+          requestId,
+          projectId: principal.projectId,
+          client: principal.client,
+        });
+        return v1Json(data, requestId, status);
+      } catch (error) {
+        logError(host.logger, `API v1 ${operation} failed`, error, {
+          requestId,
+          projectId: principal?.projectId,
+        });
+        return v1ErrorResponse(error, requestId);
+      }
+    };
+
   /** Signed-in user, rate limited per user. */
   const userRoute =
     (bucket: "upload" | "ai", run: (userId: string, req: NextRequest) => Promise<Response>): Handler =>
@@ -94,6 +169,25 @@ export function createSenloRoutes(host: SenloHost) {
     };
 
   return {
+    /** `GET /api/v1/me`: the project, permissions and instance behind the key. */
+    v1Me: {
+      GET: v1Route("getMe", "manage", async ({ principal }) => {
+        const me: ApiMe = {
+          ...(await services().auth.describePrincipal(principal)),
+          instance: { edition: host.edition ?? "self-hosted", apiVersion: "v1" },
+        };
+        return { data: me };
+      }),
+    },
+
+    /** `GET /api/v1/openapi.json`: the v1 spec, generated from the zod schemas. Public. */
+    v1OpenApi: {
+      GET: (async () =>
+        NextResponse.json(apiV1OpenApiDocument(), {
+          headers: { "Cache-Control": "public, max-age=300", [REQUEST_ID_HEADER]: newRequestId() },
+        })) satisfies Handler,
+    },
+
     /** `POST /api/events`: the universal trigger. */
     events: {
       POST: apiRoute("Event", "Event processed via API", async (projectId, body, req) => {

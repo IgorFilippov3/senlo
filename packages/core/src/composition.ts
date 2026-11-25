@@ -201,7 +201,7 @@ export function createServices({
     events: new EventIngestionService(r.contacts, r.contactEvents, audience, automation),
     aiDesign: new AiDesignService(r.projects, r.aiProviders, undefined, guard),
     aiProvider: new AiProviderService(r.aiProviders, guard, hooks),
-    auth: new AuthService(r.apiKeys),
+    auth: new AuthService(r.apiKeys, r.projects),
     campaign: new CampaignService(r, guard),
     dashboard: new DashboardService(r.dashboard, r.projects, guard),
     emailProvider: new EmailProviderService(r.providers, guard, hooks, r.projects, checkProviderKey(outbound)),

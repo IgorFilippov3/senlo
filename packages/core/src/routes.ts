@@ -8,7 +8,12 @@
  */
 
 /** Exact public paths. */
-export const PUBLIC_PATHS = ["/", "/api-docs"] as const;
+export const PUBLIC_PATHS = [
+  "/",
+  "/api-docs",
+  // The API v1 spec: public, like the docs page that renders it.
+  "/api/v1/openapi.json",
+] as const;
 
 /** Public path prefixes. */
 export const PUBLIC_PATH_PREFIXES = [

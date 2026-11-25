@@ -26,6 +26,8 @@ export interface SenloHost {
   getConfig(): Pick<SenloConfig, "appUrl" | "defaultFromEmail">;
   logger: Logger;
   rateLimit: SenloRateLimit;
+  /** What `GET /api/v1/me` reports as the instance. Default: `"self-hosted"`; the managed host sets `"cloud"`. */
+  edition?: "cloud" | "self-hosted";
   /**
    * Called after an action that changed data succeeded, with its name
    * (`"templates.create"`). A Next.js host revalidates its pages here.

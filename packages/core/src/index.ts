@@ -25,6 +25,8 @@ export * from "./validation";
 export * from "./json-object";
 export * from "./routes";
 export * from "./api-auth";
+export * from "./api-principal";
+export * from "./api-issues";
 export * from "./config";
 export * from "./secrets";
 export * from "./logger";

@@ -23,6 +23,14 @@ import {
 export const RATE_LIMITS = {
   /** Public API: /api/events, /api/triggered. */
   api: { limit: 1200, windowSeconds: 60 },
+  /**
+   * API v1, per key or token rather than per IP: in the cloud every MCP
+   * user's requests come from the one MCP server, so an IP limit would be
+   * shared by all of them.
+   */
+  apiV1: { limit: 300, windowSeconds: 60 },
+  /** API v1 requests whose key was missing or wrong, per IP: only failures count. */
+  apiAuthFailure: { limit: 60, windowSeconds: 60 },
   /** Provider webhooks; already authenticated, just a flood guard. */
   webhook: { limit: 6000, windowSeconds: 60 },
   /**

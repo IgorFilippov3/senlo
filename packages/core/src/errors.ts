@@ -13,6 +13,7 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "UNAUTHORIZED"
   | "FORBIDDEN"
+  | "PERMISSION_REQUIRED"
   | "DUPLICATE_ENTRY"
   | "RATE_LIMITED"
   | "QUOTA_EXCEEDED"
@@ -24,6 +25,7 @@ const DEFAULT_STATUS: Record<ErrorCode, number> = {
   VALIDATION_ERROR: 400,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
+  PERMISSION_REQUIRED: 403,
   NOT_FOUND: 404,
   DUPLICATE_ENTRY: 409,
   RATE_LIMITED: 429,
@@ -37,18 +39,26 @@ export class AppError extends Error {
   public readonly code: ErrorCode;
   public readonly details?: Record<string, any>;
   public readonly statusCode: number;
+  /**
+   * What the caller should do next, written for an API client or a coding
+   * agent ("Send the request again with ..."). API v1 shows it next to the
+   * message; a route that has none gets the default for the code.
+   */
+  public readonly hint?: string;
 
   constructor(
     code: ErrorCode,
     message: string,
     details?: Record<string, any>,
     statusCode?: number,
+    hint?: string,
   ) {
     super(message);
     this.name = "AppError";
     this.code = code;
     this.details = details;
     this.statusCode = statusCode ?? DEFAULT_STATUS[code];
+    this.hint = hint;
   }
 
   toJSON() {
@@ -62,8 +72,8 @@ export class AppError extends Error {
 }
 
 export class ValidationError extends AppError {
-  constructor(message: string, details?: Record<string, any>) {
-    super("VALIDATION_ERROR", message, details, 400);
+  constructor(message: string, details?: Record<string, any>, hint?: string) {
+    super("VALIDATION_ERROR", message, details, 400, hint);
     this.name = "ValidationError";
   }
 }
@@ -119,6 +129,23 @@ export class ForbiddenError extends AppError {
   constructor(resource: string, message = `You can view this ${resource.toLowerCase()} but not change it`) {
     super("FORBIDDEN", message, { resource }, 403);
     this.name = "ForbiddenError";
+  }
+}
+
+/**
+ * The API key (or token) is valid but lacks the permission the route needs:
+ * `send` for the sending routes, `manage` for API v1.
+ */
+export class PermissionRequiredError extends AppError {
+  constructor(public readonly permission: string) {
+    super(
+      "PERMISSION_REQUIRED",
+      `This API key does not have the "${permission}" permission.`,
+      { permission },
+      403,
+      `Create an API key with the "${permission}" permission in Settings → Keys and use it for this request.`,
+    );
+    this.name = "PermissionRequiredError";
   }
 }
 

@@ -99,6 +99,8 @@ describe("routes", () => {
     expect(isPublicPath("/")).toBe(true);
     expect(isPublicPath("/api-docs")).toBe(true);
     expect(isPublicPath("/api-docs/x")).toBe(false);
+    expect(isPublicPath("/api/v1/openapi.json")).toBe(true);
+    expect(isPublicPath("/api/v1/me")).toBe(false);
     expect(isPublicPath("/api/webhooks/resend")).toBe(true);
     expect(isPublicPath("/unsubscribe/abc")).toBe(true);
     expect(isPublicPath("/home")).toBe(false);

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { describe, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { NotFoundError } from "@senlo/core";
 import type { SenloHost } from "../host";
 import type { SenloRateLimit } from "../rate-limit";
@@ -331,5 +331,122 @@ describe("workflows API", () => {
     const published = await routes.workflowPublish.POST(post("/api/workflows/30/publish", undefined, bearer), params({ id: "30" }));
     expect(await published.json()).toEqual({ success: true, data: { id: 30, status: "ACTIVE" } });
     expect(publishForProject).toHaveBeenCalledWith(7, 30);
+  });
+});
+
+describe("API v1", () => {
+  const principal = {
+    projectId: 7,
+    permissions: ["send", "manage"],
+    source: "api_key",
+    actor: { apiKeyId: 1 },
+    client: null,
+  };
+  const me = {
+    project: { id: 7, name: "My app" },
+    permissions: ["send", "manage"],
+    auth: { source: "api_key", apiKey: { id: 1, name: "test", prefix: "snl_abcdefgh" }, client: null },
+  };
+
+  function v1Host(overrides: Partial<SenloHost> = {}, p: unknown = principal) {
+    const resolvePrincipal = vi.fn(async (token: string, client: string | null) =>
+      token === "snl_good" ? { ...(p as object), client } : null,
+    );
+    const describePrincipal = vi.fn(async () => me);
+    return {
+      resolvePrincipal,
+      describePrincipal,
+      ...fakeHost({ auth: { resolvePrincipal, describePrincipal } }, overrides),
+    };
+  }
+
+  it("GET /me answers { data } with the instance and a request id", async () => {
+    const { routes, resolvePrincipal, logger } = v1Host();
+    const response = await routes.v1Me.GET(
+      new NextRequest("http://localhost/api/v1/me", { headers: { ...bearer, "Senlo-Client": "mcp/1.0.0" } }),
+    );
+
+    expect(response.status).toBe(200);
+    const requestId = response.headers.get("X-Request-Id");
+    expect(requestId).toMatch(/^req_[0-9a-f]{32}$/);
+    expect(await response.json()).toEqual({
+      data: { ...me, instance: { edition: "self-hosted", apiVersion: "v1" } },
+    });
+    expect(resolvePrincipal).toHaveBeenCalledWith("snl_good", "mcp/1.0.0");
+    expect(logger.info).toHaveBeenCalledWith("API v1 getMe", { requestId, projectId: 7, client: "mcp/1.0.0" });
+  });
+
+  it("reports the host's edition", async () => {
+    const { routes } = v1Host({ edition: "cloud" });
+    const body = await (await routes.v1Me.GET(new NextRequest("http://localhost/api/v1/me", { headers: bearer }))).json();
+    expect(body.data.instance).toEqual({ edition: "cloud", apiVersion: "v1" });
+  });
+
+  it("refuses a missing or wrong key in the v1 shape and counts the failure per IP", async () => {
+    const { routes, rateLimit } = v1Host();
+
+    for (const headers of [{}, { Authorization: "Bearer snl_bad" }] as Record<string, string>[]) {
+      const response = await routes.v1Me.GET(new NextRequest("http://localhost/api/v1/me", { headers }));
+      expect(response.status).toBe(401);
+      const body = await response.json();
+      expect(body.error).toMatchObject({ code: "UNAUTHORIZED", requestId: response.headers.get("X-Request-Id") });
+      expect(body.error.hint).toContain("Bearer");
+    }
+    expect(rateLimit.limitRequest).toHaveBeenCalledWith(expect.anything(), "apiAuthFailure");
+    expect(rateLimit.limitRequest).not.toHaveBeenCalledWith(expect.anything(), "apiV1", expect.anything());
+  });
+
+  it("limits per key, not per IP", async () => {
+    const { routes, rateLimit } = v1Host();
+    await routes.v1Me.GET(new NextRequest("http://localhost/api/v1/me", { headers: bearer }));
+    expect(rateLimit.limitRequest).toHaveBeenCalledWith(expect.anything(), "apiV1", "key:1");
+  });
+
+  it("answers the limiter's 429 in the v1 shape, with Retry-After", async () => {
+    const limited = NextResponse.json({ error: "Too many requests" }, { status: 429, headers: { "Retry-After": "12" } });
+    const rateLimit = { limitRequest: vi.fn(async () => limited) } as unknown as SenloRateLimit;
+    const { routes, describePrincipal } = v1Host({ rateLimit });
+
+    const response = await routes.v1Me.GET(new NextRequest("http://localhost/api/v1/me", { headers: bearer }));
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("12");
+    expect((await response.json()).error.code).toBe("RATE_LIMITED");
+    expect(describePrincipal).not.toHaveBeenCalled();
+  });
+
+  it("refuses a key without the manage permission", async () => {
+    const { routes, describePrincipal } = v1Host({}, { ...principal, permissions: ["send"] });
+    const response = await routes.v1Me.GET(new NextRequest("http://localhost/api/v1/me", { headers: bearer }));
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toMatchObject({
+      code: "PERMISSION_REQUIRED",
+      details: { permission: "manage" },
+    });
+    expect(describePrincipal).not.toHaveBeenCalled();
+  });
+
+  it("hides an unexpected failure behind INTERNAL_ERROR and logs it with the request id", async () => {
+    const { routes, describePrincipal, logger } = v1Host();
+    describePrincipal.mockRejectedValueOnce(new Error("connection refused at 10.0.0.5"));
+
+    const response = await routes.v1Me.GET(new NextRequest("http://localhost/api/v1/me", { headers: bearer }));
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body.error.code).toBe("INTERNAL_ERROR");
+    expect(JSON.stringify(body)).not.toContain("10.0.0.5");
+    expect(logger.error).toHaveBeenCalledWith(
+      "API v1 getMe failed",
+      expect.objectContaining({ requestId: body.error.requestId, projectId: 7 }),
+    );
+  });
+
+  it("serves the OpenAPI document without a key", async () => {
+    const { routes } = v1Host();
+    const response = await routes.v1OpenApi.GET();
+    expect(response.status).toBe(200);
+    const doc = await response.json();
+    expect(doc.openapi).toBe("3.0.3");
+    expect(doc.paths["/api/v1/me"].get).toBeDefined();
   });
 });
