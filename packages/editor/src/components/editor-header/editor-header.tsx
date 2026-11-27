@@ -11,6 +11,7 @@ import {
   Settings2,
   Variable,
   Send,
+  Keyboard,
 } from "lucide-react";
 import { useEditorStore } from "../../state/editor.store";
 import { renderEmailDesign } from "@senlo/core";
@@ -21,6 +22,12 @@ import { PreviewModal } from "../preview-modal/preview-modal";
 import { TestSendModal } from "../test-send-modal/test-send-modal";
 import { useEditorHost } from "../../host";
 import { useLeaveEditor } from "../../hooks/use-leave-editor";
+import {
+  getKeyboardShortcutModifier,
+  isTypingTarget,
+  KEYBOARD_SHORTCUTS,
+  type KeyboardShortcutModifier,
+} from "../../hooks/use-keyboard-shortcuts";
 
 export const EditorHeader = () => {
   const undo = useEditorStore((s) => s.undo);
@@ -54,6 +61,8 @@ export const EditorHeader = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTestSendOpen, setIsTestSendOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [shortcutModifier, setShortcutModifier] = useState<KeyboardShortcutModifier>("Ctrl");
 
   const [editName, setEditName] = useState(templateName);
   const [editSubject, setEditSubject] = useState(templateSubject);
@@ -66,6 +75,24 @@ export const EditorHeader = () => {
     setEditLocale(templateLocale);
     setEditPreheader(templatePreheader);
   }, [templateName, templateSubject, templateLocale, templatePreheader]);
+
+  useEffect(() => {
+    setShortcutModifier(getKeyboardShortcutModifier());
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "?" || event.defaultPrevented || isTypingTarget(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+      setIsShortcutsOpen(true);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Compute canUndo/canRedo directly from history arrays
   const canUndo = historyPast.length > 0;
@@ -183,6 +210,17 @@ export const EditorHeader = () => {
 
         <div className={styles.actions}>
           <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsShortcutsOpen(true)}
+            title="Keyboard shortcuts"
+            aria-label="Keyboard shortcuts"
+          >
+            <Keyboard size={16} />
+          </Button>
+
+          <Button
             variant="outline"
             size="sm"
             onClick={() => setIsSettingsOpen(true)}
@@ -273,6 +311,39 @@ export const EditorHeader = () => {
         isOpen={isTestSendOpen}
         onClose={() => setIsTestSendOpen(false)}
       />
+
+      <Dialog
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+        disableAnimation={true}
+        title="Keyboard Shortcuts"
+        description="Use these shortcuts while the editor canvas is focused. Press Escape to close this dialog."
+      >
+        <div className="space-y-5">
+          {(["Editing", "Selection", "History"] as const).map((group) => (
+            <section key={group} className="space-y-2">
+              <h3 className="text-sm font-semibold text-zinc-900">{group}</h3>
+              <dl className="space-y-2">
+                {KEYBOARD_SHORTCUTS.filter((shortcut) => shortcut.group === group).map(
+                  (shortcut) => (
+                    <div
+                      key={shortcut.label}
+                      className="flex items-center justify-between gap-4 text-sm"
+                    >
+                      <dt className="text-zinc-600">{shortcut.label}</dt>
+                      <dd>
+                        <kbd className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 font-mono text-xs text-zinc-800 whitespace-nowrap">
+                          {shortcutModifier === "⌘" ? shortcut.mac : shortcut.other}
+                        </kbd>
+                      </dd>
+                    </div>
+                  ),
+                )}
+              </dl>
+            </section>
+          ))}
+        </div>
+      </Dialog>
 
       <Dialog
         isOpen={isSettingsOpen}
