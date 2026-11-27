@@ -29,6 +29,9 @@ const CODE_MAP: Record<ErrorCode, ApiV1ErrorCode> = {
   UNAUTHORIZED: "UNAUTHORIZED",
   FORBIDDEN: "FORBIDDEN",
   PERMISSION_REQUIRED: "PERMISSION_REQUIRED",
+  RECIPIENT_NOT_ALLOWED: "RECIPIENT_NOT_ALLOWED",
+  IDEMPOTENCY_KEY_REUSED: "IDEMPOTENCY_KEY_REUSED",
+  IDEMPOTENCY_IN_PROGRESS: "IDEMPOTENCY_IN_PROGRESS",
   DUPLICATE_ENTRY: "CONFLICT",
   RATE_LIMITED: "RATE_LIMITED",
   QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
@@ -48,6 +51,9 @@ export const DEFAULT_HINTS: Record<ApiV1ErrorCode, string> = {
     "The plan's monthly limit is reached; retrying now fails too. Wait for the reset date in the message or upgrade the plan.",
   PERMISSION_REQUIRED: "Use an API key that has the permission named in details.permission.",
   FORBIDDEN: "This key may read the record but not change it.",
+  RECIPIENT_NOT_ALLOWED: "Send the test to one of the addresses in details.allowed.",
+  IDEMPOTENCY_KEY_REUSED: "Use a new Idempotency-Key for a new request.",
+  IDEMPOTENCY_IN_PROGRESS: "Wait a second and retry with the same Idempotency-Key.",
   NOT_FOUND:
     "Check the id. List the project's records to find the right one; records of other projects are not visible to this key.",
   CONFLICT: "The record already exists. Read it instead of creating it again.",
@@ -138,7 +144,7 @@ export function v1ErrorResponse(error: unknown, requestId: string): NextResponse
   const { status, body } = v1ErrorBody(error, requestId);
   const headers: Record<string, string> = { [REQUEST_ID_HEADER]: requestId };
   const retryAfter = error instanceof AppError ? error.details?.retryAfter : undefined;
-  if (body.error.code === "RATE_LIMITED" && typeof retryAfter === "number") {
+  if (typeof retryAfter === "number" && (body.error.code === "RATE_LIMITED" || body.error.code === "IDEMPOTENCY_IN_PROGRESS")) {
     headers["Retry-After"] = String(retryAfter);
   }
   return NextResponse.json(body, { status, headers });

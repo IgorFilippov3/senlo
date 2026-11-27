@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Caller } from "../caller";
 import { z } from "zod";
 import { AccessGuard, listInScope, type AccessAction } from "../access";
 import type {
@@ -103,19 +104,19 @@ export class CampaignService {
     this.access = access ?? new AccessGuard(repos.projects);
   }
 
-  /** The campaign and its project, if the user may do `action` on them. */
+  /** The campaign and its project, if the caller may do `action` on them. */
   async requireCampaign(
-    userId: string,
+    caller: Caller,
     campaignId: number,
     action: AccessAction,
   ): Promise<{ campaign: Campaign; project: Project }> {
     const campaign = await this.access.requireInProject(
-      userId,
+      caller,
       await this.repos.campaigns.findById(campaignId),
       "Trigger",
       action,
     );
-    const project = await this.access.requireProject(userId, campaign.projectId, action);
+    const project = await this.access.requireProject(caller, campaign.projectId, action);
     return { campaign, project };
   }
 
@@ -174,15 +175,15 @@ export class CampaignService {
     return perProject.flat();
   }
 
-  async listForProject(userId: string, projectId: number): Promise<Campaign[]> {
-    await this.access.requireProject(userId, projectId, "read");
+  async listForProject(caller: Caller, projectId: number): Promise<Campaign[]> {
+    await this.access.requireProject(caller, projectId, "read");
     return this.repos.campaigns.findByProject(projectId);
   }
 
   /** Raw form fields in. */
-  async createTriggered(userId: string, rawInput: unknown): Promise<Campaign> {
+  async createTriggered(caller: Caller, rawInput: unknown): Promise<Campaign> {
     const input = parseInput(CreateTriggeredCampaignSchema, rawInput);
-    await this.access.requireProject(userId, input.projectId, "write");
+    await this.access.requireProject(caller, input.projectId, "write");
     await this.requireProjectTemplates(input.projectId, [input.templateId]);
 
     return this.repos.campaigns.create({
@@ -199,8 +200,8 @@ export class CampaignService {
     });
   }
 
-  async updateTriggered(userId: string, campaignId: number, rawInput: unknown): Promise<Campaign> {
-    const { project } = await this.requireCampaign(userId, campaignId, "write");
+  async updateTriggered(caller: Caller, campaignId: number, rawInput: unknown): Promise<Campaign> {
+    const { project } = await this.requireCampaign(caller, campaignId, "write");
     const input = parseInput(UpdateTriggeredCampaignSchema, rawInput);
 
     const localeTemplates = input.localeTemplates as Record<string, number> | null;

@@ -35,5 +35,6 @@ export * from "./services/workflowService";
 export { generateApiKey, hashApiKey, apiKeyPrefix, API_KEY_PREFIX_LENGTH } from "./api-key";
 export * from "./composition";
 export * from "./openapi";
+export * from "./api-idempotency";
 export * from "./api-v1/schemas";
 export * from "./api-v1/openapi";

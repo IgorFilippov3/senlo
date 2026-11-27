@@ -17,6 +17,11 @@ export class UserRepository implements IUserRepository {
     return row ? this.mapToEntity(row) : null;
   }
 
+  async findById(id: string): Promise<User | null> {
+    const [row] = await this.db.select().from(users).where(eq(users.id, id));
+    return row ? this.mapToEntity(row) : null;
+  }
+
   async create(data: { name: string; email: string; passwordHash: string }): Promise<User> {
     const [row] = await this.db
       .insert(users)

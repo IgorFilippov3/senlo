@@ -17,7 +17,8 @@ import type {
   TemplateVersionSource,
 } from "../emailTemplate";
 import { sameJson } from "../canonical-json";
-import { NotFoundError, ProviderError, ValidationError } from "../errors";
+import { NotFoundError, ProviderError, RecipientNotAllowedError, ValidationError } from "../errors";
+import { auditActor, isApiCaller, type Caller } from "../caller";
 import type { MergeTag } from "../merge-tags";
 import type {
   ICampaignRepository,
@@ -93,8 +94,11 @@ export interface TemplateServiceRepositories {
 /** At most this many versions in a template's history list. */
 export const TEMPLATE_VERSION_LIST_LIMIT = 100;
 
-/** Who saved: a signed-in user, or (API v1) a key. */
-export type TemplateVersionActor = { userId: string } | { apiKeyId: number };
+/** Where a caller's save comes from: the editor, or API v1 (`mcp` when the client says so). */
+export function versionSource(caller: Caller): Exclude<TemplateVersionSource, "baseline"> {
+  if (!isApiCaller(caller)) return "editor";
+  return caller.client?.toLowerCase().startsWith("mcp") ? "mcp" : "api";
+}
 
 /** The part of a template a version keeps: what the recipient gets. */
 interface TemplateContent {
@@ -150,30 +154,30 @@ export class TemplateService {
     this.access = access ?? new AccessGuard(repos.projects);
   }
 
-  /** The template and its project, if the user may do `action` on them. */
+  /** The template and its project, if the caller may do `action` on them. */
   async requireTemplate(
-    userId: string,
+    caller: Caller,
     templateId: number,
     action: AccessAction,
   ): Promise<{ template: EmailTemplate; project: Project }> {
     const template = await this.access.requireInProject(
-      userId,
+      caller,
       await this.repos.templates.findById(templateId),
       "Template",
       action,
     );
-    const project = await this.access.requireProject(userId, template.projectId, action);
+    const project = await this.access.requireProject(caller, template.projectId, action);
     return { template, project };
   }
 
-  async listProjectTemplates(userId: string, projectId: number): Promise<EmailTemplate[]> {
-    await this.access.requireProject(userId, projectId, "read");
+  async listProjectTemplates(caller: Caller, projectId: number): Promise<EmailTemplate[]> {
+    await this.access.requireProject(caller, projectId, "read");
     return this.repos.templates.findByProject(projectId);
   }
 
   /** A new, empty template from form fields. */
-  async create(userId: string, projectId: number, rawInput: unknown): Promise<EmailTemplate> {
-    await this.access.requireProject(userId, projectId, "write");
+  async create(caller: Caller, projectId: number, rawInput: unknown): Promise<EmailTemplate> {
+    await this.access.requireProject(caller, projectId, "write");
     const input = parseInput(CreateTemplateSchema, rawInput);
     const template = await this.repos.templates.create({
       projectId,
@@ -183,7 +187,7 @@ export class TemplateService {
       html: HTML_PLACEHOLDER,
       designJson: EMPTY_EMAIL_DESIGN,
     });
-    await this.audit(userId, "created", template.id, projectId);
+    await this.audit(caller, "created", template.id, projectId);
     return template;
   }
 
@@ -199,9 +203,9 @@ export class TemplateService {
     await this.audit(userId, "deleted", templateId, projectId);
   }
 
-  private audit(userId: string, verb: string, templateId: number, projectId: number) {
+  private audit(caller: Caller, verb: string, templateId: number, projectId: number) {
     return this.hooks.audit({
-      actor: { userId },
+      actor: auditActor(caller),
       action: `template.${verb}`,
       target: { type: "template", id: templateId, projectId },
     });
@@ -246,8 +250,7 @@ export class TemplateService {
         subject: input.metadata?.subject ?? template.subject,
         preheader: input.metadata ? (input.metadata.preheader ?? null) : template.preheader,
       },
-      "editor",
-      { userId },
+      userId,
     );
     const updated = await this.repos.templates.update({
       id: templateId,
@@ -271,12 +274,7 @@ export class TemplateService {
    * first gets a `baseline` version of what it had, unless that was the empty
    * design of a new template.
    */
-  private async recordVersion(
-    before: EmailTemplate,
-    next: TemplateContent,
-    source: Exclude<TemplateVersionSource, "baseline">,
-    actor: TemplateVersionActor,
-  ): Promise<void> {
+  private async recordVersion(before: EmailTemplate, next: TemplateContent, caller: Caller): Promise<void> {
     const versions = this.repos.templateVersions;
     const latest = await versions.latest(before.id);
 
@@ -292,21 +290,21 @@ export class TemplateService {
     await versions.append({
       templateId: before.id,
       ...next,
-      source,
-      createdByUserId: "userId" in actor ? actor.userId : null,
-      createdByApiKeyId: "apiKeyId" in actor ? actor.apiKeyId : null,
+      source: versionSource(caller),
+      createdByUserId: !isApiCaller(caller) ? caller : "userId" in caller.actor ? caller.actor.userId : null,
+      createdByApiKeyId: isApiCaller(caller) && "apiKeyId" in caller.actor ? caller.actor.apiKeyId : null,
     });
   }
 
   /** The template's versions, newest first, without their designs. */
-  async listVersions(userId: string, templateId: number): Promise<EmailTemplateVersionSummary[]> {
-    await this.requireTemplate(userId, templateId, "read");
+  async listVersions(caller: Caller, templateId: number): Promise<EmailTemplateVersionSummary[]> {
+    await this.requireTemplate(caller, templateId, "read");
     return this.repos.templateVersions.listByTemplate(templateId, TEMPLATE_VERSION_LIST_LIMIT);
   }
 
   /** One version with its design, to restore in the editor. Must belong to `templateId`. */
-  async getVersion(userId: string, templateId: number, versionId: number): Promise<EmailTemplateVersion> {
-    await this.requireTemplate(userId, templateId, "read");
+  async getVersion(caller: Caller, templateId: number, versionId: number): Promise<EmailTemplateVersion> {
+    await this.requireTemplate(caller, templateId, "read");
     const version = await this.repos.templateVersions.findById(versionId);
     if (!version || version.templateId !== templateId) throw new NotFoundError("Template version", versionId);
     return version;
@@ -321,14 +319,20 @@ export class TemplateService {
    * a trigger's send log, which a test does not belong to.
    */
   async sendTest(
-    userId: string,
+    caller: Caller,
     templateId: number,
     input: TestSendInput,
   ): Promise<{ messageId?: string }> {
-    const { template, project } = await this.requireTemplate(userId, templateId, "write");
+    const { template, project } = await this.requireTemplate(caller, templateId, "write");
 
     if (!SINGLE_ADDRESS.test(input.to)) {
       throw new ValidationError("Enter a single valid recipient address.");
+    }
+    // The editor may test on any address; an API caller (a coding agent)
+    // only on the organization's own, so it cannot mail strangers.
+    if (isApiCaller(caller)) {
+      const allowed = await this.access.testRecipients(project);
+      if (!allowed.includes(input.to.trim().toLowerCase())) throw new RecipientNotAllowedError(allowed);
     }
     if (input.from && !SINGLE_ADDRESS.test(input.from)) {
       throw new ValidationError("Enter a single valid sender address.");
@@ -342,7 +346,7 @@ export class TemplateService {
     // provider is usable by its members. Sending through it changes nothing
     // about the provider, so reading it is enough (the template needed write).
     const provider = await this.access.requireOwned(
-      userId,
+      caller,
       await this.repos.providers.findById(project.providerId),
       "Email provider",
       "read",
@@ -380,7 +384,7 @@ export class TemplateService {
       ? { success: false, error: `No answer from ${provider.type} within ${TEST_SEND_TIMEOUT_MS / 1000} seconds` }
       : result;
     await this.hooks.audit({
-      actor: { userId },
+      actor: auditActor(caller),
       action: "template.test_sent",
       target: { type: "template", id: templateId, projectId: project.id },
       details: outcome.success

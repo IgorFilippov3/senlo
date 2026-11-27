@@ -164,6 +164,7 @@ export interface IAiProviderRepository {
 
 export interface IUserRepository {
   findByEmail(email: string): Promise<User | null>;
+  findById(id: string): Promise<User | null>;
   create(data: {
     name: string;
     email: string;
@@ -201,6 +202,33 @@ export interface IEmailTemplateRepository {
   findByProject(projectId: number): Promise<EmailTemplate[]>;
   update(input: UpdateEmailTemplateInput): Promise<EmailTemplate | null>;
   delete(id: number): Promise<void>;
+}
+
+/** A stored `Idempotency-Key`: the request it was first used for and, once done, the answer. */
+export interface IdempotencyRecord {
+  id: number;
+  operation: string;
+  requestHash: string;
+  /** Null while the first request is still running. */
+  statusCode: number | null;
+  response: unknown;
+  createdAt: Date;
+}
+
+/** `Idempotency-Key`s of API v1, per project. */
+export interface IApiIdempotencyRepository {
+  /**
+   * Takes `key` for a new request, after deleting the project's keys created
+   * before `expiredBefore`. When the key is already held, returns its record.
+   */
+  claim(
+    data: { projectId: number; key: string; operation: string; requestHash: string },
+    expiredBefore: Date,
+  ): Promise<{ claimed: true; id: number } | { claimed: false; record: IdempotencyRecord }>;
+  /** Stores the answer to replay for retries. */
+  complete(id: number, statusCode: number, response: unknown): Promise<void>;
+  /** Frees the key (the request failed, so a retry should run again). */
+  release(id: number): Promise<void>;
 }
 
 /** A template's version history. Versions are only ever added. */

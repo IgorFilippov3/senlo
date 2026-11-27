@@ -27,6 +27,7 @@ export * from "./routes";
 export * from "./api-auth";
 export * from "./api-principal";
 export * from "./api-issues";
+export * from "./caller";
 export * from "./config";
 export * from "./secrets";
 export * from "./logger";

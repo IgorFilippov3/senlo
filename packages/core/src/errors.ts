@@ -14,6 +14,9 @@ export type ErrorCode =
   | "UNAUTHORIZED"
   | "FORBIDDEN"
   | "PERMISSION_REQUIRED"
+  | "RECIPIENT_NOT_ALLOWED"
+  | "IDEMPOTENCY_KEY_REUSED"
+  | "IDEMPOTENCY_IN_PROGRESS"
   | "DUPLICATE_ENTRY"
   | "RATE_LIMITED"
   | "QUOTA_EXCEEDED"
@@ -26,6 +29,9 @@ const DEFAULT_STATUS: Record<ErrorCode, number> = {
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   PERMISSION_REQUIRED: 403,
+  RECIPIENT_NOT_ALLOWED: 403,
+  IDEMPOTENCY_KEY_REUSED: 409,
+  IDEMPOTENCY_IN_PROGRESS: 409,
   NOT_FOUND: 404,
   DUPLICATE_ENTRY: 409,
   RATE_LIMITED: 429,
@@ -146,6 +152,53 @@ export class PermissionRequiredError extends AppError {
       `Create an API key with the "${permission}" permission in Settings → Keys and use it for this request.`,
     );
     this.name = "PermissionRequiredError";
+  }
+}
+
+/**
+ * A test send through the API to an address outside the organization: API
+ * and MCP callers may only mail the organization's own members.
+ */
+export class RecipientNotAllowedError extends AppError {
+  constructor(public readonly allowed: string[]) {
+    super(
+      "RECIPIENT_NOT_ALLOWED",
+      "Test emails through the API go only to members of the workspace's organization.",
+      { allowed },
+      403,
+      allowed.length
+        ? `Send the test to one of: ${allowed.join(", ")}.`
+        : "No member of this workspace has an address to send tests to.",
+    );
+    this.name = "RecipientNotAllowedError";
+  }
+}
+
+/** An `Idempotency-Key` already used for a different request (another body or operation). */
+export class IdempotencyKeyReusedError extends AppError {
+  constructor() {
+    super(
+      "IDEMPOTENCY_KEY_REUSED",
+      "This Idempotency-Key was already used for a different request.",
+      undefined,
+      409,
+      "Use a new Idempotency-Key for a new request; reuse a key only to retry the exact same request.",
+    );
+    this.name = "IdempotencyKeyReusedError";
+  }
+}
+
+/** The first request with this `Idempotency-Key` has not finished yet. */
+export class IdempotencyInProgressError extends AppError {
+  constructor() {
+    super(
+      "IDEMPOTENCY_IN_PROGRESS",
+      "A request with this Idempotency-Key is still being processed.",
+      { retryAfter: 1 },
+      409,
+      "Wait a second and retry with the same key: you will get the first request's answer.",
+    );
+    this.name = "IdempotencyInProgressError";
   }
 }
 

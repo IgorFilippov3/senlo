@@ -60,9 +60,17 @@ export interface QuotaPolicy {
 }
 
 /** A change someone made, for an audit trail. */
+/**
+ * Who made a change: a user (in the UI, or through the API with an OAuth
+ * token), or an API key. `client` is the API caller's `Senlo-Client` label
+ * (`mcp/1.0.0`); absent for the UI.
+ */
+export type AuditActor =
+  | { userId: string; client?: string | null }
+  | { apiKeyId: number; client: string | null };
+
 export interface AuditEntry {
-  /** The user who made the change. */
-  actor: { userId: string };
+  actor: AuditActor;
   /** `<resource>.<verb>`, e.g. `provider.created`, `workflow.status_changed`. */
   action: string;
   target: { type: AuditTargetType; id: number; projectId?: number };

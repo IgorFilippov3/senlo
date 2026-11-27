@@ -14,6 +14,7 @@ import { DashboardRepository } from "./repositories/dashboardRepository";
 import { EmailProviderRepository } from "./repositories/emailProviderRepository";
 import { EmailTemplateRepository } from "./repositories/emailTemplateRepository";
 import { TemplateVersionRepository } from "./repositories/templateVersionRepository";
+import { ApiIdempotencyRepository } from "./repositories/apiIdempotencyRepository";
 import { LogRetentionRepository } from "./repositories/logRetentionRepository";
 import { ProjectRepository } from "./repositories/projectRepository";
 import { SavedRowRepository } from "./repositories/savedRowRepository";
@@ -50,6 +51,7 @@ export function createRepositories(db: Database, { secrets }: RepositoryOptions)
     suppressions: new SuppressionRepository(db),
     templates: new EmailTemplateRepository(db),
     templateVersions: new TemplateVersionRepository(db),
+    idempotencyKeys: new ApiIdempotencyRepository(db),
     users: new UserRepository(db),
     workflows: new WorkflowRepository(db, secrets),
   };

@@ -19,6 +19,7 @@ import type {
   IEmailProviderRepository,
   IEmailTemplateRepository,
   ITemplateVersionRepository,
+  IApiIdempotencyRepository,
   IProjectRepository,
   ISavedRowRepository,
   IUserRepository,
@@ -32,6 +33,7 @@ import type { AutomationJobData, EmailJobData } from "./queue/types";
 import { AiDesignService, AiProviderService } from "./services/ai";
 import { AudienceService } from "./services/audienceService";
 import { AuthService } from "./services/authService";
+import { ApiIdempotency } from "./api-idempotency";
 import { AutomationRunsService } from "./services/automationRunsService";
 import { AutomationService } from "./services/automationService";
 import { CampaignService } from "./services/campaignService";
@@ -71,6 +73,7 @@ export interface Repositories {
   suppressions: ISuppressionRepository;
   templates: IEmailTemplateRepository;
   templateVersions: ITemplateVersionRepository;
+  idempotencyKeys: IApiIdempotencyRepository;
   users: IUserRepository;
   workflows: IWorkflowRepository;
   /**
@@ -109,6 +112,8 @@ export interface Services {
   user: UserService;
   webhook: WebhookService;
   workflow: WorkflowService;
+  /** `Idempotency-Key` handling for API v1. */
+  idempotency: ApiIdempotency;
 }
 
 const noStorage: StoragePort = {
@@ -164,7 +169,7 @@ export function createServices({
   /** Where user-entered addresses (API condition URL, SMTP host) may go. Default: anywhere, as self-hosted. */
   outbound?: OutboundPolicy;
 }): Services {
-  const guard = new AccessGuard(r.projects, access);
+  const guard = new AccessGuard(r.projects, access, r.users);
   const hooks = new ServiceHooks({ usage, quota, audit, retention }, logger);
 
   const trigger = new TriggerService(
@@ -217,6 +222,7 @@ export function createServices({
     user: new UserService(r.users, undefined, { onUserCreated, logger }),
     webhook: new WebhookService(r, logger, undefined, automation.onContactBlocked),
     workflow: new WorkflowService(r, guard, hooks),
+    idempotency: new ApiIdempotency(r.idempotencyKeys),
   };
 }
 

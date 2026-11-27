@@ -13,6 +13,7 @@ function fakes(seed: User[] = []) {
   const rows = new Map(seed.map((u) => [u.email, u]));
   const users = {
     findByEmail: async (email: string) => rows.get(email) ?? null,
+    findById: async (id: string) => [...rows.values()].find((u) => u.id === id) ?? null,
     create: vi.fn(async (d: { name: string; email: string; passwordHash: string }) => {
       const u: User = { id: "u-new", name: d.name, email: d.email, image: null, passwordHash: d.passwordHash };
       rows.set(u.email, u);

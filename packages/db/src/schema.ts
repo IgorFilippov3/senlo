@@ -416,6 +416,33 @@ export const emailTemplateVersions = pgTable(
   }),
 );
 
+/**
+ * `Idempotency-Key`s of API v1: the request a key was first used for and its
+ * answer. Kept a day; each claim deletes the project's expired keys.
+ */
+export const apiIdempotencyKeys = pgTable(
+  "api_idempotency_keys",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    /** `POST /api/v1/templates`: the same key on another route is another request. */
+    operation: text("operation").notNull(),
+    /** SHA-256 of the request body, keys sorted. */
+    requestHash: text("request_hash").notNull(),
+    /** Null while the first request runs. */
+    statusCode: integer("status_code"),
+    response: jsonb("response"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    projectKeyUnq: unique("api_idempotency_keys_project_key_unq").on(t.projectId, t.key),
+    projectCreatedIdx: index("api_idempotency_keys_project_created_idx").on(t.projectId, t.createdAt),
+  }),
+);
+
 export const triggeredSendLogs = pgTable(
   "triggered_send_logs",
   {

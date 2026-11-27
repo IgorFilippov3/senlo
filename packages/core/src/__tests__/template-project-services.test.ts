@@ -5,7 +5,9 @@ import { ProjectService } from "../services/projectService";
 import { SettingsService } from "../services/settingsService";
 import { EMPTY_EMAIL_DESIGN } from "../constants";
 import { ServiceHooks } from "../hooks";
-import { FormValidationError, NotFoundError, ProviderError, ValidationError } from "../errors";
+import { FormValidationError, NotFoundError, ProviderError, RecipientNotAllowedError, ValidationError } from "../errors";
+import { AccessGuard, ownerAccessPolicy } from "../access";
+import { principalFromApiKey } from "../api-principal";
 import type { ApiKey, Campaign, EmailProvider, Project, SavedRow } from "../domain";
 import type { EmailDesignDocument } from "../emailDesign";
 import type { EmailTemplate, EmailTemplateVersion, NewEmailTemplateVersion } from "../emailTemplate";
@@ -261,6 +263,42 @@ describe("TemplateService", () => {
     expect(sent).toMatchObject({ to: "a@b.co", from: "hello@app.test", subject: "[TEST] s10" });
     expect(sent.html).toContain("<");
     expect(typeof sent.text).toBe("string");
+  });
+
+  it("sendTest through the API goes only to the organization's members", async () => {
+    const { repos, mailer } = templateFakes();
+    const audit = vi.fn(async () => {});
+    const guard = new AccessGuard(repos.projects, ownerAccessPolicy, {
+      findById: async (id: string) => (id === "alice" ? ({ id, email: "Alice@x.io" } as never) : null),
+    });
+    const service = new TemplateService(
+      repos,
+      () => mailer,
+      { appUrl: "https://app.test", defaultFromEmail: "hello@app.test" },
+      guard,
+      new ServiceHooks({ audit: { record: audit } }),
+    );
+    const agent = principalFromApiKey({ id: 3, projectId: 1, permissions: ["manage"] }, "mcp/1.0.0");
+
+    const refused = await service.sendTest(agent, 10, { to: "eve@x.io", design: EMPTY_EMAIL_DESIGN }).catch((e) => e);
+    expect(refused).toBeInstanceOf(RecipientNotAllowedError);
+    expect(refused.details).toEqual({ allowed: ["alice@x.io"] });
+    expect(refused.hint).toContain("alice@x.io");
+    expect(mailer.send).not.toHaveBeenCalled();
+
+    await service.sendTest(agent, 10, { to: "ALICE@x.io", design: EMPTY_EMAIL_DESIGN });
+    expect(mailer.send).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({ actor: { apiKeyId: 3, client: "mcp/1.0.0" }, action: "template.test_sent" }),
+    );
+
+    // Another project's template is not there for this key.
+    await expect(service.sendTest(agent, 20, { to: "alice@x.io", design: EMPTY_EMAIL_DESIGN })).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    // The editor still tests on any address.
+    await service.sendTest("alice", 10, { to: "eve@x.io", design: EMPTY_EMAIL_DESIGN });
+    expect(mailer.send).toHaveBeenCalledTimes(2);
   });
 
   it("sendTest records the send as a test", async () => {

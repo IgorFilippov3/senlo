@@ -23,6 +23,7 @@ export * from "./seed-new-user";
 export * from "./repositories/projectRepository";
 export * from "./repositories/emailTemplateRepository";
 export * from "./repositories/templateVersionRepository";
+export * from "./repositories/apiIdempotencyRepository";
 export * from "./repositories/campaignRepository";
 export * from "./repositories/contactRepository";
 export * from "./repositories/contactEventRepository";

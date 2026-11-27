@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Project } from "./domain";
-import type { IProjectRepository } from "./ports";
+import type { IProjectRepository, IUserRepository } from "./ports";
 import { ForbiddenError, NotFoundError } from "./errors";
+import { requirePermission, type ApiPrincipal } from "./api-principal";
+import { isApiCaller, type Caller } from "./caller";
 
 /**
  * Whose records "mine" means for a user: their own (`organizationId: null`,
@@ -49,6 +51,12 @@ export interface AccessPolicy {
    * policy answers by role, so a viewer cannot create through any entry point.
    */
   mayCreate?(userId: string, scope: OwnerScope): Promise<boolean>;
+  /**
+   * The addresses an API caller may send test emails to for this project:
+   * the members of its organization. Absent means the project owner's own
+   * address, which is what a self-hosted project has.
+   */
+  testRecipients?(project: Project): Promise<string[]>;
 }
 
 /** Today's rule: a record belongs to the user in its `userId`, nothing is shared, and the owner may do anything. */
@@ -98,7 +106,35 @@ export class AccessGuard {
   constructor(
     private readonly projects: Pick<IProjectRepository, "findById">,
     private readonly policy: AccessPolicy = ownerAccessPolicy,
+    /** For the default test recipients (the project owner's address). */
+    private readonly users?: Pick<IUserRepository, "findById">,
   ) {}
+
+  /**
+   * An API principal acts on its own project only, and only with `manage`
+   * (sending has its own routes, outside the services). Anything else fails
+   * like a missing record.
+   */
+  private async principalProject(principal: ApiPrincipal, projectId: number | null | undefined, resource: string) {
+    requirePermission(principal, "manage");
+    if (projectId !== principal.projectId) throw new NotFoundError(resource);
+    const project = await this.projects.findById(projectId);
+    if (!project) throw new NotFoundError(resource);
+    return project;
+  }
+
+  /**
+   * Who an API caller may send test emails to for `project`, lowercased:
+   * the policy's answer, or the project owner's address.
+   */
+  async testRecipients(project: Project): Promise<string[]> {
+    if (this.policy.testRecipients) {
+      return (await this.policy.testRecipients(project)).map((e) => e.trim().toLowerCase()).filter(Boolean);
+    }
+    if (!project.userId || !this.users) return [];
+    const owner = await this.users.findById(project.userId);
+    return owner?.email ? [owner.email.trim().toLowerCase()] : [];
+  }
 
   /** A guard for services that check owned records only (providers), never projects. */
   static forOwnedRecords(policy: AccessPolicy = ownerAccessPolicy): AccessGuard {
@@ -142,11 +178,13 @@ export class AccessGuard {
     throw new NotFoundError(resource);
   }
 
-  /** The project, if the user may do `action` on it. */
-  async requireProject(userId: string, projectId: number, action: AccessAction): Promise<Project> {
-    if (!userId || !Number.isInteger(projectId) || projectId <= 0) {
+  /** The project, if the caller may do `action` on it. */
+  async requireProject(caller: Caller, projectId: number, action: AccessAction): Promise<Project> {
+    if (!caller || !Number.isInteger(projectId) || projectId <= 0) {
       throw new NotFoundError("Workspace");
     }
+    if (isApiCaller(caller)) return this.principalProject(caller, projectId, "Workspace");
+    const userId = caller;
 
     const project = await this.projects.findById(projectId);
     if (!project) throw new NotFoundError("Workspace");
@@ -161,14 +199,19 @@ export class AccessGuard {
    * the record, not the project.
    */
   async requireInProject<T extends { projectId?: number | null }>(
-    userId: string,
+    caller: Caller,
     record: T | null | undefined,
     resource: string,
     action: AccessAction,
   ): Promise<T> {
-    if (!userId || !record || record.projectId == null) {
+    if (!caller || !record || record.projectId == null) {
       throw new NotFoundError(resource);
     }
+    if (isApiCaller(caller)) {
+      await this.principalProject(caller, record.projectId, resource);
+      return record;
+    }
+    const userId = caller;
 
     const project = await this.projects.findById(record.projectId);
     if (!project) throw new NotFoundError(resource);
@@ -197,13 +240,24 @@ export class AccessGuard {
    * project (email and AI providers), if the policy lets the user do `action`.
    */
   async requireOwned<T extends OwnedRecord>(
-    userId: string,
+    caller: Caller,
     record: T | null | undefined,
     resource: string,
     action: AccessAction,
   ): Promise<T> {
-    if (!userId || !record) throw new NotFoundError(resource);
-    await this.decide(userId, record, action, resource);
+    if (!caller || !record) throw new NotFoundError(resource);
+    if (isApiCaller(caller)) {
+      // An API caller only reads what its project's owner owns (the
+      // project's provider, to send a test); it never changes such records.
+      if (action !== "read") throw new NotFoundError(resource);
+      const project = await this.principalProject(caller, caller.projectId, resource);
+      const sameOwner = project.organizationId
+        ? record.organizationId === project.organizationId
+        : !record.organizationId && !!record.userId && record.userId === project.userId;
+      if (!sameOwner) throw new NotFoundError(resource);
+      return record;
+    }
+    await this.decide(caller, record, action, resource);
     return record;
   }
 
