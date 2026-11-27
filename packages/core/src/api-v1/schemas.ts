@@ -6,6 +6,7 @@ import { z } from "zod";
 import { API_PERMISSIONS } from "../api-principal";
 import { emailDesignDocumentSchema } from "../emailDesign";
 import type { EmailTemplate } from "../emailTemplate";
+import type { Campaign } from "../domain";
 
 /**
  * Request and response shapes of API v1. The routes answer with these and
@@ -203,4 +204,90 @@ export function toApiTemplateSummary(t: EmailTemplate): ApiTemplateSummary {
 
 export function toApiTemplate(t: EmailTemplate, design: unknown): ApiTemplate {
   return { ...toApiTemplateSummary(t), design: design as Record<string, unknown> };
+}
+
+// ----------------------------------------------------------------- triggers
+
+/**
+ * A trigger's variables: sample values by name. Each name becomes a merge
+ * tag (`{{orderId}}`) in the editor; the values fill the editor's preview.
+ */
+const ApiVariablesSampleSchema = z
+  .record(z.unknown())
+  .refine((v) => Object.keys(v).length <= 200, { message: "At most 200 variables." })
+  .describe("Sample values by variable name, e.g. { \"userName\": \"Ada\", \"resetLink\": \"https://...\" }. Each name is a {{merge tag}}.");
+
+/** Templates per locale: `{ "de": 12 }` sends template 12 to contacts whose locale is `de`. */
+const ApiLocaleTemplatesSchema = z
+  .record(z.string().trim().min(2).max(35), z.number().int().positive())
+  .describe("A template id per contact locale; others get templateId.");
+
+const triggerFields = {
+  name: z.string().trim().min(1, "Name is required").max(255),
+  description: z.string().trim().max(1000).nullable(),
+  templateId: z.number().int().positive(),
+  fromName: z.string().trim().max(255).nullable(),
+  fromEmail: z.string().trim().email("Enter a valid sender address.").nullable(),
+  variablesSchema: ApiVariablesSampleSchema.nullable(),
+  localeTemplates: ApiLocaleTemplatesSchema.nullable(),
+};
+
+/** `POST /api/v1/triggers`. */
+export const ApiCreateTriggerSchema = z
+  .object({
+    name: triggerFields.name,
+    templateId: triggerFields.templateId,
+    description: triggerFields.description.optional(),
+    fromName: triggerFields.fromName.optional(),
+    fromEmail: triggerFields.fromEmail.optional(),
+    variablesSchema: triggerFields.variablesSchema.optional(),
+    localeTemplates: triggerFields.localeTemplates.optional(),
+  })
+  .strict();
+
+const updateTriggerObject = z
+  .object({
+    name: triggerFields.name.optional(),
+    templateId: triggerFields.templateId.optional(),
+    description: triggerFields.description.optional(),
+    fromName: triggerFields.fromName.optional(),
+    fromEmail: triggerFields.fromEmail.optional(),
+    variablesSchema: triggerFields.variablesSchema.optional(),
+    localeTemplates: triggerFields.localeTemplates.optional(),
+  })
+  .strict();
+
+/** `PATCH /api/v1/triggers/{id}`: what is sent changes; null clears an optional field. */
+export const ApiUpdateTriggerSchema = updateTriggerObject.refine((v) => Object.keys(v).length > 0, {
+  message: "Send at least one field to change.",
+});
+export const ApiUpdateTriggerDocSchema = updateTriggerObject;
+
+export const ApiTriggerSchema = z.object({
+  id: z.number().int().describe("What POST /api/triggered takes as id."),
+  name: z.string(),
+  description: z.string().nullable(),
+  templateId: z.number().int(),
+  localeTemplates: z.record(z.number().int()).nullable(),
+  fromName: z.string().nullable(),
+  fromEmail: z.string().nullable(),
+  variablesSchema: z.record(z.unknown()).nullable(),
+  createdAt: isoDate,
+  updatedAt: isoDate,
+});
+export type ApiTrigger = z.infer<typeof ApiTriggerSchema>;
+
+export function toApiTrigger(c: Campaign): ApiTrigger {
+  return {
+    id: c.id,
+    name: c.name,
+    description: c.description ?? null,
+    templateId: c.templateId,
+    localeTemplates: c.localeTemplates ?? null,
+    fromName: c.fromName ?? null,
+    fromEmail: c.fromEmail ?? null,
+    variablesSchema: (c.variablesSchema as Record<string, unknown> | null | undefined) ?? null,
+    createdAt: new Date(c.createdAt).toISOString(),
+    updatedAt: new Date(c.updatedAt).toISOString(),
+  };
 }

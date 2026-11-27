@@ -623,3 +623,79 @@ describe("API v1 templates", () => {
     expect(sendTestFromApi).toHaveBeenCalledWith(principal, 5, { to: "a@x.io" });
   });
 });
+
+describe("API v1 triggers", () => {
+  const principal = { projectId: 7, permissions: ["manage"], source: "api_key", actor: { apiKeyId: 1 }, client: null };
+  const at = new Date("2026-11-27T10:00:00Z");
+  const trigger = {
+    id: 9,
+    projectId: 7,
+    name: "Password reset",
+    description: null,
+    type: "TRIGGERED",
+    status: "DRAFT",
+    templateId: 5,
+    localeTemplates: null,
+    fromName: null,
+    fromEmail: "hi@x.io",
+    variablesSchema: { userName: "Ada" },
+    createdAt: at,
+    updatedAt: at,
+  };
+  const asJson = {
+    id: 9,
+    name: "Password reset",
+    description: null,
+    templateId: 5,
+    localeTemplates: null,
+    fromName: null,
+    fromEmail: "hi@x.io",
+    variablesSchema: { userName: "Ada" },
+    createdAt: at.toISOString(),
+    updatedAt: at.toISOString(),
+  };
+  const host = (campaign: Record<string, unknown>) =>
+    fakeHost({
+      auth: { resolvePrincipal: vi.fn(async (t: string) => (t === "snl_good" ? principal : null)) },
+      idempotency: { begin: vi.fn(async () => ({ run: true, id: 1 })), complete: vi.fn(), release: vi.fn() },
+      campaign,
+    });
+  const call = (method: string, path: string, body?: unknown) =>
+    new NextRequest(`http://localhost${path}`, {
+      method,
+      headers: { ...bearer, "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+  it("lists, creates and dry-runs", async () => {
+    const listPage = vi.fn(async () => ({ items: [trigger], nextCursor: null }));
+    const createFromApi = vi.fn(async (_p: unknown, _id: number, _b: unknown, o: { dryRun: boolean }) => (o.dryRun ? null : trigger));
+    const { routes } = host({ listPage, createFromApi });
+
+    expect(await (await routes.v1Triggers.GET(call("GET", "/api/v1/triggers"))).json()).toEqual({
+      data: { items: [asJson], nextCursor: null },
+    });
+    expect(listPage).toHaveBeenCalledWith(principal, 7, { limit: 50, beforeId: null });
+
+    const created = await routes.v1Triggers.POST(call("POST", "/api/v1/triggers", { name: "Password reset", templateId: 5 }));
+    expect(created.status).toBe(201);
+    expect((await created.json()).data).toEqual(asJson);
+
+    const checked = await routes.v1Triggers.POST(call("POST", "/api/v1/triggers?dryRun=true", { name: "x", templateId: 5 }));
+    expect(await checked.json()).toEqual({ data: { valid: true, warnings: [] } });
+  });
+
+  it("reads and changes one trigger", async () => {
+    const getTrigger = vi.fn(async () => trigger);
+    const updateFromApi = vi.fn(async () => trigger);
+    const { routes } = host({ getTrigger, updateFromApi });
+
+    expect((await (await routes.v1Trigger.GET(call("GET", "/api/v1/triggers/9"), params({ id: "9" }))).json()).data).toEqual(asJson);
+    expect(getTrigger).toHaveBeenCalledWith(principal, 9);
+
+    await routes.v1Trigger.PATCH(call("PATCH", "/api/v1/triggers/9", { templateId: 6 }), params({ id: "9" }));
+    expect(updateFromApi).toHaveBeenCalledWith(principal, 9, { templateId: 6 }, { dryRun: false });
+
+    expect((await routes.v1Trigger.GET(call("GET", "/api/v1/triggers/abc"), params({ id: "abc" }))).status).toBe(404);
+  });
+});

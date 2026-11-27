@@ -7,6 +7,7 @@ import { PermissionRequiredError, logError, type ApiPermission } from "@senlo/co
 import { apiV1OpenApiDocument } from "@senlo/core/server";
 import {
   parsePageQuery,
+  toApiTrigger,
   toApiTemplate,
   toApiTemplateSummary,
   type ApiMe,
@@ -175,6 +176,39 @@ export function createSenloRoutes(host: SenloHost) {
           return { data: { sent: true, ...result } };
         },
       ),
+    },
+
+    /** `/api/v1/triggers`: the key's project's triggers, and creating one for a template. */
+    v1Triggers: {
+      GET: v1Route("listTriggers", { permission: "manage" }, async ({ principal, req }) => {
+        const page = await services().campaign.listPage(
+          principal,
+          principal.projectId,
+          parsePageQuery(new URL(req.url).searchParams),
+        );
+        return { data: { items: page.items.map(toApiTrigger), nextCursor: page.nextCursor } };
+      }),
+      POST: v1Route("createTrigger", { permission: "manage", idempotent: true }, async ({ principal, req, body }) => {
+        const created = await services().campaign.createFromApi(principal, principal.projectId, body, {
+          dryRun: isDryRun(req),
+        });
+        if (!created) return { data: { valid: true, warnings: [] } };
+        return { data: toApiTrigger(created), status: 201 };
+      }),
+    },
+
+    /** `/api/v1/triggers/[id]`: one trigger, and changing it. */
+    v1Trigger: {
+      GET: v1Route<{ id: string }>("getTrigger", { permission: "manage" }, async ({ principal, params }) => ({
+        data: toApiTrigger(await services().campaign.getTrigger(principal, pathId(params.id, "Trigger"))),
+      })),
+      PATCH: v1Route<{ id: string }>("updateTrigger", { permission: "manage" }, async ({ principal, params, req, body }) => {
+        const updated = await services().campaign.updateFromApi(principal, pathId(params.id, "Trigger"), body, {
+          dryRun: isDryRun(req),
+        });
+        if (!updated) return { data: { valid: true, warnings: [] } };
+        return { data: toApiTrigger(updated) };
+      }),
     },
 
     /** `GET /api/v1/openapi.json`: the v1 spec, generated from the zod schemas. Public. */

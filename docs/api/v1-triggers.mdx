@@ -1,0 +1,52 @@
+---
+title: Triggers (API v1)
+description: List, read, create and change triggers - the link between a template and the send call in your code.
+---
+
+```bash tab="curl"
+# A trigger for template 42, with sample values for its variables
+curl -X POST "https://senlo.io/api/v1/triggers" \
+  -H "Authorization: Bearer $SENLO_MANAGE_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "name": "Password reset",
+    "templateId": 42,
+    "fromEmail": "security@example.com",
+    "variablesSchema": { "userName": "Ada", "resetLink": "https://example.com/r/abc" }
+  }'
+```
+
+A trigger is what your code sends: [`POST /api/triggered`](./triggered.mdx) takes its `id`, a recipient and `data` for its variables. The trigger names the template, the sender and the variables; the template is the content.
+
+Operations need a key with `manage`. See [the overview](./v1.mdx) for errors, `dryRun`, `Idempotency-Key` and pages.
+
+| Operation | What it does |
+| --- | --- |
+| `GET /api/v1/triggers` | The project's triggers, newest first. Paged. |
+| `GET /api/v1/triggers/{id}` | One trigger. |
+| `POST /api/v1/triggers` | Creates one: `name`, `templateId`, optional `description`, `fromName`, `fromEmail`, `variablesSchema`, `localeTemplates`. `201`. Takes `dryRun` and `Idempotency-Key`. |
+| `PATCH /api/v1/triggers/{id}` | Changes the fields sent, the template included; `null` clears an optional field. Takes `dryRun`. |
+
+## The trigger
+
+```json
+{
+  "id": 17,
+  "name": "Password reset",
+  "description": null,
+  "templateId": 42,
+  "localeTemplates": { "de": 43 },
+  "fromName": null,
+  "fromEmail": "security@example.com",
+  "variablesSchema": { "userName": "Ada", "resetLink": "https://example.com/r/abc" },
+  "createdAt": "2026-11-27T10:00:00.000Z",
+  "updatedAt": "2026-11-27T10:00:00.000Z"
+}
+```
+
+- **`variablesSchema`** holds a sample value for each variable, by name. Each name becomes a `{{merge tag}}` in the editor and the samples fill its preview. Send the same names in `data` with `POST /api/triggered`.
+- **`localeTemplates`** sends another template to contacts with that locale; everyone else gets `templateId`.
+- **`fromEmail`** and **`fromName`** override the workspace's default sender for this trigger.
+
+Every template named must be in the same project. Otherwise the answer is `400` with an issue at the field (`templateId` or `localeTemplates.de`).

@@ -6,6 +6,9 @@ import { OpenAPIRegistry, OpenApiGeneratorV3, extendZodWithOpenApi } from "@aste
 import { z } from "zod";
 import {
   ApiCreateTemplateDocSchema,
+  ApiCreateTriggerSchema,
+  ApiTriggerSchema,
+  ApiUpdateTriggerDocSchema,
   ApiErrorSchema,
   ApiMeSchema,
   ApiPreviewTemplateDocSchema,
@@ -33,6 +36,10 @@ export const API_V1_OPERATIONS = [
   "PATCH /api/v1/templates/{id}",
   "POST /api/v1/templates/preview",
   "POST /api/v1/templates/{id}/test-send",
+  "GET /api/v1/triggers",
+  "POST /api/v1/triggers",
+  "GET /api/v1/triggers/{id}",
+  "PATCH /api/v1/triggers/{id}",
 ] as const;
 
 function buildRegistry(): OpenAPIRegistry {
@@ -199,6 +206,80 @@ function buildRegistry(): OpenAPIRegistry {
       ...invalid,
       ...notFound,
       502: errorResponse("The provider refused the email or did not answer (PROVIDER_ERROR)."),
+      ...commonErrors,
+    },
+  });
+
+  const trigger = registry.register("Trigger", ApiTriggerSchema);
+  const pageQuery = z.object({
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_PAGE_SIZE)
+      .optional()
+      .openapi({ description: `Page size, default ${DEFAULT_PAGE_SIZE}.` }),
+    cursor: z.string().optional().openapi({ description: "nextCursor of the previous page." }),
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/api/v1/triggers",
+    operationId: "listTriggers",
+    summary: "List triggers",
+    description: "The project's triggers, newest first. A trigger's id is what POST /api/triggered takes.",
+    security,
+    request: { query: pageQuery },
+    responses: {
+      200: {
+        description: "A page of triggers.",
+        ...json(dataEnvelope(z.object({ items: z.array(trigger), nextCursor: z.string().nullable() }))),
+      },
+      ...invalid,
+      ...commonErrors,
+    },
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/api/v1/triggers",
+    operationId: "createTrigger",
+    summary: "Create a trigger",
+    description:
+      "A trigger sends one template from your code: POST /api/triggered with its id, a recipient and data for its variables. variablesSchema holds sample values by name; each name is a {{merge tag}} in the editor.",
+    security,
+    request: { query: dryRunQuery, headers: idempotencyHeader, body: json(ApiCreateTriggerSchema) },
+    responses: {
+      201: { description: "The trigger.", ...json(dataEnvelope(trigger)) },
+      200: { description: "dryRun: the request is valid.", ...json(dataEnvelope(validation)) },
+      ...invalid,
+      409: errorResponse("Idempotency-Key reused for another request, or the first one is still running."),
+      ...commonErrors,
+    },
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/api/v1/triggers/{id}",
+    operationId: "getTrigger",
+    summary: "Get a trigger",
+    security,
+    request: { params: idParam },
+    responses: { 200: { description: "The trigger.", ...json(dataEnvelope(trigger)) }, ...notFound, ...commonErrors },
+  });
+
+  registry.registerPath({
+    method: "patch",
+    path: "/api/v1/triggers/{id}",
+    operationId: "updateTrigger",
+    summary: "Change a trigger",
+    description: "Changes the fields sent, the template included; null clears an optional field.",
+    security,
+    request: { params: idParam, query: dryRunQuery, body: json(ApiUpdateTriggerDocSchema) },
+    responses: {
+      200: { description: "The trigger as changed, or (dryRun) { valid, warnings }.", ...json(dataEnvelope(trigger)) },
+      ...invalid,
+      ...notFound,
       ...commonErrors,
     },
   });

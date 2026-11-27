@@ -110,3 +110,20 @@ describe("EmailTemplateRepository.findPageByProject", () => {
     expect(await templates.findPageByProject(999, 10, null)).toEqual([]);
   });
 });
+
+describe("CampaignRepository.findTriggeredPage", () => {
+  it("pages a project's triggers only, newest first", async () => {
+    const { CampaignRepository } = await import("../repositories/campaignRepository");
+    const campaigns = new CampaignRepository(db);
+    const projectId = (await db.select().from(schema.emailTemplates).where(eq(schema.emailTemplates.id, templateId)))[0].projectId;
+    const make = (name: string, type: "TRIGGERED" | "STANDARD") =>
+      campaigns.create({ name, projectId, templateId, type, status: "DRAFT", listId: null } as never);
+    const a = await make("a", "TRIGGERED");
+    await make("legacy", "STANDARD");
+    const b = await make("b", "TRIGGERED");
+
+    expect((await campaigns.findTriggeredPage(projectId, 10, null)).map((c) => c.name)).toEqual(["b", "a"]);
+    expect((await campaigns.findTriggeredPage(projectId, 1, null)).map((c) => c.id)).toEqual([b.id]);
+    expect((await campaigns.findTriggeredPage(projectId, 10, b.id)).map((c) => c.id)).toEqual([a.id]);
+  });
+});

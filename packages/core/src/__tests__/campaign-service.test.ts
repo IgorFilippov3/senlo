@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { CampaignService } from "../services/campaignService";
-import { FormValidationError, NotFoundError, ValidationError } from "../errors";
+import { FormValidationError, NotFoundError, PermissionRequiredError, ValidationError } from "../errors";
+import { principalFromApiKey } from "../api-principal";
 import type { Campaign, Project } from "../domain";
 import type { EmailTemplate } from "../emailTemplate";
 
@@ -28,6 +29,11 @@ function fakes(seed: Campaign[]) {
     campaigns: {
       findById: async (id: number) => rows.get(id) ?? null,
       findByProject: async (pid: number) => [...rows.values()].filter((c) => c.projectId === pid),
+      findTriggeredPage: async (pid: number, limit: number, beforeId: number | null) =>
+        [...rows.values()]
+          .filter((c) => c.projectId === pid && c.type === "TRIGGERED" && (beforeId === null || c.id < beforeId))
+          .sort((a, b) => b.id - a.id)
+          .slice(0, limit),
       create: async (d: Omit<Campaign, "id" | "createdAt" | "updatedAt">) => {
         const c = { ...d, id: 999, createdAt: new Date(), updatedAt: new Date() } as Campaign;
         rows.set(999, c);
@@ -182,5 +188,96 @@ describe("CampaignService.getTimeSeriesStats", () => {
     for (const options of bad) {
       await expect(service.getTimeSeriesStats("alice", 100, options as never)).rejects.toBeInstanceOf(ValidationError);
     }
+  });
+});
+
+describe("CampaignService through API v1", () => {
+  const agent = principalFromApiKey({ id: 3, projectId: 1, permissions: ["manage"] }, null);
+  const seed = () => [
+    campaign({ id: 100, projectId: 1 }),
+    campaign({ id: 101, projectId: 1, type: "STANDARD" as never }),
+    campaign({ id: 102, projectId: 1, name: "newest" }),
+    campaign({ id: 200, projectId: 2, templateId: 20 }),
+  ];
+
+  it("pages the project's triggers only, newest first", async () => {
+    const { service } = fakes(seed());
+    const first = await service.listPage(agent, 1, { limit: 1, beforeId: null });
+    expect(first.items.map((c) => c.id)).toEqual([102]);
+    const rest = await service.listPage(agent, 1, { limit: 10, beforeId: 102 });
+    expect(rest).toEqual({ items: [expect.objectContaining({ id: 100 })], nextCursor: null });
+    await expect(service.listPage(agent, 2, { limit: 10, beforeId: null })).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("reads a trigger of its project, not another type of campaign", async () => {
+    const { service } = fakes(seed());
+    expect((await service.getTrigger(agent, 100)).id).toBe(100);
+    await expect(service.getTrigger(agent, 101)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.getTrigger(agent, 200)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("creates a trigger with variables as an object, not a JSON string", async () => {
+    const { service, rows } = fakes(seed());
+    const created = await service.createFromApi(agent, 1, {
+      name: "Password reset",
+      templateId: 10,
+      variablesSchema: { userName: "Ada", resetLink: "https://x.io/r" },
+      fromEmail: "hi@x.io",
+    });
+    expect(created).toMatchObject({
+      name: "Password reset",
+      projectId: 1,
+      templateId: 10,
+      type: "TRIGGERED",
+      variablesSchema: { userName: "Ada", resetLink: "https://x.io/r" },
+      fromEmail: "hi@x.io",
+      fromName: null,
+      localeTemplates: null,
+    });
+    expect(rows.get(999)).toBe(created);
+  });
+
+  it("names the field when a template is not in the project, and stores nothing on dryRun", async () => {
+    const { service, rows } = fakes(seed());
+    const wrong = await service
+      .createFromApi(agent, 1, { name: "T", templateId: 20, localeTemplates: { de: 99 } })
+      .catch((e) => e);
+    expect(wrong).toBeInstanceOf(ValidationError);
+    expect(wrong.details.issues.map((i: { path: string }) => i.path)).toEqual(["templateId", "localeTemplates.de"]);
+
+    expect(await service.createFromApi(agent, 1, { name: "T", templateId: 10 }, { dryRun: true })).toBeNull();
+    expect(rows.has(999)).toBe(false);
+    await expect(service.createFromApi(agent, 1, { name: "T", templateId: 10, template: 10 })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+  });
+
+  it("changes only what is sent, the template included; null clears", async () => {
+    const { service, updates } = fakes(seed());
+    await service.updateFromApi(agent, 100, { fromName: null, variablesSchema: { orderId: 1 } });
+    expect(updates[0]).toEqual({
+      id: 100,
+      data: {
+        name: undefined,
+        description: undefined,
+        templateId: undefined,
+        localeTemplates: undefined,
+        fromName: null,
+        fromEmail: undefined,
+        variablesSchema: { orderId: 1 },
+      },
+    });
+
+    await expect(service.updateFromApi(agent, 100, { templateId: 20 })).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.updateFromApi(agent, 100, {})).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.updateFromApi(agent, 200, { name: "x" })).rejects.toBeInstanceOf(NotFoundError);
+    expect(await service.updateFromApi(agent, 100, { name: "dry" }, { dryRun: true })).toBeNull();
+    expect(updates).toHaveLength(1);
+  });
+
+  it("refuses a send-only key", async () => {
+    const { service } = fakes(seed());
+    const sender = principalFromApiKey({ id: 4, projectId: 1, permissions: ["send"] }, null);
+    await expect(service.getTrigger(sender, 100)).rejects.toBeInstanceOf(PermissionRequiredError);
   });
 });

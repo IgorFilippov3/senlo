@@ -22,6 +22,9 @@ import type {
   ITriggeredSendLogRepository,
 } from "../ports";
 import { boundedInt, parseInput } from "../validation";
+import { parseApiInput } from "../api-issues";
+import { pageOf, type Page, type PageRequest } from "../api-v1/pagination";
+import { ApiCreateTriggerSchema, ApiUpdateTriggerSchema } from "../api-v1/schemas";
 import { jsonObjectError } from "../json-object";
 
 const optionalId = z.preprocess(
@@ -225,6 +228,115 @@ export class CampaignService {
     const { project } = await this.requireCampaign(userId, campaignId, "write");
     await this.repos.campaigns.delete(campaignId);
     return { project };
+  }
+
+  // ---------------------------------------------------------------- API v1
+
+  /** A page of the project's triggers, newest first. */
+  async listPage(caller: Caller, projectId: number, page: PageRequest): Promise<Page<Campaign>> {
+    await this.access.requireProject(caller, projectId, "read");
+    return pageOf(
+      await this.repos.campaigns.findTriggeredPage(projectId, page.limit + 1, page.beforeId),
+      page.limit,
+    );
+  }
+
+  /** One trigger; a campaign of another type is not one. */
+  getTrigger(caller: Caller, campaignId: number): Promise<Campaign> {
+    return this.getTriggerFor(caller, campaignId, "read");
+  }
+
+  /**
+   * A trigger from API v1: its template (and locale templates) must be in
+   * the project. With `dryRun` nothing is stored: the result is null.
+   */
+  async createFromApi(
+    caller: Caller,
+    projectId: number,
+    rawInput: unknown,
+    { dryRun = false }: { dryRun?: boolean } = {},
+  ): Promise<Campaign | null> {
+    await this.access.requireProject(caller, projectId, "write");
+    const input = parseApiInput(ApiCreateTriggerSchema, rawInput);
+    await this.requireApiTemplates(projectId, input.templateId, input.localeTemplates);
+    if (dryRun) return null;
+
+    return this.repos.campaigns.create({
+      name: input.name,
+      description: input.description ?? null,
+      projectId,
+      templateId: input.templateId,
+      localeTemplates: input.localeTemplates ?? null,
+      listId: null,
+      type: "TRIGGERED",
+      variablesSchema: input.variablesSchema ?? null,
+      fromName: input.fromName ?? null,
+      fromEmail: input.fromEmail ?? null,
+      status: "DRAFT",
+    });
+  }
+
+  /**
+   * Changes the fields sent (API v1), the template included; null clears an
+   * optional one. With `dryRun` nothing is stored: the result is null.
+   */
+  async updateFromApi(
+    caller: Caller,
+    campaignId: number,
+    rawInput: unknown,
+    { dryRun = false }: { dryRun?: boolean } = {},
+  ): Promise<Campaign | null> {
+    const campaign = await this.getTriggerFor(caller, campaignId, "write");
+    const input = parseApiInput(ApiUpdateTriggerSchema, rawInput);
+    await this.requireApiTemplates(campaign.projectId, input.templateId, input.localeTemplates);
+    if (dryRun) return null;
+
+    const updated = await this.repos.campaigns.update(campaignId, {
+      name: input.name,
+      description: input.description,
+      templateId: input.templateId,
+      localeTemplates: input.localeTemplates,
+      fromName: input.fromName,
+      fromEmail: input.fromEmail,
+      variablesSchema: input.variablesSchema,
+    });
+    if (!updated) throw new NotFoundError("Trigger", campaignId);
+    return updated;
+  }
+
+  private async getTriggerFor(caller: Caller, campaignId: number, action: AccessAction): Promise<Campaign> {
+    const { campaign } = await this.requireCampaign(caller, campaignId, action);
+    if (campaign.type !== "TRIGGERED") throw new NotFoundError("Trigger", campaignId);
+    return campaign;
+  }
+
+  /**
+   * The templates a trigger names through the API, each in the project. A
+   * missing one is a field error at its path, so the caller knows which.
+   */
+  private async requireApiTemplates(
+    projectId: number,
+    templateId: number | undefined,
+    localeTemplates: Record<string, number> | null | undefined,
+  ): Promise<void> {
+    const named: Array<[string, number]> = [
+      ...(templateId !== undefined ? [["templateId", templateId] as [string, number]] : []),
+      ...Object.entries(localeTemplates ?? {}).map(([locale, id]) => [`localeTemplates.${locale}`, id] as [string, number]),
+    ];
+    const issues = [];
+    for (const [path, id] of named) {
+      const template = await this.repos.templates.findById(id);
+      if (!template || template.projectId !== projectId) {
+        issues.push({ path, code: "not_found", message: `No template ${id} in this workspace.` });
+      }
+    }
+    if (issues.length > 0) {
+      throw new ValidationError(
+        issues.length === 1 ? `${issues[0].path}: ${issues[0].message}` : `The request has ${issues.length} invalid fields.`,
+        { issues, issueCount: issues.length },
+        "Use the id of a template in this workspace: GET /api/v1/templates lists them.",
+      );
+    }
   }
 
   /**

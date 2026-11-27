@@ -346,6 +346,8 @@ export interface ICampaignRepository {
   findByProject(projectId: number): Promise<Campaign[]>;
   /** The trigger that uses the template, if any. */
   findByTemplateId(templateId: number): Promise<Campaign | null>;
+  /** The project's triggers (TRIGGERED campaigns), newest first, below `beforeId` when given. */
+  findTriggeredPage(projectId: number, limit: number, beforeId: number | null): Promise<Campaign[]>;
   update(
     id: number,
     data: Partial<

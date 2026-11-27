@@ -8,6 +8,7 @@
     "workflows",
     "v1",
     "v1-templates",
+    "v1-triggers",
     "webhooks",
     "tracking-and-unsubscribe",
     "errors"

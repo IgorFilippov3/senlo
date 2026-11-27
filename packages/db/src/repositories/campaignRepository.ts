@@ -1,4 +1,4 @@
-import { eq, desc, and, ilike, sql } from "drizzle-orm";
+import { eq, desc, and, ilike, lt, sql } from "drizzle-orm";
 import { campaigns, campaignEvents, campaignDailyStats } from "../schema";
 import {
   addCampaignStats,
@@ -107,6 +107,18 @@ export class CampaignRepository
       .where(eq(campaigns.projectId, projectId))
       .orderBy(desc(campaigns.createdAt));
 
+    return rows.map((r) => this.mapToEntity(r));
+  }
+
+  async findTriggeredPage(projectId: number, limit: number, beforeId: number | null): Promise<Campaign[]> {
+    const conditions = [eq(campaigns.projectId, projectId), eq(campaigns.type, "TRIGGERED")];
+    if (beforeId !== null) conditions.push(lt(campaigns.id, beforeId));
+    const rows = await this.db
+      .select()
+      .from(campaigns)
+      .where(and(...conditions))
+      .orderBy(desc(campaigns.id))
+      .limit(limit);
     return rows.map((r) => this.mapToEntity(r));
   }
 
