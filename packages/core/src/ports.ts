@@ -200,6 +200,8 @@ export interface IEmailTemplateRepository {
 
   findById(id: number): Promise<EmailTemplate | null>;
   findByProject(projectId: number): Promise<EmailTemplate[]>;
+  /** Newest first: at most `limit` templates with an id below `beforeId` (all when null). */
+  findPageByProject(projectId: number, limit: number, beforeId: number | null): Promise<EmailTemplate[]>;
   update(input: UpdateEmailTemplateInput): Promise<EmailTemplate | null>;
   delete(id: number): Promise<void>;
 }

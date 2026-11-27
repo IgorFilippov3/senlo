@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
 import { emailTemplates } from "../schema";
 import {
   EmailTemplate,
@@ -59,6 +59,20 @@ export class EmailTemplateRepository extends BaseRepository<
       .where(eq(emailTemplates.projectId, projectId))
       .orderBy(emailTemplates.createdAt);
 
+    return rows.map((r) => this.mapToEntity(r));
+  }
+
+  async findPageByProject(projectId: number, limit: number, beforeId: number | null): Promise<EmailTemplate[]> {
+    const rows = await this.db
+      .select()
+      .from(emailTemplates)
+      .where(
+        beforeId === null
+          ? eq(emailTemplates.projectId, projectId)
+          : and(eq(emailTemplates.projectId, projectId), lt(emailTemplates.id, beforeId)),
+      )
+      .orderBy(desc(emailTemplates.id))
+      .limit(limit);
     return rows.map((r) => this.mapToEntity(r));
   }
 

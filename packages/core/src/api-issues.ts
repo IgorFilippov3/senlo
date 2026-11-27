@@ -37,6 +37,22 @@ export function formatIssuePath(path: readonly (string | number)[]): string {
 export function apiIssues(error: z.ZodError): ApiIssue[] {
   const issues: ApiIssue[] = [];
   for (const issue of error.issues) {
+    if (issue.code === "invalid_union") {
+      // A block is a union of block types; zod's own issue says only
+      // "Invalid input" at the block. The branch whose `type` matched is the
+      // one the caller meant, and its issues name the actual field.
+      const branch = intendedBranch(issue.unionErrors);
+      if (branch) {
+        issues.push(...apiIssues(branch));
+      } else {
+        issues.push({
+          path: formatIssuePath(issue.path),
+          code: "invalid_union",
+          message: "Matches none of the allowed shapes. For a block, check that its type is one Senlo knows.",
+        });
+      }
+      continue;
+    }
     if (issue.code === "unrecognized_keys") {
       for (const key of issue.keys) {
         issues.push({
@@ -50,6 +66,17 @@ export function apiIssues(error: z.ZodError): ApiIssue[] {
     issues.push({ path: formatIssuePath(issue.path), code: issue.code, message: issue.message });
   }
   return issues;
+}
+
+/**
+ * The union branch a value was meant for: one whose discriminator (`type`)
+ * did not fail, with the fewest issues. None when every branch rejected the
+ * discriminator itself (an unknown block type).
+ */
+function intendedBranch(branches: z.ZodError[]): z.ZodError | undefined {
+  const typeFailed = (e: z.ZodError) =>
+    e.issues.some((i) => i.code === "invalid_literal" && i.path[i.path.length - 1] === "type");
+  return branches.filter((e) => !typeFailed(e)).sort((a, b) => a.issues.length - b.issues.length)[0];
 }
 
 /**

@@ -1,0 +1,68 @@
+---
+title: Templates (API v1)
+description: List, read, create, change, preview and test-send templates as design documents.
+---
+
+```bash tab="curl"
+# Create a template from a design document
+curl -X POST "https://senlo.io/api/v1/templates" \
+  -H "Authorization: Bearer $SENLO_MANAGE_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "name": "Password reset",
+    "subject": "Reset your password, {{userName}}",
+    "design": { "version": 1, "rows": [], "settings": {} }
+  }'
+
+# Preview it with values for its variables
+curl -X POST "https://senlo.io/api/v1/templates/preview" \
+  -H "Authorization: Bearer $SENLO_MANAGE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "templateId": 42, "data": { "userName": "Ada", "resetLink": "https://example.com/r/abc" } }'
+```
+
+A template is a **design document** of rows, columns and blocks, the format the visual editor saves; not HTML. The server renders the HTML, so whatever an agent creates opens in the editor and can be changed there by anyone. Every change through the API is kept as a version (source `api`, or `mcp` when `Senlo-Client` starts with `mcp`) and can be restored from the editor's **History**.
+
+Operations need a key with `manage`. See [the overview](./v1.mdx) for errors, `dryRun`, `Idempotency-Key` and pages.
+
+| Operation | What it does |
+| --- | --- |
+| `GET /api/v1/templates` | The project's templates, newest first, without designs. Paged. |
+| `GET /api/v1/templates/{id}` | One template with its `design`. |
+| `POST /api/v1/templates` | Creates one: `name`, `subject`, `design`, optional `preheader` and `locale`. `201`. Takes `dryRun` and `Idempotency-Key`. |
+| `PATCH /api/v1/templates/{id}` | Changes the fields sent; `design` replaces the whole document. Takes `dryRun`. |
+| `POST /api/v1/templates/preview` | Renders `templateId` (saved) or `design` (unsaved) with `data` for its variables: `{ subject, html, text }`. Stores and sends nothing. |
+| `POST /api/v1/templates/{id}/test-send` | Sends the saved template now to `to`, a member of the organization, with optional `data` and `from`. Takes `Idempotency-Key`. |
+
+## The template
+
+```json
+{
+  "id": 42,
+  "name": "Password reset",
+  "subject": "Reset your password, {{userName}}",
+  "preheader": null,
+  "locale": "en",
+  "status": "draft",
+  "createdAt": "2026-11-27T10:00:00.000Z",
+  "updatedAt": "2026-11-27T10:00:00.000Z",
+  "design": { "version": 1, "rows": [], "settings": {} }
+}
+```
+
+`design` is only in single-template answers, not in lists.
+
+## Errors in a design
+
+A design is checked block by block; each problem comes back as an issue with its full path, so it can be fixed without guessing:
+
+```json
+{ "path": "design.rows[2].columns[0].blocks[1].props.href", "code": "invalid_string", "message": "Invalid url" }
+```
+
+A field the format does not know is dropped inside the design, but refused at the top of the body (`UNKNOWN_FIELD`): `subjet` instead of `subject` fails rather than creating a template without a subject.
+
+## Test sends
+
+The test goes through the project's provider to an address of the organization only; `details.allowed` in the `403 RECIPIENT_NOT_ALLOWED` answer lists them. `data` fills the variables in the body and the subject, as a trigger send would. The answer is `{ "sent": true, "to", "messageId" }` once the provider has accepted the email; a refusal is `502 PROVIDER_ERROR` with the provider's reason.

@@ -100,6 +100,11 @@ function templateFakes() {
     templates: {
       findById: async (id: number) => templates.get(id) ?? null,
       findByProject: async (pid: number) => [...templates.values()].filter((t) => t.projectId === pid),
+      findPageByProject: async (pid: number, limit: number, beforeId: number | null) =>
+        [...templates.values()]
+          .filter((t) => t.projectId === pid && (beforeId === null || t.id < beforeId))
+          .sort((a, b) => b.id - a.id)
+          .slice(0, limit),
       create: vi.fn(async (d: any) => ({ ...tpl(99, d.projectId), ...d })),
       update: vi.fn(async (d: any) => (templates.has(d.id) ? { ...templates.get(d.id)!, ...d } : null)),
       delete: vi.fn(async (id: number) => { templates.delete(id); }),
@@ -466,5 +471,114 @@ describe("SettingsService (API keys)", () => {
     await expect(service.createApiKey("alice", 1, "k", ["admin"])).rejects.toBeInstanceOf(ValidationError);
     await expect(service.createApiKey("alice", 1, "k", "send")).rejects.toBeInstanceOf(ValidationError);
     expect(repo.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("TemplateService through API v1", () => {
+  const agent = principalFromApiKey({ id: 3, projectId: 1, permissions: ["manage"] }, "mcp/1.0.0");
+  const curl = principalFromApiKey({ id: 4, projectId: 1, permissions: ["manage"] }, null);
+  const validDesign = { version: 1, rows: [], settings: {} };
+  const service = () => {
+    const fakes = templateFakes();
+    // The guard over the same projects, with alice's address for test sends.
+    const guard = new AccessGuard(fakes.repos.projects, ownerAccessPolicy, {
+      findById: async (id: string) => (id === "alice" ? ({ id, email: "alice@x.io" } as never) : null),
+    });
+    const s = new TemplateService(fakes.repos, () => fakes.mailer, { appUrl: "https://app.test", defaultFromEmail: "hello@app.test" }, guard);
+    return { ...fakes, service: s };
+  };
+
+  it("lists a page of the key's project, newest first, with a cursor", async () => {
+    const { service: s } = service();
+    const first = await s.listPage(agent, 1, { limit: 1, beforeId: null });
+    expect(first.items.map((t) => t.id)).toEqual([11]);
+    expect(first.nextCursor).toBeTruthy();
+    const second = await s.listPage(agent, 1, { limit: 1, beforeId: 11 });
+    expect(second).toEqual({ items: [expect.objectContaining({ id: 10 })], nextCursor: null });
+    await expect(s.listPage(agent, 2, { limit: 10, beforeId: null })).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("creates from a design: server-rendered HTML, the first version marked mcp", async () => {
+    const { service: s, repos } = service();
+    const created = await s.createFromApi(agent, 1, {
+      name: "Reset password",
+      subject: "Reset your password",
+      preheader: "",
+      design: validDesign,
+    });
+
+    const stored = repos.templates.create.mock.calls[0][0];
+    expect(stored).toMatchObject({ projectId: 1, name: "Reset password", subject: "Reset your password", preheader: null, locale: "en" });
+    expect(stored.html).toContain("<html");
+    expect(stored.designJson).toMatchObject({ rows: [] });
+    expect(created?.id).toBe(99);
+    expect(repos.templateVersions.rows).toEqual([
+      expect.objectContaining({ templateId: 99, version: 1, source: "mcp", subject: "Reset your password", author: null }),
+    ]);
+  });
+
+  it("checks without storing on dryRun, and names the field that is wrong", async () => {
+    const { service: s, repos } = service();
+    expect(await s.createFromApi(agent, 1, { name: "A", subject: "S", design: validDesign }, { dryRun: true })).toBeNull();
+    expect(repos.templates.create).not.toHaveBeenCalled();
+
+    const bad = await s
+      .createFromApi(agent, 1, { name: "A", subject: "S", design: { rows: [{ id: 1 }] } }, { dryRun: true })
+      .catch((e) => e);
+    expect(bad).toBeInstanceOf(ValidationError);
+    expect(bad.details.issues[0].path).toMatch(/^design\.rows\[0\]/);
+
+    const typo = await s.createFromApi(agent, 1, { name: "A", subjet: "S", design: validDesign }).catch((e) => e);
+    expect(typo.details.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: "subjet", code: "unrecognized_keys" })]),
+    );
+  });
+
+  it("refuses to create in another project, before looking at the body", async () => {
+    const { service: s } = service();
+    await expect(s.createFromApi(agent, 2, {})).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("updates only what is sent, keeps a version and renders the HTML again", async () => {
+    const { service: s, repos } = service();
+    await s.updateFromApi(curl, 10, { subject: "New subject" });
+
+    const update = repos.templates.update.mock.calls[0][0];
+    expect(update).toMatchObject({ id: 10, subject: "New subject", name: undefined, preheader: null });
+    expect(update.html).toContain("<html");
+    expect(repos.templateVersions.rows).toEqual([expect.objectContaining({ subject: "New subject", source: "api" })]);
+
+    await expect(s.updateFromApi(curl, 10, {})).rejects.toBeInstanceOf(ValidationError);
+    await expect(s.updateFromApi(curl, 20, { subject: "x" })).rejects.toBeInstanceOf(NotFoundError);
+    expect(await s.updateFromApi(curl, 10, { subject: "Dry" }, { dryRun: true })).toBeNull();
+    expect(repos.templates.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("previews a saved template or an unsaved design with variables filled in", async () => {
+    const { service: s } = service();
+    const saved = await s.previewFromApi(agent, 1, { templateId: 10, subject: "Hi {{name}}", data: { name: "Ada" } });
+    expect(saved.subject).toBe("Hi Ada");
+    expect(saved.html).toContain("<html");
+    expect(typeof saved.text).toBe("string");
+
+    const unsaved = await s.previewFromApi(agent, 1, { design: validDesign });
+    expect(unsaved.html).toContain("<html");
+
+    await expect(s.previewFromApi(agent, 1, { templateId: 10, design: validDesign })).rejects.toBeInstanceOf(ValidationError);
+    await expect(s.previewFromApi(agent, 1, {})).rejects.toBeInstanceOf(ValidationError);
+    await expect(s.previewFromApi(agent, 1, { templateId: 20 })).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("sends a test of the saved template to a member, with variables in the subject", async () => {
+    const { service: s, mailer } = service();
+    s["repos"].templates.findById = async (id: number) => (id === 10 ? tpl(10, 1, { subject: "Hi {{name}}" }) : null);
+
+    expect(await s.sendTestFromApi(agent, 10, { to: "alice@x.io", data: { name: "Ada" } })).toEqual({
+      to: "alice@x.io",
+      messageId: "m-1",
+    });
+    expect((mailer.send.mock.calls[0] as any)[0].subject).toBe("[TEST] Hi Ada");
+    await expect(s.sendTestFromApi(agent, 10, { to: "eve@x.io" })).rejects.toBeInstanceOf(RecipientNotAllowedError);
+    await expect(s.sendTestFromApi(agent, 10, { to: "not an address" })).rejects.toBeInstanceOf(ValidationError);
   });
 });

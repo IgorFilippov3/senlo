@@ -5,10 +5,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { PermissionRequiredError, logError, type ApiPermission } from "@senlo/core";
 import { apiV1OpenApiDocument } from "@senlo/core/server";
-import type { ApiMe } from "@senlo/core/server";
+import {
+  parsePageQuery,
+  toApiTemplate,
+  toApiTemplateSummary,
+  type ApiMe,
+} from "@senlo/core/server";
 import { validateApiKey } from "./api-auth";
 import { REQUEST_ID_HEADER, newRequestId } from "./api-v1";
-import { createV1Route } from "./api-v1-route";
+import { createV1Route, isDryRun, pathId } from "./api-v1-route";
 import { errorResponse } from "./errors";
 import type { SenloHost } from "./host";
 import { confirmLeavingResponse, pixelResponse, requestMetadata } from "./tracking";
@@ -119,6 +124,57 @@ export function createSenloRoutes(host: SenloHost) {
         };
         return { data: me };
       }),
+    },
+
+    /** `/api/v1/templates`: the key's project's templates, and creating one from a design. */
+    v1Templates: {
+      GET: v1Route("listTemplates", { permission: "manage" }, async ({ principal, req }) => {
+        const page = await services().template.listPage(
+          principal,
+          principal.projectId,
+          parsePageQuery(new URL(req.url).searchParams),
+        );
+        return { data: { items: page.items.map(toApiTemplateSummary), nextCursor: page.nextCursor } };
+      }),
+      POST: v1Route("createTemplate", { permission: "manage", idempotent: true }, async ({ principal, req, body }) => {
+        const dryRun = isDryRun(req);
+        const created = await services().template.createFromApi(principal, principal.projectId, body, { dryRun });
+        if (!created) return { data: { valid: true, warnings: [] } };
+        return { data: toApiTemplate(created, created.designJson), status: 201 };
+      }),
+    },
+
+    /** `/api/v1/templates/[id]`: one template with its design, and changing it. */
+    v1Template: {
+      GET: v1Route<{ id: string }>("getTemplate", { permission: "manage" }, async ({ principal, params }) => {
+        const { template, design } = await services().template.getWithDesign(principal, pathId(params.id, "Template"));
+        return { data: toApiTemplate(template, design) };
+      }),
+      PATCH: v1Route<{ id: string }>("updateTemplate", { permission: "manage" }, async ({ principal, params, req, body }) => {
+        const id = pathId(params.id, "Template");
+        const updated = await services().template.updateFromApi(principal, id, body, { dryRun: isDryRun(req) });
+        if (!updated) return { data: { valid: true, warnings: [] } };
+        return { data: toApiTemplate(updated, updated.designJson) };
+      }),
+    },
+
+    /** `POST /api/v1/templates/preview`: the rendered email, stored and sent nowhere. */
+    v1TemplatePreview: {
+      POST: v1Route("previewTemplate", { permission: "manage" }, async ({ principal, body }) => ({
+        data: await services().template.previewFromApi(principal, principal.projectId, body),
+      })),
+    },
+
+    /** `POST /api/v1/templates/[id]/test-send`: a test to a member of the organization. */
+    v1TemplateTestSend: {
+      POST: v1Route<{ id: string }>(
+        "sendTestTemplate",
+        { permission: "manage", idempotent: true },
+        async ({ principal, params, body }) => {
+          const result = await services().template.sendTestFromApi(principal, pathId(params.id, "Template"), body);
+          return { data: { sent: true, ...result } };
+        },
+      ),
     },
 
     /** `GET /api/v1/openapi.json`: the v1 spec, generated from the zod schemas. Public. */

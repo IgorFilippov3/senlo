@@ -4,6 +4,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  NotFoundError,
   RateLimitedError,
   UnauthorizedError,
   ValidationError,
@@ -59,6 +60,18 @@ async function readBody(req: NextRequest): Promise<unknown> {
       "Send a JSON object with Content-Type: application/json.",
     );
   }
+}
+
+/** An `[id]` path segment as a number; anything else is the record not being there. */
+export function pathId(raw: string, resource: string): number {
+  const id = Number(raw);
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(id) || id <= 0) throw new NotFoundError(resource);
+  return id;
+}
+
+/** `?dryRun=true`: check the request, store nothing. */
+export function isDryRun(req: NextRequest): boolean {
+  return new URL(req.url).searchParams.get("dryRun") === "true";
 }
 
 /** The rate-limit caller of a principal: its key, or its user and project. */

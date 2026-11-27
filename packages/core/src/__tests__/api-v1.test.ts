@@ -82,6 +82,24 @@ describe("API issues", () => {
     ]);
   });
 
+  it("follows a union to the branch its type names, down to the field", () => {
+    const block = z.union([
+      z.object({ type: z.literal("button"), props: z.object({ href: z.string().url() }) }),
+      z.object({ type: z.literal("text"), props: z.object({ text: z.string() }) }),
+    ]);
+    const doc = z.object({ blocks: z.array(block) });
+
+    const wrongField = doc.safeParse({ blocks: [{ type: "text", props: { text: "ok" } }, { type: "button", props: { href: "x" } }] });
+    expect(apiIssues((wrongField as z.SafeParseError<unknown>).error)).toEqual([
+      { path: "blocks[1].props.href", code: "invalid_string", message: "Invalid url" },
+    ]);
+
+    const unknownType = doc.safeParse({ blocks: [{ type: "video", props: {} }] });
+    expect(apiIssues((unknownType as z.SafeParseError<unknown>).error)).toEqual([
+      expect.objectContaining({ path: "blocks[0]", code: "invalid_union" }),
+    ]);
+  });
+
   it("parseApiInput returns the data or throws a ValidationError with issues and a hint", () => {
     expect(parseApiInput(z.object({ a: z.number() }), { a: 1 })).toEqual({ a: 1 });
 

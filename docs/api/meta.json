@@ -6,6 +6,8 @@
     "events",
     "cancel-automations",
     "workflows",
+    "v1",
+    "v1-templates",
     "webhooks",
     "tracking-and-unsubscribe",
     "errors"

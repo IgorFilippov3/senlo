@@ -19,7 +19,16 @@ import type {
 import { sameJson } from "../canonical-json";
 import { NotFoundError, ProviderError, RecipientNotAllowedError, ValidationError } from "../errors";
 import { auditActor, isApiCaller, type Caller } from "../caller";
-import type { MergeTag } from "../merge-tags";
+import { replaceMergeTags, type MergeTag } from "../merge-tags";
+import { parseApiInput } from "../api-issues";
+import { pageOf, type Page, type PageRequest } from "../api-v1/pagination";
+import {
+  ApiCreateTemplateSchema,
+  ApiPreviewTemplateSchema,
+  ApiTestSendSchema,
+  ApiUpdateTemplateSchema,
+  type ApiTemplatePreview,
+} from "../api-v1/schemas";
 import type {
   ICampaignRepository,
   IEmailProviderRepository,
@@ -57,6 +66,11 @@ export interface EditorSaveInput {
 }
 
 export interface TestSendInput {
+  /**
+   * Values for the template's variables, as a trigger send would pass them.
+   * When given, the subject's variables are filled in too.
+   */
+  data?: Record<string, unknown>;
   to: string;
   from?: string;
   design: EmailDesignDocument;
@@ -113,6 +127,26 @@ function contentOf(template: Pick<EmailTemplate, "designJson" | "subject" | "pre
     subject: template.subject,
     preheader: template.preheader || null,
   };
+}
+
+/** The merge data of a preview: a sample recipient, with the caller's variables on top. */
+function previewData(variables: Record<string, unknown> | undefined, project: Project) {
+  return {
+    contact: { email: "recipient@example.com", name: "Test Recipient", first_name: "Test", last_name: "Recipient", ...variables },
+    custom: variables,
+    project: { name: project.name },
+  };
+}
+
+/** A test's subject: variables filled in only when the caller gave values. */
+function testSubject(subject: string, input: TestSendInput, project: Project): string {
+  if (!input.data) return subject;
+  return replaceMergeTags(
+    subject,
+    { contact: { email: input.to, ...input.data }, custom: input.data, project: { name: project.name } },
+    undefined,
+    { escape: false },
+  );
 }
 
 function sameContent(a: TemplateContent, b: TemplateContent): boolean {
@@ -266,6 +300,157 @@ export class TemplateService {
     return updated;
   }
 
+  // ---------------------------------------------------------------- API v1
+
+  /** A page of the project's templates, newest first, without designs. */
+  async listPage(caller: Caller, projectId: number, page: PageRequest): Promise<Page<EmailTemplate>> {
+    await this.access.requireProject(caller, projectId, "read");
+    return pageOf(
+      await this.repos.templates.findPageByProject(projectId, page.limit + 1, page.beforeId),
+      page.limit,
+    );
+  }
+
+  /** One template and its design (the empty one when it was never designed). */
+  async getWithDesign(caller: Caller, templateId: number): Promise<{ template: EmailTemplate; design: EmailDesignDocument }> {
+    const { template } = await this.requireTemplate(caller, templateId, "read");
+    return { template, design: template.designJson ?? EMPTY_EMAIL_DESIGN };
+  }
+
+  /** The stored HTML of a design, rendered as the editor renders it on save. */
+  private async renderStoredHtml(projectId: number, content: TemplateContent): Promise<string> {
+    return renderEmailDesign(content.design, {
+      baseUrl: await resolveProjectBaseUrl(this.resolveBaseUrl, projectId),
+      title: content.subject,
+      preheader: content.preheader ?? undefined,
+    });
+  }
+
+  /**
+   * A template from a design document (API v1). The server renders the HTML;
+   * the first version is kept. With `dryRun` the request is checked and
+   * nothing is stored: the result is null.
+   */
+  async createFromApi(
+    caller: Caller,
+    projectId: number,
+    rawInput: unknown,
+    { dryRun = false }: { dryRun?: boolean } = {},
+  ): Promise<EmailTemplate | null> {
+    await this.access.requireProject(caller, projectId, "write");
+    const input = parseApiInput(ApiCreateTemplateSchema, rawInput);
+    if (dryRun) return null;
+
+    const content: TemplateContent = {
+      design: input.design as EmailDesignDocument,
+      subject: input.subject,
+      preheader: input.preheader || null,
+    };
+    const template = await this.repos.templates.create({
+      projectId,
+      name: input.name,
+      subject: content.subject,
+      preheader: content.preheader,
+      locale: input.locale ?? "en",
+      html: await this.renderStoredHtml(projectId, content),
+      designJson: content.design,
+    });
+    await this.recordVersion(template, content, caller);
+    await this.audit(caller, "created", template.id, projectId);
+    return template;
+  }
+
+  /**
+   * Changes the fields sent (API v1); `design` replaces the whole document.
+   * The change is kept as a version and the HTML is rendered again. With
+   * `dryRun` nothing is stored: the result is null.
+   */
+  async updateFromApi(
+    caller: Caller,
+    templateId: number,
+    rawInput: unknown,
+    { dryRun = false }: { dryRun?: boolean } = {},
+  ): Promise<EmailTemplate | null> {
+    const { template, project } = await this.requireTemplate(caller, templateId, "write");
+    const input = parseApiInput(ApiUpdateTemplateSchema, rawInput);
+    if (dryRun) return null;
+
+    const current = contentOf(template);
+    const next: TemplateContent = {
+      design: (input.design as EmailDesignDocument | undefined) ?? current.design,
+      subject: input.subject ?? current.subject,
+      preheader: input.preheader !== undefined ? input.preheader || null : current.preheader,
+    };
+    await this.recordVersion(template, next, caller);
+    const updated = await this.repos.templates.update({
+      id: templateId,
+      name: input.name,
+      locale: input.locale,
+      subject: next.subject,
+      preheader: next.preheader,
+      designJson: next.design,
+      html: await this.renderStoredHtml(project.id, next),
+    });
+    if (!updated) throw new NotFoundError("Template", templateId);
+    await this.audit(caller, "saved", templateId, project.id);
+    return updated;
+  }
+
+  /**
+   * The rendered email for a saved template or an unsaved design, with the
+   * variables in `data` filled in, as a recipient would get it. Stores and
+   * sends nothing.
+   */
+  async previewFromApi(caller: Caller, projectId: number, rawInput: unknown): Promise<ApiTemplatePreview> {
+    const input = parseApiInput(ApiPreviewTemplateSchema, rawInput);
+
+    let project: Project;
+    let content: TemplateContent;
+    if (input.templateId !== undefined) {
+      const found = await this.requireTemplate(caller, input.templateId, "read");
+      project = found.project;
+      content = contentOf(found.template);
+    } else {
+      project = await this.access.requireProject(caller, projectId, "read");
+      content = { design: input.design as EmailDesignDocument, subject: "", preheader: null };
+    }
+    if (input.subject !== undefined) content.subject = input.subject;
+    if (input.preheader !== undefined) content.preheader = input.preheader || null;
+
+    const data = previewData(input.data, project);
+    const html = renderEmailDesign(content.design, {
+      baseUrl: await resolveProjectBaseUrl(this.resolveBaseUrl, project.id),
+      title: content.subject,
+      preheader: content.preheader ?? undefined,
+      data,
+    });
+    return {
+      subject: replaceMergeTags(content.subject, data, undefined, { escape: false }),
+      html,
+      text: htmlToPlainText(html),
+    };
+  }
+
+  /**
+   * A test send of the saved template (API v1): only to the organization's
+   * members (`sendTest`), with `data` for its variables.
+   */
+  async sendTestFromApi(
+    caller: Caller,
+    templateId: number,
+    rawInput: unknown,
+  ): Promise<{ to: string; messageId: string | null }> {
+    const input = parseApiInput(ApiTestSendSchema, rawInput);
+    const { template } = await this.requireTemplate(caller, templateId, "write");
+    const { messageId } = await this.sendTest(caller, templateId, {
+      to: input.to,
+      from: input.from,
+      design: template.designJson ?? EMPTY_EMAIL_DESIGN,
+      data: input.data,
+    });
+    return { to: input.to, messageId: messageId ?? null };
+  }
+
   /**
    * Stores what is about to be saved as the template's next version, before
    * the template itself changes: if that write then fails, retrying the same
@@ -361,7 +546,9 @@ export class TemplateService {
           name: "Test Recipient",
           first_name: "Test",
           last_name: "Recipient",
+          ...input.data,
         },
+        custom: input.data,
         project: { name: project.name },
         unsubscribeUrl: "#test-unsubscribe",
       },
@@ -371,7 +558,7 @@ export class TemplateService {
       this.mailerFor(provider).send({
         from: input.from || this.settings.defaultFromEmail,
         to: input.to,
-        subject: `[TEST] ${input.subject || template.subject || "No Subject"}`,
+        subject: `[TEST] ${testSubject(input.subject || template.subject || "No Subject", input, project)}`,
         html,
         text: htmlToPlainText(html),
         tags: { project_id: String(project.id), campaign_id: "0", contact_id: "0" },

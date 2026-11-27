@@ -96,3 +96,17 @@ describe("TemplateVersionRepository", () => {
     expect(await versions.findById(v.id)).toBeNull();
   });
 });
+
+describe("EmailTemplateRepository.findPageByProject", () => {
+  it("pages a project's templates newest first, below an id", async () => {
+    const { EmailTemplateRepository } = await import("../repositories/emailTemplateRepository");
+    const templates = new EmailTemplateRepository(db);
+    const ids = [templateId, otherTemplateId].sort((a, b) => b - a);
+    const projectId = (await templates.findById(templateId))!.projectId;
+
+    expect((await templates.findPageByProject(projectId, 10, null)).map((t) => t.id)).toEqual(ids);
+    expect((await templates.findPageByProject(projectId, 1, null)).map((t) => t.id)).toEqual([ids[0]]);
+    expect((await templates.findPageByProject(projectId, 10, ids[0])).map((t) => t.id)).toEqual([ids[1]]);
+    expect(await templates.findPageByProject(999, 10, null)).toEqual([]);
+  });
+});

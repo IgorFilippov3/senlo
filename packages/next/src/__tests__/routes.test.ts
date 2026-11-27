@@ -515,3 +515,111 @@ describe("API v1", () => {
     expect(doc.paths["/api/v1/me"].get).toBeDefined();
   });
 });
+
+describe("API v1 templates", () => {
+  const principal = { projectId: 7, permissions: ["manage"], source: "api_key", actor: { apiKeyId: 1 }, client: null };
+  const at = new Date("2026-11-27T10:00:00Z");
+  const template = {
+    id: 5,
+    projectId: 7,
+    name: "Reset",
+    subject: "Reset your password",
+    preheader: null,
+    html: "<html/>",
+    designJson: { version: 1, rows: [], settings: {} },
+    status: "draft",
+    locale: "en",
+    createdAt: at,
+    updatedAt: at,
+  };
+  const asJson = {
+    id: 5,
+    name: "Reset",
+    subject: "Reset your password",
+    preheader: null,
+    locale: "en",
+    status: "draft",
+    createdAt: at.toISOString(),
+    updatedAt: at.toISOString(),
+  };
+
+  function templatesHost(templateService: Record<string, unknown>) {
+    return fakeHost({
+      auth: { resolvePrincipal: vi.fn(async (t: string) => (t === "snl_good" ? principal : null)) },
+      idempotency: { begin: vi.fn(async () => ({ run: true, id: 1 })), complete: vi.fn(), release: vi.fn() },
+      template: templateService,
+    });
+  }
+  const call = (method: string, path: string, body?: unknown) =>
+    new NextRequest(`http://localhost${path}`, {
+      method,
+      headers: { ...bearer, "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+  it("lists a page without designs, passing limit and cursor", async () => {
+    const listPage = vi.fn(async () => ({ items: [template], nextCursor: "abc" }));
+    const { routes } = templatesHost({ listPage });
+
+    const response = await routes.v1Templates.GET(call("GET", "/api/v1/templates?limit=1"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: { items: [asJson], nextCursor: "abc" } });
+    expect(listPage).toHaveBeenCalledWith(principal, 7, { limit: 1, beforeId: null });
+
+    const bad = await routes.v1Templates.GET(call("GET", "/api/v1/templates?limit=500"));
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error.issues[0].path).toBe("limit");
+  });
+
+  it("creates with 201 and the design, or checks only on dryRun", async () => {
+    const createFromApi = vi.fn(async (_p: unknown, _id: number, _b: unknown, o: { dryRun: boolean }) => (o.dryRun ? null : template));
+    const { routes } = templatesHost({ createFromApi });
+    const body = { name: "Reset", subject: "Reset your password", design: { rows: [] } };
+
+    const created = await routes.v1Templates.POST(call("POST", "/api/v1/templates", body));
+    expect(created.status).toBe(201);
+    expect(await created.json()).toEqual({ data: { ...asJson, design: template.designJson } });
+    expect(createFromApi).toHaveBeenCalledWith(principal, 7, body, { dryRun: false });
+
+    const checked = await routes.v1Templates.POST(call("POST", "/api/v1/templates?dryRun=true", body));
+    expect(checked.status).toBe(200);
+    expect(await checked.json()).toEqual({ data: { valid: true, warnings: [] } });
+  });
+
+  it("reads and changes one template; a malformed id is a 404 that never reaches the service", async () => {
+    const getWithDesign = vi.fn(async () => ({ template, design: template.designJson }));
+    const updateFromApi = vi.fn(async () => template);
+    const { routes } = templatesHost({ getWithDesign, updateFromApi });
+
+    const got = await routes.v1Template.GET(call("GET", "/api/v1/templates/5"), params({ id: "5" }));
+    expect((await got.json()).data).toMatchObject({ id: 5, design: { rows: [] } });
+    expect(getWithDesign).toHaveBeenCalledWith(principal, 5);
+
+    const patched = await routes.v1Template.PATCH(call("PATCH", "/api/v1/templates/5", { subject: "New" }), params({ id: "5" }));
+    expect(patched.status).toBe(200);
+    expect(updateFromApi).toHaveBeenCalledWith(principal, 5, { subject: "New" }, { dryRun: false });
+
+    for (const raw of ["x", "0", "-1", "1.5", "5e2"]) {
+      const response = await routes.v1Template.GET(call("GET", `/api/v1/templates/${raw}`), params({ id: raw }));
+      expect(response.status).toBe(404);
+    }
+    expect(getWithDesign).toHaveBeenCalledTimes(1);
+  });
+
+  it("previews and sends a test", async () => {
+    const previewFromApi = vi.fn(async () => ({ subject: "Hi", html: "<html/>", text: "Hi" }));
+    const sendTestFromApi = vi.fn(async () => ({ to: "a@x.io", messageId: "m-1" }));
+    const { routes } = templatesHost({ previewFromApi, sendTestFromApi });
+
+    const preview = await routes.v1TemplatePreview.POST(call("POST", "/api/v1/templates/preview", { templateId: 5 }));
+    expect(await preview.json()).toEqual({ data: { subject: "Hi", html: "<html/>", text: "Hi" } });
+    expect(previewFromApi).toHaveBeenCalledWith(principal, 7, { templateId: 5 });
+
+    const sent = await routes.v1TemplateTestSend.POST(
+      call("POST", "/api/v1/templates/5/test-send", { to: "a@x.io" }),
+      params({ id: "5" }),
+    );
+    expect(await sent.json()).toEqual({ data: { sent: true, to: "a@x.io", messageId: "m-1" } });
+    expect(sendTestFromApi).toHaveBeenCalledWith(principal, 5, { to: "a@x.io" });
+  });
+});
