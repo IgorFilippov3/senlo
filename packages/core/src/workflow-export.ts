@@ -162,12 +162,13 @@ export function exportSecretHeaders(exp: Pick<WorkflowExport, "nodes">): Array<{
 export function instantiateWorkflowExport(
   exp: Pick<WorkflowExport, "nodes" | "edges">,
   emails: ReadonlyMap<string, number | null>,
-  newId: () => string,
+  /** The id a node or edge gets, from its id in the export: new for an import, kept for a replace. */
+  newId: (exportId: string) => string,
 ): {
   nodes: Array<{ id: string; type: string; data: Record<string, unknown> }>;
   edges: Array<{ id: string; source: string; target: string; sourceHandle: string | null }>;
 } {
-  const ids = new Map(exp.nodes.map((n) => [n.id, newId()]));
+  const ids = new Map(exp.nodes.map((n) => [n.id, newId(n.id)]));
   const nodes = exp.nodes.map((node) => {
     let data = remapIds(node.data, ids) as Record<string, unknown>;
     if (node.type === "action") {
@@ -186,7 +187,7 @@ export function instantiateWorkflowExport(
     return { id: ids.get(node.id)!, type: node.type, data };
   });
   const edges = exp.edges.map((edge) => ({
-    id: newId(),
+    id: newId(edge.id),
     source: ids.get(edge.source) ?? edge.source,
     target: ids.get(edge.target) ?? edge.target,
     sourceHandle: edge.sourceHandle,

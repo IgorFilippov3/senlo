@@ -127,3 +127,17 @@ describe("CampaignRepository.findTriggeredPage", () => {
     expect((await campaigns.findTriggeredPage(projectId, 10, b.id)).map((c) => c.id)).toEqual([a.id]);
   });
 });
+
+describe("WorkflowRepository.findPageByProject", () => {
+  it("pages a project's workflows newest first", async () => {
+    const { WorkflowRepository } = await import("../repositories/workflowRepository");
+    const workflows = new WorkflowRepository(db);
+    const projectId = (await db.select().from(schema.emailTemplates).where(eq(schema.emailTemplates.id, templateId)))[0].projectId;
+    const a = await workflows.create({ projectId, name: "a", status: "DRAFT" });
+    const b = await workflows.create({ projectId, name: "b", status: "DRAFT" });
+
+    expect((await workflows.findPageByProject(projectId, 10, null)).map((w) => w.id)).toEqual([b.id, a.id]);
+    expect((await workflows.findPageByProject(projectId, 10, b.id)).map((w) => w.id)).toEqual([a.id]);
+    expect(await workflows.findPageByProject(projectId + 1000, 10, null)).toEqual([]);
+  });
+});

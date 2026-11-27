@@ -1,0 +1,89 @@
+---
+title: Automations (API v1)
+description: List, read, create, replace, publish, pause and test automations as export files, and read a run's steps.
+---
+
+```bash tab="curl"
+# Create a draft from an export file
+curl -X POST "https://senlo.io/api/v1/automations" \
+  -H "Authorization: Bearer $SENLO_MANAGE_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d "{ \"workflow\": $(cat onboarding.json) }"
+
+# Test it on your own address, then read how it went
+curl -X POST "https://senlo.io/api/v1/automations/31/test-runs" \
+  -H "Authorization: Bearer $SENLO_MANAGE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "you@example.com", "payload": { "plan": "pro" } }'
+
+curl "https://senlo.io/api/v1/automation-runs/812" \
+  -H "Authorization: Bearer $SENLO_MANAGE_KEY"
+
+# Go live
+curl -X POST "https://senlo.io/api/v1/automations/31/publish" \
+  -H "Authorization: Bearer $SENLO_MANAGE_KEY"
+```
+
+An automation travels as an **export file**, the same format as **Export** and **Import** in the builder ([Automations as data](./workflows.mdx)): `{ format: "senlo.workflow", version: 1, name, settings, nodes, edges }`. Email steps name their trigger in `data.emailRef`; on the way in each one must resolve to a trigger of the project, by the id given in `emails` or by a trigger with that name.
+
+Operations need a key with `manage`. See [the overview](./v1.mdx) for errors, `dryRun`, `Idempotency-Key` and pages.
+
+| Operation | What it does |
+| --- | --- |
+| `GET /api/v1/automations` | The project's automations, newest first, without graphs. Paged. |
+| `GET /api/v1/automations/{id}` | One automation and its draft as `workflow` (the export). |
+| `POST /api/v1/automations` | A new **draft** from `{ workflow, name?, emails? }`. `201`. Takes `dryRun` and `Idempotency-Key`. |
+| `PUT /api/v1/automations/{id}` | Replaces the draft's graph, settings and name with an export. Takes `dryRun`. |
+| `POST /api/v1/automations/{id}/publish` | Goes live with the builder's checks. |
+| `POST /api/v1/automations/{id}/pause` | No new runs start; runs in flight finish. |
+| `POST /api/v1/automations/{id}/test-runs` | A test run of the saved draft: `{ email, payload? }` → `201 { runId }`. Takes `Idempotency-Key`. |
+| `GET /api/v1/automation-runs/{id}` | A run and its steps. |
+
+## Replacing a draft
+
+`PUT` keeps the ids of steps and connections the automation already has: their statistics stay, and a header secret of an HTTP request step is kept by name (exports never carry header values). Steps with ids the automation does not have get new ones; an error in such a step is still reported by **your** id (`nodes.<id>`).
+
+<Callout type="warning" title="On a live automation, PUT publishes">
+  As a save in the builder, replacing the draft of an `ACTIVE` automation makes it the live version at once: new runs take the new graph, runs in flight finish on theirs. The graph must therefore be complete, or the answer is `409 NOT_PUBLISHABLE`. To work on an incomplete draft, pause the automation first.
+</Callout>
+
+## When it cannot run
+
+Publishing, a test run, and `PUT` on a live automation answer `409 NOT_PUBLISHABLE` when the automation cannot run as it is. `details.reasons` lists every problem, as the builder's go-live dialog shows them:
+
+```json
+{
+  "error": {
+    "code": "NOT_PUBLISHABLE",
+    "message": "This automation cannot go live yet.",
+    "hint": "Fix every problem in details.reasons, save the draft, then try again.",
+    "details": { "reasons": ["Add a trigger before going live.", "Choose an email for \"Welcome\"."] },
+    "requestId": "req_..."
+  }
+}
+```
+
+## Test runs
+
+A test run follows the **saved draft**, live or not, for one contact, starting from a sample event with your `payload` (`{{event.*}}`). Delays are skipped, a wait for an event lasts at most 60 seconds, and emails are real sends.
+
+The address must belong to a **member of the organization** (self-hosted: the project owner); others are refused with `403 RECIPIENT_NOT_ALLOWED`. If there is no contact with that address yet, it is created; no `contact_added` event is fired, so no other automation starts for it.
+
+The run is asynchronous: `201` only says it started. Read `GET /api/v1/automation-runs/{runId}` until `status` is `COMPLETED`, `FAILED` or `CANCELLED`:
+
+```json
+{
+  "id": 812,
+  "automationId": 31,
+  "status": "COMPLETED",
+  "isTest": true,
+  "contactEmail": "you@example.com",
+  "steps": [
+    { "nodeId": "a1", "type": "action", "status": "COMPLETED", "result": { ... }, "startedAt": "...", "completedAt": "..." },
+    { "nodeId": "c1", "type": "condition", "status": "COMPLETED", "result": { ... }, "startedAt": "...", "completedAt": "..." }
+  ]
+}
+```
+
+`result` is what the step recorded (the same as the run timeline in the builder shows); a failed step has `status: "FAILED"` and its error there.

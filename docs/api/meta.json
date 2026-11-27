@@ -9,6 +9,7 @@
     "v1",
     "v1-templates",
     "v1-triggers",
+    "v1-automations",
     "webhooks",
     "tracking-and-unsubscribe",
     "errors"

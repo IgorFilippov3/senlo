@@ -440,6 +440,8 @@ export interface IWorkflowRepository {
   ): Promise<Workflow>;
   findById(id: number): Promise<Workflow | null>;
   findByProject(projectId: number): Promise<Workflow[]>;
+  /** Newest first: at most `limit` workflows with an id below `beforeId` (all when null). */
+  findPageByProject(projectId: number, limit: number, beforeId: number | null): Promise<Workflow[]>;
   update(
     id: number,
     data: Partial<

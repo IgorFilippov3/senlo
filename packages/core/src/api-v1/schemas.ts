@@ -6,7 +6,7 @@ import { z } from "zod";
 import { API_PERMISSIONS } from "../api-principal";
 import { emailDesignDocumentSchema } from "../emailDesign";
 import type { EmailTemplate } from "../emailTemplate";
-import type { Campaign } from "../domain";
+import type { Campaign, Workflow, WorkflowRunDetail } from "../domain";
 
 /**
  * Request and response shapes of API v1. The routes answer with these and
@@ -27,6 +27,7 @@ export const API_V1_ERROR_CODES = [
   "CONFLICT",
   "IDEMPOTENCY_KEY_REUSED",
   "IDEMPOTENCY_IN_PROGRESS",
+  "NOT_PUBLISHABLE",
   "RATE_LIMITED",
   "PROVIDER_ERROR",
   "INTERNAL_ERROR",
@@ -289,5 +290,107 @@ export function toApiTrigger(c: Campaign): ApiTrigger {
     variablesSchema: (c.variablesSchema as Record<string, unknown> | null | undefined) ?? null,
     createdAt: new Date(c.createdAt).toISOString(),
     updatedAt: new Date(c.updatedAt).toISOString(),
+  };
+}
+
+// -------------------------------------------------------------- automations
+
+export const ApiAutomationSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  description: z.string().nullable(),
+  status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "ARCHIVED"]),
+  triggerEvent: z.string().nullable().describe("The event that starts the live version; null until it goes live."),
+  activeVersionId: z.number().int().nullable(),
+  createdAt: isoDate,
+  updatedAt: isoDate,
+});
+export type ApiAutomation = z.infer<typeof ApiAutomationSchema>;
+
+/** The export file: what `GET` gives and `POST`/`PUT` take. */
+export const ApiAutomationExportSchema = z
+  .record(z.unknown())
+  .describe("An automation export: { format: \"senlo.workflow\", version: 1, name, description?, settings, nodes, edges }. Email steps name their trigger in data.emailRef.");
+
+export const ApiAutomationWithExportSchema = ApiAutomationSchema.extend({ workflow: ApiAutomationExportSchema });
+
+/** `POST /api/v1/automations` and `PUT /api/v1/automations/{id}`, as the spec shows them. */
+export const ApiImportAutomationDocSchema = z.object({
+  workflow: ApiAutomationExportSchema,
+  name: z.string().max(255).optional().describe("Overrides the export's name."),
+  emails: z
+    .record(z.number().int().positive().nullable())
+    .optional()
+    .describe("Trigger id per emailRef, for emails whose trigger does not have the same name here."),
+});
+
+export const ApiTestRunDocSchema = z.object({
+  email: z.string().email().describe("A member of the organization (self-hosted: the project owner). The contact is created if needed."),
+  payload: z.record(z.unknown()).optional().describe("The sample trigger event's payload ({{event.*}})."),
+});
+
+export const ApiAutomationRunSchema = z.object({
+  id: z.number().int(),
+  automationId: z.number().int(),
+  status: z.string().describe("RUNNING, WAITING, COMPLETED, CANCELLED or FAILED."),
+  exitReason: z.string().nullable(),
+  isTest: z.boolean(),
+  contactEmail: z.string().nullable(),
+  currentNodeId: z.string().nullable(),
+  waitingEvent: z.string().nullable(),
+  wakeAt: isoDate.nullable(),
+  startedAt: isoDate,
+  completedAt: isoDate.nullable(),
+  steps: z.array(
+    z.object({
+      nodeId: z.string(),
+      type: z.string().nullable().describe("The step's type in the graph the run follows."),
+      status: z.enum(["PENDING", "COMPLETED", "FAILED", "SKIPPED"]),
+      result: z.record(z.unknown()).nullable(),
+      startedAt: isoDate,
+      completedAt: isoDate.nullable(),
+    }),
+  ),
+});
+export type ApiAutomationRun = z.infer<typeof ApiAutomationRunSchema>;
+
+const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
+
+export function toApiAutomation(w: Workflow): ApiAutomation {
+  return {
+    id: w.id,
+    name: w.name,
+    description: w.description ?? null,
+    status: w.status,
+    triggerEvent: w.triggerEvent ?? null,
+    activeVersionId: w.activeVersionId ?? null,
+    createdAt: iso(w.createdAt)!,
+    updatedAt: iso(w.updatedAt)!,
+  };
+}
+
+export function toApiAutomationRun(detail: WorkflowRunDetail): ApiAutomationRun {
+  const { run, steps, graph } = detail;
+  const types = new Map((graph?.nodes ?? []).map((n) => [n.id, n.type]));
+  return {
+    id: run.id,
+    automationId: run.workflowId,
+    status: run.status,
+    exitReason: run.exitReason ?? null,
+    isTest: run.isTest,
+    contactEmail: run.contactEmail,
+    currentNodeId: run.currentNodeId,
+    waitingEvent: run.waitingEvent ?? null,
+    wakeAt: iso(run.wakeAt),
+    startedAt: iso(run.startedAt)!,
+    completedAt: iso(run.completedAt),
+    steps: steps.map((s) => ({
+      nodeId: s.nodeId,
+      type: types.get(s.nodeId) ?? null,
+      status: s.status,
+      result: s.result ?? null,
+      startedAt: iso(s.startedAt)!,
+      completedAt: iso(s.completedAt),
+    })),
   };
 }

@@ -3,7 +3,7 @@ title: API v1 overview
 description: The management API for coding agents and scripts - keys, errors, test sends, idempotency, pages.
 ---
 
-API v1 manages one project's templates and triggers (and soon automations) under `/api/v1/`. It is what the Senlo MCP server and coding agents use; any script can call it too. Sending stays on [`/api/triggered`](./triggered.mdx) and [`/api/events`](./events.mdx).
+API v1 manages one project's templates, triggers and automations under `/api/v1/`. It is what the Senlo MCP server and coding agents use; any script can call it too. Sending stays on [`/api/triggered`](./triggered.mdx) and [`/api/events`](./events.mdx).
 
 The full reference is generated from the code: [`/api/v1/openapi.json`](/api/v1/openapi.json).
 
@@ -50,6 +50,7 @@ Success is `{ "data": ... }`. A failure is:
 | `403` | `RECIPIENT_NOT_ALLOWED` | A test send to an address outside the organization (below). |
 | `404` | `NOT_FOUND` | No such record in the key's project. |
 | `409` | `IDEMPOTENCY_KEY_REUSED`, `IDEMPOTENCY_IN_PROGRESS` | See Idempotency below. |
+| `409` | `NOT_PUBLISHABLE` | An automation cannot run as it is; `details.reasons` lists why. |
 | `429` | `RATE_LIMITED` | More than 300 requests a minute for this key; wait `Retry-After` seconds. |
 | `502` | `PROVIDER_ERROR` | The email provider refused a test send; its reason is in the message. |
 | `500` | `INTERNAL_ERROR` | Something failed on Senlo's side; retry with backoff. |

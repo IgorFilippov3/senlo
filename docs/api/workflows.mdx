@@ -19,6 +19,10 @@ curl -X POST https://senlo.io/api/workflows/31/publish \
   -H "Authorization: Bearer $SENLO_API_KEY"
 ```
 
+<Callout type="warning" title="Moved to API v1">
+  These endpoints keep working and answer as before, with a `Deprecation` header. New code should use [Automations (API v1)](./v1-automations.mdx): the same export format, plus listing, replacing a draft, pausing and test runs.
+</Callout>
+
 An [automation](../concepts/triggers-and-automations.mdx) can be kept in your repository, copied between workspaces or created by a script. The editor does the same with **Export** (in its header) and **Import** (on the Automations page).
 
 ## The export

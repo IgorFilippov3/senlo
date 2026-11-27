@@ -17,6 +17,7 @@ export type ErrorCode =
   | "RECIPIENT_NOT_ALLOWED"
   | "IDEMPOTENCY_KEY_REUSED"
   | "IDEMPOTENCY_IN_PROGRESS"
+  | "NOT_PUBLISHABLE"
   | "DUPLICATE_ENTRY"
   | "RATE_LIMITED"
   | "QUOTA_EXCEEDED"
@@ -32,6 +33,7 @@ const DEFAULT_STATUS: Record<ErrorCode, number> = {
   RECIPIENT_NOT_ALLOWED: 403,
   IDEMPOTENCY_KEY_REUSED: 409,
   IDEMPOTENCY_IN_PROGRESS: 409,
+  NOT_PUBLISHABLE: 409,
   NOT_FOUND: 404,
   DUPLICATE_ENTRY: 409,
   RATE_LIMITED: 429,
@@ -78,9 +80,34 @@ export class AppError extends Error {
 }
 
 export class ValidationError extends AppError {
-  constructor(message: string, details?: Record<string, any>, hint?: string) {
-    super("VALIDATION_ERROR", message, details, 400, hint);
+  constructor(
+    message: string,
+    details?: Record<string, any>,
+    hint?: string,
+    /** For a subclass with a code of its own (`NotPublishableError`). */
+    code: ErrorCode = "VALIDATION_ERROR",
+    statusCode = 400,
+  ) {
+    super(code, message, details, statusCode, hint);
     this.name = "ValidationError";
+  }
+}
+
+/**
+ * An automation that cannot run as it is: going live, a test run, or a save
+ * of a live one. `details.reasons` lists every problem, as the builder's
+ * go-live dialog shows them.
+ */
+export class NotPublishableError extends ValidationError {
+  constructor(message: string, reasons: string[]) {
+    super(
+      message,
+      { reasons },
+      "Fix every problem in details.reasons, save the draft, then try again.",
+      "NOT_PUBLISHABLE",
+      409,
+    );
+    this.name = "NotPublishableError";
   }
 }
 

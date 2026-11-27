@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { WorkflowService } from "../services/workflowService";
-import { FormValidationError, NotFoundError, ValidationError } from "../errors";
+import { FormValidationError, NotFoundError, NotPublishableError, ValidationError } from "../errors";
+import { principalFromApiKey } from "../api-principal";
 import type { Campaign, Project, Workflow, WorkflowGraphSnapshot, WorkflowVersion } from "../domain";
 
 const projects = {
@@ -27,12 +28,22 @@ function fakes(graph: { nodes?: any[]; edges?: any[] } = {}) {
   const workflows = {
     findById: async (id: number) => rows.get(id) ?? null,
     findByProject: async (pid: number) => [...rows.values()].filter((w) => w.projectId === pid),
+    findPageByProject: async (pid: number, limit: number, beforeId: number | null) =>
+      [...rows.values()]
+        .filter((w) => w.projectId === pid && (beforeId === null || w.id < beforeId))
+        .sort((a, b) => b.id - a.id)
+        .slice(0, limit),
     create: vi.fn(async (d: any) => {
       const w = { ...d, id: 30, createdAt: new Date(), updatedAt: new Date() } as Workflow;
       rows.set(30, w);
       return w;
     }),
-    update: vi.fn(async (id: number, d: Partial<Workflow>) => (rows.has(id) ? { ...rows.get(id)!, ...d } : null)),
+    update: vi.fn(async (id: number, d: Partial<Workflow>) => {
+      if (!rows.has(id)) return null;
+      const w = { ...rows.get(id)!, ...d };
+      rows.set(id, w);
+      return w;
+    }),
     delete: vi.fn(async (id: number) => { rows.delete(id); }),
     getNodes: async () => graph.nodes ?? [],
     getEdges: async () => graph.edges ?? [],
@@ -396,7 +407,8 @@ describe("export and import", () => {
     expect(JSON.stringify(exp)).not.toContain("sealed");
     expect(exp.edges[2]).toEqual({ id: "e3", source: "c", target: "m2", sourceHandle: "yes" });
     await expect(service.exportWorkflow("alice", 20)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(service.exportForProject(2, 10)).rejects.toBeInstanceOf(NotFoundError);
+    const agent2 = principalFromApiKey({ id: 1, projectId: 2, permissions: ["manage"] }, null);
+    await expect(service.exportWorkflow(agent2, 10)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("imports as a new draft: new ids, references followed, emails mapped by name or left empty", async () => {
@@ -431,13 +443,16 @@ describe("export and import", () => {
     exp.nodes.find((n) => n.id === "m2")!.data.emailRef = "Not here";
 
     const { service, workflows } = fakes();
-    const e = await service.importForProject(1, { workflow: exp }).catch((x) => x);
+    const agent = principalFromApiKey({ id: 1, projectId: 1, permissions: ["manage"] }, null);
+    const e = (await service.createFromApi(agent, 1, { workflow: exp }).catch((x: unknown) => x)) as ValidationError;
     expect(e).toBeInstanceOf(ValidationError);
-    expect(e.details.reasons).toEqual(['No trigger named "Not here"']);
-    await expect(service.importForProject(1, { workflow: exp, emails: { "Not here": 200 } })).rejects.toThrow("Trigger 200 not found");
+    expect(e.details?.reasons).toEqual(['No trigger named "Not here"']);
+    await expect(service.createFromApi(agent, 1, { workflow: exp, emails: { "Not here": 200 } })).rejects.toThrow("Trigger 200 not found");
     expect(workflows.create).not.toHaveBeenCalled();
 
-    await service.importForProject(1, { workflow: exp, emails: { "Not here": 101 } });
+    expect(await service.createFromApi(agent, 1, { workflow: exp, emails: { "Not here": 101 } }, { dryRun: true })).toBeNull();
+    expect(workflows.create).not.toHaveBeenCalled();
+    await service.createFromApi(agent, 1, { workflow: exp, emails: { "Not here": 101 } });
     expect(workflows.create).toHaveBeenCalledTimes(1);
   });
 
@@ -453,12 +468,102 @@ describe("export and import", () => {
       { id: "x", type: "exit", data: {} },
     ];
     const { service, workflows } = fakes({ nodes: live, edges: [{ id: "e", sourceNodeId: "t", targetNodeId: "x", sourceHandle: null }] });
-    expect(await service.publishForProject(1, 10)).toMatchObject({ status: "ACTIVE" });
+    const agent = principalFromApiKey({ id: 1, projectId: 1, permissions: ["manage"] }, null);
+    const other = principalFromApiKey({ id: 2, projectId: 2, permissions: ["manage"] }, null);
+    expect(await service.publish(agent, 10)).toMatchObject({ status: "ACTIVE" });
     expect(workflows.update).toHaveBeenCalledWith(10, { status: "ACTIVE" });
-    await expect(service.publishForProject(2, 10)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.publish(other, 10)).rejects.toBeInstanceOf(NotFoundError);
+
+    expect(await service.pause(agent, 10)).toMatchObject({ status: "PAUSED" });
+    await expect(service.pause(agent, 10)).rejects.toBeInstanceOf(ValidationError);
 
     const empty = fakes({ nodes: [] });
-    await expect(empty.service.publishForProject(1, 10)).rejects.toBeInstanceOf(ValidationError);
+    const e = await empty.service.publish(agent, 10).catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(NotPublishableError);
+  });
+});
+
+describe("WorkflowService through API v1", () => {
+  const agent = principalFromApiKey({ id: 1, projectId: 1, permissions: ["manage"] }, "mcp/1.0.0");
+  const nodes = [
+    { id: "t", type: "trigger", data: { event: "signed_up" } },
+    { id: "m1", type: "action", data: { triggerId: "100", label: "Welcome" } },
+    { id: "h", type: "http_request", data: { url: "https://x.io", headers: [{ name: "X-Key", sealed: "sealed:k" }] } },
+    { id: "x", type: "exit", data: {} },
+  ];
+  const edges = [
+    { id: "e1", sourceNodeId: "t", targetNodeId: "m1", sourceHandle: null },
+    { id: "e2", sourceNodeId: "m1", targetNodeId: "h", sourceHandle: null },
+    { id: "e3", sourceNodeId: "h", targetNodeId: "x", sourceHandle: null },
+  ];
+  const saved = (workflows: ReturnType<typeof fakes>["workflows"]) =>
+    workflows.saveGraph.mock.calls.at(-1) as unknown as [
+      number,
+      Array<{ id: string; type: string; data: Record<string, any> }>,
+      Array<{ id: string; sourceNodeId: string; targetNodeId: string }>,
+    ];
+
+  it("pages the project's workflows", async () => {
+    const { service } = fakes();
+    expect((await service.listPage(agent, 1, { limit: 10, beforeId: null })).items.map((w) => w.id)).toEqual([10]);
+  });
+
+  it("replaces the draft: ids it has are kept, new ones made, header secrets carried over", async () => {
+    const { service, workflows, rows } = fakes({ nodes, edges });
+    const exp = await service.exportWorkflow(agent, 10);
+    exp.name = "Renamed";
+    exp.nodes.push({ id: "m2", type: "action", data: { emailRef: "Reminder" } });
+    exp.edges.push({ id: "e9", source: "m1", target: "m2", sourceHandle: null });
+
+    const result = await service.replaceFromApi(agent, 10, { workflow: exp });
+    const [id, savedNodes, savedEdges] = saved(workflows);
+    expect(id).toBe(10);
+    expect(savedNodes.map((n) => n.id).slice(0, 4)).toEqual(["t", "m1", "h", "x"]);
+    const added = savedNodes[4];
+    expect(added.id).not.toBe("m2");
+    expect(added.data).toEqual({ triggerId: "101" });
+    expect(savedEdges.find((e) => e.targetNodeId === added.id)?.id).not.toBe("e9");
+    expect(savedNodes.find((n) => n.id === "h")!.data.headers).toEqual([{ name: "X-Key", sealed: "sealed:k" }]);
+    expect(rows.get(10)?.name).toBe("Renamed");
+    expect(result?.name).toBe("Renamed");
+  });
+
+  it("names a broken step by its id in the export, not the new one", async () => {
+    const { service } = fakes({ nodes, edges });
+    const exp = await service.exportWorkflow(agent, 10);
+    exp.nodes.push({ id: "mine", type: "delay", data: { mode: "sometimes" } });
+    const e = (await service.replaceFromApi(agent, 10, { workflow: exp }).catch((x: unknown) => x)) as FormValidationError;
+    expect(e).toBeInstanceOf(FormValidationError);
+    expect(Object.keys(e.fieldErrors)).toEqual(["nodes.mine"]);
+  });
+
+  it("on a live workflow, publishes a complete draft and refuses an incomplete one", async () => {
+    const { service, workflows, rows } = fakes({ nodes, edges });
+    rows.set(10, { ...rows.get(10)!, status: "ACTIVE" });
+    const exp = await service.exportWorkflow(agent, 10);
+    exp.name = "Live change";
+
+    await service.replaceFromApi(agent, 10, { workflow: exp });
+    expect(workflows.publishVersion).toHaveBeenCalledTimes(1);
+
+    const broken = { ...exp, nodes: exp.nodes.filter((n) => n.type !== "trigger") };
+    const e = await service.replaceFromApi(agent, 10, { workflow: broken }).catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(NotPublishableError);
+  });
+
+  it("stores nothing on dryRun", async () => {
+    const { service, workflows } = fakes({ nodes, edges });
+    const exp = await service.exportWorkflow(agent, 10);
+    expect(await service.replaceFromApi(agent, 10, { workflow: exp }, { dryRun: true })).toBeNull();
+    expect(workflows.saveGraph).not.toHaveBeenCalled();
+    expect(workflows.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses another project's workflow", async () => {
+    const { service } = fakes({ nodes, edges });
+    const exp = await service.exportWorkflow(agent, 10);
+    const other = principalFromApiKey({ id: 2, projectId: 2, permissions: ["manage"] }, null);
+    await expect(service.replaceFromApi(other, 10, { workflow: exp })).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 

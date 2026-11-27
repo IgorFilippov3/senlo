@@ -14,7 +14,9 @@ import type {
   WorkflowSettings,
   WorkflowStatus,
 } from "../domain";
-import { FormValidationError, NotFoundError, ValidationError } from "../errors";
+import { FormValidationError, NotFoundError, NotPublishableError, ValidationError } from "../errors";
+import { auditActor, type Caller } from "../caller";
+import { pageOf, type Page, type PageRequest } from "../api-v1/pagination";
 import type {
   ContactRepository,
   ICampaignRepository,
@@ -168,14 +170,20 @@ export class WorkflowService {
     this.access = access ?? new AccessGuard(repos.projects);
   }
 
-  /** The workflow, if the user may access its project. */
-  async requireWorkflow(userId: string, id: number, action: AccessAction): Promise<Workflow> {
-    return this.access.requireInProject(userId, await this.repos.workflows.findById(id), "Workflow", action);
+  /** The workflow, if the caller may access its project. */
+  async requireWorkflow(caller: Caller, id: number, action: AccessAction): Promise<Workflow> {
+    return this.access.requireInProject(caller, await this.repos.workflows.findById(id), "Workflow", action);
   }
 
-  async listForProject(userId: string, projectId: number): Promise<Workflow[]> {
-    await this.access.requireProject(userId, projectId, "read");
+  async listForProject(caller: Caller, projectId: number): Promise<Workflow[]> {
+    await this.access.requireProject(caller, projectId, "read");
     return this.repos.workflows.findByProject(projectId);
+  }
+
+  /** A page of the project's workflows, newest first (API v1). */
+  async listPage(caller: Caller, projectId: number, page: PageRequest): Promise<Page<Workflow>> {
+    await this.access.requireProject(caller, projectId, "read");
+    return pageOf(await this.repos.workflows.findPageByProject(projectId, page.limit + 1, page.beforeId), page.limit);
   }
 
   /**
@@ -382,14 +390,14 @@ export class WorkflowService {
     return headers;
   }
 
-  /** `ValidationError` with every reason when the graph or the settings cannot run. */
+  /** `NotPublishableError` with every reason when the graph or the settings cannot run. */
   private requireLaunchable(graph: WorkflowGraphSnapshot, settings: WorkflowSettings | undefined, message: string): void {
     const check = validateWorkflowGraph(
       graph.nodes,
       graph.edges.map((e) => ({ source: e.sourceNodeId, target: e.targetNodeId, sourceHandle: e.sourceHandle })),
     );
     const reasons = [...(check.valid ? [] : check.reasons), ...validateWorkflowSettings(settings)];
-    if (reasons.length > 0) throw new ValidationError(message, { reasons });
+    if (reasons.length > 0) throw new NotPublishableError(message, reasons);
   }
 
   /**
@@ -450,26 +458,21 @@ export class WorkflowService {
    * broken flow cannot be activated from the list or by a direct call. A
    * failure is a `ValidationError` whose `details.reasons` lists every problem.
    */
-  async setStatus(userId: string, id: number, status: WorkflowStatus): Promise<Workflow> {
-    const workflow = await this.requireWorkflow(userId, id, "write");
+  async setStatus(caller: Caller, id: number, status: WorkflowStatus): Promise<Workflow> {
+    const workflow = await this.requireWorkflow(caller, id, "write");
     if (status === "ACTIVE") {
       await this.activate(workflow);
     } else {
       // Pausing keeps the active version: runs in flight go on (D3), new ones do not start.
       await this.repos.workflows.update(id, { status });
     }
-    await this.audit(userId, "status_changed", workflow, { from: workflow.status, to: status });
+    await this.audit(caller, "status_changed", workflow, { from: workflow.status, to: status });
     return { ...workflow, status };
   }
 
   /** The workflow as an export file (D7, D8): its saved draft and settings. */
-  async exportWorkflow(userId: string, id: number): Promise<WorkflowExport> {
-    return this.exportOf(await this.requireWorkflow(userId, id, "read"));
-  }
-
-  /** `GET /api/workflows/{id}`: the export, for a workflow of the API key's project. */
-  async exportForProject(projectId: number, id: number): Promise<WorkflowExport> {
-    return this.exportOf(await this.requireInProject(projectId, id));
+  async exportWorkflow(caller: Caller, id: number): Promise<WorkflowExport> {
+    return this.exportOf(await this.requireWorkflow(caller, id, "read"));
   }
 
   /**
@@ -485,12 +488,81 @@ export class WorkflowService {
   }
 
   /**
-   * `POST /api/workflows`: like an import, but every email must resolve (by
-   * the id in `emails`, or by a trigger with that name): a 400 lists those
-   * that do not (D9).
+   * A new DRAFT from an export through the API: like an import, but every
+   * email must resolve (by the id in `emails`, or by a trigger with that
+   * name); a 400 lists those that do not (D9). With `dryRun` everything is
+   * checked and nothing stored: the result is null.
    */
-  async importForProject(projectId: number, rawInput: unknown): Promise<Workflow> {
-    return this.importInto(projectId, rawInput, true);
+  async createFromApi(
+    caller: Caller,
+    projectId: number,
+    rawInput: unknown,
+    { dryRun = false }: { dryRun?: boolean } = {},
+  ): Promise<Workflow | null> {
+    await this.access.requireProject(caller, projectId, "write");
+    const prepared = await this.prepareImport(projectId, rawInput, true);
+    if (dryRun) return null;
+    const workflow = await this.persistImport(projectId, prepared);
+    await this.audit(caller, "imported", workflow);
+    return workflow;
+  }
+
+  /**
+   * Replaces a workflow's draft (graph, settings, name) with an export
+   * (API v1). Node and edge ids the workflow already has are kept, so step
+   * statistics and stored header secrets stay; other ids are new. A live
+   * workflow's save is a publish (D2), as in the builder: the new graph must
+   * be complete. With `dryRun` nothing is stored: the result is null.
+   */
+  async replaceFromApi(
+    caller: Caller,
+    id: number,
+    rawInput: unknown,
+    { dryRun = false }: { dryRun?: boolean } = {},
+  ): Promise<Workflow | null> {
+    const workflow = await this.requireWorkflow(caller, id, "write");
+    const prepared = await this.prepareImport(workflow.projectId, rawInput, true, workflow.id);
+    const live = workflow.status === "ACTIVE";
+    if (live) {
+      this.requireLaunchable(
+        prepared.snapshot,
+        prepared.settings,
+        "This automation is live: the new draft must be able to run. Pause it to keep an incomplete draft.",
+      );
+    }
+    if (dryRun) return null;
+
+    await this.repos.workflows.saveGraph(id, prepared.snapshot.nodes, prepared.snapshot.edges);
+    await this.repos.workflows.update(id, {
+      name: prepared.name,
+      description: prepared.description,
+      settings: prepared.settings,
+    });
+    let version: number | undefined;
+    if (live) version = (await this.publishIfChanged({ ...workflow, settings: prepared.settings }, prepared.snapshot))?.version;
+    await this.audit(caller, "replaced", workflow, {
+      nodes: prepared.snapshot.nodes.length,
+      ...(version !== undefined ? { version } : {}),
+    });
+    return (await this.repos.workflows.findById(id)) ?? { ...workflow, name: prepared.name };
+  }
+
+  /** Going live through the API, with the builder's checks. */
+  publish(caller: Caller, id: number): Promise<Workflow> {
+    return this.setStatus(caller, id, "ACTIVE");
+  }
+
+  /** Pausing through the API: only a live workflow; runs in flight go on (D3). */
+  async pause(caller: Caller, id: number): Promise<Workflow> {
+    const workflow = await this.requireWorkflow(caller, id, "write");
+    if (workflow.status !== "ACTIVE") {
+      throw new ValidationError(
+        `Only a live automation can be paused; this one is ${workflow.status}.`,
+        undefined,
+        "Nothing to do: it starts no runs now.",
+      );
+    }
+    return this.setStatus(caller, id, "PAUSED");
   }
 
   /**
@@ -508,19 +580,6 @@ export class WorkflowService {
     return workflow;
   }
 
-  /** `POST /api/workflows/{id}/publish`: going live, with the editor's checks. */
-  async publishForProject(projectId: number, id: number): Promise<Workflow> {
-    const workflow = await this.requireInProject(projectId, id);
-    await this.activate(workflow);
-    return { ...workflow, status: "ACTIVE" };
-  }
-
-  private async requireInProject(projectId: number, id: number): Promise<Workflow> {
-    const workflow = await this.repos.workflows.findById(id);
-    if (!workflow || workflow.projectId !== projectId) throw new NotFoundError("Workflow");
-    return workflow;
-  }
-
   private async exportOf(workflow: Workflow): Promise<WorkflowExport> {
     const [graph, campaigns] = await Promise.all([
       this.liveGraph(workflow.id),
@@ -531,6 +590,34 @@ export class WorkflowService {
   }
 
   private async importInto(projectId: number, rawInput: unknown, strict: boolean): Promise<Workflow> {
+    return this.persistImport(projectId, await this.prepareImport(projectId, rawInput, strict));
+  }
+
+  /** A new DRAFT from a checked import. */
+  private async persistImport(projectId: number, prepared: PreparedImport): Promise<Workflow> {
+    const workflow = await this.repos.workflows.create({
+      projectId,
+      name: prepared.name,
+      description: prepared.description,
+      status: "DRAFT",
+      settings: prepared.settings,
+    });
+    await this.repos.workflows.saveGraph(workflow.id, prepared.snapshot.nodes, prepared.snapshot.edges);
+    return workflow;
+  }
+
+  /**
+   * An export checked and turned into a graph for `projectId`, storing
+   * nothing. With `intoWorkflowId`, the graph replaces that workflow's draft:
+   * ids it already has are kept, and a header the export names without a
+   * value keeps the secret stored for it.
+   */
+  private async prepareImport(
+    projectId: number,
+    rawInput: unknown,
+    strict: boolean,
+    intoWorkflowId?: number,
+  ): Promise<PreparedImport> {
     const input = parseInput(ImportWorkflowSchema, rawInput);
     const parsed = parseWorkflowExport(input.workflow);
     if (!parsed.success) throw new ValidationError(parsed.error);
@@ -564,18 +651,55 @@ export class WorkflowService {
       });
     }
 
-    const graph = instantiateWorkflowExport(exp, emails, newNodeId);
-    // Checked before the workflow exists, so a bad file leaves nothing behind.
-    const snapshot = await this.prepareGraph({ id: 0, projectId }, graph);
-    const workflow = await this.repos.workflows.create({
-      projectId,
+    // Node and edge ids are unique across the instance, so an export's own
+    // ids are only kept for the records the workflow already has.
+    const storedNodes = intoWorkflowId !== undefined ? await this.repos.workflows.getNodes(intoWorkflowId) : [];
+    const storedEdges = intoWorkflowId !== undefined ? await this.repos.workflows.getEdges(intoWorkflowId) : [];
+    const keep = new Set([...storedNodes.map((n) => n.id), ...storedEdges.map((e) => e.id)]);
+    const exportIdOf = new Map<string, string>();
+    const graph = instantiateWorkflowExport(exp, emails, (exportId) => {
+      const id = keep.has(exportId) ? exportId : newNodeId();
+      exportIdOf.set(id, exportId);
+      return id;
+    });
+
+    // The export carries header names only: a header of a kept step keeps its secret.
+    const storedById = new Map(storedNodes.map((n) => [n.id, n]));
+    for (const node of graph.nodes) {
+      if (node.type !== "http_request" || !Array.isArray(node.data.headers)) continue;
+      const before = storedById.get(node.id)?.data?.headers;
+      if (!Array.isArray(before)) continue;
+      node.data = {
+        ...node.data,
+        headers: (node.data.headers as HttpStepHeader[]).map((h) => {
+          const sealed = (before as HttpStepHeader[]).find((b) => b.name === h.name && typeof b.sealed === "string")?.sealed;
+          return h.value === undefined && h.sealed === undefined && sealed ? { ...h, sealed } : h;
+        }),
+      };
+    }
+
+    // Checked before anything is stored, so a bad file leaves nothing behind.
+    // A step's error is reported by its id in the export, not the new one.
+    let snapshot: WorkflowGraphSnapshot;
+    try {
+      snapshot = await this.prepareGraph({ id: intoWorkflowId ?? 0, projectId }, graph);
+    } catch (error) {
+      if (!(error instanceof FormValidationError)) throw error;
+      const fieldErrors = Object.fromEntries(
+        Object.entries(error.fieldErrors).map(([key, messages]) => [
+          exportIdOf.has(key) ? `nodes.${exportIdOf.get(key)}` : key,
+          messages,
+        ]),
+      );
+      throw new FormValidationError(fieldErrors, error.formErrors, error.message);
+    }
+
+    return {
       name: input.name ?? exp.name,
       description: exp.description ?? null,
-      status: "DRAFT",
       settings,
-    });
-    await this.repos.workflows.saveGraph(workflow.id, snapshot.nodes, snapshot.edges);
-    return workflow;
+      snapshot,
+    };
   }
 
   /** Going live: the saved graph and settings must pass the builder's rules; publishes the version first. */
@@ -594,14 +718,22 @@ export class WorkflowService {
     return workflow;
   }
 
-  private audit(userId: string, verb: string, workflow: Workflow, details?: Record<string, unknown>) {
+  private audit(caller: Caller, verb: string, workflow: Workflow, details?: Record<string, unknown>) {
     return this.hooks.audit({
-      actor: { userId },
+      actor: auditActor(caller),
       action: `workflow.${verb}`,
       target: { type: "workflow", id: workflow.id, projectId: workflow.projectId },
       details,
     });
   }
+}
+
+/** An export checked and ready to store as a workflow's draft. */
+interface PreparedImport {
+  name: string;
+  description: string | null;
+  settings: WorkflowSettings;
+  snapshot: WorkflowGraphSnapshot;
 }
 
 /** A node or edge id for an imported graph (ids are unique per instance). */

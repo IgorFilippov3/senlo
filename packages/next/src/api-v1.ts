@@ -32,6 +32,7 @@ const CODE_MAP: Record<ErrorCode, ApiV1ErrorCode> = {
   RECIPIENT_NOT_ALLOWED: "RECIPIENT_NOT_ALLOWED",
   IDEMPOTENCY_KEY_REUSED: "IDEMPOTENCY_KEY_REUSED",
   IDEMPOTENCY_IN_PROGRESS: "IDEMPOTENCY_IN_PROGRESS",
+  NOT_PUBLISHABLE: "NOT_PUBLISHABLE",
   DUPLICATE_ENTRY: "CONFLICT",
   RATE_LIMITED: "RATE_LIMITED",
   QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
@@ -54,6 +55,7 @@ export const DEFAULT_HINTS: Record<ApiV1ErrorCode, string> = {
   RECIPIENT_NOT_ALLOWED: "Send the test to one of the addresses in details.allowed.",
   IDEMPOTENCY_KEY_REUSED: "Use a new Idempotency-Key for a new request.",
   IDEMPOTENCY_IN_PROGRESS: "Wait a second and retry with the same Idempotency-Key.",
+  NOT_PUBLISHABLE: "Fix every problem in details.reasons, then try again.",
   NOT_FOUND:
     "Check the id. List the project's records to find the right one; records of other projects are not visible to this key.",
   CONFLICT: "The record already exists. Read it instead of creating it again.",

@@ -12,7 +12,8 @@ import type {
   WorkflowRunDetail,
   WorkflowRunSummary,
 } from "../domain";
-import { NotFoundError, ValidationError } from "../errors";
+import { NotFoundError, NotPublishableError, RecipientNotAllowedError, ValidationError } from "../errors";
+import { auditActor, isApiCaller, type Caller } from "../caller";
 import type {
   ContactRepository,
   IProjectRepository,
@@ -51,7 +52,7 @@ export const TestRunSchema = z.object({
 export interface AutomationRunsRepositories {
   workflows: IWorkflowRepository;
   executions: IWorkflowExecutionRepository;
-  contacts: Pick<ContactRepository, "findById" | "findByEmail">;
+  contacts: Pick<ContactRepository, "findById" | "findByEmail" | "upsert">;
   projects: Pick<IProjectRepository, "findById">;
 }
 
@@ -72,19 +73,19 @@ export class AutomationRunsService {
     this.access = access ?? new AccessGuard(repos.projects);
   }
 
-  private async requireWorkflow(userId: string, id: number, action: "read" | "write"): Promise<Workflow> {
-    return this.access.requireInProject(userId, await this.repos.workflows.findById(id), "Workflow", action);
+  private async requireWorkflow(caller: Caller, id: number, action: "read" | "write"): Promise<Workflow> {
+    return this.access.requireInProject(caller, await this.repos.workflows.findById(id), "Workflow", action);
   }
 
-  /** The run and its workflow, if the user may access the workflow's project. */
+  /** The run and its workflow, if the caller may access the workflow's project. */
   private async requireRun(
-    userId: string,
+    caller: Caller,
     runId: number,
     action: "read" | "write",
   ): Promise<{ run: WorkflowExecution; workflow: Workflow }> {
     const run = await this.repos.executions.findById(runId);
     if (!run) throw new NotFoundError("Run");
-    const workflow = await this.requireWorkflow(userId, run.workflowId, action);
+    const workflow = await this.requireWorkflow(caller, run.workflowId, action);
     return { run, workflow };
   }
 
@@ -113,8 +114,8 @@ export class AutomationRunsService {
   }
 
   /** One run with the steps of its current pass, its context and the graph it runs on. */
-  async getRun(userId: string, runId: number): Promise<WorkflowRunDetail> {
-    const { run, workflow } = await this.requireRun(userId, runId, "read");
+  async getRun(caller: Caller, runId: number): Promise<WorkflowRunDetail> {
+    const { run, workflow } = await this.requireRun(caller, runId, "read");
     const generation = run.generation ?? 0;
     const [steps, version, contact] = await Promise.all([
       this.repos.executions.getStepExecutions(run.id, generation),
@@ -143,6 +144,31 @@ export class AutomationRunsService {
       steps,
       graph: version?.graph ?? null,
     };
+  }
+
+  /**
+   * The contact a test run is for. In the UI it must exist. Through the API
+   * (a coding agent) the address must belong to a member of the
+   * organization, and a missing contact is created, counted like any new
+   * contact; no `contact_added` is fired, so no automation starts for it.
+   */
+  private async testContact(caller: Caller, projectId: number, rawEmail: string) {
+    if (!isApiCaller(caller)) {
+      const contact = await this.repos.contacts.findByEmail(projectId, rawEmail);
+      if (!contact) throw new NotFoundError("Contact");
+      return contact;
+    }
+    const email = rawEmail.trim();
+    const project = await this.access.requireProject(caller, projectId, "write");
+    const allowed = await this.access.testRecipients(project);
+    if (!allowed.includes(email.toLowerCase())) throw new RecipientNotAllowedError(allowed);
+
+    const existing = await this.repos.contacts.findByEmail(projectId, email);
+    if (existing) return existing;
+    await this.hooks.requireQuota({ type: "contact.create", projectId });
+    const contact = await this.repos.contacts.upsert({ projectId, email });
+    await this.hooks.recordUsage({ type: "contact.created", projectId, contactId: contact.id });
+    return contact;
   }
 
   /** Cancels a run in progress; `cancelled: false` when it had already ended. */
@@ -179,8 +205,8 @@ export class AutomationRunsService {
    * The draft must be complete, as for going live; the workflow need not be
    * live. See `AutomationService.startTestRun` for what a test run skips.
    */
-  async startTestRun(userId: string, workflowId: number, rawInput: unknown): Promise<{ runId: number }> {
-    const workflow = await this.requireWorkflow(userId, workflowId, "write");
+  async startTestRun(caller: Caller, workflowId: number, rawInput: unknown): Promise<{ runId: number }> {
+    const workflow = await this.requireWorkflow(caller, workflowId, "write");
     const input = parseInput(TestRunSchema, rawInput);
 
     const graph = await this.draftGraph(workflowId);
@@ -189,15 +215,14 @@ export class AutomationRunsService {
       graph.edges.map((e) => ({ source: e.sourceNodeId, target: e.targetNodeId, sourceHandle: e.sourceHandle })),
     );
     const reasons = [...(check.valid ? [] : check.reasons), ...validateWorkflowSettings(workflow.settings)];
-    if (reasons.length > 0) throw new ValidationError("This draft cannot run yet.", { reasons });
+    if (reasons.length > 0) throw new NotPublishableError("This draft cannot run yet.", reasons);
 
     const eventName = graph.nodes.find((n) => n.type === "trigger")?.data?.event;
     if (typeof eventName !== "string" || !isValidEventName(eventName)) {
       throw new ValidationError("Choose the event that starts the automation.");
     }
 
-    const contact = await this.repos.contacts.findByEmail(workflow.projectId, input.email);
-    if (!contact) throw new NotFoundError("Contact");
+    const contact = await this.testContact(caller, workflow.projectId, input.email);
 
     const version = await this.repos.workflows.createTestVersion(workflowId, graph, workflow.settings ?? {});
     const run = await this.automation.startTestRun({
@@ -207,7 +232,7 @@ export class AutomationRunsService {
       event: { name: eventName, payload: input.payload },
     });
     await this.hooks.audit({
-      actor: { userId },
+      actor: auditActor(caller),
       action: "workflow.test_run_started",
       target: { type: "workflow", id: workflow.id, projectId: workflow.projectId },
       details: { runId: run.id, contactId: contact.id },

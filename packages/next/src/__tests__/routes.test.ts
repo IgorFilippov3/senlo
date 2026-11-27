@@ -306,38 +306,43 @@ describe("debug check", () => {
   });
 });
 
-describe("workflows API", () => {
-  it("creates a draft from an export for the key's project", async () => {
-    const importForProject = vi.fn(async () => ({ id: 30, status: "DRAFT" }));
-    const { routes } = fakeHost({ workflow: { importForProject } });
+describe("workflows API (deprecated, kept for old clients)", () => {
+  const principal = expect.objectContaining({ projectId: 7, actor: { apiKeyId: 1 } });
+
+  it("creates a draft from an export for the key's project, and points at the successor", async () => {
+    const createFromApi = vi.fn(async () => ({ id: 30, status: "DRAFT" }));
+    const { routes } = fakeHost({ workflow: { createFromApi } });
 
     expect((await routes.workflows.POST(post("/api/workflows", { workflow: {} }))).status).toBe(401);
     const response = await routes.workflows.POST(post("/api/workflows", { workflow: { name: "W" } }, bearer));
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ success: true, data: { id: 30, status: "DRAFT" } });
-    expect(importForProject).toHaveBeenCalledWith(7, { workflow: { name: "W" } });
+    expect(createFromApi).toHaveBeenCalledWith(principal, 7, { workflow: { name: "W" } });
+    expect(response.headers.get("Deprecation")).toBe("true");
+    expect(response.headers.get("Link")).toBe('</api/v1/automations>; rel="successor-version"');
   });
 
   it("exports and publishes by id; a malformed id or another project's workflow is a 404", async () => {
-    const exportForProject = vi.fn(async (_projectId: number, id: number) => {
+    const exportWorkflow = vi.fn(async (_p: unknown, id: number) => {
       if (id !== 30) throw new NotFoundError("Workflow");
       return { format: "senlo.workflow", version: 1, name: "W" };
     });
-    const publishForProject = vi.fn(async () => ({ id: 30, status: "ACTIVE" }));
-    const { routes } = fakeHost({ workflow: { exportForProject, publishForProject } });
+    const publish = vi.fn(async () => ({ id: 30, status: "ACTIVE" }));
+    const { routes } = fakeHost({ workflow: { exportWorkflow, publish } });
     const authed = (path: string) => new NextRequest(`http://localhost${path}`, { headers: bearer });
 
     const exported = await routes.workflow.GET(authed("/api/workflows/30"), params({ id: "30" }));
     expect(exported.status).toBe(200);
     expect((await exported.json()).data).toMatchObject({ format: "senlo.workflow" });
-    expect(exportForProject).toHaveBeenCalledWith(7, 30);
+    expect(exportWorkflow).toHaveBeenCalledWith(principal, 30);
+    expect(exported.headers.get("Link")).toBe('</api/v1/automations/30>; rel="successor-version"');
 
     expect((await routes.workflow.GET(authed("/api/workflows/31"), params({ id: "31" }))).status).toBe(404);
     expect((await routes.workflow.GET(authed("/api/workflows/x"), params({ id: "x" }))).status).toBe(404);
 
     const published = await routes.workflowPublish.POST(post("/api/workflows/30/publish", undefined, bearer), params({ id: "30" }));
     expect(await published.json()).toEqual({ success: true, data: { id: 30, status: "ACTIVE" } });
-    expect(publishForProject).toHaveBeenCalledWith(7, 30);
+    expect(publish).toHaveBeenCalledWith(principal, 30);
   });
 });
 
@@ -378,7 +383,7 @@ describe("key permissions on the public API", () => {
   it("refuses the workflow import with a send-only key: the key of an app cannot rewrite automations", async () => {
     const importForProject = vi.fn();
     const publishForProject = vi.fn();
-    const { routes } = hostWith(["send"], { workflow: { importForProject, publishForProject } });
+    const { routes } = hostWith(["send"], { workflow: { createFromApi: importForProject, publish: publishForProject } });
 
     const imported = await routes.workflows.POST(post("/api/workflows", { workflow: { name: "W" } }, bearer));
     expect(imported.status).toBe(403);
@@ -697,5 +702,131 @@ describe("API v1 triggers", () => {
     expect(updateFromApi).toHaveBeenCalledWith(principal, 9, { templateId: 6 }, { dryRun: false });
 
     expect((await routes.v1Trigger.GET(call("GET", "/api/v1/triggers/abc"), params({ id: "abc" }))).status).toBe(404);
+  });
+});
+
+describe("API v1 automations", () => {
+  const principal = { projectId: 7, permissions: ["manage"], source: "api_key", actor: { apiKeyId: 1 }, client: null };
+  const at = new Date("2026-11-27T10:00:00Z");
+  const workflow = { id: 30, projectId: 7, name: "Onboarding", description: null, status: "DRAFT", createdAt: at, updatedAt: at };
+  const exp = { format: "senlo.workflow", version: 1, name: "Onboarding", settings: {}, nodes: [], edges: [] };
+  const asJson = {
+    id: 30,
+    name: "Onboarding",
+    description: null,
+    status: "DRAFT",
+    triggerEvent: null,
+    activeVersionId: null,
+    createdAt: at.toISOString(),
+    updatedAt: at.toISOString(),
+  };
+  const host = (services: Record<string, unknown>) =>
+    fakeHost({
+      auth: { resolvePrincipal: vi.fn(async (t: string) => (t === "snl_good" ? principal : null)) },
+      idempotency: { begin: vi.fn(async () => ({ run: true, id: 1 })), complete: vi.fn(), release: vi.fn() },
+      ...services,
+    });
+  const call = (method: string, path: string, body?: unknown) =>
+    new NextRequest(`http://localhost${path}`, {
+      method,
+      headers: { ...bearer, "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const workflowService = (over: Record<string, unknown> = {}) => ({
+    requireWorkflow: vi.fn(async () => workflow),
+    exportWorkflow: vi.fn(async () => exp),
+    ...over,
+  });
+
+  it("lists, creates (201 with the export) and dry-runs", async () => {
+    const listPage = vi.fn(async () => ({ items: [workflow], nextCursor: null }));
+    const createFromApi = vi.fn(async (_p: unknown, _id: number, _b: unknown, o: { dryRun: boolean }) => (o.dryRun ? null : workflow));
+    const { routes } = host({ workflow: workflowService({ listPage, createFromApi }) });
+
+    expect(await (await routes.v1Automations.GET(call("GET", "/api/v1/automations"))).json()).toEqual({
+      data: { items: [asJson], nextCursor: null },
+    });
+    const created = await routes.v1Automations.POST(call("POST", "/api/v1/automations", { workflow: exp }));
+    expect(created.status).toBe(201);
+    expect((await created.json()).data).toEqual({ ...asJson, workflow: exp });
+    expect(createFromApi).toHaveBeenCalledWith(principal, 7, { workflow: exp }, { dryRun: false });
+
+    const checked = await routes.v1Automations.POST(call("POST", "/api/v1/automations?dryRun=true", { workflow: exp }));
+    expect(await checked.json()).toEqual({ data: { valid: true, warnings: [] } });
+  });
+
+  it("reads, replaces, publishes and pauses one automation", async () => {
+    const replaceFromApi = vi.fn(async () => workflow);
+    const publish = vi.fn(async () => ({ ...workflow, status: "ACTIVE" }));
+    const pause = vi.fn(async () => ({ ...workflow, status: "PAUSED" }));
+    const { routes } = host({ workflow: workflowService({ replaceFromApi, publish, pause }) });
+
+    const got = await routes.v1Automation.GET(call("GET", "/api/v1/automations/30"), params({ id: "30" }));
+    expect((await got.json()).data).toEqual({ ...asJson, workflow: exp });
+
+    await routes.v1Automation.PUT(call("PUT", "/api/v1/automations/30", { workflow: exp }), params({ id: "30" }));
+    expect(replaceFromApi).toHaveBeenCalledWith(principal, 30, { workflow: exp }, { dryRun: false });
+
+    const live = await routes.v1AutomationPublish.POST(call("POST", "/api/v1/automations/30/publish"), params({ id: "30" }));
+    expect((await live.json()).data.status).toBe("ACTIVE");
+    const paused = await routes.v1AutomationPause.POST(call("POST", "/api/v1/automations/30/pause"), params({ id: "30" }));
+    expect((await paused.json()).data.status).toBe("PAUSED");
+  });
+
+  it("answers a draft that cannot go live with 409 and the reasons", async () => {
+    const { NotPublishableError } = await import("@senlo/core");
+    const publish = vi.fn(async () => {
+      throw new NotPublishableError("This automation cannot go live yet.", ["Add a trigger before going live."]);
+    });
+    const { routes } = host({ workflow: workflowService({ publish }) });
+    const response = await routes.v1AutomationPublish.POST(call("POST", "/api/v1/automations/30/publish"), params({ id: "30" }));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toMatchObject({
+      code: "NOT_PUBLISHABLE",
+      details: { reasons: ["Add a trigger before going live."] },
+    });
+  });
+
+  it("starts a test run (201) and shows a run with its steps typed from the graph", async () => {
+    const startTestRun = vi.fn(async () => ({ runId: 5 }));
+    const getRun = vi.fn(async () => ({
+      run: {
+        id: 5,
+        workflowId: 30,
+        contactId: 3,
+        contactEmail: "a@x.io",
+        status: "COMPLETED",
+        exitReason: null,
+        currentNodeId: null,
+        isTest: true,
+        versionId: 2,
+        startedAt: at,
+        completedAt: at,
+        context: {},
+        wakeAt: null,
+        waitingEvent: null,
+        generation: 0,
+      },
+      steps: [{ id: 1, executionId: 5, nodeId: "m1", status: "FAILED", result: { error: "No variable" }, startedAt: at, completedAt: at }],
+      graph: { nodes: [{ id: "m1", type: "action", data: {} }], edges: [] },
+    }));
+    const { routes } = host({ automationRuns: { startTestRun, getRun } });
+
+    const started = await routes.v1AutomationTestRuns.POST(
+      call("POST", "/api/v1/automations/30/test-runs", { email: "a@x.io" }),
+      params({ id: "30" }),
+    );
+    expect(started.status).toBe(201);
+    expect(await started.json()).toEqual({ data: { runId: 5 } });
+    expect(startTestRun).toHaveBeenCalledWith(principal, 30, { email: "a@x.io" });
+
+    const run = await routes.v1AutomationRun.GET(call("GET", "/api/v1/automation-runs/5"), params({ id: "5" }));
+    expect((await run.json()).data).toMatchObject({
+      id: 5,
+      automationId: 30,
+      status: "COMPLETED",
+      isTest: true,
+      steps: [{ nodeId: "m1", type: "action", status: "FAILED", result: { error: "No variable" }, completedAt: at.toISOString() }],
+    });
   });
 });

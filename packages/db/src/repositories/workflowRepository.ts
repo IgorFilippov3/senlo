@@ -1,4 +1,4 @@
-import { eq, desc, and, max, min } from "drizzle-orm";
+import { eq, desc, and, lt, max, min } from "drizzle-orm";
 import { BaseRepositoryWithTimestamps } from "./baseRepository";
 import * as schema from "../schema";
 import {
@@ -93,6 +93,20 @@ export class WorkflowRepository
       .where(eq(this.table.projectId, projectId))
       .orderBy(desc(this.table.createdAt));
 
+    return rows.map((row) => this.mapToEntity(row));
+  }
+
+  async findPageByProject(projectId: number, limit: number, beforeId: number | null): Promise<Workflow[]> {
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(
+        beforeId === null
+          ? eq(this.table.projectId, projectId)
+          : and(eq(this.table.projectId, projectId), lt(this.table.id, beforeId)),
+      )
+      .orderBy(desc(this.table.id))
+      .limit(limit);
     return rows.map((row) => this.mapToEntity(row));
   }
 

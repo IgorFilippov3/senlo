@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Project, Workflow, WorkflowVersion } from "../domain";
-import { NotFoundError, ValidationError } from "../errors";
+import { NotFoundError, NotPublishableError, RecipientNotAllowedError, ValidationError } from "../errors";
+import { AccessGuard, ownerAccessPolicy } from "../access";
+import { principalFromApiKey } from "../api-principal";
+import { ServiceHooks } from "../hooks";
 import { AutomationRunsService } from "../services/automationRunsService";
 import { fakeExecutions } from "./fakes/executions";
 
@@ -27,16 +30,24 @@ function setup(draft = { nodes: [{ id: "t", workflowId: 10, type: "trigger", dat
     findById: async (id: number) => (id === 3 ? { id: 3, projectId: 1, email: "ann@x.io" } : null),
     findByEmail: async (projectId: number, email: string) =>
       projectId === 1 && email === "ann@x.io" ? { id: 3, projectId: 1, email } : null,
+    upsert: vi.fn(async (d: { projectId: number; email: string }) => ({ id: 4, ...d })),
   };
   const automation = {
     cancelRun: vi.fn(async (id: number) => executions.cancel(id, "cancelled_user")),
     startTestRun: vi.fn(async () => ({ id: 5 }) as never),
   };
+  const hooks = { requireQuota: vi.fn(async () => {}), recordUsage: vi.fn(async () => {}), audit: vi.fn(async () => {}) };
+  // Alice owns project 1: her address is the one API test runs may use.
+  const guard = new AccessGuard(projects, ownerAccessPolicy, {
+    findById: async (id: string) => (id === "alice" ? ({ id, email: "Alice@x.io" } as never) : null),
+  });
   const service = new AutomationRunsService(
     { workflows: workflows as never, executions, contacts: contacts as never, projects },
     automation,
+    guard,
+    hooks as unknown as ServiceHooks,
   );
-  return { service, runs, seed, workflows, automation };
+  return { service, runs, seed, workflows, automation, contacts, hooks };
 }
 
 describe("AutomationRunsService", () => {
@@ -87,7 +98,41 @@ describe("AutomationRunsService", () => {
     const { service, automation } = setup({ nodes: [], edges: [] });
     const e = await service.startTestRun("alice", 10, { email: "ann@x.io" }).catch((x) => x);
     expect(e).toBeInstanceOf(ValidationError);
+    expect(e).toBeInstanceOf(NotPublishableError);
+    expect(e.code).toBe("NOT_PUBLISHABLE");
     expect(e.details.reasons).toContain("Add a trigger before going live.");
     expect(automation.startTestRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("AutomationRunsService through API v1", () => {
+  const agent = principalFromApiKey({ id: 3, projectId: 1, permissions: ["manage"] }, "mcp/1.0.0");
+
+  it("runs a test for a member, creating the contact without firing contact_added", async () => {
+    const { service, contacts, automation, hooks } = setup();
+    expect(await service.startTestRun(agent, 10, { email: "alice@x.io" })).toEqual({ runId: 5 });
+
+    expect(hooks.requireQuota).toHaveBeenCalledWith({ type: "contact.create", projectId: 1 });
+    expect(contacts.upsert).toHaveBeenCalledWith({ projectId: 1, email: "alice@x.io" });
+    expect(hooks.recordUsage).toHaveBeenCalledWith({ type: "contact.created", projectId: 1, contactId: 4 });
+    expect(automation.startTestRun).toHaveBeenCalledWith(expect.objectContaining({ contactId: 4 }));
+    expect(hooks.audit).toHaveBeenCalledWith(expect.objectContaining({ actor: { apiKeyId: 3, client: "mcp/1.0.0" } }));
+  });
+
+  it("refuses an address outside the organization, and creates nothing", async () => {
+    const { service, contacts, automation } = setup();
+    const e = await service.startTestRun(agent, 10, { email: "ann@x.io" }).catch((x) => x);
+    expect(e).toBeInstanceOf(RecipientNotAllowedError);
+    expect(e.details.allowed).toEqual(["alice@x.io"]);
+    expect(contacts.upsert).not.toHaveBeenCalled();
+    expect(automation.startTestRun).not.toHaveBeenCalled();
+  });
+
+  it("reads a run of its project only", async () => {
+    const { service, seed } = setup();
+    seed({ id: 1, workflowId: 10, contactId: 3 });
+    seed({ id: 2, workflowId: 20 });
+    expect((await service.getRun(agent, 1)).run.id).toBe(1);
+    await expect(service.getRun(agent, 2)).rejects.toBeInstanceOf(NotFoundError);
   });
 });

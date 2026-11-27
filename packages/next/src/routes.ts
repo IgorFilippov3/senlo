@@ -3,10 +3,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { NextResponse, type NextRequest } from "next/server";
-import { PermissionRequiredError, logError, type ApiPermission } from "@senlo/core";
+import {
+  PermissionRequiredError,
+  clientLabel,
+  logError,
+  principalFromApiKey,
+  type ApiPermission,
+  type ApiPrincipal,
+} from "@senlo/core";
 import { apiV1OpenApiDocument } from "@senlo/core/server";
 import {
   parsePageQuery,
+  toApiAutomation,
+  toApiAutomationRun,
   toApiTrigger,
   toApiTemplate,
   toApiTemplateSummary,
@@ -57,6 +66,7 @@ export function createSenloRoutes(host: SenloHost) {
         projectId: number,
         body: unknown,
         req: NextRequest,
+        principal: ApiPrincipal,
       ) => Promise<{ response: Response; log: Record<string, unknown> }>,
     ): Handler =>
     async (req) => {
@@ -74,7 +84,8 @@ export function createSenloRoutes(host: SenloHost) {
 
       try {
         const body = await req.json().catch(() => ({}));
-        const { response, log } = await run(projectId, body, req);
+        const principal = principalFromApiKey(auth.apiKey, clientLabel(req.headers.get("Senlo-Client")));
+        const { response, log } = await run(projectId, body, req, principal);
         host.logger.info(success, { ...log, projectId });
         return response;
       } catch (error) {
@@ -89,7 +100,12 @@ export function createSenloRoutes(host: SenloHost) {
       permission: ApiPermission,
       label: string,
       success: string,
-      run: (projectId: number, id: number, body: unknown) => Promise<{ response: Response; log: Record<string, unknown> }>,
+      run: (
+        projectId: number,
+        id: number,
+        body: unknown,
+        principal: ApiPrincipal,
+      ) => Promise<{ response: Response; log: Record<string, unknown> }>,
     ): ParamHandler<{ id: string }> =>
     async (req, { params }) => {
       const { id: raw } = await params;
@@ -97,10 +113,28 @@ export function createSenloRoutes(host: SenloHost) {
       if (!Number.isInteger(id) || id <= 0) {
         return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
       }
-      return apiRoute(permission, label, success, (projectId, body) => run(projectId, id, body))(req);
+      return apiRoute(permission, label, success, (projectId, body, _req, principal) =>
+        run(projectId, id, body, principal),
+      )(req);
     };
 
+  /**
+   * `/api/workflows*` moved to `/api/v1/automations*`: same behaviour and
+   * answers as before, with `Deprecation` and the successor's address.
+   */
+  const deprecated = (response: Response, successor: string): Response => {
+    response.headers.set("Deprecation", "true");
+    response.headers.set("Link", `<${successor}>; rel="successor-version"`);
+    return response;
+  };
+
   const v1Route = createV1Route(host);
+
+  /** An automation as API v1 shows one: the record and its export. */
+  const automationWithExport = async (principal: ApiPrincipal, id: number) => {
+    const workflow = await services().workflow.requireWorkflow(principal, id, "read");
+    return { ...toApiAutomation(workflow), workflow: await services().workflow.exportWorkflow(principal, id) };
+  };
 
   /** Signed-in user, rate limited per user. */
   const userRoute =
@@ -211,6 +245,71 @@ export function createSenloRoutes(host: SenloHost) {
       }),
     },
 
+    /** `/api/v1/automations`: the key's project's automations, and creating a draft from an export. */
+    v1Automations: {
+      GET: v1Route("listAutomations", { permission: "manage" }, async ({ principal, req }) => {
+        const page = await services().workflow.listPage(
+          principal,
+          principal.projectId,
+          parsePageQuery(new URL(req.url).searchParams),
+        );
+        return { data: { items: page.items.map(toApiAutomation), nextCursor: page.nextCursor } };
+      }),
+      POST: v1Route("createAutomation", { permission: "manage", idempotent: true }, async ({ principal, req, body }) => {
+        const created = await services().workflow.createFromApi(principal, principal.projectId, body, {
+          dryRun: isDryRun(req),
+        });
+        if (!created) return { data: { valid: true, warnings: [] } };
+        return { data: await automationWithExport(principal, created.id), status: 201 };
+      }),
+    },
+
+    /** `/api/v1/automations/[id]`: one automation with its export, and replacing its draft. */
+    v1Automation: {
+      GET: v1Route<{ id: string }>("getAutomation", { permission: "manage" }, async ({ principal, params }) => ({
+        data: await automationWithExport(principal, pathId(params.id, "Automation")),
+      })),
+      PUT: v1Route<{ id: string }>("replaceAutomation", { permission: "manage" }, async ({ principal, params, req, body }) => {
+        const id = pathId(params.id, "Automation");
+        const replaced = await services().workflow.replaceFromApi(principal, id, body, { dryRun: isDryRun(req) });
+        if (!replaced) return { data: { valid: true, warnings: [] } };
+        return { data: await automationWithExport(principal, id) };
+      }),
+    },
+
+    /** `POST /api/v1/automations/[id]/publish`: go live, with the builder's checks. */
+    v1AutomationPublish: {
+      POST: v1Route<{ id: string }>("publishAutomation", { permission: "manage" }, async ({ principal, params }) => ({
+        data: toApiAutomation(await services().workflow.publish(principal, pathId(params.id, "Automation"))),
+      })),
+    },
+
+    /** `POST /api/v1/automations/[id]/pause`: no new runs; runs in flight finish. */
+    v1AutomationPause: {
+      POST: v1Route<{ id: string }>("pauseAutomation", { permission: "manage" }, async ({ principal, params }) => ({
+        data: toApiAutomation(await services().workflow.pause(principal, pathId(params.id, "Automation"))),
+      })),
+    },
+
+    /** `POST /api/v1/automations/[id]/test-runs`: a test run of the draft for a member of the organization. */
+    v1AutomationTestRuns: {
+      POST: v1Route<{ id: string }>(
+        "testAutomation",
+        { permission: "manage", idempotent: true },
+        async ({ principal, params, body }) => ({
+          data: await services().automationRuns.startTestRun(principal, pathId(params.id, "Automation"), body ?? {}),
+          status: 201,
+        }),
+      ),
+    },
+
+    /** `GET /api/v1/automation-runs/[id]`: a run and its steps, to see how a test went. */
+    v1AutomationRun: {
+      GET: v1Route<{ id: string }>("getAutomationRun", { permission: "manage" }, async ({ principal, params }) => ({
+        data: toApiAutomationRun(await services().automationRuns.getRun(principal, pathId(params.id, "Run"))),
+      })),
+    },
+
     /** `GET /api/v1/openapi.json`: the v1 spec, generated from the zod schemas. Public. */
     v1OpenApi: {
       GET: (async () =>
@@ -246,10 +345,13 @@ export function createSenloRoutes(host: SenloHost) {
 
     /** `POST /api/workflows`: create a draft automation from an export (D9). */
     workflows: {
-      POST: apiRoute("manage", "Workflow import", "Workflow created via API", async (projectId, body) => {
-        const workflow = await services().workflow.importForProject(projectId, body);
+      POST: apiRoute("manage", "Workflow import", "Workflow created via API", async (projectId, body, _req, principal) => {
+        const workflow = (await services().workflow.createFromApi(principal, projectId, body))!;
         return {
-          response: NextResponse.json({ success: true, data: { id: workflow.id, status: workflow.status } }, { status: 201 }),
+          response: deprecated(
+            NextResponse.json({ success: true, data: { id: workflow.id, status: workflow.status } }, { status: 201 }),
+            "/api/v1/automations",
+          ),
           log: { workflowId: workflow.id },
         };
       }),
@@ -257,18 +359,24 @@ export function createSenloRoutes(host: SenloHost) {
 
     /** `GET /api/workflows/[id]`: the automation as an export. */
     workflow: {
-      GET: apiIdRoute("manage", "Workflow export", "Workflow exported via API", async (projectId, id) => {
-        const data = await services().workflow.exportForProject(projectId, id);
-        return { response: NextResponse.json({ success: true, data }), log: { workflowId: id } };
+      GET: apiIdRoute("manage", "Workflow export", "Workflow exported via API", async (_projectId, id, _body, principal) => {
+        const data = await services().workflow.exportWorkflow(principal, id);
+        return {
+          response: deprecated(NextResponse.json({ success: true, data }), `/api/v1/automations/${id}`),
+          log: { workflowId: id },
+        };
       }),
     },
 
     /** `POST /api/workflows/[id]/publish`: go live, with the editor's checks. */
     workflowPublish: {
-      POST: apiIdRoute("manage", "Workflow publish", "Workflow published via API", async (projectId, id) => {
-        const workflow = await services().workflow.publishForProject(projectId, id);
+      POST: apiIdRoute("manage", "Workflow publish", "Workflow published via API", async (_projectId, id, _body, principal) => {
+        const workflow = await services().workflow.publish(principal, id);
         return {
-          response: NextResponse.json({ success: true, data: { id: workflow.id, status: workflow.status } }),
+          response: deprecated(
+            NextResponse.json({ success: true, data: { id: workflow.id, status: workflow.status } }),
+            `/api/v1/automations/${id}/publish`,
+          ),
           log: { workflowId: id },
         };
       }),
