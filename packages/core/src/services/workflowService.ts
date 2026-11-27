@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { canonical, sameJson } from "../canonical-json";
 import { z } from "zod";
 import { AccessGuard, type AccessAction } from "../access";
 import { ServiceHooks } from "../hooks";
@@ -609,9 +610,7 @@ function newNodeId(): string {
 }
 
 /** Equal values, object keys in any order. */
-function sameValue(a: unknown, b: unknown): boolean {
-  return JSON.stringify(canonical(a ?? {})) === JSON.stringify(canonical(b ?? {}));
-}
+const sameValue = sameJson;
 
 /** Equal graphs: same nodes (id, type, data) and edges, in any order. */
 function sameGraph(a: WorkflowGraphSnapshot, b: WorkflowGraphSnapshot): boolean {
@@ -625,17 +624,4 @@ function sameGraph(a: WorkflowGraphSnapshot, b: WorkflowGraphSnapshot): boolean 
         .map((e) => [e.id, e.sourceNodeId, e.targetNodeId, e.sourceHandle ?? null]),
     });
   return key(a) === key(b);
-}
-
-/** A value with object keys sorted, so key order does not count as a change. */
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.keys(value as Record<string, unknown>)
-        .sort()
-        .map((k) => [k, canonical((value as Record<string, unknown>)[k])]),
-    );
-  }
-  return value;
 }

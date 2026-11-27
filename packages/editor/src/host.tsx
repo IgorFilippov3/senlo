@@ -5,7 +5,12 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { EmailDesignDocument, SendingSetup } from "@senlo/core";
+import type {
+  EmailDesignDocument,
+  EmailTemplateVersion,
+  EmailTemplateVersionSummary,
+  SendingSetup,
+} from "@senlo/core";
 
 /** Places the editor can ask its host to take the user to. */
 export type EditorNavigationTarget =
@@ -60,6 +65,15 @@ export interface EditorHost {
   generateWithAi?: (request: AiGenerateRequest) => Promise<EmailDesignDocument>;
   /** Sample merge tag values for the preview; see `EditorPreviewData`. */
   previewData?: EditorPreviewData;
+  /** The template's saved versions, newest first. Unset: no History button. */
+  listVersions?: (
+    templateId: number,
+  ) => Promise<{ success: boolean; data?: EmailTemplateVersionSummary[]; error?: string }>;
+  /** One version with its design, to load into the editor. */
+  getVersion?: (
+    templateId: number,
+    versionId: number,
+  ) => Promise<{ success: boolean; data?: EmailTemplateVersion; error?: string }>;
 }
 
 const EditorHostContext = createContext<EditorHost>({});

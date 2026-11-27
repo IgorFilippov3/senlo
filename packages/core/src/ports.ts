@@ -33,6 +33,9 @@ import type {
 import type {
   CreateEmailTemplateInput,
   EmailTemplate,
+  EmailTemplateVersion,
+  EmailTemplateVersionSummary,
+  NewEmailTemplateVersion,
   UpdateEmailTemplateInput,
 } from "./emailTemplate";
 
@@ -198,6 +201,17 @@ export interface IEmailTemplateRepository {
   findByProject(projectId: number): Promise<EmailTemplate[]>;
   update(input: UpdateEmailTemplateInput): Promise<EmailTemplate | null>;
   delete(id: number): Promise<void>;
+}
+
+/** A template's version history. Versions are only ever added. */
+export interface ITemplateVersionRepository {
+  /** The newest version, or null when the template has none yet. */
+  latest(templateId: number): Promise<EmailTemplateVersion | null>;
+  /** Stores the next version (the highest number plus one). */
+  append(data: NewEmailTemplateVersion): Promise<EmailTemplateVersion>;
+  /** Newest first, at most `limit`. */
+  listByTemplate(templateId: number, limit: number): Promise<EmailTemplateVersionSummary[]>;
+  findById(id: number): Promise<EmailTemplateVersion | null>;
 }
 
 export interface ISavedRowRepository {

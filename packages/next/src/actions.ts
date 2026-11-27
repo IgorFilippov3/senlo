@@ -8,6 +8,8 @@ import {
   type ActionResult,
   type ApiPermission,
   type EmailDesignDocument,
+  type EmailTemplateVersion,
+  type EmailTemplateVersionSummary,
   type RowBlock,
   type SavedRow,
 } from "@senlo/core";
@@ -34,6 +36,13 @@ export interface SenloEditorActions {
   listSavedRows(): Promise<SavedRow[]>;
   saveRow(name: string, data: RowBlock, projectId?: number): Promise<{ success: boolean; data?: SavedRow }>;
   deleteSavedRow(id: number): Promise<{ success: boolean }>;
+  listVersions(
+    templateId: number,
+  ): Promise<{ success: boolean; data?: EmailTemplateVersionSummary[]; error?: string }>;
+  getVersion(
+    templateId: number,
+    versionId: number,
+  ): Promise<{ success: boolean; data?: EmailTemplateVersion; error?: string }>;
 }
 
 /** Everything a signed-in user's client may call: the data layer plus the editor. */
@@ -262,6 +271,33 @@ const handlers: HandlerTable<SenloServerActions> = {
         // Typed errors carry a message meant for the user; anything else stays in the log.
         const message = error instanceof AppError ? error.message : "Could not send the test email.";
         return { success: false, error: message };
+      }
+    },
+  },
+  "editor.listVersions": {
+    refresh: false,
+    run: async (host, templateId) => {
+      try {
+        const userId = await host.requireUserId();
+        return { success: true, data: await host.getServices().template.listVersions(userId, validateId(templateId, "templateId")) };
+      } catch (error) {
+        logError(host.logger, "Failed to list template versions", error, { templateId });
+        return { success: false, error: "Could not load the history." };
+      }
+    },
+  },
+  "editor.getVersion": {
+    refresh: false,
+    run: async (host, templateId, versionId) => {
+      try {
+        const userId = await host.requireUserId();
+        const data = await host
+          .getServices()
+          .template.getVersion(userId, validateId(templateId, "templateId"), validateId(versionId, "versionId"));
+        return { success: true, data };
+      } catch (error) {
+        logError(host.logger, "Failed to load a template version", error, { templateId, versionId });
+        return { success: false, error: "Could not load this version." };
       }
     },
   },

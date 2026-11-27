@@ -18,5 +18,7 @@ export function createEditorActions(call: ActionTransport) {
     onListSavedRows: send("listSavedRows"),
     onSaveRow: send("saveRow"),
     onDeleteSavedRow: send("deleteSavedRow"),
+    listVersions: send("listVersions"),
+    getVersion: send("getVersion"),
   };
 }

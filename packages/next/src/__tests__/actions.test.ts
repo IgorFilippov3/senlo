@@ -123,6 +123,37 @@ describe("dispatchSenloAction", () => {
     const out = fakeHost({}, signedOut);
     expect(await dispatchSenloAction(out.host, "editor.listSavedRows", [])).toEqual([]);
   });
+  it("lists and loads template versions for the editor, hiding failures behind a message", async () => {
+    const summary = { id: 5, templateId: 1, version: 2, subject: "S", preheader: null, source: "editor", author: null, createdAt: new Date() };
+    const listVersions = vi.fn(async () => [summary]);
+    const getVersion = vi.fn(async () => ({ ...summary, design: { rows: [] } }));
+    const { host, onMutated } = fakeHost({ template: { listVersions, getVersion } });
+
+    expect(await dispatchSenloAction(host, "editor.listVersions", [1])).toEqual({ success: true, data: [summary] });
+    expect(listVersions).toHaveBeenCalledWith("u1", 1);
+    expect(await dispatchSenloAction(host, "editor.getVersion", [1, 5])).toEqual({
+      success: true,
+      data: { ...summary, design: { rows: [] } },
+    });
+    expect(getVersion).toHaveBeenCalledWith("u1", 1, 5);
+    // Reading history changes nothing.
+    expect(onMutated).not.toHaveBeenCalled();
+
+    expect(await dispatchSenloAction(host, "editor.getVersion", [1, "x"])).toEqual({
+      success: false,
+      error: "Could not load this version.",
+    });
+    getVersion.mockRejectedValueOnce(new NotFoundError("Template version", 9));
+    expect(await dispatchSenloAction(host, "editor.getVersion", [1, 9])).toEqual({
+      success: false,
+      error: "Could not load this version.",
+    });
+    const out = fakeHost({ template: { listVersions } }, signedOut);
+    expect(await dispatchSenloAction(out.host, "editor.listVersions", [1])).toEqual({
+      success: false,
+      error: "Could not load the history.",
+    });
+  });
 });
 
 describe("dispatchPublicAction", () => {

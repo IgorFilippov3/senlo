@@ -72,6 +72,29 @@ describe("updateDesignFromAi", () => {
   });
 });
 
+describe("restoreVersion", () => {
+  it("loads a saved version as unsaved changes: design, subject and preheader", () => {
+    store().setTemplateMetadata("Name", "Current subject", "en", "Current pre");
+    store().select({ type: "row", id: "r1" } as never);
+
+    store().restoreVersion({ design: design([]), subject: "Old subject", preheader: null });
+
+    expect(store().design.rows).toHaveLength(0);
+    expect(store().templateSubject).toBe("Old subject");
+    expect(store().templatePreheader).toBe("");
+    expect(store().templateName).toBe("Name");
+    expect(store().selection).toBeNull();
+    expect(store().isDirty).toBe(true);
+  });
+
+  it("is one undo step back to the design the user had", () => {
+    store().restoreVersion({ design: design([]), subject: "S", preheader: "P" });
+    expect(store().historyPast).toHaveLength(1);
+    store().undo();
+    expect(store().design.rows).toHaveLength(2);
+  });
+});
+
 describe("global settings", () => {
   it("merge and record one step", () => {
     store().updateGlobalSettings({ contentWidth: 720 });

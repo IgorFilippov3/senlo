@@ -18,6 +18,7 @@ import type {
   ICampaignRepository,
   IEmailProviderRepository,
   IEmailTemplateRepository,
+  ITemplateVersionRepository,
   IProjectRepository,
   ISavedRowRepository,
   IUserRepository,
@@ -69,6 +70,7 @@ export interface Repositories {
   sendLogs: ITriggeredSendLogRepository;
   suppressions: ISuppressionRepository;
   templates: IEmailTemplateRepository;
+  templateVersions: ITemplateVersionRepository;
   users: IUserRepository;
   workflows: IWorkflowRepository;
   /**

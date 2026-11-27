@@ -390,6 +390,32 @@ export const apiKeys = pgTable("api_keys", {
     .defaultNow(),
 });
 
+/**
+ * Every saved state of a template's content (design, subject, preheader),
+ * numbered per template. Only ever appended to; a restore is a new version.
+ */
+export const emailTemplateVersions = pgTable(
+  "email_template_versions",
+  {
+    id: serial("id").primaryKey(),
+    templateId: integer("template_id")
+      .notNull()
+      .references(() => emailTemplates.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    design: jsonb("design").notNull(),
+    subject: text("subject").notNull(),
+    preheader: text("preheader"),
+    /** `TemplateVersionSource`: editor, api, mcp, baseline. */
+    source: text("source").notNull(),
+    createdByUserId: text("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdByApiKeyId: integer("created_by_api_key_id").references(() => apiKeys.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    templateVersionUnq: unique("email_template_versions_template_version_unq").on(t.templateId, t.version),
+  }),
+);
+
 export const triggeredSendLogs = pgTable(
   "triggered_send_logs",
   {

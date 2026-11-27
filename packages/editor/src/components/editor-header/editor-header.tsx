@@ -11,6 +11,7 @@ import {
   Settings2,
   Variable,
   Send,
+  History,
 } from "lucide-react";
 import { useEditorStore } from "../../state/editor.store";
 import { renderEmailDesign } from "@senlo/core";
@@ -19,6 +20,7 @@ import { useState, useEffect } from "react";
 import { ExportModal } from "../export-modal/export-modal";
 import { PreviewModal } from "../preview-modal/preview-modal";
 import { TestSendModal } from "../test-send-modal/test-send-modal";
+import { HistoryModal } from "../history-modal/history-modal";
 import { useEditorHost } from "../../host";
 import { useLeaveEditor } from "../../hooks/use-leave-editor";
 
@@ -42,7 +44,7 @@ export const EditorHeader = () => {
   const previewMode = useEditorStore((s) => s.previewMode);
   const setPreviewMode = useEditorStore((s) => s.setPreviewMode);
 
-  const { baseUrl } = useEditorHost();
+  const { baseUrl, listVersions } = useEditorHost();
   const leave = useLeaveEditor();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -54,6 +56,7 @@ export const EditorHeader = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTestSendOpen, setIsTestSendOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const [editName, setEditName] = useState(templateName);
   const [editSubject, setEditSubject] = useState(templateSubject);
@@ -256,6 +259,18 @@ export const EditorHeader = () => {
             <Download size={16} />
             <span>Export</span>
           </Button>
+
+          {listVersions && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsHistoryOpen(true)}
+              title="Version history"
+            >
+              <History size={16} />
+              <span>History</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -272,6 +287,11 @@ export const EditorHeader = () => {
       <TestSendModal
         isOpen={isTestSendOpen}
         onClose={() => setIsTestSendOpen(false)}
+      />
+
+      <HistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
       />
 
       <Dialog

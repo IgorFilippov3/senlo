@@ -10,7 +10,13 @@ import type { MailSettings } from "../config";
 import { EMPTY_EMAIL_DESIGN } from "../constants";
 import type { Campaign, EmailProvider, Project } from "../domain";
 import type { EmailDesignDocument } from "../emailDesign";
-import type { EmailTemplate } from "../emailTemplate";
+import type {
+  EmailTemplate,
+  EmailTemplateVersion,
+  EmailTemplateVersionSummary,
+  TemplateVersionSource,
+} from "../emailTemplate";
+import { sameJson } from "../canonical-json";
 import { NotFoundError, ProviderError, ValidationError } from "../errors";
 import type { MergeTag } from "../merge-tags";
 import type {
@@ -19,6 +25,7 @@ import type {
   IEmailTemplateRepository,
   IMailer,
   IProjectRepository,
+  ITemplateVersionRepository,
 } from "../ports";
 import { htmlToPlainText } from "../renderer/htmlToText";
 import { renderEmailDesign } from "../renderer/renderEmailDesign";
@@ -80,6 +87,32 @@ export interface TemplateServiceRepositories {
   projects: IProjectRepository;
   campaigns: Pick<ICampaignRepository, "findById" | "findByTemplateId">;
   providers: Pick<IEmailProviderRepository, "findById">;
+  templateVersions: ITemplateVersionRepository;
+}
+
+/** At most this many versions in a template's history list. */
+export const TEMPLATE_VERSION_LIST_LIMIT = 100;
+
+/** Who saved: a signed-in user, or (API v1) a key. */
+export type TemplateVersionActor = { userId: string } | { apiKeyId: number };
+
+/** The part of a template a version keeps: what the recipient gets. */
+interface TemplateContent {
+  design: EmailDesignDocument;
+  subject: string;
+  preheader: string | null;
+}
+
+function contentOf(template: Pick<EmailTemplate, "designJson" | "subject" | "preheader">): TemplateContent {
+  return {
+    design: template.designJson ?? EMPTY_EMAIL_DESIGN,
+    subject: template.subject,
+    preheader: template.preheader || null,
+  };
+}
+
+function sameContent(a: TemplateContent, b: TemplateContent): boolean {
+  return a.subject === b.subject && (a.preheader || null) === (b.preheader || null) && sameJson(a.design, b.design);
 }
 
 /** A trigger's variables as merge tags for the editor's picker. */
@@ -206,6 +239,16 @@ export class TemplateService {
     input: EditorSaveInput,
   ): Promise<EmailTemplate> {
     const { template } = await this.requireTemplate(userId, templateId, "write");
+    await this.recordVersion(
+      template,
+      {
+        design: input.design,
+        subject: input.metadata?.subject ?? template.subject,
+        preheader: input.metadata ? (input.metadata.preheader ?? null) : template.preheader,
+      },
+      "editor",
+      { userId },
+    );
     const updated = await this.repos.templates.update({
       id: templateId,
       designJson: input.design,
@@ -218,6 +261,55 @@ export class TemplateService {
     if (!updated) throw new NotFoundError("Template");
     await this.audit(userId, "saved", templateId, template.projectId);
     return updated;
+  }
+
+  /**
+   * Stores what is about to be saved as the template's next version, before
+   * the template itself changes: if that write then fails, retrying the same
+   * save finds an identical version and adds no second one. Nothing changed
+   * since the last version, nothing is stored. A template with no history yet
+   * first gets a `baseline` version of what it had, unless that was the empty
+   * design of a new template.
+   */
+  private async recordVersion(
+    before: EmailTemplate,
+    next: TemplateContent,
+    source: Exclude<TemplateVersionSource, "baseline">,
+    actor: TemplateVersionActor,
+  ): Promise<void> {
+    const versions = this.repos.templateVersions;
+    const latest = await versions.latest(before.id);
+
+    if (latest) {
+      if (sameContent(latest, next)) return;
+    } else {
+      const current = contentOf(before);
+      if (before.designJson && !sameJson(before.designJson, EMPTY_EMAIL_DESIGN) && !sameContent(current, next)) {
+        await versions.append({ templateId: before.id, ...current, source: "baseline" });
+      }
+    }
+
+    await versions.append({
+      templateId: before.id,
+      ...next,
+      source,
+      createdByUserId: "userId" in actor ? actor.userId : null,
+      createdByApiKeyId: "apiKeyId" in actor ? actor.apiKeyId : null,
+    });
+  }
+
+  /** The template's versions, newest first, without their designs. */
+  async listVersions(userId: string, templateId: number): Promise<EmailTemplateVersionSummary[]> {
+    await this.requireTemplate(userId, templateId, "read");
+    return this.repos.templateVersions.listByTemplate(templateId, TEMPLATE_VERSION_LIST_LIMIT);
+  }
+
+  /** One version with its design, to restore in the editor. Must belong to `templateId`. */
+  async getVersion(userId: string, templateId: number, versionId: number): Promise<EmailTemplateVersion> {
+    await this.requireTemplate(userId, templateId, "read");
+    const version = await this.repos.templateVersions.findById(versionId);
+    if (!version || version.templateId !== templateId) throw new NotFoundError("Template version", versionId);
+    return version;
   }
 
   /**

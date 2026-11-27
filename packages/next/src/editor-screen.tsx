@@ -23,7 +23,9 @@ type HostCallbacks =
   | "onSendTest"
   | "onListSavedRows"
   | "onSaveRow"
-  | "onDeleteSavedRow";
+  | "onDeleteSavedRow"
+  | "listVersions"
+  | "getVersion";
 
 /** Where the editor's two non-action calls go; self-hosted's routes by default. */
 export interface EditorEndpoints {

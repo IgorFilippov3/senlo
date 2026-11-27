@@ -162,6 +162,12 @@ export interface EditorState {
   resetEditor: () => void;
   /** Update design document from AI with history tracking */
   updateDesignFromAi: (design: EmailDesignDocument) => void;
+  /**
+   * Loads a saved version as unsaved changes: the design (one undo step, so
+   * Undo brings the previous document back), the subject and the preheader.
+   * Nothing is stored until the user saves.
+   */
+  restoreVersion: (version: { design: EmailDesignDocument; subject: string; preheader: string | null }) => void;
   /** Set the template database ID */
   setTemplateId: (id: number) => void;
   /** Update template name and subject line */
@@ -528,6 +534,19 @@ export const useEditorStore = create<EditorState>()(
         if (!s.design.settings) {
           s.design.settings = { ...DEFAULT_GLOBAL_SETTINGS };
         }
+      });
+    },
+
+    restoreVersion: ({ design, subject, preheader }) => {
+      commit(set, get, (s) => {
+        s.design = migrateEmailDesign(design);
+        if (!s.design.settings) {
+          s.design.settings = { ...DEFAULT_GLOBAL_SETTINGS };
+        }
+        s.templateSubject = subject;
+        s.templatePreheader = preheader ?? "";
+        s.selection = null;
+        s.isDirty = true;
       });
     },
 

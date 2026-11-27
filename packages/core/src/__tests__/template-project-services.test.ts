@@ -7,7 +7,8 @@ import { EMPTY_EMAIL_DESIGN } from "../constants";
 import { ServiceHooks } from "../hooks";
 import { FormValidationError, NotFoundError, ProviderError, ValidationError } from "../errors";
 import type { ApiKey, Campaign, EmailProvider, Project, SavedRow } from "../domain";
-import type { EmailTemplate } from "../emailTemplate";
+import type { EmailDesignDocument } from "../emailDesign";
+import type { EmailTemplate, EmailTemplateVersion, NewEmailTemplateVersion } from "../emailTemplate";
 import type { SendMailResult } from "../ports";
 
 const p1 = { id: 1, userId: "alice", name: "Alpha", providerId: 5, aiProviderId: null, createdAt: new Date(), updatedAt: new Date() } as Project;
@@ -39,8 +40,50 @@ const projectsRepo = () => {
 const tpl = (id: number, projectId: number, over: Partial<EmailTemplate> = {}): EmailTemplate =>
   ({ id, projectId, name: `t${id}`, subject: `s${id}`, preheader: null, html: "", designJson: null, locale: "en", status: "DRAFT", createdAt: new Date(), updatedAt: new Date(), ...over }) as EmailTemplate;
 
+/** An in-memory version history, numbered per template like the real one. */
+function versionsFake() {
+  const rows: EmailTemplateVersion[] = [];
+  const ofTemplate = (tid: number) => rows.filter((r) => r.templateId === tid).sort((a, b) => b.version - a.version);
+  return {
+    rows,
+    latest: async (tid: number) => ofTemplate(tid)[0] ?? null,
+    append: vi.fn(async (d: NewEmailTemplateVersion) => {
+      const v: EmailTemplateVersion = {
+        id: rows.length + 1,
+        templateId: d.templateId,
+        version: ofTemplate(d.templateId).length + 1,
+        design: d.design,
+        subject: d.subject,
+        preheader: d.preheader,
+        source: d.source,
+        author: d.createdByUserId ? { kind: "user", userId: d.createdByUserId, name: null, email: "a@x.io" } : null,
+        createdAt: new Date(),
+      };
+      rows.push(v);
+      return v;
+    }),
+    listByTemplate: async (tid: number, limit: number) =>
+      ofTemplate(tid)
+        .slice(0, limit)
+        .map(({ design: _design, ...summary }) => summary),
+    findById: async (id: number) => rows.find((r) => r.id === id) ?? null,
+  };
+}
+
+/** A design that is not the empty one a new template starts with. */
+const designA = { ...EMPTY_EMAIL_DESIGN, rows: [{ id: "a" }] } as unknown as EmailDesignDocument;
+const designB = { ...EMPTY_EMAIL_DESIGN, rows: [{ id: "b" }] } as unknown as EmailDesignDocument;
+
 function templateFakes() {
-  const templates = new Map([tpl(10, 1), tpl(20, 2), tpl(11, 1, { designJson: { ...EMPTY_EMAIL_DESIGN, rows: [] } })].map((t) => [t.id, t]));
+  const templates = new Map(
+    [
+      tpl(10, 1),
+      tpl(20, 2),
+      tpl(11, 1, { designJson: { ...EMPTY_EMAIL_DESIGN, rows: [] } }),
+      // Saved before versions existed: real content, no history.
+      tpl(12, 3, { designJson: designA, subject: "Old subject", preheader: "Old pre" }),
+    ].map((t) => [t.id, t]),
+  );
   const campaigns: Campaign[] = [
     { id: 100, projectId: 1, templateId: 10, variablesSchema: { first_name: "x", order_id: 1 } } as unknown as Campaign,
     { id: 200, projectId: 2, templateId: 20 } as unknown as Campaign,
@@ -65,6 +108,7 @@ function templateFakes() {
       findByTemplateId: async (tid: number) => campaigns.find((c) => c.templateId === tid) ?? null,
     },
     providers: { findById: async (id: number) => providers.find((p) => p.id === id) ?? null },
+    templateVersions: versionsFake(),
   };
   const service = new TemplateService(repos, mailerFor, { appUrl: "https://app.test", defaultFromEmail: "hello@app.test" });
   return { service, repos, mailer, mailerFor, templates };
@@ -112,6 +156,91 @@ describe("TemplateService", () => {
     await expect(service.saveFromEditor("bob", 10, { design: EMPTY_EMAIL_DESIGN, html: "<p/>" })).rejects.toBeInstanceOf(NotFoundError);
     await service.saveFromEditor("alice", 10, { design: EMPTY_EMAIL_DESIGN, html: "<p/>", metadata: { name: "N", subject: "S", preheader: "P" } });
     expect(repos.templates.update).toHaveBeenCalledWith({ id: 10, designJson: EMPTY_EMAIL_DESIGN, html: "<p/>", name: "N", subject: "S", locale: undefined, preheader: "P" });
+  });
+
+  it("keeps a version per save, and none when nothing changed", async () => {
+    const { service, repos } = templateFakes();
+    const versions = repos.templateVersions;
+    const save = (design: EmailDesignDocument, subject: string) =>
+      service.saveFromEditor("alice", 10, { design, html: "<p/>", metadata: { name: "N", subject, preheader: null } });
+
+    await save(designA, "S");
+    expect(versions.rows).toHaveLength(1);
+    expect(versions.rows[0]).toMatchObject({
+      templateId: 10,
+      version: 1,
+      design: designA,
+      subject: "S",
+      preheader: null,
+      source: "editor",
+      author: { kind: "user", userId: "alice" },
+    });
+
+    // Same content again, keys in another order: not a change.
+    const reorder = (v: unknown): unknown =>
+      Array.isArray(v)
+        ? v.map(reorder)
+        : v && typeof v === "object"
+          ? Object.fromEntries(Object.keys(v).reverse().map((k) => [k, reorder((v as Record<string, unknown>)[k])]))
+          : v;
+    await save(reorder(designA) as EmailDesignDocument, "S");
+    expect(versions.rows).toHaveLength(1);
+
+    await save(designA, "S2");
+    await save(designB, "S2");
+    expect(versions.rows.map((v) => [v.version, v.subject])).toEqual([
+      [1, "S"],
+      [2, "S2"],
+      [3, "S2"],
+    ]);
+  });
+
+  it("writes the version before the template, so a failed save leaves no gap", async () => {
+    const { service, repos } = templateFakes();
+    repos.templates.update.mockRejectedValueOnce(new Error("db down"));
+    const input = { design: designA, html: "<p/>", metadata: { name: "N", subject: "S" } };
+
+    await expect(service.saveFromEditor("alice", 10, input)).rejects.toThrow("db down");
+    await service.saveFromEditor("alice", 10, input);
+    // The retry is the same content: one version, and the template is saved.
+    expect(repos.templateVersions.rows).toHaveLength(1);
+    expect(repos.templates.update).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps what a template had before versions as a baseline on its first save", async () => {
+    const { service, repos } = templateFakes();
+    await service.saveFromEditor("alice", 12, { design: designB, html: "<p/>", metadata: { name: "t", subject: "New" } });
+
+    expect(repos.templateVersions.rows.map((v) => [v.version, v.source, v.subject, v.preheader, v.author])).toEqual([
+      [1, "baseline", "Old subject", "Old pre", null],
+      [2, "editor", "New", null, expect.objectContaining({ userId: "alice" })],
+    ]);
+    expect(repos.templateVersions.rows[0].design).toEqual(designA);
+  });
+
+  it("adds no baseline for a new template's empty design", async () => {
+    const { service, repos } = templateFakes();
+    await service.saveFromEditor("alice", 11, { design: designA, html: "<p/>" });
+    expect(repos.templateVersions.rows.map((v) => v.source)).toEqual(["editor"]);
+    // No metadata: the version keeps the template's own subject.
+    expect(repos.templateVersions.rows[0].subject).toBe("s11");
+  });
+
+  it("lists and reads versions only for the template's owner, and only of that template", async () => {
+    const { service } = templateFakes();
+    await service.saveFromEditor("alice", 10, { design: designA, html: "<p/>" });
+    await service.saveFromEditor("alice", 10, { design: designB, html: "<p/>" });
+    await service.saveFromEditor("alice", 11, { design: designA, html: "<p/>" });
+
+    const list = await service.listVersions("alice", 10);
+    expect(list.map((v) => v.version)).toEqual([2, 1]);
+    expect(list[0]).not.toHaveProperty("design");
+    await expect(service.listVersions("bob", 10)).rejects.toBeInstanceOf(NotFoundError);
+
+    expect((await service.getVersion("alice", 10, list[1].id)).design).toEqual(designA);
+    const ofOther = (await service.listVersions("alice", 11))[0];
+    await expect(service.getVersion("alice", 10, ofOther.id)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.getVersion("bob", 10, list[0].id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("sendTest checks addresses, provider presence and ownership, then sends the rendered mail now", async () => {
