@@ -14,6 +14,13 @@ import { PermissionRequiredError } from "./errors";
 export const API_PERMISSIONS = ["send", "manage"] as const;
 export type ApiPermission = (typeof API_PERMISSIONS)[number];
 
+/** What a new key gets when its creator picks nothing, and what every key issued before permissions has. */
+export const DEFAULT_API_KEY_PERMISSIONS: readonly ApiPermission[] = ["send"];
+
+export function isApiPermission(value: unknown): value is ApiPermission {
+  return typeof value === "string" && (API_PERMISSIONS as readonly string[]).includes(value);
+}
+
 /** Who is behind a request: an API key, or (later) a user's OAuth token. */
 export type ApiActor = { apiKeyId: number } | { userId: string };
 
@@ -48,15 +55,14 @@ export function clientLabel(header: string | null | undefined): string | null {
   return label || null;
 }
 
-/**
- * The principal of an API key. Keys have no permission field yet (step 2 of
- * the API v1 plan adds it), so every key holds both permissions, as every
- * key could already import and publish workflows.
- */
-export function principalFromApiKey(apiKey: { id: number; projectId: number }, client: string | null): ApiPrincipal {
+/** The principal of an API key: its project and its own permissions. */
+export function principalFromApiKey(
+  apiKey: { id: number; projectId: number; permissions: readonly ApiPermission[] },
+  client: string | null,
+): ApiPrincipal {
   return {
     projectId: apiKey.projectId,
-    permissions: API_PERMISSIONS,
+    permissions: apiKey.permissions,
     source: "api_key",
     actor: { apiKeyId: apiKey.id },
     client,

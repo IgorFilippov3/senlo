@@ -1,3 +1,4 @@
+import type { ApiPermission } from "./api-principal";
 import type {
   AiProvider,
   User,
@@ -287,6 +288,7 @@ export interface IApiKeyRepository {
     name: string;
     keyHash: string;
     prefix: string;
+    permissions: ApiPermission[];
   }): Promise<ApiKey>;
   updateLastUsed(id: number): Promise<void>;
   delete(id: number): Promise<void>;

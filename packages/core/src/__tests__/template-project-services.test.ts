@@ -250,7 +250,7 @@ describe("ProjectService", () => {
 });
 
 describe("SettingsService (API keys)", () => {
-  const keys: ApiKey[] = [{ id: 1, projectId: 1, name: "k", prefix: "snl_aaaaaaaa", createdAt: new Date() }, { id: 2, projectId: 2, name: "k", prefix: "snl_bbbbbbbb", createdAt: new Date() }];
+  const keys: ApiKey[] = [{ id: 1, projectId: 1, name: "k", prefix: "snl_aaaaaaaa", permissions: ["send"], createdAt: new Date() }, { id: 2, projectId: 2, name: "k", prefix: "snl_bbbbbbbb", permissions: ["send"], createdAt: new Date() }];
   const repo = {
     findByHash: async () => null,
     findLegacyByKey: async () => null,
@@ -278,5 +278,26 @@ describe("SettingsService (API keys)", () => {
     expect(stored.prefix).toBe(k.prefix);
     await expect(service.deleteApiKey("alice", 2)).rejects.toBeInstanceOf(NotFoundError);
     expect(await service.deleteApiKey("alice", 1)).toEqual({ projectId: 1 });
+  });
+
+  it("gives a new key send only, unless it asks for more", async () => {
+    repo.create.mockClear();
+    expect((await service.createApiKey("alice", 1, "app")).permissions).toEqual(["send"]);
+    expect(repo.create.mock.calls[0][0].permissions).toEqual(["send"]);
+
+    expect((await service.createApiKey("alice", 1, "agent", ["manage"])).permissions).toEqual(["manage"]);
+    // Deduplicated, in a fixed order.
+    expect((await service.createApiKey("alice", 1, "both", ["manage", "send", "manage"])).permissions).toEqual([
+      "send",
+      "manage",
+    ]);
+  });
+
+  it("refuses an empty or unknown permission list", async () => {
+    repo.create.mockClear();
+    await expect(service.createApiKey("alice", 1, "k", [])).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.createApiKey("alice", 1, "k", ["admin"])).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.createApiKey("alice", 1, "k", "send")).rejects.toBeInstanceOf(ValidationError);
+    expect(repo.create).not.toHaveBeenCalled();
   });
 });

@@ -5,10 +5,10 @@ import { apiKeyPrefix, generateApiKey, hashApiKey } from "../api-key";
 import type { ApiKey } from "../domain";
 
 const hashed: ApiKey & { keyHash: string } = {
-  id: 1, projectId: 1, name: "new", prefix: "snl_newnewne", keyHash: hashApiKey("snl_newnewnew"), createdAt: new Date(),
+  id: 1, projectId: 1, name: "new", prefix: "snl_newnewne", permissions: ["send", "manage"], keyHash: hashApiKey("snl_newnewnew"), createdAt: new Date(),
 };
 const legacy: ApiKey & { key: string } = {
-  id: 2, projectId: 1, name: "old", prefix: "old-plain-ke", key: "old-plain-key", createdAt: new Date(),
+  id: 2, projectId: 1, name: "old", prefix: "old-plain-ke", permissions: ["send"], key: "old-plain-key", createdAt: new Date(),
 };
 
 function repo() {
@@ -59,7 +59,7 @@ describe("AuthService.validateApiKey", () => {
 });
 
 describe("AuthService.resolvePrincipal", () => {
-  it("turns a key into a principal of its project, with both permissions and the client label", async () => {
+  it("turns a key into a principal of its project, with its permissions and the client label", async () => {
     const service = new AuthService(repo(), projects);
     expect(await service.resolvePrincipal("snl_newnewnew", "mcp/1.0.0")).toEqual({
       projectId: 1,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ApiKey } from "@senlo/core";
+import type { ApiKey, ApiPermission } from "@senlo/core";
 import { useSenloActions } from "./provider";
 import { queryKeys } from "./query-keys";
 import { unwrap } from "./result";
@@ -19,8 +19,15 @@ export function useCreateApiKey() {
   const actions = useSenloActions();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ projectId, name }: { projectId: number; name: string }) =>
-      unwrap(await actions.apiKeys.create(projectId, name)),
+    mutationFn: async ({
+      projectId,
+      name,
+      permissions,
+    }: {
+      projectId: number;
+      name: string;
+      permissions: ApiPermission[];
+    }) => unwrap(await actions.apiKeys.create(projectId, name, permissions)),
     onSuccess: ({ key: _key, ...listed }, { projectId }) => {
       // The plain key stays with the caller; the cached list holds the prefix only.
       queryClient.setQueryData<ApiKey[]>(queryKeys.apiKeys.byProject(projectId), (old) =>

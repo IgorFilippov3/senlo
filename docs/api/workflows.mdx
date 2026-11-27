@@ -77,5 +77,6 @@ Goes live with the same checks as **Go Live** in the editor, and publishes the d
 | --- | --- |
 | `400` | Not an export, an unsupported version, settings or steps that cannot be used, emails with no trigger (`details.reasons` lists them), or a draft that cannot go live (`details.reasons`). |
 | `401` | No key, or a wrong one. |
+| `403` | The key has no `manage` permission (see [Authentication](./authentication.mdx#permissions)). |
 | `404` | No automation with this id in the workspace. |
 | `429` | Rate limited. |

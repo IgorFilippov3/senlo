@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import type { ApiKey, IssuedApiKey } from "@senlo/core";
-import { Card, Button } from "@senlo/ui";
+import type { ApiKey, ApiPermission, IssuedApiKey } from "@senlo/core";
+import { Badge, Card, Button } from "@senlo/ui";
 import { Key, Copy, Check, Trash2, Plus, X } from "lucide-react";
 import { LoadingState } from "../shared/Loading";
 
 export interface ApiKeysListProps {
   keys: ApiKey[];
   isLoading?: boolean;
-  onCreateKey?: (name: string) => void;
+  onCreateKey?: (name: string, permissions: ApiPermission[]) => void;
   onDeleteKey?: (id: number) => void;
   isCreating?: boolean;
   isDeleting?: boolean;
@@ -17,6 +17,21 @@ export interface ApiKeysListProps {
   issuedKey?: IssuedApiKey | null;
   onDismissIssuedKey?: () => void;
 }
+
+/** What each permission allows, in the words the create form uses. */
+export const API_PERMISSION_OPTIONS: { value: ApiPermission; label: string; description: string }[] = [
+  {
+    value: "send",
+    label: "Send",
+    description: "Send emails and events from your app: /api/triggered, /api/events, /api/automations/cancel.",
+  },
+  {
+    value: "manage",
+    label: "Manage",
+    description:
+      "Create and change templates, triggers and automations through the API (API v1, the MCP server for coding agents). Cannot send live email.",
+  },
+];
 
 function IssuedKeyNotice({ issued, onDismiss }: { issued: IssuedApiKey; onDismiss?: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -73,11 +88,20 @@ export function ApiKeysList({
   onDismissIssuedKey,
 }: ApiKeysListProps) {
   const [newKeyName, setNewKeyName] = useState("");
+  const [permissions, setPermissions] = useState<ApiPermission[]>(["send"]);
+
+  const togglePermission = (value: ApiPermission, on: boolean) =>
+    setPermissions((current) =>
+      API_PERMISSION_OPTIONS.map((o) => o.value).filter((p) => (p === value ? on : current.includes(p))),
+    );
+
+  const canCreate = !!newKeyName.trim() && permissions.length > 0 && !isCreating;
 
   const handleCreate = () => {
-    if (!newKeyName.trim()) return;
-    onCreateKey?.(newKeyName.trim());
+    if (!canCreate) return;
+    onCreateKey?.(newKeyName.trim(), permissions);
     setNewKeyName("");
+    setPermissions(["send"]);
   };
 
   return (
@@ -100,7 +124,7 @@ export function ApiKeysList({
           <div className="flex items-end">
             <Button
               onClick={handleCreate}
-              disabled={!newKeyName.trim() || isCreating}
+              disabled={!canCreate}
               className="gap-2 w-full sm:w-auto"
             >
               <Plus size={16} />
@@ -108,6 +132,30 @@ export function ApiKeysList({
             </Button>
           </div>
         </div>
+        <fieldset className="mt-4">
+          <legend className="block text-xs font-medium text-zinc-500 uppercase mb-2">Permissions</legend>
+          <div className="space-y-2">
+            {API_PERMISSION_OPTIONS.map((option) => (
+              <label key={option.value} className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={permissions.includes(option.value)}
+                  onChange={(e) => togglePermission(option.value, e.target.checked)}
+                />
+                <span>
+                  <span className="font-medium text-zinc-900">{option.label}</span>
+                  <span className="text-zinc-500"> — {option.description}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-zinc-500 mt-2">
+            {permissions.length === 0
+              ? "Choose at least one permission."
+              : "Permissions cannot be changed later: to change them, create a new key. Give a key only what it needs."}
+          </p>
+        </fieldset>
       </Card>
 
       {issuedKey && <IssuedKeyNotice issued={issuedKey} onDismiss={onDismissIssuedKey} />}
@@ -137,6 +185,11 @@ export function ApiKeysList({
                       <code className="text-xs bg-zinc-100 px-2 py-0.5 rounded text-zinc-600 font-mono">
                         {key.prefix}…
                       </code>
+                      {key.permissions.map((permission) => (
+                        <Badge key={permission} variant="outline">
+                          {permission}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
                 </div>

@@ -9,6 +9,7 @@ import type {
   EmailTemplate,
   FormActionResult,
   IssuedApiKey,
+  ApiPermission,
   LinkStat,
   Project,
   PublicAiProvider,
@@ -104,7 +105,7 @@ export interface SenloActions {
   apiKeys: {
     list(projectId: number): Promise<ActionResult<ApiKey[]>>;
     /** Returns the plain key once; the list carries only the prefix. */
-    create(projectId: number, name: string): Promise<ActionResult<IssuedApiKey>>;
+    create(projectId: number, name: string, permissions?: ApiPermission[]): Promise<ActionResult<IssuedApiKey>>;
     delete(apiKeyId: number): Promise<ActionResult<void>>;
   };
   suppressions: {

@@ -6,6 +6,7 @@ import {
   AppError,
   logError,
   type ActionResult,
+  type ApiPermission,
   type EmailDesignDocument,
   type RowBlock,
   type SavedRow,
@@ -161,8 +162,8 @@ const handlers: HandlerTable<SenloServerActions> = {
     s.settings.listApiKeys(userId, validateId(projectId, "projectId")),
   ),
   // The only response that carries the plain key; the list never does.
-  "apiKeys.create": write((s, userId, projectId: number, name: string) =>
-    s.settings.createApiKey(userId, validateId(projectId, "projectId"), name),
+  "apiKeys.create": write((s, userId, projectId: number, name: string, permissions?: ApiPermission[]) =>
+    s.settings.createApiKey(userId, validateId(projectId, "projectId"), name, permissions),
   ),
   "apiKeys.delete": write(async (s, userId, apiKeyId: number) => {
     await s.settings.deleteApiKey(userId, validateId(apiKeyId, "apiKeyId"));

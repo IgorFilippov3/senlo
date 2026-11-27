@@ -1,3 +1,4 @@
+import type { ApiPermission } from "./api-principal";
 import type { ConditionGroup } from "./workflow-conditions";
 /** An account. `passwordHash` is set for credentials sign-in only. */
 export interface User {
@@ -393,6 +394,8 @@ export interface ApiKey {
   name: string;
   /** The first characters of the key, to tell keys apart in a list. */
   prefix: string;
+  /** What the key may do (`send`, `manage`); fixed when it is created. */
+  permissions: ApiPermission[];
   lastUsedAt?: Date | null;
   createdAt: Date;
 }

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { apiKeys } from "../schema";
-import type { ApiKey } from "@senlo/core";
+import { isApiPermission, type ApiKey, type ApiPermission } from "@senlo/core";
 import { apiKeyPrefix } from "@senlo/core/server";
 import { BaseRepository } from "./baseRepository";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -29,6 +29,8 @@ export class ApiKeyRepository extends BaseRepository<
       projectId: row.projectId,
       name: row.name,
       prefix: row.prefix ?? apiKeyPrefix(row.key ?? ""),
+      // An unknown value in the column grants nothing.
+      permissions: row.permissions.filter(isApiPermission),
       lastUsedAt: row.lastUsedAt,
       createdAt: row.createdAt,
     };
@@ -58,6 +60,7 @@ export class ApiKeyRepository extends BaseRepository<
     name: string;
     keyHash: string;
     prefix: string;
+    permissions: ApiPermission[];
   }): Promise<ApiKey> {
     const [row] = await this.db
       .insert(apiKeys)
@@ -66,6 +69,7 @@ export class ApiKeyRepository extends BaseRepository<
         name: data.name,
         keyHash: data.keyHash,
         prefix: data.prefix,
+        permissions: data.permissions,
         createdAt: new Date(),
       })
       .returning();

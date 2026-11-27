@@ -33,7 +33,7 @@ export function ApiKeysScreen() {
     <main className="max-w-7xl mx-auto py-10 px-8">
       <PageHeader
         title="API Keys"
-        description={`Manage keys to authenticate your webhook requests for ${workspace.name}.`}
+        description={`Keys for your app and for coding agents to call the Senlo API for ${workspace.name}.`}
       />
 
       <div className="mt-8 space-y-4">
@@ -41,8 +41,11 @@ export function ApiKeysScreen() {
         <ApiKeysList
           keys={keys}
           isLoading={isLoading}
-          onCreateKey={(name) =>
-            create.mutate({ projectId: workspace.id, name }, { onSuccess: (issued) => setIssuedKey(issued) })
+          onCreateKey={(name, permissions) =>
+            create.mutate(
+              { projectId: workspace.id, name, permissions },
+              { onSuccess: (issued) => setIssuedKey(issued) },
+            )
           }
           onDeleteKey={setToDelete}
           isCreating={create.isPending}

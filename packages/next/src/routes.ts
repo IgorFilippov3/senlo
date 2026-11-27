@@ -4,6 +4,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  PermissionRequiredError,
   RateLimitedError,
   UnauthorizedError,
   bearerToken,
@@ -46,9 +47,13 @@ type ParamHandler<P> = (request: NextRequest, context: RouteContext<P>) => Promi
 export function createSenloRoutes(host: SenloHost) {
   const services = () => host.getServices();
 
-  /** Rate limit and API key, then the body; shared by the two public API routes. */
+  /**
+   * Rate limit, API key and its permission, then the body; shared by the
+   * public API routes outside v1. Their errors keep the old shape.
+   */
   const apiRoute =
     (
+      permission: ApiPermission,
       label: string,
       success: string,
       run: (
@@ -64,6 +69,11 @@ export function createSenloRoutes(host: SenloHost) {
       const auth = await validateApiKey(host, req);
       if (!auth.success) return auth.response;
       const projectId = auth.apiKey.projectId;
+      if (!auth.apiKey.permissions.includes(permission)) {
+        const refused = new PermissionRequiredError(permission);
+        logError(host.logger, `${label} API error`, refused, { projectId });
+        return errorResponse(refused);
+      }
 
       try {
         const body = await req.json().catch(() => ({}));
@@ -79,6 +89,7 @@ export function createSenloRoutes(host: SenloHost) {
   /** Like `apiRoute`, for a route with an `[id]` segment: a malformed id is a 404. */
   const apiIdRoute =
     (
+      permission: ApiPermission,
       label: string,
       success: string,
       run: (projectId: number, id: number, body: unknown) => Promise<{ response: Response; log: Record<string, unknown> }>,
@@ -89,7 +100,7 @@ export function createSenloRoutes(host: SenloHost) {
       if (!Number.isInteger(id) || id <= 0) {
         return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
       }
-      return apiRoute(label, success, (projectId, body) => run(projectId, id, body))(req);
+      return apiRoute(permission, label, success, (projectId, body) => run(projectId, id, body))(req);
     };
 
   /** A 429 from the rate limiter, in the v1 error shape. */
@@ -190,7 +201,7 @@ export function createSenloRoutes(host: SenloHost) {
 
     /** `POST /api/events`: the universal trigger. */
     events: {
-      POST: apiRoute("Event", "Event processed via API", async (projectId, body, req) => {
+      POST: apiRoute("send", "Event", "Event processed via API", async (projectId, body, req) => {
         const { event, contact, duplicate } = await services().events.ingest(projectId, body, {
           idempotencyKey: req.headers.get("idempotency-key"),
         });
@@ -204,7 +215,7 @@ export function createSenloRoutes(host: SenloHost) {
 
     /** `POST /api/automations/cancel`: end a contact's runs in progress. */
     automationsCancel: {
-      POST: apiRoute("Cancel automations", "Automation runs cancelled via API", async (projectId, body) => {
+      POST: apiRoute("send", "Cancel automations", "Automation runs cancelled via API", async (projectId, body) => {
         const result = await services().automation.cancelFromRequest(projectId, body);
         return {
           response: NextResponse.json({ success: true, data: result }),
@@ -215,7 +226,7 @@ export function createSenloRoutes(host: SenloHost) {
 
     /** `POST /api/workflows`: create a draft automation from an export (D9). */
     workflows: {
-      POST: apiRoute("Workflow import", "Workflow created via API", async (projectId, body) => {
+      POST: apiRoute("manage", "Workflow import", "Workflow created via API", async (projectId, body) => {
         const workflow = await services().workflow.importForProject(projectId, body);
         return {
           response: NextResponse.json({ success: true, data: { id: workflow.id, status: workflow.status } }, { status: 201 }),
@@ -226,7 +237,7 @@ export function createSenloRoutes(host: SenloHost) {
 
     /** `GET /api/workflows/[id]`: the automation as an export. */
     workflow: {
-      GET: apiIdRoute("Workflow export", "Workflow exported via API", async (projectId, id) => {
+      GET: apiIdRoute("manage", "Workflow export", "Workflow exported via API", async (projectId, id) => {
         const data = await services().workflow.exportForProject(projectId, id);
         return { response: NextResponse.json({ success: true, data }), log: { workflowId: id } };
       }),
@@ -234,7 +245,7 @@ export function createSenloRoutes(host: SenloHost) {
 
     /** `POST /api/workflows/[id]/publish`: go live, with the editor's checks. */
     workflowPublish: {
-      POST: apiIdRoute("Workflow publish", "Workflow published via API", async (projectId, id) => {
+      POST: apiIdRoute("manage", "Workflow publish", "Workflow published via API", async (projectId, id) => {
         const workflow = await services().workflow.publishForProject(projectId, id);
         return {
           response: NextResponse.json({ success: true, data: { id: workflow.id, status: workflow.status } }),
@@ -245,7 +256,7 @@ export function createSenloRoutes(host: SenloHost) {
 
     /** `POST /api/triggered`: send one triggered email. */
     triggered: {
-      POST: apiRoute("Triggered email", "Triggered email queued via API", async (projectId, body) => {
+      POST: apiRoute("send", "Triggered email", "Triggered email queued via API", async (projectId, body) => {
         const result = await services().trigger.sendFromRequest(projectId, body);
         return {
           response: NextResponse.json({ success: true, message: "Email queued successfully" }),

@@ -1,6 +1,6 @@
 ---
 title: Authentication
-description: API keys, the Authorization header, and how to rotate a key.
+description: API keys, their permissions, the Authorization header, and how to rotate a key.
 ---
 
 ```bash
@@ -10,7 +10,7 @@ curl -X POST https://senlo.io/api/events \
   -d '{ "event": "contact_added", "email": "ada@example.com" }'
 ```
 
-`POST /api/events`, `POST /api/triggered` and `POST /api/automations/cancel` need an API key, sent as a bearer token in the `Authorization` header.
+Every API endpoint needs an API key, sent as a bearer token in the `Authorization` header.
 
 ## API keys
 
@@ -19,7 +19,24 @@ curl -X POST https://senlo.io/api/events \
 - The full key is shown **once**, right after you create it. Senlo stores only a SHA-256 hash of it, plus its first 12 characters (`snl_abcdefgh`) so you can tell keys apart in the list.
 - A key belongs to the workspace it was created in. Requests made with it act on that workspace only, which is why no workspace id appears in any request.
 
-Keep keys on your server. Anyone with a key can send email from your workspace.
+Keep keys on your server. Anyone with a `send` key can send email from your workspace.
+
+## Permissions
+
+A key holds one or both permissions, chosen when it is created:
+
+| Permission | Allows | For |
+| --- | --- | --- |
+| `send` | `POST /api/triggered`, `POST /api/events`, `POST /api/automations/cancel` | Your app's backend |
+| `manage` | API v1 (`/api/v1/*`): templates, triggers, automations, test sends to your organization's own addresses; and `/api/workflows` | Coding agents, the MCP server, scripts that set up a workspace |
+
+A new key gets `send` unless you tick **Manage**. Keep them apart: the key in your production code then cannot rewrite templates, and the key you give an agent cannot send live email. A request with a key that lacks the permission answers `403` (`PERMISSION_REQUIRED`); `details.permission` names the one it needs.
+
+Permissions cannot be changed after the key is created. To change them, create a new key and delete the old one, as when rotating.
+
+<Callout type="warning" title="Keys created before permissions">
+  Every key that existed before permissions were added has `send` only. It keeps sending; `/api/workflows` now refuses it with `403`. Create a key with **Manage** for importing and publishing automations.
+</Callout>
 
 ## The header
 

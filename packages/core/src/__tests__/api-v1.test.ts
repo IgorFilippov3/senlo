@@ -13,11 +13,11 @@ import { API_V1_OPERATIONS, apiV1OpenApiDocument } from "../api-v1/openapi";
 import { ApiErrorSchema, ApiMeSchema } from "../api-v1/schemas";
 
 describe("ApiPrincipal", () => {
-  it("gives an API key both permissions until keys carry their own", () => {
-    const principal = principalFromApiKey({ id: 3, projectId: 7 }, null);
+  it("carries the key's own permissions", () => {
+    const principal = principalFromApiKey({ id: 3, projectId: 7, permissions: ["manage"] }, null);
     expect(principal).toEqual({
       projectId: 7,
-      permissions: ["send", "manage"],
+      permissions: ["manage"],
       source: "api_key",
       actor: { apiKeyId: 3 },
       client: null,
@@ -25,7 +25,7 @@ describe("ApiPrincipal", () => {
   });
 
   it("refuses a missing permission with a 403 that names it", () => {
-    const sendOnly: ApiPrincipal = { ...principalFromApiKey({ id: 1, projectId: 1 }, null), permissions: ["send"] };
+    const sendOnly: ApiPrincipal = principalFromApiKey({ id: 1, projectId: 1, permissions: ["send"] }, null);
     expect(hasPermission(sendOnly, "manage")).toBe(false);
     expect(() => requirePermission(sendOnly, "send")).not.toThrow();
 

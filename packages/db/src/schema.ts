@@ -378,6 +378,12 @@ export const apiKeys = pgTable("api_keys", {
   keyHash: text("key_hash").unique(),
   /** The first characters of the key, shown in the list. */
   prefix: text("prefix"),
+  /**
+   * `send` and/or `manage` (`ApiPermission`). The default fills the rows of
+   * keys issued before permissions existed: they keep sending and lose
+   * nothing they used except the workflow import, which now needs `manage`.
+   */
+  permissions: text("permissions").array().notNull().default(sql`ARRAY['send']::text[]`),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

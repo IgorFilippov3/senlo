@@ -9,7 +9,14 @@ import type { SenloHost } from "../host";
 import type { SenloRateLimit } from "../rate-limit";
 import { createSenloRoutes } from "../routes";
 
-const API_KEY = { id: 1, projectId: 7, name: "test", prefix: "snl_abcdefgh", createdAt: new Date() };
+const API_KEY = {
+  id: 1,
+  projectId: 7,
+  name: "test",
+  prefix: "snl_abcdefgh",
+  permissions: ["send", "manage"],
+  createdAt: new Date(),
+};
 
 /** A host over fake services; only what a test touches needs to exist. */
 function fakeHost(services: Record<string, unknown> = {}, overrides: Partial<SenloHost> = {}) {
@@ -331,6 +338,64 @@ describe("workflows API", () => {
     const published = await routes.workflowPublish.POST(post("/api/workflows/30/publish", undefined, bearer), params({ id: "30" }));
     expect(await published.json()).toEqual({ success: true, data: { id: 30, status: "ACTIVE" } });
     expect(publishForProject).toHaveBeenCalledWith(7, 30);
+  });
+});
+
+describe("key permissions on the public API", () => {
+  /** A host whose only key, `snl_good`, holds exactly `permissions`. */
+  const hostWith = (permissions: string[], services: Record<string, unknown>) =>
+    fakeHost({
+      auth: { validateApiKey: vi.fn(async (t: string) => (t === "snl_good" ? { ...API_KEY, permissions } : null)) },
+      ...services,
+    });
+
+  it("refuses sending with a manage-only key, in the old error shape", async () => {
+    const ingest = vi.fn();
+    const sendFromRequest = vi.fn();
+    const cancelFromRequest = vi.fn();
+    const { routes, logger } = hostWith(["manage"], {
+      events: { ingest },
+      trigger: { sendFromRequest },
+      automation: { cancelFromRequest },
+    });
+
+    for (const response of [
+      await routes.events.POST(post("/api/events", { event: "signup" }, bearer)),
+      await routes.triggered.POST(post("/api/triggered", {}, bearer)),
+      await routes.automationsCancel.POST(post("/api/automations/cancel", {}, bearer)),
+    ]) {
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toContain('"send"');
+      expect(body.details).toEqual({ permission: "send" });
+    }
+    expect(ingest).not.toHaveBeenCalled();
+    expect(sendFromRequest).not.toHaveBeenCalled();
+    expect(cancelFromRequest).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith("Event API error", expect.objectContaining({ code: "PERMISSION_REQUIRED" }));
+  });
+
+  it("refuses the workflow import with a send-only key: the key of an app cannot rewrite automations", async () => {
+    const importForProject = vi.fn();
+    const publishForProject = vi.fn();
+    const { routes } = hostWith(["send"], { workflow: { importForProject, publishForProject } });
+
+    const imported = await routes.workflows.POST(post("/api/workflows", { workflow: { name: "W" } }, bearer));
+    expect(imported.status).toBe(403);
+    expect((await imported.json()).details).toEqual({ permission: "manage" });
+    const published = await routes.workflowPublish.POST(
+      post("/api/workflows/30/publish", undefined, bearer),
+      params({ id: "30" }),
+    );
+    expect(published.status).toBe(403);
+    expect(importForProject).not.toHaveBeenCalled();
+    expect(publishForProject).not.toHaveBeenCalled();
+  });
+
+  it("lets a send-only key send", async () => {
+    const ingest = vi.fn(async () => ({ event: { event: "signup" }, contact: { email: "a@b.c" }, duplicate: false }));
+    const { routes } = hostWith(["send"], { events: { ingest } });
+    expect((await routes.events.POST(post("/api/events", { event: "signup" }, bearer))).status).toBe(200);
   });
 });
 
