@@ -39,3 +39,4 @@ export * from "./api-idempotency";
 export * from "./api-v1/schemas";
 export * from "./api-v1/openapi";
 export * from "./api-v1/pagination";
+export * from "./api-v1/guide";

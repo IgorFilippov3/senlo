@@ -546,7 +546,12 @@ describe("WorkflowService through API v1", () => {
     await service.replaceFromApi(agent, 10, { workflow: exp });
     expect(workflows.publishVersion).toHaveBeenCalledTimes(1);
 
-    const broken = { ...exp, nodes: exp.nodes.filter((n) => n.type !== "trigger") };
+    // Without its trigger (and the trigger's edge): well formed, but it cannot run.
+    const broken = {
+      ...exp,
+      nodes: exp.nodes.filter((n) => n.type !== "trigger"),
+      edges: exp.edges.filter((e) => e.source !== "t"),
+    };
     const e = await service.replaceFromApi(agent, 10, { workflow: broken }).catch((x: unknown) => x);
     expect(e).toBeInstanceOf(NotPublishableError);
   });

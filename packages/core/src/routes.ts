@@ -13,6 +13,8 @@ export const PUBLIC_PATHS = [
   "/api-docs",
   // The API v1 spec: public, like the docs page that renders it.
   "/api/v1/openapi.json",
+  // The format guide for coding agents: no secrets, read before a key exists.
+  "/api/v1/guide",
 ] as const;
 
 /** Public path prefixes. */

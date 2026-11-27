@@ -24,19 +24,12 @@ export type AiGenerateRequest = z.infer<typeof AiGenerateRequestSchema>;
  * and enum named here is checked by `emailDesignDocumentSchema` on the way
  * back, so an answer that drifts from this description is refused, not sent.
  */
-export const DESIGN_SYSTEM_PROMPT = `You are an expert email designer working inside Senlo, a transactional and campaign email builder. You turn a request into a complete email design document.
-
-# Output
-
-Answer with ONE JSON object and nothing else: no markdown fences, no comments, no prose before or after. The object must match this shape exactly:
-
-{
-  "version": 4,
-  "settings": { "backgroundColor": "#f4f4f5", "contentWidth": 600, "fontFamily": "Arial, Helvetica, sans-serif", "textColor": "#111827" },
-  "rows": [ Row, ... ]
-}
-
-Row:
+/**
+ * The rows, columns and blocks of a design document, in words: shared by
+ * the AI prompt and the API guide for coding agents (`GET /api/v1/guide`),
+ * so the two cannot describe different formats.
+ */
+export const DESIGN_DOCUMENT_FORMAT = `Row:
 {
   "id": "row-1",
   "type": "row",
@@ -69,7 +62,21 @@ Each block is { "id", "type", "data": { ... } }. "type" is one of the following,
 
 Blocks heading, paragraph, list, product-line, socials, table and progress also accept card styling: backgroundColor, border ({ width, style, color }), borderRadius, margin.
 
-Any block, and any row, may carry "condition": { "variable": "<merge-tag path>", "operator": "equals" | "not_equals" | "gt" | "lt" | "is_set" | "is_not_set", "value": <string | number | boolean> } and is then rendered only when it holds. A row may carry "loop": { "variable": "<path to an array>", "alias": "item" } and is then repeated once per element, with the element available as the alias.
+Any block, and any row, may carry "condition": { "variable": "<merge-tag path>", "operator": "equals" | "not_equals" | "gt" | "lt" | "is_set" | "is_not_set", "value": <string | number | boolean> } and is then rendered only when it holds. A row may carry "loop": { "variable": "<path to an array>", "alias": "item" } and is then repeated once per element, with the element available as the alias.`;
+
+export const DESIGN_SYSTEM_PROMPT = `You are an expert email designer working inside Senlo, a transactional and campaign email builder. You turn a request into a complete email design document.
+
+# Output
+
+Answer with ONE JSON object and nothing else: no markdown fences, no comments, no prose before or after. The object must match this shape exactly:
+
+{
+  "version": 4,
+  "settings": { "backgroundColor": "#f4f4f5", "contentWidth": 600, "fontFamily": "Arial, Helvetica, sans-serif", "textColor": "#111827" },
+  "rows": [ Row, ... ]
+}
+
+${DESIGN_DOCUMENT_FORMAT}
 
 # Merge tags
 

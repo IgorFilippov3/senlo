@@ -53,6 +53,7 @@ export const API_V1_OPERATIONS = [
   "POST /api/v1/automations/{id}/pause",
   "POST /api/v1/automations/{id}/test-runs",
   "GET /api/v1/automation-runs/{id}",
+  "GET /api/v1/guide",
 ] as const;
 
 function buildRegistry(): OpenAPIRegistry {
@@ -434,6 +435,33 @@ function buildRegistry(): OpenAPIRegistry {
       200: { description: "The run.", ...json(dataEnvelope(registry.register("AutomationRun", ApiAutomationRunSchema))) },
       ...notFound,
       ...commonErrors,
+    },
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/api/v1/guide",
+    operationId: "getGuide",
+    summary: "The format guide",
+    description:
+      "Public: no API key needed. Everything a coding agent needs to write Senlo content: the rules (guide, Markdown), JSON Schemas of the design document and the automation export, every block type with a valid starting value, every automation step type, and examples that pass the API's checks. Read it before the first template or automation.",
+    responses: {
+      200: {
+        description: "The guide.",
+        ...json(
+          dataEnvelope(
+            z.object({
+              version: z.number().int(),
+              designVersion: z.number().int(),
+              guide: z.string().describe("The rules, in Markdown."),
+              schemas: z.object({ emailDesignDocument: z.record(z.unknown()), automationExport: z.record(z.unknown()) }),
+              blocks: z.array(z.object({ type: z.string(), label: z.string(), example: z.record(z.unknown()) })),
+              stepTypes: z.array(z.object({ type: z.string(), summary: z.string(), data: z.string() })),
+              examples: z.record(z.unknown()),
+            }),
+          ),
+        ),
+      },
     },
   });
 

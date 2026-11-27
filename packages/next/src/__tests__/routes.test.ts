@@ -830,3 +830,14 @@ describe("API v1 automations", () => {
     });
   });
 });
+
+describe("API v1 guide", () => {
+  it("serves the guide without a key", async () => {
+    const { routes } = fakeHost();
+    const response = await routes.v1Guide.GET();
+    expect(response.status).toBe(200);
+    const { data } = await response.json();
+    expect(data.guide).toContain("# Senlo for coding agents");
+    expect(data.blocks.length).toBeGreaterThan(5);
+  });
+});

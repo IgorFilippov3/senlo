@@ -13,6 +13,7 @@ import {
 } from "@senlo/core";
 import { apiV1OpenApiDocument } from "@senlo/core/server";
 import {
+  apiV1Guide,
   parsePageQuery,
   toApiAutomation,
   toApiAutomationRun,
@@ -308,6 +309,15 @@ export function createSenloRoutes(host: SenloHost) {
       GET: v1Route<{ id: string }>("getAutomationRun", { permission: "manage" }, async ({ principal, params }) => ({
         data: toApiAutomationRun(await services().automationRuns.getRun(principal, pathId(params.id, "Run"))),
       })),
+    },
+
+    /** `GET /api/v1/guide`: the format guide for coding agents. Public, built once. */
+    v1Guide: {
+      GET: (async () =>
+        NextResponse.json(
+          { data: apiV1Guide() },
+          { headers: { "Cache-Control": "public, max-age=300", [REQUEST_ID_HEADER]: newRequestId() } },
+        )) satisfies Handler,
     },
 
     /** `GET /api/v1/openapi.json`: the v1 spec, generated from the zod schemas. Public. */
