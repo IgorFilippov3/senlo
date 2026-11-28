@@ -94,6 +94,19 @@ describe("createV1Route", () => {
       expect(idempotency.release).not.toHaveBeenCalled();
     });
 
+    it("is not claimed by a dry run, so the real request after it runs", async () => {
+      const { route, idempotency } = setup();
+      const run = vi.fn(async () => ({ data: { valid: true } }));
+      const request = new NextRequest("http://localhost/api/v1/things?dryRun=true", {
+        method: "POST",
+        headers: { Authorization: "Bearer snl_good", "Idempotency-Key": "k1" },
+        body: "{}",
+      });
+      await route("t", { permission: "manage", idempotent: true }, run)(request);
+      expect(run).toHaveBeenCalled();
+      expect(idempotency.begin).not.toHaveBeenCalled();
+    });
+
     it("replays the first answer without running", async () => {
       const { route, idempotency } = setup();
       idempotency.begin.mockResolvedValueOnce({ run: false, status: 201, body: { data: { id: 5 } } } as never);

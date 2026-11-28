@@ -120,7 +120,9 @@ export function createV1Route(host: SenloHost) {
         const params = context ? await context.params : ({} as P);
         const body = await readBody(req);
 
-        const key = options.idempotent ? req.headers.get("Idempotency-Key") : null;
+        // A dry run stores nothing, so it claims no key: the real request that
+        // follows with the same key and body must run, not replay the check.
+        const key = options.idempotent && !isDryRun(req) ? req.headers.get("Idempotency-Key") : null;
         if (key !== null) {
           const start = await services().idempotency.begin(
             principal.projectId,
